@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { validateCronSecretRequest } from "@/lib/cron-auth";
+import { retryBoundedPendingGoogleAdsConversions } from "@/lib/google-ads/stripe-conversions";
 import { runHourlyMetaConversionMaintenance } from "@/lib/meta-capi-stripe-conversions";
 import { runRecoveryCron } from "@/lib/recovery.server";
 import { alertStrandedNewCustomerTrials } from "@/lib/stripe-first-checkout/stranded-trial";
@@ -22,6 +23,13 @@ export async function GET(request: Request) {
   } catch (err) {
     console.error("[meta-capi] hourly maintenance failed", {
       reason: err instanceof Error ? err.message : "maintenance_failed",
+    });
+  }
+  try {
+    await retryBoundedPendingGoogleAdsConversions();
+  } catch (err) {
+    console.error("[google-ads] hourly retry failed", {
+      reason: err instanceof Error ? err.message : "retry_failed",
     });
   }
   return NextResponse.json(result);

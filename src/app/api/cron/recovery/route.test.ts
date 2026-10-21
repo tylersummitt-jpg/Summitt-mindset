@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const recoveryMock = vi.fn();
 const strandedMock = vi.fn();
 const metaMock = vi.fn();
+const googleMock = vi.fn();
 
 vi.mock("@/lib/recovery.server", () => ({
   runRecoveryCron: () => recoveryMock(),
@@ -16,6 +17,10 @@ vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
   runHourlyMetaConversionMaintenance: () => metaMock(),
 }));
 
+vi.mock("@/lib/google-ads/stripe-conversions", () => ({
+  retryBoundedPendingGoogleAdsConversions: () => googleMock(),
+}));
+
 import { GET } from "@/app/api/cron/recovery/route";
 
 describe("recovery cron Meta maintenance", () => {
@@ -25,6 +30,7 @@ describe("recovery cron Meta maintenance", () => {
     recoveryMock.mockResolvedValue({ checked: 1 });
     strandedMock.mockResolvedValue(undefined);
     metaMock.mockResolvedValue(undefined);
+    googleMock.mockResolvedValue(undefined);
   });
 
   it("runs Meta maintenance after recovery and still returns the recovery result when it throws", async () => {
@@ -39,5 +45,19 @@ describe("recovery cron Meta maintenance", () => {
     expect(recoveryMock).toHaveBeenCalledTimes(1);
     expect(strandedMock).toHaveBeenCalledTimes(1);
     expect(metaMock).toHaveBeenCalledTimes(1);
+    expect(googleMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("still returns the recovery result when Google retry throws", async () => {
+    googleMock.mockRejectedValue(new Error("google retry down"));
+    const res = await GET(
+      new Request("https://summittmindset.com/api/cron/recovery", {
+        headers: { "x-cron-secret": "cron-test-secret" },
+      })
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ checked: 1 });
+    expect(metaMock).toHaveBeenCalledTimes(1);
+    expect(googleMock).toHaveBeenCalledTimes(1);
   });
 });

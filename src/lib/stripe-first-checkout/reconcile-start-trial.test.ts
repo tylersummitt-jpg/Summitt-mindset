@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { startTrialMock } = vi.hoisted(() => ({
+const { startTrialMock, googleTrialMock } = vi.hoisted(() => ({
   startTrialMock: vi.fn(),
+  googleTrialMock: vi.fn(async () => undefined),
 }));
 
 const loadIntentMock = vi.fn();
@@ -40,6 +41,10 @@ vi.mock("resend", () => ({
       send: (...args: unknown[]) => sendMock(...args),
     };
   },
+}));
+
+vi.mock("@/lib/google-ads/stripe-conversions", () => ({
+  maybeEmitGoogleAdsTrial: (...args: unknown[]) => googleTrialMock(...args),
 }));
 
 vi.mock("@/lib/meta-capi-stripe-conversions", async () => {
@@ -119,6 +124,7 @@ describe("Stripe-first Meta StartTrial", () => {
     retrieveSubMock.mockResolvedValue(subscription());
     sendMock.mockResolvedValue({ data: { id: "re_1" }, error: null });
     startTrialMock.mockResolvedValue(undefined);
+    googleTrialMock.mockResolvedValue(undefined);
   });
 
   it("invokes StartTrial for a verified monthly Stripe-first trial without a Clerk user", async () => {
@@ -126,6 +132,13 @@ describe("Stripe-first Meta StartTrial", () => {
 
     expect(outcome).toBe("ack");
     expect(startTrialMock).toHaveBeenCalledTimes(1);
+    expect(googleTrialMock).toHaveBeenCalledTimes(1);
+    expect(googleTrialMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        intent: expect.objectContaining({ id: "intent_1" }),
+        subscription: expect.objectContaining({ id: "sub_1", status: "trialing" }),
+      })
+    );
     expect(startTrialMock).toHaveBeenCalledWith({
       subscription: expect.objectContaining({ id: "sub_1", status: "trialing" }),
       userId: null,
@@ -220,6 +233,7 @@ describe("Stripe-first Meta StartTrial", () => {
     expect(outcome).toBe("ack");
     expect(confirmMock).not.toHaveBeenCalled();
     expect(startTrialMock).not.toHaveBeenCalled();
+    expect(googleTrialMock).not.toHaveBeenCalled();
   });
 
   it("does not invoke StartTrial for an ineligible subscription", async () => {
@@ -249,6 +263,7 @@ describe("Stripe-first Meta StartTrial", () => {
     expect(paused).toBe("ack");
     expect(mismatch).toBe("ack");
     expect(startTrialMock).not.toHaveBeenCalled();
+    expect(googleTrialMock).not.toHaveBeenCalled();
   });
 
   it("does not invoke StartTrial for an owner canary", async () => {
@@ -265,6 +280,7 @@ describe("Stripe-first Meta StartTrial", () => {
     expect(outcome).toBe("ack");
     expect(confirmMock).toHaveBeenCalledTimes(1);
     expect(startTrialMock).not.toHaveBeenCalled();
+    expect(googleTrialMock).not.toHaveBeenCalled();
     expect(sendMock).not.toHaveBeenCalled();
   });
 
@@ -309,5 +325,16 @@ describe("Stripe-first Meta StartTrial", () => {
     expect(holdMock).toHaveBeenCalledTimes(1);
     expect(sendMock).toHaveBeenCalledTimes(1);
     expect(startTrialMock).toHaveBeenCalledTimes(1);
+    expect(googleTrialMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps checkout successful when Google delivery throws", async () => {
+    googleTrialMock.mockRejectedValue(new Error("google down"));
+
+    const outcome = await reconcileStripeFirstFromCheckoutSession(session() as never);
+
+    expect(outcome).toBe("ack");
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledTimes(1);
   });
 });

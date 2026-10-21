@@ -23,6 +23,10 @@ import {
   stripeWebhookClaimIsLive,
 } from "@/lib/stripe-webhook-dedupe";
 import {
+  maybeEmitGoogleAdsFirstPayment,
+  maybeEmitGoogleAdsTrial,
+} from "@/lib/google-ads/stripe-conversions";
+import {
   maybeEmitMetaStartTrialFromCheckout,
   maybeEmitMetaSubscribeFromInvoicePaid,
 } from "@/lib/meta-capi-stripe-conversions";
@@ -483,6 +487,15 @@ export async function POST(req: NextRequest) {
         console.warn("[webhook] Meta StartTrial isolated failure");
       }
 
+      try {
+        await maybeEmitGoogleAdsTrial({
+          subscription,
+          eventCreatedUnix: event.created,
+        });
+      } catch {
+        console.warn("[webhook] Google Ads trial isolated failure");
+      }
+
       const existing = await getClerkPublicMetadata(userId);
 
       if (
@@ -927,6 +940,17 @@ export async function POST(req: NextRequest) {
               eventCreatedUnix: event.created,
               checkoutIntent: intent,
             });
+            try {
+              await maybeEmitGoogleAdsFirstPayment({
+                stripe,
+                invoice,
+                subscription,
+                eventCreatedUnix: event.created,
+                intent,
+              });
+            } catch {
+              console.warn("[webhook] Google Ads payment before Clerk linkage isolated failure");
+            }
           }
         } catch {
           console.warn("[webhook] Meta Subscribe before Clerk linkage isolated failure");
@@ -1000,6 +1024,17 @@ export async function POST(req: NextRequest) {
         });
       } catch {
         console.warn("[webhook] Meta Subscribe isolated failure");
+      }
+
+      try {
+        await maybeEmitGoogleAdsFirstPayment({
+          stripe,
+          invoice,
+          subscription,
+          eventCreatedUnix: event.created,
+        });
+      } catch {
+        console.warn("[webhook] Google Ads payment isolated failure");
       }
     }
 

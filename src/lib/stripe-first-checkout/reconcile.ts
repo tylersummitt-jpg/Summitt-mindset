@@ -3,6 +3,7 @@ import "server-only";
 import Stripe from "stripe";
 
 import { META_CAPI_STRIPE_FIRST_SOURCE_URL } from "@/lib/meta-capi";
+import { maybeEmitGoogleAdsTrial } from "@/lib/google-ads/stripe-conversions";
 import {
   maybeEmitMetaStartTrialFromCheckout,
   metaStartTrialEventUnix,
@@ -175,6 +176,19 @@ export async function reconcileStripeFirstFromCheckoutSession(
         });
       } catch {
         console.warn("[stripe-first] Meta StartTrial isolated failure");
+      }
+      try {
+        const created = session.created;
+        await maybeEmitGoogleAdsTrial({
+          subscription: proof.subscription,
+          intent,
+          eventCreatedUnix: metaStartTrialEventUnix(
+            proof.subscription,
+            typeof created === "number" && Number.isFinite(created) ? created : 0
+          ),
+        });
+      } catch {
+        console.warn("[stripe-first] Google Ads trial isolated failure");
       }
     }
     const notified = await notifyConfirmedStripeFirstTrial({

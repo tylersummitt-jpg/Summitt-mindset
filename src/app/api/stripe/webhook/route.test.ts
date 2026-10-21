@@ -9,9 +9,15 @@ const appleEqMock = vi.fn();
 
 const maybeStartTrialMock = vi.fn(async () => undefined);
 const maybeSubscribeMock = vi.fn(async () => undefined);
+const maybeGoogleTrialMock = vi.fn(async () => undefined);
+const maybeGooglePaymentMock = vi.fn(async () => undefined);
 vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
   maybeEmitMetaStartTrialFromCheckout: maybeStartTrialMock,
   maybeEmitMetaSubscribeFromInvoicePaid: maybeSubscribeMock,
+}));
+vi.mock("@/lib/google-ads/stripe-conversions", () => ({
+  maybeEmitGoogleAdsTrial: (...args: unknown[]) => maybeGoogleTrialMock(...args),
+  maybeEmitGoogleAdsFirstPayment: (...args: unknown[]) => maybeGooglePaymentMock(...args),
 }));
 
 const loadIntentBySubMock = vi.fn(async () => null);
@@ -22,6 +28,10 @@ vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({
 beforeEach(() => {
   loadIntentBySubMock.mockReset();
   loadIntentBySubMock.mockResolvedValue(null);
+  maybeGoogleTrialMock.mockReset();
+  maybeGooglePaymentMock.mockReset();
+  maybeGoogleTrialMock.mockResolvedValue(undefined);
+  maybeGooglePaymentMock.mockResolvedValue(undefined);
 });
 
 vi.mock("@/lib/supabase-server", () => ({
@@ -1160,6 +1170,8 @@ describe("Stripe webhook Meta CAPI fail-open wiring", () => {
     expect(res.status).toBe(200);
     expect(maybeSubscribeMock).not.toHaveBeenCalled();
     expect(maybeStartTrialMock).not.toHaveBeenCalled();
+    expect(maybeGooglePaymentMock).not.toHaveBeenCalled();
+    expect(maybeGoogleTrialMock).not.toHaveBeenCalled();
   });
 });
 

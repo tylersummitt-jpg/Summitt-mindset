@@ -270,6 +270,19 @@ export async function purgeAppDataForDeletion(
           message: "checkout_match_purge_incomplete",
         };
       }
+      try {
+        const { suppressGoogleAdsConversionsForClerkUser } = await import(
+          "@/lib/google-ads/conversion-ledger"
+        );
+        await suppressGoogleAdsConversionsForClerkUser(clerkUserId);
+      } catch {
+        console.warn("[purgeAppDataForDeletion] google ads conversion cleanup failed");
+        return {
+          ok: false,
+          code: "internal_error",
+          message: "google_ads_conversion_purge_incomplete",
+        };
+      }
     }
 
     return {

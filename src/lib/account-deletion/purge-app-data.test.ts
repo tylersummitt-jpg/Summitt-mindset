@@ -4,12 +4,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { rpcMock, purgeMetaMock, presenceMock, clearCheckoutMatchMock } = vi.hoisted(() => ({
-  rpcMock: vi.fn(),
-  purgeMetaMock: vi.fn(),
-  presenceMock: vi.fn(),
-  clearCheckoutMatchMock: vi.fn(),
-}));
+const { rpcMock, purgeMetaMock, presenceMock, clearCheckoutMatchMock, suppressGoogleMock } =
+  vi.hoisted(() => ({
+    rpcMock: vi.fn(),
+    purgeMetaMock: vi.fn(),
+    presenceMock: vi.fn(),
+    clearCheckoutMatchMock: vi.fn(),
+    suppressGoogleMock: vi.fn(),
+  }));
 
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
@@ -28,6 +30,11 @@ vi.mock("@/lib/meta-capi-web-identifiers", () => ({
 vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({
   clearCheckoutMatchFieldsForClerkUser: (...args: unknown[]) =>
     clearCheckoutMatchMock(...args),
+}));
+
+vi.mock("@/lib/google-ads/conversion-ledger", () => ({
+  suppressGoogleAdsConversionsForClerkUser: (...args: unknown[]) =>
+    suppressGoogleMock(...args),
 }));
 
 import {
@@ -588,6 +595,8 @@ describe("account deletion Meta CAPI identifier cleanup", () => {
     presenceMock.mockResolvedValue("absent");
     clearCheckoutMatchMock.mockReset();
     clearCheckoutMatchMock.mockResolvedValue(undefined);
+    suppressGoogleMock.mockReset();
+    suppressGoogleMock.mockResolvedValue(undefined);
   });
 
   it("documents canonical RPC DELETE without replacing the live purge function", () => {
@@ -634,6 +643,7 @@ describe("account deletion Meta CAPI identifier cleanup", () => {
     expect(purgeMetaMock).toHaveBeenCalledWith("user_abc");
     expect(presenceMock).toHaveBeenCalledWith("user_abc");
     expect(clearCheckoutMatchMock).toHaveBeenCalledWith("user_abc");
+    expect(suppressGoogleMock).toHaveBeenCalledWith("user_abc");
   });
 
   it("does not complete deletion while an identifier row remains", async () => {
@@ -710,6 +720,26 @@ describe("account deletion Meta CAPI identifier cleanup", () => {
       expect(result.message).toBe("checkout_match_purge_incomplete");
     }
     expect(purgeMetaMock).toHaveBeenCalledWith("user_abc");
+    expect(clearCheckoutMatchMock).toHaveBeenCalledWith("user_abc");
+    expect(suppressGoogleMock).not.toHaveBeenCalled();
+  });
+
+  it("does not complete deletion when Google click-id cleanup fails", async () => {
+    rpcMock.mockResolvedValueOnce({
+      data: [{ outcome: "purged", counts: { journal_entries: 1 }, limitations: [] }],
+      error: null,
+    });
+    suppressGoogleMock.mockRejectedValueOnce(new Error("google ledger down"));
+    const result = await purgeAppDataForDeletion({
+      requestId: "11111111-1111-1111-1111-111111111111",
+      clerkUserId: "user_abc",
+      expectedOrchestrationVersion: 1,
+      lockOwner: "worker-1",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.message).toBe("google_ads_conversion_purge_incomplete");
+    }
     expect(clearCheckoutMatchMock).toHaveBeenCalledWith("user_abc");
   });
 
