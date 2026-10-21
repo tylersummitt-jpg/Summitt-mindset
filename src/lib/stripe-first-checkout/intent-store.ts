@@ -11,6 +11,8 @@ import {
   sanitizeMetaFbc,
   sanitizeMetaFbp,
 } from "@/lib/meta-capi-web-identifier-validation";
+import { googleClickIdFromPair } from "@/lib/marketing-attribution-pure";
+import type { GoogleClickIdType } from "@/lib/marketing-attribution-pure";
 import { supabaseServer } from "@/lib/supabase-server";
 import { unixFromIso } from "@/lib/stripe-first-checkout/hold-decision";
 import type { HoldIntentView } from "@/lib/stripe-first-checkout/hold-decision";
@@ -44,6 +46,8 @@ export type CheckoutBrowserIntent = {
   meta_fbp: string | null;
   client_ip: string | null;
   client_user_agent: string | null;
+  google_click_id_type: GoogleClickIdType | null;
+  google_click_id: string | null;
 };
 
 export const CHECKOUT_MATCH_PAYMENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -227,6 +231,37 @@ export async function saveCheckoutMatchFields(args: {
   }
 }
 
+/**
+ * Fill an empty Google click id. Never replaces one already stored.
+ * Fail-open: checkout continues when this write fails.
+ * The value is not logged.
+ */
+export async function saveGoogleClickId(args: {
+  intentId: string;
+  type: string | null;
+  value: string | null;
+}): Promise<void> {
+  try {
+    const intentId = args.intentId.trim();
+    if (!intentId) return;
+    const click = googleClickIdFromPair(args.type, args.value);
+    if (!click) return;
+    const existing = await loadIntentById(intentId);
+    if (!existing || existing.google_click_id) return;
+    const { error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .update({
+        google_click_id_type: click.type,
+        google_click_id: click.value,
+        updated_at: nowIso(),
+      })
+      .eq("id", intentId);
+    if (error) logIntentError("save_google_click", error.code);
+  } catch {
+    console.warn("[stripe-first] google click id save failed");
+  }
+}
+
 export async function clearCheckoutMatchFields(intentId: string): Promise<void> {
   try {
     const id = intentId.trim();
@@ -260,6 +295,8 @@ export async function clearCheckoutMatchFieldsForClerkUser(
       meta_fbp: null,
       client_ip: null,
       client_user_agent: null,
+      google_click_id_type: null,
+      google_click_id: null,
       updated_at: nowIso(),
     })
     .eq("clerk_user_id", uid);
@@ -293,6 +330,45 @@ export function shouldClearCheckoutMatch(args: {
   return args.nowMs >= windowEnd;
 }
 
+/**
+ * Abandoned checkouts lose the id when the binding expires.
+ * A subscription keeps it until seven days after trial end, including
+ * when the Clerk Meta copy already exists. That copy is not a reason
+ * to clear this id.
+ */
+export function shouldClearGoogleClickId(args: {
+  nowMs: number;
+  stripeSubscriptionId: string | null;
+  bindingExpiresAt: string | null;
+  trialEndAt: string | null;
+}): boolean {
+  const bindingMs = args.bindingExpiresAt ? Date.parse(args.bindingExpiresAt) : Number.NaN;
+  if (!args.stripeSubscriptionId) {
+    return Number.isFinite(bindingMs) && bindingMs <= args.nowMs;
+  }
+  const trialMs = args.trialEndAt ? Date.parse(args.trialEndAt) : Number.NaN;
+  if (!Number.isFinite(trialMs)) return false;
+  return args.nowMs >= trialMs + CHECKOUT_MATCH_PAYMENT_WINDOW_MS;
+}
+
+async function clearGoogleClickIdFields(intentId: string): Promise<void> {
+  try {
+    const id = intentId.trim();
+    if (!id) return;
+    const { error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .update({
+        google_click_id_type: null,
+        google_click_id: null,
+        updated_at: nowIso(),
+      })
+      .eq("id", id);
+    if (error) logIntentError("clear_google_click", error.code);
+  } catch {
+    console.warn("[stripe-first] google click id clear failed");
+  }
+}
+
 function intentHasMatch(row: CheckoutBrowserIntent): boolean {
   return Boolean(row.meta_fbc || row.meta_fbp || row.client_ip || row.client_user_agent);
 }
@@ -302,6 +378,9 @@ const MATCH_CLEANUP_COLUMNS =
 
 const MATCH_PRESENT_FILTER =
   "meta_fbc.not.is.null,meta_fbp.not.is.null,client_ip.not.is.null,client_user_agent.not.is.null";
+
+const GOOGLE_CLICK_CLEANUP_COLUMNS =
+  "id, stripe_subscription_id, binding_expires_at, stripe_trial_end_at, google_click_id, google_click_id_type";
 
 async function clearListedCheckoutMatches(
   rows: CheckoutBrowserIntent[],
@@ -347,11 +426,35 @@ async function clearListedCheckoutMatches(
   }
 }
 
+async function clearListedGoogleClickIds(
+  rows: CheckoutBrowserIntent[],
+  nowMs: number
+): Promise<void> {
+  for (const row of rows) {
+    if (!row?.id || !row.google_click_id) continue;
+    const subscriptionId =
+      typeof row.stripe_subscription_id === "string" ? row.stripe_subscription_id.trim() : "";
+    if (
+      !shouldClearGoogleClickId({
+        nowMs,
+        stripeSubscriptionId: subscriptionId || null,
+        bindingExpiresAt: row.binding_expires_at ?? null,
+        trialEndAt: row.stripe_trial_end_at ?? null,
+      })
+    ) {
+      continue;
+    }
+    await clearGoogleClickIdFields(row.id);
+  }
+}
+
 /**
  * Hourly cleanup. Expired checkouts with no subscription are cleared on their
  * own bounded query so in-window trials cannot occupy every slot.
  * A subscription keeps match data while a conversion is still inside seven days,
  * or until the first payment window ends, unless the Clerk copy is already stored.
+ * A Google click id uses the same hourly job and the same payment window, but
+ * the Clerk Meta copy does not clear it.
  */
 export async function clearStaleCheckoutMatchFields(nowMs: number = Date.now()): Promise<void> {
   const now = new Date(nowMs).toISOString();
@@ -379,6 +482,33 @@ export async function clearStaleCheckoutMatchFields(nowMs: number = Date.now()):
     else if (data) await clearListedCheckoutMatches(data as CheckoutBrowserIntent[], nowMs);
   } catch {
     console.warn("[stripe-first] checkout match cleanup failed");
+  }
+  const readyBefore = new Date(nowMs - CHECKOUT_MATCH_PAYMENT_WINDOW_MS).toISOString();
+  try {
+    const { data, error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .select(GOOGLE_CLICK_CLEANUP_COLUMNS)
+      .is("stripe_subscription_id", null)
+      .lt("binding_expires_at", now)
+      .not("google_click_id", "is", null)
+      .limit(CHECKOUT_MATCH_CLEANUP_LIMIT);
+    if (error) logIntentError("list_abandoned_google_click_cleanup", error.code);
+    else if (data) await clearListedGoogleClickIds(data as CheckoutBrowserIntent[], nowMs);
+  } catch {
+    console.warn("[stripe-first] abandoned google click cleanup failed");
+  }
+  try {
+    const { data, error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .select(GOOGLE_CLICK_CLEANUP_COLUMNS)
+      .not("stripe_subscription_id", "is", null)
+      .not("google_click_id", "is", null)
+      .lte("stripe_trial_end_at", readyBefore)
+      .limit(CHECKOUT_MATCH_CLEANUP_LIMIT);
+    if (error) logIntentError("list_google_click_cleanup", error.code);
+    else if (data) await clearListedGoogleClickIds(data as CheckoutBrowserIntent[], nowMs);
+  } catch {
+    console.warn("[stripe-first] google click cleanup failed");
   }
 }
 

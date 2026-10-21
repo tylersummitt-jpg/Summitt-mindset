@@ -8,7 +8,10 @@ import {
   saveMetaCapiWebMatchForUser,
 } from "@/lib/meta-capi-web-identifiers";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
-import { isVisitorId } from "@/lib/marketing-attribution-pure";
+import {
+  isVisitorId,
+  readAcquisitionCookieFromRequest,
+} from "@/lib/marketing-attribution-pure";
 import { parsePersonalVideoId } from "@/lib/personal-videos/analytics";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
@@ -64,6 +67,7 @@ import {
   loadIntentBySubscriptionId,
   markClerkProvisioned,
   saveCheckoutMatchFields,
+  saveGoogleClickId,
   markSessionStartedForExistingUser,
   markSessionStartedForProvisionedUser,
   markSignInRequired,
@@ -134,6 +138,28 @@ async function captureCheckoutMatch(intentId: string, request: Request): Promise
     });
   } catch {
     console.warn("[stripe-first] checkout match capture failed");
+  }
+}
+
+async function captureGoogleClickId(intentId: string, request: Request): Promise<void> {
+  try {
+    const attribution = readAcquisitionCookieFromRequest(request);
+    if (
+      !attribution ||
+      attribution.source_normalized !== "google" ||
+      !attribution.is_paid_acquisition ||
+      !attribution.google_click_id_type ||
+      !attribution.google_click_id
+    ) {
+      return;
+    }
+    await saveGoogleClickId({
+      intentId,
+      type: attribution.google_click_id_type,
+      value: attribution.google_click_id,
+    });
+  } catch {
+    console.warn("[stripe-first] google click id capture failed");
   }
 }
 
@@ -242,6 +268,7 @@ export async function beginHostedCheckout(args: {
 
   if (!canary) {
     await captureCheckoutMatch(intent.id, args.request);
+    await captureGoogleClickId(intent.id, args.request);
   }
 
   const origin = resolveStripeCheckoutReturnOrigin(args.request);
@@ -446,6 +473,7 @@ export async function resumeOrReplacePublicCheckout(args: {
       bindingExpiresAt: new Date(Date.now() + maxAgeSeconds * 1000).toISOString(),
     });
     await captureCheckoutMatch(intent.id, args.request);
+    await captureGoogleClickId(intent.id, args.request);
     return {
       action: "reuse",
       url: session.url,

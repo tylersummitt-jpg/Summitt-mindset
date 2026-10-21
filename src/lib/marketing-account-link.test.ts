@@ -33,6 +33,8 @@ const ATTR = {
   source_detail: null,
   meta_fbclid: null,
   meta_fbclid_observed_at: null,
+  google_click_id_type: "gclid" as const,
+  google_click_id: "Cj0KCQtestGclid123",
 };
 
 describe("linkMarketingVisitorToClerkUser", () => {
@@ -66,6 +68,7 @@ describe("linkMarketingVisitorToClerkUser", () => {
         is_paid_acquisition: true,
       })
     );
+    expect(JSON.stringify(insert.mock.calls)).not.toContain("Cj0KCQtestGclid123");
     expect(insertEventMock).toHaveBeenCalledWith(
       expect.objectContaining({
         event_type: "account_created",

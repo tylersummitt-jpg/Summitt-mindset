@@ -25,15 +25,21 @@ vi.mock("@/lib/meta-capi-web-identifiers", () => ({
   loadMetaCapiWebIdentifiersForUser: (...args: unknown[]) => loadWebMock(...args),
 }));
 
+import { googleClickIdFromIntent } from "@/lib/marketing-attribution-pure";
 import {
   CHECKOUT_MATCH_PAYMENT_WINDOW_MS,
+  clearCheckoutMatchFieldsForClerkUser,
   clearStaleCheckoutMatchFields,
+  loadIntentBySubscriptionId,
   saveCheckoutMatchFields,
+  saveGoogleClickId,
   shouldClearCheckoutMatch,
+  shouldClearGoogleClickId,
 } from "@/lib/stripe-first-checkout/intent-store";
 
 const NOW = Date.parse("2026-10-19T15:00:00.000Z");
 const FBC = "fb.1.1700000000000.AbCdEf";
+const GCLID = "Cj0KCQtestGclid123";
 
 function intentRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -69,6 +75,9 @@ function mockCleanupQueries(args: { abandoned: unknown[]; linked: unknown[] }) {
         return chain;
       },
       lt() {
+        return chain;
+      },
+      lte() {
         return chain;
       },
       or() {
@@ -247,6 +256,8 @@ describe("checkout match writes", () => {
       "id",
       "intent_1"
     );
+    expect(updateEq.mock.calls[0]?.[0]).not.toHaveProperty("google_click_id");
+    expect(updateEq.mock.calls[0]?.[0]).not.toHaveProperty("google_click_id_type");
   });
 
   it("keeps match fields while a conversion is still inside seven days", async () => {
@@ -312,8 +323,8 @@ describe("checkout match writes", () => {
 
     await clearStaleCheckoutMatchFields(NOW);
 
-    expect(kinds).toEqual(["abandoned", "linked"]);
-    expect(limits).toEqual([40, 40]);
+    expect(kinds).toEqual(["abandoned", "linked", "abandoned", "linked"]);
+    expect(limits).toEqual([40, 40, 40, 40]);
     expect(updateEq).toHaveBeenCalledTimes(1);
     expect(updateEq).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -328,5 +339,230 @@ describe("checkout match writes", () => {
     const clearedIds = updateEq.mock.calls.map((call) => call[2]);
     expect(clearedIds).not.toContain("trial_0");
     expect(clearedIds).not.toContain("trial_39");
+  });
+});
+
+describe("Google click id retention", () => {
+  beforeEach(() => {
+    fromMock.mockReset();
+    listPendingMock.mockReset();
+    loadWebMock.mockReset();
+    listPendingMock.mockResolvedValue([]);
+    loadWebMock.mockResolvedValue(null);
+  });
+
+  it("keeps the id through trial end and the following seven days", () => {
+    const trialEnd = new Date(NOW).toISOString();
+    expect(
+      shouldClearGoogleClickId({
+        nowMs: NOW,
+        stripeSubscriptionId: "sub_1",
+        bindingExpiresAt: new Date(NOW - 60_000).toISOString(),
+        trialEndAt: trialEnd,
+      })
+    ).toBe(false);
+    expect(
+      shouldClearGoogleClickId({
+        nowMs: NOW + CHECKOUT_MATCH_PAYMENT_WINDOW_MS - 1,
+        stripeSubscriptionId: "sub_1",
+        bindingExpiresAt: new Date(NOW - 60_000).toISOString(),
+        trialEndAt: trialEnd,
+      })
+    ).toBe(false);
+    expect(
+      shouldClearGoogleClickId({
+        nowMs: NOW + CHECKOUT_MATCH_PAYMENT_WINDOW_MS,
+        stripeSubscriptionId: "sub_1",
+        bindingExpiresAt: new Date(NOW - 60_000).toISOString(),
+        trialEndAt: trialEnd,
+      })
+    ).toBe(true);
+    expect(
+      shouldClearGoogleClickId({
+        nowMs: NOW,
+        stripeSubscriptionId: "sub_1",
+        bindingExpiresAt: new Date(NOW - 60_000).toISOString(),
+        trialEndAt: null,
+      })
+    ).toBe(false);
+  });
+
+  it("clears an abandoned id only after the binding expires", () => {
+    expect(
+      shouldClearGoogleClickId({
+        nowMs: NOW,
+        stripeSubscriptionId: null,
+        bindingExpiresAt: new Date(NOW + 60_000).toISOString(),
+        trialEndAt: null,
+      })
+    ).toBe(false);
+    expect(
+      shouldClearGoogleClickId({
+        nowMs: NOW,
+        stripeSubscriptionId: null,
+        bindingExpiresAt: new Date(NOW - 60_000).toISOString(),
+        trialEndAt: null,
+      })
+    ).toBe(true);
+  });
+
+  it("does not remove the id when Meta cleanup runs at trial end", async () => {
+    const { updateEq } = mockCleanupQueries({
+      abandoned: [],
+      linked: [
+        intentRow({
+          stripe_subscription_id: "sub_1",
+          clerk_user_id: "user_abc",
+          stripe_trial_end_at: new Date(NOW).toISOString(),
+          google_click_id_type: "gclid",
+          google_click_id: GCLID,
+        }),
+      ],
+    });
+    loadWebMock.mockResolvedValue({
+      fbc: FBC,
+      fbp: null,
+      clientIpAddress: "8.8.8.8",
+      clientUserAgent: "Mozilla/5.0",
+    });
+
+    await clearStaleCheckoutMatchFields(NOW);
+
+    expect(updateEq).toHaveBeenCalled();
+    for (const call of updateEq.mock.calls) {
+      expect(call[0]).not.toHaveProperty("google_click_id");
+      expect(JSON.stringify(call)).not.toContain(GCLID);
+    }
+  });
+
+  it("clears the id once seven days have passed after trial end", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { updateEq } = mockCleanupQueries({
+      abandoned: [],
+      linked: [
+        intentRow({
+          stripe_subscription_id: "sub_1",
+          stripe_trial_end_at: new Date(NOW - CHECKOUT_MATCH_PAYMENT_WINDOW_MS).toISOString(),
+          google_click_id_type: "gclid",
+          google_click_id: GCLID,
+        }),
+      ],
+    });
+
+    await clearStaleCheckoutMatchFields(NOW);
+
+    const googlePatch = updateEq.mock.calls
+      .map((call) => call[0] as Record<string, unknown>)
+      .find((patch) => Object.prototype.hasOwnProperty.call(patch, "google_click_id"));
+    expect(googlePatch).toMatchObject({
+      google_click_id: null,
+      google_click_id_type: null,
+    });
+    expect(googlePatch).not.toHaveProperty("meta_fbc");
+    const metaPatch = updateEq.mock.calls
+      .map((call) => call[0] as Record<string, unknown>)
+      .find((patch) => Object.prototype.hasOwnProperty.call(patch, "meta_fbc"));
+    expect(metaPatch).not.toHaveProperty("google_click_id");
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(GCLID);
+    expect(JSON.stringify(error.mock.calls)).not.toContain(GCLID);
+    warn.mockRestore();
+    error.mockRestore();
+  });
+
+  it("recovers the stored id by Stripe subscription id", async () => {
+    const row = {
+      id: "intent_1",
+      stripe_subscription_id: "sub_1",
+      google_click_id_type: "gclid",
+      google_click_id: GCLID,
+      stripe_trial_end_at: new Date(NOW).toISOString(),
+    };
+    const chain = {
+      select() {
+        return chain;
+      },
+      eq() {
+        return chain;
+      },
+      order() {
+        return chain;
+      },
+      limit: async () => ({ data: [row], error: null }),
+    };
+    fromMock.mockReturnValue(chain);
+
+    const loaded = await loadIntentBySubscriptionId("sub_1");
+    expect(googleClickIdFromIntent(loaded)).toEqual({ type: "gclid", value: GCLID });
+    expect(loaded?.stripe_subscription_id).toBe("sub_1");
+  });
+
+  it("fills an empty click id and does not replace or log it", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const query = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(async () => ({
+        data: { id: "intent_1", google_click_id: null, google_click_id_type: null },
+        error: null,
+      })),
+      update: vi.fn(),
+      then: (onFulfilled: (value: unknown) => unknown) =>
+        Promise.resolve({ error: { code: "42703", message: GCLID } }).then(onFulfilled),
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.update.mockReturnValue(query);
+    fromMock.mockReturnValue(query);
+
+    await saveGoogleClickId({ intentId: "intent_1", type: "gclid", value: GCLID });
+
+    expect(query.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        google_click_id_type: "gclid",
+        google_click_id: GCLID,
+      })
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain(GCLID);
+    expect(JSON.stringify(error.mock.calls)).not.toContain(GCLID);
+    expect(error).toHaveBeenCalledWith(
+      "[stripe-first] intent write failed",
+      expect.objectContaining({ scope: "save_google_click", code: "42703" })
+    );
+
+    query.update.mockClear();
+    query.maybeSingle.mockResolvedValue({
+      data: { id: "intent_1", google_click_id: GCLID, google_click_id_type: "gclid" },
+      error: null,
+    });
+    await saveGoogleClickId({
+      intentId: "intent_1",
+      type: "wbraid",
+      value: "WbraidTestClick123",
+    });
+    expect(query.update).not.toHaveBeenCalled();
+    warn.mockRestore();
+    error.mockRestore();
+  });
+
+  it("account deletion nulls the click id with the Meta match fields", async () => {
+    const eq = vi.fn(async () => ({ error: null }));
+    const update = vi.fn(() => ({ eq }));
+    fromMock.mockReturnValue({ update });
+
+    await clearCheckoutMatchFieldsForClerkUser("user_abc");
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        meta_fbc: null,
+        meta_fbp: null,
+        client_ip: null,
+        client_user_agent: null,
+        google_click_id_type: null,
+        google_click_id: null,
+      })
+    );
+    expect(eq).toHaveBeenCalledWith("clerk_user_id", "user_abc");
   });
 });

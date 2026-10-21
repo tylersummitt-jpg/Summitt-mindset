@@ -712,4 +712,32 @@ describe("account deletion Meta CAPI identifier cleanup", () => {
     expect(purgeMetaMock).toHaveBeenCalledWith("user_abc");
     expect(clearCheckoutMatchMock).toHaveBeenCalledWith("user_abc");
   });
+
+  it("does not replace the live purge function to remove a Google click id", () => {
+    const intentStore = readFileSync(
+      join(process.cwd(), "src/lib/stripe-first-checkout/intent-store.ts"),
+      "utf8"
+    );
+    const migration = readFileSync(
+      join(
+        process.cwd(),
+        "supabase/migrations/20261021140000_checkout_intent_google_click_id.sql"
+      ),
+      "utf8"
+    );
+    const deletion = intentStore.slice(
+      intentStore.indexOf("export async function clearCheckoutMatchFieldsForClerkUser"),
+      intentStore.indexOf("export function shouldClearCheckoutMatch")
+    );
+    const metaClear = intentStore.slice(
+      intentStore.indexOf("export async function clearCheckoutMatchFields("),
+      intentStore.indexOf("export async function clearCheckoutMatchFieldsForClerkUser")
+    );
+    expect(deletion).toContain("google_click_id: null");
+    expect(deletion).toContain("google_click_id_type: null");
+    expect(metaClear).not.toContain("google_click_id");
+    expect(migration).not.toContain(
+      "CREATE OR REPLACE FUNCTION public.purge_app_data_for_account_deletion("
+    );
+  });
 });

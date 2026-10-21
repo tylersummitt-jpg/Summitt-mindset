@@ -11,7 +11,9 @@ import {
   mergeFirstTouch,
   normalizeAcquisition,
   parseAcquisitionCookie,
+  readAcquisitionCookieFromRequest,
   resolveMarketingCookies,
+  selectGoogleClickId,
   serializeAcquisitionCookie,
   marketingCookieOptions,
   type AcquisitionCookiePayload,
@@ -361,6 +363,252 @@ describe("trial CTA href detection", () => {
     expect(isTrialAcquisitionHref("/app/membership")).toBe(false);
     expect(isTrialAcquisitionHref("/subscribe/success")).toBe(false);
     expect(isTrialAcquisitionHref("/dashboard/victory-room")).toBe(false);
+  });
+});
+
+describe("Google click identifiers", () => {
+  const now = "2026-09-01T12:00:00.000Z";
+  const later = "2026-09-08T12:00:00.000Z";
+  const visitor = "3b241101-e2bb-4255-8caf-4136c566a962";
+  const gclid = "Cj0KCQtestGclid123";
+  const wbraid = "WbraidTestClick123";
+  const gbraid = "GbraidTestClick123";
+
+  function resolve(args: {
+    search?: string;
+    referrer?: string;
+    pathname?: string;
+    coachCookie?: string;
+    existing?: AcquisitionCookiePayload | null;
+    nowIso?: string;
+  }) {
+    return resolveMarketingCookies({
+      pathname: args.pathname ?? "/",
+      search: args.search,
+      referrer: args.referrer,
+      coachCookie: args.coachCookie,
+      existingVisitor: args.existing ? visitor : undefined,
+      existingAcqRaw: args.existing ? serializeAcquisitionCookie(args.existing) : null,
+      nowIso: args.nowIso ?? now,
+      generatedVisitorId: visitor,
+    });
+  }
+
+  it("classifies a gclid visit as paid Google and stores that id", () => {
+    const resolved = resolve({ search: `gclid=${gclid}` });
+    expect(resolved?.payload.source_normalized).toBe("google");
+    expect(resolved?.payload.is_paid_acquisition).toBe(true);
+    expect(resolved?.payload.gclid_present).toBe(true);
+    expect(resolved?.payload.google_click_id_type).toBe("gclid");
+    expect(resolved?.payload.google_click_id).toBe(gclid);
+  });
+
+  it("recognizes wbraid and gbraid, and keeps gclid when all three are present", () => {
+    const fromWbraid = resolve({ search: `wbraid=${wbraid}` });
+    expect(fromWbraid?.payload.source_normalized).toBe("google");
+    expect(fromWbraid?.payload.is_paid_acquisition).toBe(true);
+    expect(fromWbraid?.payload.gclid_present).toBe(false);
+    expect(fromWbraid?.payload.google_click_id_type).toBe("wbraid");
+    expect(fromWbraid?.payload.google_click_id).toBe(wbraid);
+
+    const fromGbraid = resolve({ search: `gbraid=${gbraid}` });
+    expect(fromGbraid?.payload.google_click_id_type).toBe("gbraid");
+    expect(fromGbraid?.payload.google_click_id).toBe(gbraid);
+    expect(fromGbraid?.payload.is_paid_acquisition).toBe(true);
+
+    expect(selectGoogleClickId({ gclid, wbraid, gbraid })).toEqual({
+      type: "gclid",
+      value: gclid,
+    });
+    const allThree = resolve({
+      search: `gclid=${gclid}&wbraid=${wbraid}&gbraid=${gbraid}`,
+    });
+    expect(allThree?.payload.google_click_id_type).toBe("gclid");
+    expect(allThree?.payload.google_click_id).toBe(gclid);
+  });
+
+  it("keeps Google organic search unpaid and without a click id", () => {
+    const organic = resolve({ referrer: "https://www.google.com/search?q=summitt" });
+    expect(organic?.payload.source_normalized).toBe("google");
+    expect(organic?.payload.is_paid_acquisition).toBe(false);
+    expect(organic?.payload.google_click_id).toBeNull();
+    expect(organic?.payload.google_click_id_type).toBeNull();
+
+    const blank = resolve({ search: "wbraid=%20&gbraid=" });
+    expect(blank?.payload.source_normalized).toBe("direct");
+    expect(blank?.payload.google_click_id).toBeNull();
+  });
+
+  it("does not let a later Google click replace Meta, coach, or organic first touch", () => {
+    const both = resolve({ search: `fbclid=AbCdEf123&gclid=${gclid}` });
+    expect(both?.payload.source_normalized).toBe("meta");
+    expect(both?.payload.fbclid_present).toBe(true);
+    expect(both?.payload.gclid_present).toBe(true);
+    expect(both?.payload.google_click_id).toBeNull();
+
+    const meta = resolve({ search: "fbclid=AbCdEf123" });
+    const afterMeta = resolve({
+      search: `gclid=${gclid}`,
+      existing: meta?.payload,
+      nowIso: later,
+    });
+    expect(afterMeta?.payload.source_normalized).toBe("meta");
+    expect(afterMeta?.payload.is_paid_acquisition).toBe(true);
+    expect(afterMeta?.payload.first_touch_at).toBe(now);
+    expect(afterMeta?.payload.google_click_id).toBeNull();
+
+    const coach = resolve({
+      pathname: "/coach-leadership-kit",
+      search: `gclid=${gclid}`,
+    });
+    expect(coach?.payload.source_normalized).toBe("referral");
+    expect(coach?.payload.source_detail).toBe("coach");
+    expect(coach?.payload.google_click_id).toBeNull();
+    const afterCoach = resolve({
+      search: `wbraid=${wbraid}`,
+      existing: coach?.payload,
+      nowIso: later,
+    });
+    expect(afterCoach?.payload.source_detail).toBe("coach");
+    expect(afterCoach?.payload.google_click_id).toBeNull();
+
+    const organic = resolve({ referrer: "https://www.google.com/search?q=summitt" });
+    const afterOrganic = resolve({
+      search: `gclid=${gclid}`,
+      existing: organic?.payload,
+      nowIso: later,
+    });
+    expect(afterOrganic?.payload.is_paid_acquisition).toBe(false);
+    expect(afterOrganic?.payload.google_click_id).toBeNull();
+  });
+
+  it("keeps the first paid-Google id when the same browser returns with another", () => {
+    const first = resolve({ search: `gclid=${gclid}` });
+    const repeat = resolve({
+      search: `gclid=${gclid}&wbraid=${wbraid}`,
+      existing: first?.payload,
+      nowIso: later,
+    });
+    expect(repeat?.payload.google_click_id).toBe(gclid);
+    expect(repeat?.payload.google_click_id_type).toBe("gclid");
+    expect(repeat?.payload.first_touch_at).toBe(now);
+
+    const replaced = resolve({
+      search: `gclid=${wbraid}`,
+      existing: first?.payload,
+      nowIso: later,
+    });
+    expect(replaced?.payload.google_click_id).toBe(gclid);
+    expect(replaced?.payload.source_normalized).toBe("google");
+  });
+
+  it("stores the id when Direct upgrades to paid Google and not onto an older paid-Google cookie", () => {
+    const direct = resolve({});
+    expect(direct?.payload.source_normalized).toBe("direct");
+    const upgraded = resolve({
+      search: `wbraid=${wbraid}`,
+      existing: direct?.payload,
+      nowIso: later,
+    });
+    expect(upgraded?.payload.source_normalized).toBe("google");
+    expect(upgraded?.payload.is_paid_acquisition).toBe(true);
+    expect(upgraded?.payload.google_click_id_type).toBe("wbraid");
+    expect(upgraded?.payload.google_click_id).toBe(wbraid);
+    expect(upgraded?.payload.first_touch_at).toBe(later);
+
+    const utmOnly = resolve({ search: "utm_source=google&utm_medium=cpc&utm_campaign=brand" });
+    expect(utmOnly?.payload.is_paid_acquisition).toBe(true);
+    expect(utmOnly?.payload.google_click_id).toBeNull();
+    const stillEmpty = resolve({
+      search: `gclid=${gclid}`,
+      existing: utmOnly?.payload,
+      nowIso: later,
+    });
+    expect(stillEmpty?.payload.source_normalized).toBe("google");
+    expect(stillEmpty?.payload.google_click_id).toBeNull();
+    expect(stillEmpty?.payload.first_touch_at).toBe(now);
+  });
+
+  it("parses a version-1 cookie from before click ids existed", () => {
+    const raw = encodeURIComponent(
+      JSON.stringify({
+        v: 1,
+        first_touch_at: now,
+        utm_source: "google",
+        utm_medium: "cpc",
+        utm_campaign: "brand",
+        utm_content: null,
+        gclid_present: true,
+        fbclid_present: false,
+        referrer_host: null,
+        source_normalized: "google",
+        is_paid_acquisition: true,
+        source_detail: null,
+        meta_fbclid: null,
+        meta_fbclid_observed_at: null,
+      })
+    );
+    const parsed = parseAcquisitionCookie(raw);
+    expect(parsed?.source_normalized).toBe("google");
+    expect(parsed?.is_paid_acquisition).toBe(true);
+    expect(parsed?.gclid_present).toBe(true);
+    expect(parsed?.google_click_id).toBeNull();
+    expect(parsed?.google_click_id_type).toBeNull();
+    expect(parsed?.v).toBe(1);
+  });
+
+  it("drops a planted click id on a cookie that is not paid Google", () => {
+    const raw = encodeURIComponent(
+      JSON.stringify({
+        v: 1,
+        first_touch_at: now,
+        utm_source: "facebook",
+        utm_medium: "paid",
+        utm_campaign: null,
+        utm_content: null,
+        gclid_present: false,
+        fbclid_present: true,
+        referrer_host: null,
+        source_normalized: "meta",
+        is_paid_acquisition: true,
+        source_detail: null,
+        meta_fbclid: "AbCdEf123",
+        meta_fbclid_observed_at: now,
+        google_click_id_type: "gclid",
+        google_click_id: gclid,
+      })
+    );
+    const parsed = parseAcquisitionCookie(raw);
+    expect(parsed?.source_normalized).toBe("meta");
+    expect(parsed?.meta_fbclid).toBe("AbCdEf123");
+    expect(parsed?.google_click_id).toBeNull();
+    expect(parsed?.google_click_id_type).toBeNull();
+  });
+
+  it("reads the click id from a Next.js cookie and from a raw Cookie header", () => {
+    const payload = resolve({ search: `gclid=${gclid}` })?.payload;
+    const encoded = serializeAcquisitionCookie(payload!);
+    const nextRequest = {
+      headers: { get: () => null },
+      cookies: {
+        get: (name: string) => (name === "sm_acq" ? { value: encoded } : undefined),
+      },
+    } as unknown as Request;
+    expect(readAcquisitionCookieFromRequest(nextRequest)?.google_click_id).toBe(gclid);
+
+    const headerRequest = new Request("https://summittmindset.com/", {
+      headers: { cookie: `sm_acq=${encoded}` },
+    });
+    expect(readAcquisitionCookieFromRequest(headerRequest)?.google_click_id).toBe(gclid);
+    expect(readAcquisitionCookieFromRequest(headerRequest)?.source_normalized).toBe("google");
+  });
+
+  it("rejects an unsafe click id without changing paid-Google classification", () => {
+    const resolved = resolve({ search: "gclid=not%20safe" });
+    expect(resolved?.payload.source_normalized).toBe("google");
+    expect(resolved?.payload.is_paid_acquisition).toBe(true);
+    expect(resolved?.payload.gclid_present).toBe(true);
+    expect(resolved?.payload.google_click_id).toBeNull();
   });
 });
 

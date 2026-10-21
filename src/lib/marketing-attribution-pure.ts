@@ -39,6 +39,13 @@ export type AcquisitionTouch = {
   source_detail: SourceDetail;
 };
 
+export type GoogleClickIdType = "gclid" | "gbraid" | "wbraid";
+
+export type GoogleClickId = {
+  type: GoogleClickIdType;
+  value: string;
+};
+
 export type AcquisitionCookiePayload = AcquisitionTouch & {
   v: typeof SM_ACQ_VERSION;
   first_touch_at: string;
@@ -46,7 +53,66 @@ export type AcquisitionCookiePayload = AcquisitionTouch & {
   meta_fbclid: string | null;
   /** ISO timestamp when meta_fbclid was first observed. */
   meta_fbclid_observed_at: string | null;
+  /**
+   * One Google click id from the request that established a paid-Google
+   * first touch. Null on every other source, including a later Google ad.
+   */
+  google_click_id_type: GoogleClickIdType | null;
+  google_click_id: string | null;
 };
+
+const GOOGLE_CLICK_ID_MAX_LEN = 512;
+const GOOGLE_CLICK_ID_CHARSET = /^[A-Za-z0-9._~-]+$/;
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/;
+
+/** Same untrusted-input rules as a Meta fbclid. Never log the raw value. */
+export function sanitizeGoogleClickId(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > GOOGLE_CLICK_ID_MAX_LEN) return null;
+  if (CONTROL_CHARS.test(trimmed)) return null;
+  if (trimmed.includes("@") || trimmed.includes(" ")) return null;
+  if (!GOOGLE_CLICK_ID_CHARSET.test(trimmed)) return null;
+  return trimmed;
+}
+
+export function googleClickIdFromPair(
+  type: string | null | undefined,
+  value: string | null | undefined
+): GoogleClickId | null {
+  if (type !== "gclid" && type !== "gbraid" && type !== "wbraid") return null;
+  const sanitized = sanitizeGoogleClickId(value);
+  if (!sanitized) return null;
+  return { type, value: sanitized };
+}
+
+/** Precedence is gclid, then wbraid, then gbraid. Exactly one id is kept. */
+export function selectGoogleClickId(input: {
+  gclid?: string | null;
+  wbraid?: string | null;
+  gbraid?: string | null;
+}): GoogleClickId | null {
+  const gclid = sanitizeGoogleClickId(input.gclid);
+  if (gclid) return { type: "gclid", value: gclid };
+  const wbraid = sanitizeGoogleClickId(input.wbraid);
+  if (wbraid) return { type: "wbraid", value: wbraid };
+  const gbraid = sanitizeGoogleClickId(input.gbraid);
+  if (gbraid) return { type: "gbraid", value: gbraid };
+  return null;
+}
+
+export function googleClickIdFromIntent(
+  row:
+    | {
+        google_click_id_type?: string | null;
+        google_click_id?: string | null;
+      }
+    | null
+    | undefined
+): GoogleClickId | null {
+  if (!row) return null;
+  return googleClickIdFromPair(row.google_click_id_type, row.google_click_id);
+}
 
 export const CTA_SURFACES = [
   "navbar",
@@ -259,6 +325,8 @@ export type NormalizeAcquisitionInput = {
   utm_campaign?: string | null;
   utm_content?: string | null;
   gclid?: string | null;
+  gbraid?: string | null;
+  wbraid?: string | null;
   fbclid?: string | null;
   referrer?: string | null;
   coachCookie?: string | null;
@@ -317,6 +385,8 @@ export function normalizeAcquisition(input: NormalizeAcquisitionInput): Acquisit
 
   const googlePaid =
     gclid_present ||
+    Boolean(trimToNull(input.wbraid)) ||
+    Boolean(trimToNull(input.gbraid)) ||
     (isGoogleSource(utm_source) && isPaidMedium(utm_medium)) ||
     (utm_medium === "cpc" && (isGoogleSource(utm_source) || !utm_source));
 
@@ -436,6 +506,8 @@ export function mergeFirstTouch(
       meta_fbclid: null,
       meta_fbclid_observed_at: null,
       ...incoming,
+      google_click_id_type: null,
+      google_click_id: null,
     };
   }
   if (isPureDirectTouch(existing) && isMeaningfulTouch(incoming)) {
@@ -445,6 +517,8 @@ export function mergeFirstTouch(
       meta_fbclid: existing.meta_fbclid ?? null,
       meta_fbclid_observed_at: existing.meta_fbclid_observed_at ?? null,
       ...incoming,
+      google_click_id_type: null,
+      google_click_id: null,
     };
   }
   return existing;
@@ -465,6 +539,59 @@ export function fillMetaFbclidIfNull(
     ...payload,
     meta_fbclid: id,
     meta_fbclid_observed_at: nowIso,
+  };
+}
+
+function isPaidGoogleTouch(touch: AcquisitionTouch): boolean {
+  return touch.source_normalized === "google" && touch.is_paid_acquisition === true;
+}
+
+/**
+ * Keep a click id only on the paid-Google touch this request establishes.
+ * An earlier paid-Google cookie keeps its original id, including when that
+ * id is absent. Every other source drops the id.
+ */
+export function assignGoogleClickId(args: {
+  merged: AcquisitionCookiePayload;
+  existing: AcquisitionCookiePayload | null;
+  incomingClick: GoogleClickId | null;
+}): AcquisitionCookiePayload {
+  if (!isPaidGoogleTouch(args.merged)) {
+    return { ...args.merged, google_click_id_type: null, google_click_id: null };
+  }
+  if (
+    args.existing != null &&
+    !isPureDirectTouch(args.existing) &&
+    isPaidGoogleTouch(args.existing)
+  ) {
+    return {
+      ...args.merged,
+      google_click_id_type: args.existing.google_click_id_type,
+      google_click_id: args.existing.google_click_id,
+    };
+  }
+  return {
+    ...args.merged,
+    google_click_id_type: args.incomingClick?.type ?? null,
+    google_click_id: args.incomingClick?.value ?? null,
+  };
+}
+
+function readStoredGoogleClickId(parsed: Partial<AcquisitionCookiePayload>): {
+  google_click_id_type: GoogleClickIdType | null;
+  google_click_id: string | null;
+} {
+  const paidGoogle =
+    parsed.source_normalized === "google" && parsed.is_paid_acquisition === true;
+  const click = paidGoogle
+    ? googleClickIdFromPair(
+        parsed.google_click_id_type,
+        typeof parsed.google_click_id === "string" ? parsed.google_click_id : null
+      )
+    : null;
+  return {
+    google_click_id_type: click?.type ?? null,
+    google_click_id: click?.value ?? null,
   };
 }
 
@@ -507,6 +634,7 @@ export function parseAcquisitionCookie(
         parsed.meta_fbclid_observed_at.trim()
           ? parsed.meta_fbclid_observed_at
           : null,
+      ...readStoredGoogleClickId(parsed),
     };
   } catch {
     return null;
@@ -515,6 +643,35 @@ export function parseAcquisitionCookie(
 
 export function serializeAcquisitionCookie(payload: AcquisitionCookiePayload): string {
   return encodeURIComponent(JSON.stringify(payload));
+}
+
+function decodeCookieHeaderValue(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+/**
+ * Read sm_acq from a checkout request. Matches the Next.js cookie decode
+ * and the raw Cookie-header decode used for other marketing cookies.
+ */
+export function readAcquisitionCookieFromRequest(req: Request): AcquisitionCookiePayload | null {
+  const nextCookies = (req as { cookies?: { get?: (name: string) => { value?: string } | undefined } })
+    .cookies;
+  if (nextCookies && typeof nextCookies.get === "function") {
+    return parseAcquisitionCookie(nextCookies.get(SM_ACQ_COOKIE)?.value ?? null);
+  }
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  for (const part of cookieHeader.split(";")) {
+    const idx = part.indexOf("=");
+    if (idx < 0) continue;
+    const key = part.slice(0, idx).trim();
+    if (key !== SM_ACQ_COOKIE) continue;
+    return parseAcquisitionCookie(decodeCookieHeaderValue(part.slice(idx + 1).trim()));
+  }
+  return null;
 }
 
 const UUID_RE =
@@ -532,6 +689,8 @@ export function parseSearchParamsRecord(
   utm_campaign: string | null;
   utm_content: string | null;
   gclid: string | null;
+  gbraid: string | null;
+  wbraid: string | null;
   fbclid: string | null;
 } {
   const params =
@@ -544,6 +703,8 @@ export function parseSearchParamsRecord(
     utm_campaign: params.get("utm_campaign"),
     utm_content: params.get("utm_content"),
     gclid: params.get("gclid"),
+    gbraid: params.get("gbraid"),
+    wbraid: params.get("wbraid"),
     fbclid: params.get("fbclid"),
   };
 }
@@ -654,18 +815,25 @@ export function resolveMarketingCookies(args: {
     utm_campaign: params.utm_campaign,
     utm_content: params.utm_content,
     gclid: params.gclid,
+    gbraid: params.gbraid,
+    wbraid: params.wbraid,
     fbclid: params.fbclid,
     referrer: args.referrer ?? null,
     coachCookie: args.coachCookie ?? null,
   });
   const existing = parseAcquisitionCookie(args.existingAcqRaw);
+  const merged = fillMetaFbclidIfNull(
+    mergeFirstTouch(existing, incoming, args.nowIso),
+    params.fbclid,
+    args.nowIso
+  );
   return {
     visitorId,
-    payload: fillMetaFbclidIfNull(
-      mergeFirstTouch(existing, incoming, args.nowIso),
-      params.fbclid,
-      args.nowIso
-    ),
+    payload: assignGoogleClickId({
+      merged,
+      existing,
+      incomingClick: selectGoogleClickId(params),
+    }),
   };
 }
 

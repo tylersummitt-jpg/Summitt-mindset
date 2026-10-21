@@ -29,6 +29,8 @@ const ATTR = {
   source_detail: null,
   meta_fbclid: null,
   meta_fbclid_observed_at: null,
+  google_click_id_type: null,
+  google_click_id: null,
 };
 
 function row(
@@ -94,5 +96,24 @@ describe("homepage video marketing insert", () => {
     );
     expect(result).toBe("ok");
     expect(insertMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not write a Google click id onto a marketing event", async () => {
+    await insertMarketingEventFailOpen(
+      row({
+        event_type: "trial_cta_clicked",
+        attribution: {
+          ...ATTR,
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          gclid_present: true,
+          google_click_id_type: "gclid",
+          google_click_id: "Cj0KCQtestGclid123",
+        },
+        metadata: { cta_surface: "hero" },
+      })
+    );
+    expect(JSON.stringify(insertMock.mock.calls)).not.toContain("Cj0KCQtestGclid123");
+    expect(insertMock.mock.calls[0][0].google_click_id).toBeUndefined();
   });
 });

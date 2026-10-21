@@ -46,6 +46,8 @@ const ATTR = {
   source_detail: null,
   meta_fbclid: null,
   meta_fbclid_observed_at: null,
+  google_click_id_type: null,
+  google_click_id: null,
 };
 
 function req(body: unknown) {
