@@ -4,7 +4,7 @@ import {
   ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY,
   ACCOUNT_DELETION_SUPPORT_EMAIL_HREF,
 } from "@/lib/legal/account-deletion-public-availability";
-import { PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE } from "@/lib/legal/public-legal-effective-dates";
+import { PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE } from "@/lib/legal/public-legal-effective-dates";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Summitt Mindset",
@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         </h1>
         <p className="text-sm text-[var(--muted)]">
           Effective / last updated:{" "}
-          {PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE}
+          {PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE}
         </p>
       </header>
 
@@ -122,7 +122,8 @@ export default function PrivacyPage() {
             results, limited console or error information, and firewall or
             abuse-prevention outcomes. These records help us host, secure,
             debug, and operate the service. They are not used by Summitt Mindset
-            for cross-company advertising tracking.
+            for cross-company advertising tracking, except the IP-derived country
+            saved when website checkout begins, which section 7 describes.
           </li>
           <li>
             <strong className="font-medium text-[var(--text)]">
@@ -134,8 +135,13 @@ export default function PrivacyPage() {
             measurement may also record, using the existing visitor cookie and
             without name, email, or phone number, whether a browser reached,
             started, watched half of, or finished the homepage explainer video.
-            See sections 5 and 6. Meta Pixel is not loaded in the Summitt Mindset
-            iOS app or the Summitt Mindset Android app.
+            When a paid Google ad is the first meaningful source of a website
+            visit, we may keep one Google click identifier from the page address
+            (gclid, wbraid, or gbraid) in a first-party acquisition cookie and,
+            if checkout starts, on the checkout record. We do not currently send
+            conversion events to Google. See sections 5 and 6. Meta Pixel is not
+            loaded in the Summitt Mindset iOS app or the Summitt Mindset Android
+            app.
           </li>
         </ul>
       </section>
@@ -169,6 +175,12 @@ export default function PrivacyPage() {
             On the website, measure usage and marketing performance and evaluate
             selected marketing funnel actions to improve advertising
             effectiveness (including via Meta Pixel where configured)
+          </li>
+          <li>
+            On the website, keep one Google click identifier when a paid Google
+            ad is the first meaningful source, so that ad can be credited if we
+            later measure a verified free-trial start or a first successful
+            subscription payment. We do not currently send those events to Google
           </li>
         </ul>
       </section>
@@ -227,6 +239,12 @@ export default function PrivacyPage() {
             or the Summitt Mindset Android app.
           </li>
           <li>
+            Google LLC — advertising measurement for a website visit whose first
+            meaningful source is a paid Google ad. We do not currently send
+            conversion events to Google. We do not send Google a name, email
+            address, phone number, or coaching content. See section 5.
+          </li>
+          <li>
             Vimeo — embedded video playback for Film Room, related lessons, and
             the public homepage explainer (see section 6)
           </li>
@@ -248,7 +266,7 @@ export default function PrivacyPage() {
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold">
-          5. Website analytics and Meta Pixel
+          5. Website analytics and advertising measurement
         </h2>
         <p className="text-base leading-7 text-[var(--muted)]">
           On the normal Summitt Mindset website viewed in a browser, we may use
@@ -295,6 +313,53 @@ export default function PrivacyPage() {
           party involved in website analytics and marketing measurement; its
           use of information is also governed by Meta’s own terms and policies.
         </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          Google advertising measurement is separate from Meta. We do not load a
+          Google tag, Google Analytics, or Google Tag Manager on the website or
+          in the iOS or Android apps. The apps also do not receive the
+          first-party acquisition cookie that can hold a Google click identifier.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          On the website in a browser, if the page address includes a Google
+          click identifier and that visit establishes a paid-Google first touch,
+          we may store one identifier: gclid when present, otherwise wbraid,
+          otherwise gbraid. A later Google click does not replace an earlier
+          Meta, coach, or other first touch, and it does not add a Google
+          identifier to that earlier touch. The browser cookie that holds it is
+          set to expire after 90 days, and a later visit can refresh that
+          expiration. If you start checkout while that cookie still holds it, we
+          copy the same identifier onto the checkout record.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          We do not currently send conversion events to Google. If a conversion
+          is sent later, it would be limited to a verified free-trial start or
+          a first successful subscription payment, and a subscription would not
+          produce more than one of each. The trial event would include the click
+          identifier, the event time, and a transaction identifier for that
+          subscription. The payment event would include those same fields plus
+          the amount and currency of that first payment. Such an event would not
+          include name, email address, phone number, IP address, SMS messages,
+          journals, goals, Victory Room content, Ask Pat conversations, or
+          payment card numbers. We would not enable enhanced conversions or
+          customer matching. Google describes how it uses information from sites
+          and apps that use its services at{" "}
+          <a
+            href="https://business.safety.google/privacy/"
+            className="underline underline-offset-4"
+          >
+            How Google uses information from sites or apps that use our services
+          </a>
+          .
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          An abandoned checkout loses the stored identifier when the checkout
+          binding expires. After a subscription is created, we keep the
+          identifier until at least seven days after the trial ends, including when other
+          checkout match fields have already been removed. Deleting your account
+          removes the identifier from checkout records for that account. Deletion
+          does not erase a copy that remains in your browser until the cookie
+          expires or you clear it.
+        </p>
       </section>
 
       <section className="space-y-3">
@@ -337,8 +402,11 @@ export default function PrivacyPage() {
           as those described in section 1. That may include IP address and
           IP-derived country or other approximate location information used for
           hosting, security, reliability, debugging, performance, and fraud or
-          abuse prevention—not for Summitt Mindset cross-company advertising
-          tracking.
+          abuse prevention. The IP-derived country observed when a website
+          checkout begins may also be saved on that checkout record and used
+          only to decide whether the checkout is eligible for Google Ads
+          conversion measurement. We do not currently send conversion events to
+          Google.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           Some application console logs may include internal account
@@ -377,8 +445,9 @@ export default function PrivacyPage() {
           messages for that account, remove Summitt Mindset membership access,
           delete journals, progress, coaching history, preferences, Leadership
           Kit shipping addresses stored in our application database, and related
-          app data owned by the account, and delete the sign-in identity used to
-          access the service. A membership billed directly by Summitt is
+          app data owned by the account, remove a Google click identifier stored
+          on checkout records for that account, and delete the sign-in identity
+          used to access the service. A membership billed directly by Summitt is
           canceled as part of deletion. An App Store subscription is not
           canceled by deleting your Summitt account and must be managed or
           canceled through Apple.
@@ -461,6 +530,21 @@ export default function PrivacyPage() {
           available, Meta’s ad-preference or related controls. These steps may
           limit some measurement; they do not guarantee that all third-party
           processing is blocked in every browser or configuration.
+        </p>
+        <p className="text-base leading-7 text-[var(--muted)]">
+          The same browser controls limit the first-party cookie that can hold a
+          Google click identifier. Clearing that cookie does not remove an
+          identifier already copied onto a checkout record. Account deletion
+          does. There is no separate on-site switch for Google measurement. We do
+          not currently send conversion events to Google. Email{" "}
+          <a
+            href={ACCOUNT_DELETION_SUPPORT_EMAIL_HREF}
+            className="underline underline-offset-4 break-all"
+          >
+            {ACCOUNT_DELETION_SUPPORT_EMAIL_DISPLAY}
+          </a>{" "}
+          if you need help deleting your account or have a question about this
+          measurement.
         </p>
       </section>
 

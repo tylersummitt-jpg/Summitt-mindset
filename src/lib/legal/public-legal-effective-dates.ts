@@ -1,10 +1,12 @@
 /**
  * Public effective / last-updated dates for store-facing legal pages.
  *
- * Privacy and Data Deletion share one date because they were updated together
- * for disclosure work. Terms keeps its own date so a privacy/deletion update
- * cannot silently imply a Terms revision.
+ * The Privacy Policy date moves on a privacy-only revision. Data Deletion
+ * keeps September 8, 2026 so that page is not relabeled when its text is
+ * unchanged. Terms keeps its own date so neither update implies a Terms revision.
  */
+
+export const PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE = "October 21, 2026" as const;
 
 export const PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE =
   "September 8, 2026" as const;

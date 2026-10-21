@@ -48,6 +48,7 @@ export type CheckoutBrowserIntent = {
   client_user_agent: string | null;
   google_click_id_type: GoogleClickIdType | null;
   google_click_id: string | null;
+  request_country: string | null;
 };
 
 export const CHECKOUT_MATCH_PAYMENT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
@@ -262,6 +263,33 @@ export async function saveGoogleClickId(args: {
   }
 }
 
+/**
+ * Fill an empty checkout country. Never replaces one already stored.
+ * Fail-open: checkout continues when this write fails.
+ */
+export async function saveCheckoutRequestCountry(args: {
+  intentId: string;
+  country: string | null;
+}): Promise<void> {
+  try {
+    const intentId = args.intentId.trim();
+    const country = args.country?.trim() ?? "";
+    if (!intentId || !/^[A-Z]{2}$/.test(country)) return;
+    const existing = await loadIntentById(intentId);
+    if (!existing || existing.request_country) return;
+    const { error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .update({
+        request_country: country,
+        updated_at: nowIso(),
+      })
+      .eq("id", intentId);
+    if (error) logIntentError("save_request_country", error.code);
+  } catch {
+    console.warn("[stripe-first] checkout country save failed");
+  }
+}
+
 export async function clearCheckoutMatchFields(intentId: string): Promise<void> {
   try {
     const id = intentId.trim();
@@ -297,6 +325,7 @@ export async function clearCheckoutMatchFieldsForClerkUser(
       client_user_agent: null,
       google_click_id_type: null,
       google_click_id: null,
+      request_country: null,
       updated_at: nowIso(),
     })
     .eq("clerk_user_id", uid);

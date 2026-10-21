@@ -735,7 +735,9 @@ describe("account deletion Meta CAPI identifier cleanup", () => {
     );
     expect(deletion).toContain("google_click_id: null");
     expect(deletion).toContain("google_click_id_type: null");
+    expect(deletion).toContain("request_country: null");
     expect(metaClear).not.toContain("google_click_id");
+    expect(metaClear).not.toContain("request_country");
     expect(migration).not.toContain(
       "CREATE OR REPLACE FUNCTION public.purge_app_data_for_account_deletion("
     );

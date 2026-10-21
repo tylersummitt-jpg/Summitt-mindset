@@ -9,6 +9,7 @@ vi.mock("@/lib/supabase-server", () => ({
 const insertMock = vi.fn();
 const saveMatchMock = vi.fn();
 const saveGoogleMock = vi.fn();
+const saveCountryMock = vi.fn();
 const attachMock = vi.fn();
 const alignMock = vi.fn();
 const liveCanaryMock = vi.fn();
@@ -31,6 +32,7 @@ vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({
   markSessionStartedForProvisionedUser: vi.fn(),
   markSignInRequired: vi.fn(),
   saveCheckoutMatchFields: (...args: unknown[]) => saveMatchMock(...args),
+  saveCheckoutRequestCountry: (...args: unknown[]) => saveCountryMock(...args),
   saveGoogleClickId: (...args: unknown[]) => saveGoogleMock(...args),
 }));
 
@@ -82,6 +84,8 @@ describe("Stripe-first checkout match capture", () => {
     insertMock.mockResolvedValue({ id: "intent_1" });
     saveMatchMock.mockResolvedValue(undefined);
     saveGoogleMock.mockResolvedValue(undefined);
+    saveCountryMock.mockResolvedValue(undefined);
+    delete process.env.VERCEL;
     attachMock.mockResolvedValue(true);
     alignMock.mockResolvedValue(undefined);
     liveCanaryMock.mockResolvedValue(false);
@@ -442,5 +446,106 @@ describe("Stripe-first checkout match capture", () => {
     });
     expect(createSessionMock).not.toHaveBeenCalled();
     expect(JSON.stringify(retrieveSessionMock.mock.results)).not.toContain("GbraidTestClick123");
+  });
+
+  it("stores a Vercel US country and leaves the Stripe session unchanged", async () => {
+    process.env.VERCEL = "1";
+    const result = await beginHostedCheckout({
+      request: request({
+        "x-vercel-ip-country": "US",
+        "x-country": "DE",
+        "cf-ipcountry": "GB",
+      }),
+      plan: "monthly",
+      visitorCookie: null,
+      experimentId: null,
+      experimentVariant: null,
+      publicCheckout: true,
+    });
+
+    expect(result.url).toContain("checkout.stripe.com");
+    expect(saveCountryMock).toHaveBeenCalledTimes(1);
+    expect(saveCountryMock).toHaveBeenCalledWith({
+      intentId: "intent_1",
+      country: "US",
+    });
+    const created = JSON.stringify(createSessionMock.mock.calls[0]?.[0]);
+    expect(created).not.toContain("request_country");
+    expect(created).not.toContain("billing_address");
+    expect(created).toContain(MONTHLY);
+  });
+
+  it("stores a non-US Vercel country as that country", async () => {
+    process.env.VERCEL = "1";
+    await beginHostedCheckout({
+      request: request({ "x-vercel-ip-country": "DE" }),
+      plan: "monthly",
+      visitorCookie: null,
+      experimentId: null,
+      experimentVariant: null,
+      publicCheckout: true,
+    });
+    expect(saveCountryMock).toHaveBeenCalledWith({
+      intentId: "intent_1",
+      country: "DE",
+    });
+  });
+
+  it("does not treat a missing, invalid, or client-spoofed country as US", async () => {
+    const base = {
+      plan: "monthly" as const,
+      visitorCookie: null,
+      experimentId: null,
+      experimentVariant: null,
+      publicCheckout: true,
+    };
+
+    const missing = await beginHostedCheckout({
+      request: request({}),
+      ...base,
+    });
+    expect(missing.url).toContain("checkout.stripe.com");
+    expect(saveCountryMock).not.toHaveBeenCalled();
+
+    process.env.VERCEL = "1";
+    for (const header of ["", "us", "USA", "U", "X1"]) {
+      saveCountryMock.mockClear();
+      const result = await beginHostedCheckout({
+        request: request({ "x-vercel-ip-country": header }),
+        ...base,
+      });
+      expect(result.url).toContain("checkout.stripe.com");
+      expect(saveCountryMock).not.toHaveBeenCalled();
+    }
+
+    delete process.env.VERCEL;
+    saveCountryMock.mockClear();
+    const spoofed = await beginHostedCheckout({
+      request: request({
+        "x-vercel-ip-country": "US",
+        "x-country": "US",
+        "cf-ipcountry": "US",
+      }),
+      ...base,
+    });
+    expect(spoofed.url).toContain("checkout.stripe.com");
+    expect(saveCountryMock).not.toHaveBeenCalled();
+  });
+
+  it("still returns a checkout URL when country save fails", async () => {
+    process.env.VERCEL = "1";
+    saveCountryMock.mockRejectedValue(new Error("country write failed"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const result = await beginHostedCheckout({
+      request: request({ "x-vercel-ip-country": "US" }),
+      plan: "monthly",
+      visitorCookie: null,
+      experimentId: null,
+      experimentVariant: null,
+      publicCheckout: true,
+    });
+    expect(result.url).toContain("checkout.stripe.com");
+    expect(createSessionMock).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
   });
 });

@@ -32,6 +32,7 @@ import {
   clearStaleCheckoutMatchFields,
   loadIntentBySubscriptionId,
   saveCheckoutMatchFields,
+  saveCheckoutRequestCountry,
   saveGoogleClickId,
   shouldClearCheckoutMatch,
   shouldClearGoogleClickId,
@@ -258,6 +259,7 @@ describe("checkout match writes", () => {
     );
     expect(updateEq.mock.calls[0]?.[0]).not.toHaveProperty("google_click_id");
     expect(updateEq.mock.calls[0]?.[0]).not.toHaveProperty("google_click_id_type");
+    expect(updateEq.mock.calls[0]?.[0]).not.toHaveProperty("request_country");
   });
 
   it("keeps match fields while a conversion is still inside seven days", async () => {
@@ -460,10 +462,12 @@ describe("Google click id retention", () => {
       google_click_id_type: null,
     });
     expect(googlePatch).not.toHaveProperty("meta_fbc");
+    expect(googlePatch).not.toHaveProperty("request_country");
     const metaPatch = updateEq.mock.calls
       .map((call) => call[0] as Record<string, unknown>)
       .find((patch) => Object.prototype.hasOwnProperty.call(patch, "meta_fbc"));
     expect(metaPatch).not.toHaveProperty("google_click_id");
+    expect(metaPatch).not.toHaveProperty("request_country");
     expect(JSON.stringify(warn.mock.calls)).not.toContain(GCLID);
     expect(JSON.stringify(error.mock.calls)).not.toContain(GCLID);
     warn.mockRestore();
@@ -476,6 +480,7 @@ describe("Google click id retention", () => {
       stripe_subscription_id: "sub_1",
       google_click_id_type: "gclid",
       google_click_id: GCLID,
+      request_country: "US",
       stripe_trial_end_at: new Date(NOW).toISOString(),
     };
     const chain = {
@@ -495,6 +500,7 @@ describe("Google click id retention", () => {
     const loaded = await loadIntentBySubscriptionId("sub_1");
     expect(googleClickIdFromIntent(loaded)).toEqual({ type: "gclid", value: GCLID });
     expect(loaded?.stripe_subscription_id).toBe("sub_1");
+    expect(loaded?.request_country).toBe("US");
   });
 
   it("fills an empty click id and does not replace or log it", async () => {
@@ -546,6 +552,41 @@ describe("Google click id retention", () => {
     error.mockRestore();
   });
 
+  it("fills an empty country and does not replace it", async () => {
+    const query = {
+      select: vi.fn(),
+      eq: vi.fn(),
+      maybeSingle: vi.fn(async () => ({
+        data: { id: "intent_1", request_country: null },
+        error: null,
+      })),
+      update: vi.fn(),
+      then: (onFulfilled: (value: unknown) => unknown) =>
+        Promise.resolve({ error: null }).then(onFulfilled),
+    };
+    query.select.mockReturnValue(query);
+    query.eq.mockReturnValue(query);
+    query.update.mockReturnValue(query);
+    fromMock.mockReturnValue(query);
+
+    await saveCheckoutRequestCountry({ intentId: "intent_1", country: "US" });
+    expect(query.update).toHaveBeenCalledWith(
+      expect.objectContaining({ request_country: "US" })
+    );
+
+    query.update.mockClear();
+    query.maybeSingle.mockResolvedValue({
+      data: { id: "intent_1", request_country: "DE" },
+      error: null,
+    });
+    await saveCheckoutRequestCountry({ intentId: "intent_1", country: "US" });
+    expect(query.update).not.toHaveBeenCalled();
+
+    query.update.mockClear();
+    await saveCheckoutRequestCountry({ intentId: "intent_1", country: "usa" });
+    expect(query.update).not.toHaveBeenCalled();
+  });
+
   it("account deletion nulls the click id with the Meta match fields", async () => {
     const eq = vi.fn(async () => ({ error: null }));
     const update = vi.fn(() => ({ eq }));
@@ -561,6 +602,7 @@ describe("Google click id retention", () => {
         client_user_agent: null,
         google_click_id_type: null,
         google_click_id: null,
+        request_country: null,
       })
     );
     expect(eq).toHaveBeenCalledWith("clerk_user_id", "user_abc");

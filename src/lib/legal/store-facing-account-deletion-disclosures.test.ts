@@ -9,6 +9,7 @@ import {
 } from "@/lib/legal/account-deletion-public-availability";
 import {
   PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE,
+  PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE,
   TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE,
 } from "@/lib/legal/public-legal-effective-dates";
 
@@ -69,31 +70,44 @@ describe("store-facing account deletion disclosures", () => {
     );
   });
 
-  it("keeps Privacy/Data Deletion dates separate from Terms", () => {
+  it("keeps Privacy, Data Deletion, and Terms dates independent", () => {
     const privacy = readSrc("src/app/privacy/page.tsx");
     const dataDeletion = readSrc("src/app/data-deletion/page.tsx");
     const terms = readSrc("src/app/terms/page.tsx");
     const dates = readSrc("src/lib/legal/public-legal-effective-dates.ts");
 
+    expect(PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE).toBe("October 21, 2026");
     expect(PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE).toBe(
       "September 8, 2026"
     );
     expect(TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE).toBe("July 21, 2026");
+    expect(PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE).not.toBe(
+      PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE
+    );
+    expect(PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE).not.toBe(
+      TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE
+    );
     expect(PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE).not.toBe(
       TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE
     );
 
-    expect(privacy).toContain("PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE");
+    expect(privacy).toContain("PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE");
+    expect(privacy).not.toContain("PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE");
     expect(privacy).not.toContain("TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE");
     expect(dataDeletion).toContain(
       "PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE"
     );
+    expect(dataDeletion).not.toContain("PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE");
     expect(dataDeletion).not.toContain("TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE");
     expect(terms).toContain("TERMS_OF_SERVICE_PUBLIC_EFFECTIVE_DATE");
+    expect(terms).not.toContain("PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE");
     expect(terms).not.toContain(
       "PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE"
     );
 
+    expect(dates).toMatch(
+      /PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE\s*=\s*"October 21, 2026"/
+    );
     expect(dates).toMatch(
       /PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE\s*=\s*"September 8, 2026"/
     );
@@ -179,7 +193,7 @@ describe("store-facing account deletion disclosures", () => {
   it("privacy policy covers deletion, retention, providers, Meta Pixel, and contact", () => {
     const privacy = readSrc("src/app/privacy/page.tsx");
 
-    expect(privacy).toContain("PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE");
+    expect(privacy).toContain("PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE");
     expect(privacy).toContain("Account deletion");
     expect(privacy).toContain("Danger zone");
     expect(privacy).toContain("Membership required");

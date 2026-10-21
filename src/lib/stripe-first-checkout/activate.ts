@@ -13,6 +13,7 @@ import {
   readAcquisitionCookieFromRequest,
 } from "@/lib/marketing-attribution-pure";
 import { parsePersonalVideoId } from "@/lib/personal-videos/analytics";
+import { trustedRequestCountryFromRequest } from "@/lib/stripe-first-checkout/request-country";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
 import {
@@ -67,6 +68,7 @@ import {
   loadIntentBySubscriptionId,
   markClerkProvisioned,
   saveCheckoutMatchFields,
+  saveCheckoutRequestCountry,
   saveGoogleClickId,
   markSessionStartedForExistingUser,
   markSessionStartedForProvisionedUser,
@@ -160,6 +162,19 @@ async function captureGoogleClickId(intentId: string, request: Request): Promise
     });
   } catch {
     console.warn("[stripe-first] google click id capture failed");
+  }
+}
+
+async function captureCheckoutRequestCountry(
+  intentId: string,
+  request: Request
+): Promise<void> {
+  try {
+    const country = trustedRequestCountryFromRequest(request);
+    if (!country) return;
+    await saveCheckoutRequestCountry({ intentId, country });
+  } catch {
+    console.warn("[stripe-first] checkout country capture failed");
   }
 }
 
@@ -270,6 +285,7 @@ export async function beginHostedCheckout(args: {
     await captureCheckoutMatch(intent.id, args.request);
     await captureGoogleClickId(intent.id, args.request);
   }
+  await captureCheckoutRequestCountry(intent.id, args.request);
 
   const origin = resolveStripeCheckoutReturnOrigin(args.request);
   const stripe = stripeClient();
@@ -474,6 +490,7 @@ export async function resumeOrReplacePublicCheckout(args: {
     });
     await captureCheckoutMatch(intent.id, args.request);
     await captureGoogleClickId(intent.id, args.request);
+    await captureCheckoutRequestCountry(intent.id, args.request);
     return {
       action: "reuse",
       url: session.url,
