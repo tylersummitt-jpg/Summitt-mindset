@@ -138,8 +138,10 @@ export default function PrivacyPage() {
             When a paid Google ad is the first meaningful source of a website
             visit, we may keep one Google click identifier from the page address
             (gclid, wbraid, or gbraid) in a first-party acquisition cookie and,
-            if checkout starts, on the checkout record. We do not currently send
-            conversion events to Google. See sections 5 and 6. Meta Pixel is not
+            if checkout starts, on the checkout record. For an eligible United
+            States checkout, we may send Google one conversion for a verified
+            free-trial start and one for the first successful subscription
+            payment. See sections 5 and 6. Meta Pixel is not
             loaded in the Summitt Mindset iOS app or the Summitt Mindset Android
             app.
           </li>
@@ -178,9 +180,9 @@ export default function PrivacyPage() {
           </li>
           <li>
             On the website, keep one Google click identifier when a paid Google
-            ad is the first meaningful source, so that ad can be credited if we
-            later measure a verified free-trial start or a first successful
-            subscription payment. We do not currently send those events to Google
+            ad is the first meaningful source, so that ad can be credited when
+            we measure a verified free-trial start or a first successful
+            subscription payment from an eligible United States checkout.
           </li>
         </ul>
       </section>
@@ -240,8 +242,8 @@ export default function PrivacyPage() {
           </li>
           <li>
             Google LLC — advertising measurement for a website visit whose first
-            meaningful source is a paid Google ad. We do not currently send
-            conversion events to Google. We do not send Google a name, email
+            meaningful source is a paid Google ad, limited to the United States
+            conversion events in section 5. We do not send Google a name, email
             address, phone number, or coaching content. See section 5.
           </li>
           <li>
@@ -331,17 +333,17 @@ export default function PrivacyPage() {
           copy the same identifier onto the checkout record.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
-          We do not currently send conversion events to Google. If a conversion
-          is sent later, it would be limited to a verified free-trial start or
-          a first successful subscription payment, and a subscription would not
-          produce more than one of each. The trial event would include the click
-          identifier, the event time, and a transaction identifier for that
-          subscription. The payment event would include those same fields plus
-          the amount and currency of that first payment. Such an event would not
-          include name, email address, phone number, IP address, SMS messages,
-          journals, goals, Victory Room content, Ask Pat conversations, or
-          payment card numbers. We would not enable enhanced conversions or
-          customer matching. Google describes how it uses information from sites
+          When the checkout country is the United States, we may send Google a
+          conversion for a verified free-trial start or a first successful
+          subscription payment. A subscription does not produce more than one of
+          each. The trial event includes the click identifier, the event time,
+          and a transaction identifier for that subscription. The payment event
+          includes those same fields plus the actual US dollar amount of that
+          first payment. An event does not include a name, email address, phone
+          number, IP address, SMS messages, journals, goals, Victory Room
+          content, Ask Pat conversations, or payment card numbers. We do not
+          enable enhanced conversions or customer matching. Google describes how
+          it uses information from sites
           and apps that use its services at{" "}
           <a
             href="https://business.safety.google/privacy/"
@@ -405,8 +407,8 @@ export default function PrivacyPage() {
           abuse prevention. The IP-derived country observed when a website
           checkout begins may also be saved on that checkout record and used
           only to decide whether the checkout is eligible for Google Ads
-          conversion measurement. We do not currently send conversion events to
-          Google.
+          conversion measurement. We do not send that country, or the IP address
+          it came from, to Google.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           Some application console logs may include internal account
@@ -535,8 +537,7 @@ export default function PrivacyPage() {
           The same browser controls limit the first-party cookie that can hold a
           Google click identifier. Clearing that cookie does not remove an
           identifier already copied onto a checkout record. Account deletion
-          does. There is no separate on-site switch for Google measurement. We do
-          not currently send conversion events to Google. Email{" "}
+          does. There is no separate on-site switch for Google measurement. Email{" "}
           <a
             href={ACCOUNT_DELETION_SUPPORT_EMAIL_HREF}
             className="underline underline-offset-4 break-all"

@@ -51,16 +51,26 @@ describe("privacy policy Google advertising measurement disclosure", () => {
     expect(layout).toContain("${inter.className}");
   });
 
-  it("discloses Google click-id measurement without claiming an upload is live", () => {
+  it("discloses limited United States Google conversion measurement", () => {
     expect(privacy).toContain("Google LLC");
     expect(privacy).toContain("gclid");
     expect(privacy).toContain("wbraid");
     expect(privacy).toContain("gbraid");
     expect(privacy).toMatch(/gclid when present, otherwise wbraid,\s+otherwise gbraid/);
-    expect(privacy).toMatch(/do not currently send\s+conversion events to Google/);
-    expect(privacy).toMatch(/If a conversion\s+is sent later, it would be limited to/);
-    expect(privacy).toMatch(/amount and currency of that first payment/);
-    expect(privacy).toMatch(/would not enable enhanced conversions or\s+customer matching/);
+    expect(privacy).toMatch(
+      /For an eligible United\s+States checkout, we may send Google one conversion for a verified\s+free-trial start and one for the first successful subscription\s+payment/
+    );
+    expect(privacy).toMatch(
+      /When the checkout country is the United States, we may send Google a\s+conversion for a verified free-trial start or a first successful\s+subscription payment/
+    );
+    expect(privacy).toMatch(/actual US dollar amount of that\s+first payment/);
+    expect(privacy).toMatch(/do not\s+enable enhanced conversions or\s+customer matching/);
+    expect(privacy).toMatch(
+      /We do not send that country, or the IP address\s+it came from, to Google/
+    );
+    expect(privacy).not.toMatch(/do not currently send/);
+    expect(privacy).not.toMatch(/If a conversion\s+is sent later/);
+    expect(privacy).not.toMatch(/Google has (already )?(processed|attributed|received)/i);
     expect(privacy).toMatch(/There is no separate on-site switch for Google measurement\./);
     expect(privacy).not.toMatch(/on-site switch for Google measurement yet/);
     expect(privacy).not.toMatch(/consent choice/);
@@ -70,8 +80,8 @@ describe("privacy policy Google advertising measurement disclosure", () => {
     expect(privacy).not.toMatch(/we (use|enable) Customer Match\b/i);
     expect(privacy).toContain("https://business.safety.google/privacy/");
     expect(privacy).toContain("How Google uses information from sites or apps that use our services");
-    expect(privacy).toMatch(/name, email address, phone number, IP address/);
-    expect(privacy).toMatch(/SMS messages,\s+journals, goals, Victory Room content/);
+    expect(privacy).toMatch(/name, email address, phone\s+number, IP address/);
+    expect(privacy).toMatch(/SMS messages,\s+journals, goals, Victory Room\s+content/);
     expect(privacy).toMatch(/do not load a\s+Google tag, Google Analytics, or Google Tag Manager/);
     expect(privacy).toMatch(
       /remove a Google click identifier stored\s+on checkout records/

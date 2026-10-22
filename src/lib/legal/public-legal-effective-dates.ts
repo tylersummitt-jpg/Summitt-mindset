@@ -6,7 +6,7 @@
  * unchanged. Terms keeps its own date so neither update implies a Terms revision.
  */
 
-export const PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE = "October 21, 2026" as const;
+export const PRIVACY_POLICY_PUBLIC_EFFECTIVE_DATE = "October 22, 2026" as const;
 
 export const PRIVACY_AND_DATA_DELETION_PUBLIC_EFFECTIVE_DATE =
   "September 8, 2026" as const;
