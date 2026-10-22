@@ -29,7 +29,13 @@ import {
 import {
   maybeEmitMetaStartTrialFromCheckout,
   maybeEmitMetaSubscribeFromInvoicePaid,
+  checkFirstPaidInvoiceForSubscription,
 } from "@/lib/meta-capi-stripe-conversions";
+import {
+  noteAcquisitionClosed,
+  noteAcquisitionPaid,
+  noteAcquisitionTrial,
+} from "@/lib/acquisition/store";
 import { loadIntentBySubscriptionId } from "@/lib/stripe-first-checkout/intent-store";
 import { isOwnerCanaryMetadata } from "@/lib/stripe-first-checkout/member-notify";
 import {
@@ -602,6 +608,20 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      try {
+        if (subscription.status === "trialing") {
+          await noteAcquisitionTrial({
+            email: session.customer_details?.email || session.customer_email || null,
+            clerkUserId: userId,
+            customerId,
+            subscriptionId,
+            eventId: event.id,
+          });
+        }
+      } catch {
+        console.warn("[webhook] acquisition trial link isolated failure");
+      }
+
       console.log("✅ checkout.session.completed → metadata updated", userId);
     }
 
@@ -776,6 +796,26 @@ export async function POST(req: NextRequest) {
       }
 
       console.log("✅ customer.subscription.updated → metadata updated", userId);
+      try {
+        const linkedCustomer = typeof subscription.customer === "string" ? subscription.customer : null;
+        if (subscription.status === "trialing") {
+          await noteAcquisitionTrial({
+            email: null,
+            clerkUserId: userId,
+            customerId: linkedCustomer,
+            subscriptionId: subscription.id,
+            eventId: event.id,
+          });
+        } else if (
+          subscription.status === "canceled" ||
+          subscription.status === "incomplete_expired" ||
+          subscription.status === "unpaid"
+        ) {
+          await noteAcquisitionClosed({ subscriptionId: subscription.id, eventId: event.id });
+        }
+      } catch {
+        console.warn("[webhook] acquisition subscription link isolated failure");
+      }
     }
 
     // ======================================================
@@ -840,6 +880,11 @@ export async function POST(req: NextRequest) {
         return new NextResponse("Webhook error", { status: 500 });
       }
       membershipCommitted = true;
+      try {
+        await noteAcquisitionClosed({ subscriptionId: subscription.id, eventId: event.id });
+      } catch {
+        console.warn("[webhook] acquisition close link isolated failure");
+      }
     }
 
     // ======================================================
@@ -955,6 +1000,24 @@ export async function POST(req: NextRequest) {
         } catch {
           console.warn("[webhook] Meta Subscribe before Clerk linkage isolated failure");
         }
+        try {
+          if (invoice.id && !isOwnerCanaryMetadata(subscription.metadata)) {
+            const firstPaid = await checkFirstPaidInvoiceForSubscription({
+              stripe,
+              subscriptionId: subscription.id,
+              currentInvoiceId: invoice.id,
+            });
+            if (firstPaid.status === "first_paid") {
+              await noteAcquisitionPaid({
+                subscriptionId: subscription.id,
+                eventId: event.id,
+                clerkUserId: null,
+              });
+            }
+          }
+        } catch {
+          console.warn("[webhook] acquisition payment link isolated failure");
+        }
         return acknowledgeProcessedStripeEvent(event.id);
       }
 
@@ -1035,6 +1098,25 @@ export async function POST(req: NextRequest) {
         });
       } catch {
         console.warn("[webhook] Google Ads payment isolated failure");
+      }
+
+      try {
+        if (invoice.id) {
+          const firstPaid = await checkFirstPaidInvoiceForSubscription({
+            stripe,
+            subscriptionId: subscription.id,
+            currentInvoiceId: invoice.id,
+          });
+          if (firstPaid.status === "first_paid") {
+            await noteAcquisitionPaid({
+              subscriptionId: subscription.id,
+              eventId: event.id,
+              clerkUserId: userId,
+            });
+          }
+        }
+      } catch {
+        console.warn("[webhook] acquisition payment link isolated failure");
       }
     }
 

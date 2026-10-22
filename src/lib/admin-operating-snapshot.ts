@@ -52,6 +52,11 @@ import {
   type PersonalVideoDistribution,
 } from "@/lib/personal-videos/analytics";
 import {
+  emptyAcquisitionDashboard,
+  formatAcquisitionReport,
+  type AcquisitionDashboard,
+} from "@/lib/acquisition/dashboard";
+import {
   buildNonmemberRecovery,
   formatNonmemberRecovery,
   type NonmemberRecovery,
@@ -163,6 +168,7 @@ export type OperatingSnapshot = {
   retentionIntelligence: RetentionIntelligence;
   distributionIntelligence: DistributionIntelligence;
   personalVideos: PersonalVideoDistribution;
+  acquisition: AcquisitionDashboard;
   nonmemberRecovery: NonmemberRecovery;
   recoveryAutomation: RecoveryAttention;
   limitations: string[];
@@ -636,6 +642,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     `Accounts created: ${snapshot.distribution.accountsCreated}`,
     `Trials per day in this range: ${snapshot.distribution.trialsPerDay}`,
     "",
+    ...formatAcquisitionReport(snapshot.acquisition),
+    "",
     "Known acquisition sources",
     ...sourceLines,
     "",
@@ -782,6 +790,7 @@ export function buildOperatingSnapshot(args: {
   retentionIntelligence?: RetentionIntelligence;
   recoveryAutomation?: RecoveryAttention;
   personalVideos?: PersonalVideoDistribution;
+  acquisition?: AcquisitionDashboard;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
@@ -869,6 +878,11 @@ export function buildOperatingSnapshot(args: {
       args.personalVideos ??
       unreadablePersonalVideoDistribution(
         "Personal video results could not be read. Do not treat that as zero."
+      ),
+    acquisition:
+      args.acquisition ??
+      emptyAcquisitionDashboard(
+        "Acquisition counts were not loaded. Do not treat that as zero."
       ),
     nonmemberRecovery,
     recoveryAutomation,

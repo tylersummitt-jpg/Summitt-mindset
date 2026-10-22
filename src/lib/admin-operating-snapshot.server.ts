@@ -29,6 +29,8 @@ import { loadRecoveryAttention } from "@/lib/recovery.server";
 import { emptyRecoveryAttention, type RecoveryAttention } from "@/lib/recovery-report";
 import { loadPersonalVideoDistribution } from "@/lib/personal-videos/analytics.server";
 import { unreadablePersonalVideoDistribution } from "@/lib/personal-videos/analytics";
+import { emptyAcquisitionDashboard } from "@/lib/acquisition/dashboard";
+import { loadAcquisitionDashboard } from "@/lib/acquisition/store";
 
 export async function loadOperatingSnapshot(args: {
   searchParams?: Record<string, string | string[] | undefined>;
@@ -177,6 +179,17 @@ export async function loadOperatingSnapshot(args: {
     });
   }
 
+  let acquisition = emptyAcquisitionDashboard(
+    "Acquisition counts could not be read. Do not treat that as zero."
+  );
+  try {
+    acquisition = await loadAcquisitionDashboard();
+  } catch (err) {
+    console.warn("[operating] acquisition dashboard failed", {
+      reason: err instanceof Error ? err.message : "acquisition_dashboard_failed",
+    });
+  }
+
   return buildOperatingSnapshot({
     growth,
     challengeAttention,
@@ -190,5 +203,6 @@ export async function loadOperatingSnapshot(args: {
     retentionIntelligence,
     recoveryAutomation,
     personalVideos,
+    acquisition,
   });
 }

@@ -14,6 +14,12 @@ const maybeGooglePaymentMock = vi.fn(async () => undefined);
 vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
   maybeEmitMetaStartTrialFromCheckout: maybeStartTrialMock,
   maybeEmitMetaSubscribeFromInvoicePaid: maybeSubscribeMock,
+  checkFirstPaidInvoiceForSubscription: vi.fn(async () => ({ status: "not_first_paid" as const })),
+}));
+vi.mock("@/lib/acquisition/store", () => ({
+  noteAcquisitionTrial: vi.fn(async () => undefined),
+  noteAcquisitionPaid: vi.fn(async () => undefined),
+  noteAcquisitionClosed: vi.fn(async () => undefined),
 }));
 vi.mock("@/lib/google-ads/stripe-conversions", () => ({
   maybeEmitGoogleAdsTrial: (...args: unknown[]) => maybeGoogleTrialMock(...args),

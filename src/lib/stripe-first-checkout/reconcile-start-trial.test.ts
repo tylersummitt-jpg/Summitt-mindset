@@ -43,6 +43,10 @@ vi.mock("resend", () => ({
   },
 }));
 
+vi.mock("@/lib/acquisition/store", () => ({
+  noteAcquisitionTrial: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/google-ads/stripe-conversions", () => ({
   maybeEmitGoogleAdsTrial: (...args: unknown[]) => googleTrialMock(...args),
 }));

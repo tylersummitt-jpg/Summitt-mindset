@@ -3,6 +3,7 @@ import Link from "next/link";
 import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-button";
 import { DistributionIntelligencePanel } from "@/app/admin/distribution-intelligence-panel";
 import type { PersonalVideoDistribution } from "@/lib/personal-videos/analytics";
+import type { AcquisitionDashboard } from "@/lib/acquisition/dashboard";
 import { NonmemberRecoveryPanel } from "@/app/admin/nonmember-recovery-panel";
 import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
@@ -361,6 +362,68 @@ function AccountsWithoutMembership({ snapshot }: { snapshot: OperatingSnapshot }
   );
 }
 
+function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
+  const count = (value: number | null | undefined) =>
+    dashboard.readable && value != null ? String(value) : "Not available";
+  const c = dashboard.counts;
+  const needs = dashboard.readable ? String(dashboard.needsTyler?.length ?? 0) : "Not available";
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-gray-900">Cold email</h2>
+      <p className="text-sm text-gray-700">{dashboard.note}</p>
+      <p className="text-sm text-gray-700">Automation: {dashboard.automation}.</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Metric label="Needs Tyler" value={needs} note="Human judgment only. Zero means nothing is waiting." />
+        <Metric label="Cold prospects" value={count(c?.cold_prospects)} />
+        <Metric label="Cold active" value={count(c?.cold_active)} />
+        <Metric label="Cold no response" value={count(c?.cold_no_response)} />
+        <Metric label="Replies needing review" value={count(c?.reply_needs_review)} />
+        <Metric label="Interested / asset requested" value={count(c?.asset_requested)} />
+        <Metric label="Assets sent" value={count(c?.asset_sent)} />
+        <Metric label="Warm videos sent" value={count(c?.warm_video_sent)} />
+        <Metric label="Video visited" value={count(c?.video_visited)} />
+        <Metric label="Video played" value={count(c?.video_played)} />
+        <Metric label="CTA clicked" value={count(c?.cta_clicked)} note="A click is not a trial." />
+        <Metric label="Trials started" value={count(c?.trial_started)} />
+        <Metric label="Trial expired" value={count(c?.trial_expired)} />
+        <Metric label="Paid members" value={count(c?.paid_member)} />
+        <Metric label="Not interested" value={count(c?.not_interested)} />
+        <Metric label="Unsubscribed" value={count(c?.unsubscribed)} />
+        <Metric label="Bounced/suppressed" value={count(c?.suppressed)} />
+      </div>
+      {dashboard.needsTyler && dashboard.needsTyler.length > 0 ? (
+        <ul className="space-y-2">
+          {dashboard.needsTyler.map((item) => (
+            <li key={`${item.id}-${item.reason}`} className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800">
+              <span className="font-medium">{item.name}</span>
+              {". "}
+              {item.reason}.
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <h3 className="text-base font-semibold text-gray-900">Sender signals</h3>
+      <p className="text-sm text-gray-700">
+        Raw account signals only. No healthy, watch, or paused score is calculated.
+      </p>
+      {dashboard.senders && dashboard.senders.length > 0 ? (
+        <ul className="space-y-2">
+          {dashboard.senders.map((row) => (
+            <li key={`${row.senderEmail}-${row.observedAt}`} className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800">
+              <span className="font-medium">{row.senderEmail}</span>
+              {". Status "}
+              {row.connectionStatus}
+              {row.detail ? `. ${row.detail}` : ""}. {row.observedAt.slice(0, 16).replace("T", " ")}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="text-sm text-gray-600">No sender signals yet. This is not a healthy mailbox.</p>
+      )}
+    </section>
+  );
+}
+
 function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
   const d = snapshot.distribution;
   return (
@@ -447,6 +510,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
       </section>
 
       <PersonalVideosSection report={snapshot.personalVideos} />
+
+      <ColdEmailSection dashboard={snapshot.acquisition} />
 
       <DistributionIntelligencePanel intel={snapshot.distributionIntelligence} />
 

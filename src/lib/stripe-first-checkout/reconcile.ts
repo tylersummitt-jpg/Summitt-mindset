@@ -2,6 +2,7 @@ import "server-only";
 
 import Stripe from "stripe";
 
+import { noteAcquisitionTrial } from "@/lib/acquisition/store";
 import { META_CAPI_STRIPE_FIRST_SOURCE_URL } from "@/lib/meta-capi";
 import { maybeEmitGoogleAdsTrial } from "@/lib/google-ads/stripe-conversions";
 import {
@@ -189,6 +190,17 @@ export async function reconcileStripeFirstFromCheckoutSession(
         });
       } catch {
         console.warn("[stripe-first] Google Ads trial isolated failure");
+      }
+      try {
+        await noteAcquisitionTrial({
+          email: proof.email,
+          clerkUserId: typeof intent.clerk_user_id === "string" ? intent.clerk_user_id : null,
+          customerId: proof.customerId,
+          subscriptionId: proof.subscriptionId,
+          eventId: session.id,
+        });
+      } catch {
+        console.warn("[stripe-first] acquisition trial link isolated failure");
       }
     }
     const notified = await notifyConfirmedStripeFirstTrial({

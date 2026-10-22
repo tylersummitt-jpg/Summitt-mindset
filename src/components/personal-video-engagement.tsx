@@ -11,7 +11,11 @@ type VimeoPlayer = {
   destroy(): Promise<void>;
 };
 
-function postPersonalVideoEvent(eventType: PersonalVideoEventType, personalVideoId: string) {
+function postPersonalVideoEvent(
+  eventType: PersonalVideoEventType,
+  personalVideoId: string,
+  recipientToken?: string | null
+) {
   try {
     void fetch("/api/marketing/collect", {
       method: "POST",
@@ -21,6 +25,7 @@ function postPersonalVideoEvent(eventType: PersonalVideoEventType, personalVideo
       body: JSON.stringify({
         event_type: eventType,
         personal_video_id: personalVideoId,
+        ...(recipientToken ? { recipient_token: recipientToken } : {}),
       }),
     });
   } catch {
@@ -31,10 +36,12 @@ function postPersonalVideoEvent(eventType: PersonalVideoEventType, personalVideo
 export function PersonalVideoPlayer({
   playerSrc,
   personalVideoId,
+  recipientToken = null,
   track,
 }: {
   playerSrc: string;
   personalVideoId: string;
+  recipientToken?: string | null;
   track: boolean;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -44,7 +51,7 @@ export function PersonalVideoPlayer({
     let cancelled = false;
     let player: VimeoPlayer | null = null;
     const played = { current: false };
-    postPersonalVideoEvent("personal_video_visited", personalVideoId);
+    postPersonalVideoEvent("personal_video_visited", personalVideoId, recipientToken);
     void import("@vimeo/player")
       .then((mod) => {
         if (cancelled || !frameRef.current) return;
@@ -57,7 +64,7 @@ export function PersonalVideoPlayer({
         instance.on("play", () => {
           if (played.current) return;
           played.current = true;
-          postPersonalVideoEvent("personal_video_played", personalVideoId);
+          postPersonalVideoEvent("personal_video_played", personalVideoId, recipientToken);
         });
       })
       .catch(() => {});
@@ -73,7 +80,7 @@ export function PersonalVideoPlayer({
       }
       void current.destroy().catch(() => {});
     };
-  }, [personalVideoId, track]);
+  }, [personalVideoId, recipientToken, track]);
 
   return (
     <div className="relative mt-8 aspect-video overflow-hidden rounded-2xl bg-black">
@@ -93,12 +100,14 @@ export function PersonalVideoTrialLink({
   href,
   className,
   personalVideoId,
+  recipientToken = null,
   track,
   children,
 }: {
   href: string;
   className: string;
   personalVideoId: string;
+  recipientToken?: string | null;
   track: boolean;
   children: string;
 }) {
@@ -108,7 +117,7 @@ export function PersonalVideoTrialLink({
       className={className}
       onClick={() => {
         if (!track) return;
-        postPersonalVideoEvent("personal_video_cta_clicked", personalVideoId);
+        postPersonalVideoEvent("personal_video_cta_clicked", personalVideoId, recipientToken);
       }}
     >
       {children}

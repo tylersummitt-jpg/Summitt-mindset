@@ -16,6 +16,10 @@ const updateCustomerMock = vi.fn();
 const updateSubMock = vi.fn();
 const retrieveSubMock = vi.fn();
 
+vi.mock("@/lib/acquisition/store", () => ({
+  noteAcquisitionClerk: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/stripe-first-checkout/member-notify", () => ({
   isOwnerCanaryMetadata: (metadata: { summittCanary?: string } | null | undefined) =>
     metadata?.summittCanary === "owner",

@@ -36,6 +36,11 @@ vi.mock("@/lib/google-ads/stripe-conversions", () => ({
   maybeEmitGoogleAdsTrial: vi.fn(async () => undefined),
 }));
 
+vi.mock("@/lib/acquisition/store", () => ({
+  noteAcquisitionTrial: vi.fn(async () => undefined),
+  noteAcquisitionClerk: vi.fn(async () => undefined),
+}));
+
 vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
   maybeEmitMetaStartTrialFromCheckout: vi.fn(async () => undefined),
   metaStartTrialEventUnix: (

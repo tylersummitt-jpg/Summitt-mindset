@@ -26,7 +26,9 @@ import { parseContentProduction } from "@/lib/content-production";
 import { isNativeSummittMindsetAppRequestFromRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { isTylerAdminSession } from "@/lib/auth/require-tyler-admin";
 import { isPersonalVideoEventType, parsePersonalVideoId } from "@/lib/personal-videos/analytics";
+import { isPersonalVideoToken } from "@/lib/personal-videos/personal-video";
 import { insertPersonalVideoEvent } from "@/lib/personal-videos/analytics.server";
+import { recordAcquisitionVideoEvent } from "@/lib/acquisition/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -68,6 +70,12 @@ export async function POST(req: NextRequest) {
         personalVideoId,
         attribution: cookies.attribution,
       });
+      if (typeof rec.recipient_token === "string" && isPersonalVideoToken(rec.recipient_token)) {
+        await recordAcquisitionVideoEvent({
+          token: rec.recipient_token,
+          eventType,
+        });
+      }
       return collectFailOpenResponse();
     }
     if (!cookies.visitorId || !cookies.attribution) {

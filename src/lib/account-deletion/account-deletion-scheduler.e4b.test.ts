@@ -729,6 +729,8 @@ describe("APP-041E4d disabled Vercel cron schedule", () => {
     { path: "/api/cron/evening-sms", schedule: "*/5 * * * *" },
     { path: "/api/cron/weekly-sms", schedule: "*/5 * * * *" },
     { path: "/api/cron/challenge", schedule: "0 * * * *" },
+    { path: "/api/cron/recovery", schedule: "15 * * * *" },
+    { path: "/api/cron/acquisition", schedule: "45 * * * *" },
     { path: "/api/cron/sms-inbound-coach", schedule: "* * * * *" },
     { path: "/api/cron/quotes-book-fulfillment", schedule: "0 15 * * *" },
     { path: "/api/cron/account-deletions", schedule: "*/5 * * * *" },

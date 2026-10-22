@@ -14,6 +14,7 @@ import {
 } from "@/lib/marketing-attribution-pure";
 import { parsePersonalVideoId } from "@/lib/personal-videos/analytics";
 import { trustedRequestCountryFromRequest } from "@/lib/stripe-first-checkout/request-country";
+import { noteAcquisitionClerk } from "@/lib/acquisition/store";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
 import {
@@ -680,6 +681,16 @@ async function provisionNewCustomer(
     plan: plan === "monthly" || plan === "annual" ? plan : null,
     markReservedCheckoutEmail: true,
   });
+  try {
+    await noteAcquisitionClerk({
+      email,
+      clerkUserId,
+      customerId: proof.customerId,
+      subscriptionId: proof.subscriptionId,
+    });
+  } catch {
+    console.warn("[stripe-first] acquisition clerk link isolated failure");
+  }
   await linkMarketingVisitorToClerkUser(clerkUserId);
   return issueTicketIfNeeded(intent);
 }

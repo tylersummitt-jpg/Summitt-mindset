@@ -93,7 +93,7 @@ export function buildNonmemberRecovery(census: NonmemberCensusData): NonmemberRe
       "Marketing suppression records are not connected. A missing list is not zero unsubscribes.",
       "Coaching SMS consent and STOP are not promotional email permission.",
       "Challenge email signup and challenge unsubscribe are not a marketing list.",
-      "Instantly, Kit, and ActiveCampaign are not connected.",
+      "Kit and ActiveCampaign are not connected. New Instantly unsubscribe and bounce events are written into this suppression list when the acquisition webhook receives them. A missing row is not proof that an older opt-out does not exist.",
       "This comparison does not change the landing-page experiment. Sending stays off until a separate authorization.",
     ],
     sending: "No recovery email or text is sent from this page.",
