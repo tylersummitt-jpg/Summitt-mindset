@@ -112,9 +112,14 @@ describe("Stripe to Google Ads conversions", () => {
     process.env.GOOGLE_ADS_CUSTOMER_ID = "2101350707";
     process.env.GOOGLE_ADS_TRIAL_CONVERSION_ACTION_ID = "7861619714";
     process.env.GOOGLE_ADS_PAYMENT_CONVERSION_ACTION_ID = "7861626227";
-    process.env.GOOGLE_DATA_MANAGER_OAUTH_CLIENT_ID = "client";
-    process.env.GOOGLE_DATA_MANAGER_OAUTH_CLIENT_SECRET = "secret";
-    process.env.GOOGLE_DATA_MANAGER_OAUTH_REFRESH_TOKEN = "refresh";
+    delete process.env.GOOGLE_DATA_MANAGER_OAUTH_CLIENT_ID;
+    delete process.env.GOOGLE_DATA_MANAGER_OAUTH_CLIENT_SECRET;
+    delete process.env.GOOGLE_DATA_MANAGER_OAUTH_REFRESH_TOKEN;
+    process.env.GOOGLE_CLOUD_PROJECT_NUMBER = "123456789012";
+    process.env.GOOGLE_WORKLOAD_IDENTITY_POOL_ID = "vercel";
+    process.env.GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER_ID = "vercel";
+    process.env.GOOGLE_DATA_MANAGER_SERVICE_ACCOUNT_EMAIL =
+      "summitt-google-ads-conversions@summitt-mindset.iam.gserviceaccount.com";
     process.env.GOOGLE_ADS_INGEST_ENABLED = "true";
     delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
     claimMock.mockResolvedValue(claimedRow());
@@ -255,13 +260,14 @@ describe("Stripe to Google Ads conversions", () => {
       eventCreatedUnix: 1_700_000_000,
     });
     expect(claimMock).toHaveBeenCalledTimes(1);
+    expect(tokenMock).not.toHaveBeenCalled();
     expect(ingestMock).not.toHaveBeenCalled();
     expect(markErrorMock).toHaveBeenCalledWith("row-1", "ingest_disabled");
 
     claimMock.mockClear();
     markErrorMock.mockClear();
     process.env.GOOGLE_ADS_INGEST_ENABLED = "true";
-    delete process.env.GOOGLE_DATA_MANAGER_OAUTH_REFRESH_TOKEN;
+    delete process.env.GOOGLE_DATA_MANAGER_SERVICE_ACCOUNT_EMAIL;
     await maybeEmitGoogleAdsTrial({
       subscription: sub(),
       intent: intent(),

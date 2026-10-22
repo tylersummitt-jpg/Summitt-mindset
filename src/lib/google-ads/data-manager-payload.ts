@@ -10,20 +10,29 @@ import type { GoogleClickId } from "@/lib/marketing-attribution-pure";
 export const DATA_MANAGER_INGEST_URL =
   "https://datamanager.googleapis.com/v1/events:ingest" as const;
 
-export const GOOGLE_OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token" as const;
+export const GOOGLE_STS_TOKEN_URL = "https://sts.googleapis.com/v1/token" as const;
 
+/** Scope on the token that calls Data Manager. Not used for the intermediate exchange. */
 export const GOOGLE_DATA_MANAGER_SCOPE =
   "https://www.googleapis.com/auth/datamanager" as const;
 
+/**
+ * Scope on the short-lived federated token. IAM Credentials requires it to
+ * call generateAccessToken. That token is not sent to Data Manager.
+ */
+export const GOOGLE_STS_IMPERSONATION_SCOPE =
+  "https://www.googleapis.com/auth/cloud-platform" as const;
+
 export type GoogleAdsConfig = {
   customerId: string;
-  /** Set only when the OAuth user is on a manager account. Omitted for a direct account. */
+  /** Set only when the caller is a manager account. Omitted for a direct account. */
   loginCustomerId: string | null;
   trialActionId: string;
   paymentActionId: string;
-  clientId: string;
-  clientSecret: string;
-  refreshToken: string;
+  projectNumber: string;
+  poolId: string;
+  providerId: string;
+  serviceAccountEmail: string;
 };
 
 export type GoogleAdsEventDraft = {
@@ -43,10 +52,29 @@ function digits(raw: string | undefined): string {
   return raw.replace(/[^0-9]/g, "");
 }
 
-function requiredSecret(raw: string | undefined): string | null {
+const WORKLOAD_ID = /^[a-z][a-z0-9-]{3,31}$/;
+const PROJECT_NUMBER = /^\d{6,20}$/;
+const SERVICE_ACCOUNT_EMAIL =
+  /^[a-z0-9-]{3,30}@[a-z0-9-]{3,30}\.iam\.gserviceaccount\.com$/;
+
+function workloadId(raw: string | undefined): string | null {
   if (typeof raw !== "string") return null;
   const value = raw.trim();
-  if (!value || value.length > 4096) return null;
+  if (!WORKLOAD_ID.test(value)) return null;
+  return value;
+}
+
+function projectNumber(raw: string | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim();
+  if (!PROJECT_NUMBER.test(value)) return null;
+  return value;
+}
+
+function serviceAccountEmail(raw: string | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const value = raw.trim().toLowerCase();
+  if (!SERVICE_ACCOUNT_EMAIL.test(value)) return null;
   return value;
 }
 
@@ -63,13 +91,14 @@ export function readGoogleAdsConfig(
   const customerId = digits(env.GOOGLE_ADS_CUSTOMER_ID);
   const trialActionId = digits(env.GOOGLE_ADS_TRIAL_CONVERSION_ACTION_ID);
   const paymentActionId = digits(env.GOOGLE_ADS_PAYMENT_CONVERSION_ACTION_ID);
-  const clientId = requiredSecret(env.GOOGLE_DATA_MANAGER_OAUTH_CLIENT_ID);
-  const clientSecret = requiredSecret(env.GOOGLE_DATA_MANAGER_OAUTH_CLIENT_SECRET);
-  const refreshToken = requiredSecret(env.GOOGLE_DATA_MANAGER_OAUTH_REFRESH_TOKEN);
+  const project = projectNumber(env.GOOGLE_CLOUD_PROJECT_NUMBER);
+  const poolId = workloadId(env.GOOGLE_WORKLOAD_IDENTITY_POOL_ID);
+  const providerId = workloadId(env.GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER_ID);
+  const serviceAccount = serviceAccountEmail(env.GOOGLE_DATA_MANAGER_SERVICE_ACCOUNT_EMAIL);
   if (!CUSTOMER_ID.test(customerId)) return null;
   if (!ACTION_ID.test(trialActionId) || !ACTION_ID.test(paymentActionId)) return null;
   if (trialActionId === paymentActionId) return null;
-  if (!clientId || !clientSecret || !refreshToken) return null;
+  if (!project || !poolId || !providerId || !serviceAccount) return null;
 
   const loginRaw = env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
   let loginCustomerId: string | null = null;
@@ -84,10 +113,21 @@ export function readGoogleAdsConfig(
     loginCustomerId,
     trialActionId,
     paymentActionId,
-    clientId,
-    clientSecret,
-    refreshToken,
+    projectNumber: project,
+    poolId,
+    providerId,
+    serviceAccountEmail: serviceAccount,
   };
+}
+
+/** Audience placed on the Vercel OIDC token. Must match the provider's default audience. */
+export function googleOidcAudience(config: GoogleAdsConfig): string {
+  return `https://iam.googleapis.com/projects/${config.projectNumber}/locations/global/workloadIdentityPools/${config.poolId}/providers/${config.providerId}`;
+}
+
+/** Security Token Service audience. Google's resource name uses the //iam form. */
+export function googleStsAudience(config: GoogleAdsConfig): string {
+  return `//iam.googleapis.com/projects/${config.projectNumber}/locations/global/workloadIdentityPools/${config.poolId}/providers/${config.providerId}`;
 }
 
 export function rfc3339FromUnixSeconds(unix: number): string | null {

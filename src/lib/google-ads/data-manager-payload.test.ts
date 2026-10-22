@@ -4,19 +4,30 @@ import {
   buildDataManagerIngestBody,
   classifyIngestResponse,
   googleAdsIngestEnabled,
+  googleOidcAudience,
+  googleStsAudience,
   readGoogleAdsConfig,
   usdAmountFromStripeCents,
   type GoogleAdsConfig,
 } from "@/lib/google-ads/data-manager-payload";
+
+const FEDERATION = {
+  GOOGLE_CLOUD_PROJECT_NUMBER: "123456789012",
+  GOOGLE_WORKLOAD_IDENTITY_POOL_ID: "vercel",
+  GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER_ID: "vercel",
+  GOOGLE_DATA_MANAGER_SERVICE_ACCOUNT_EMAIL:
+    "summitt-google-ads-conversions@summitt-mindset.iam.gserviceaccount.com",
+};
 
 const config: GoogleAdsConfig = {
   customerId: "2101350707",
   loginCustomerId: null,
   trialActionId: "7861619714",
   paymentActionId: "7861626227",
-  clientId: "client",
-  clientSecret: "secret",
-  refreshToken: "refresh",
+  projectNumber: "123456789012",
+  poolId: "vercel",
+  providerId: "vercel",
+  serviceAccountEmail: FEDERATION.GOOGLE_DATA_MANAGER_SERVICE_ACCOUNT_EMAIL,
 };
 
 describe("Data Manager payload", () => {
@@ -26,11 +37,13 @@ describe("Data Manager payload", () => {
         GOOGLE_ADS_CUSTOMER_ID: "210-135-0707",
         GOOGLE_ADS_TRIAL_CONVERSION_ACTION_ID: "7861619714",
         GOOGLE_ADS_PAYMENT_CONVERSION_ACTION_ID: "7861626227",
-        GOOGLE_DATA_MANAGER_OAUTH_CLIENT_ID: "client",
-        GOOGLE_DATA_MANAGER_OAUTH_CLIENT_SECRET: "secret",
-        GOOGLE_DATA_MANAGER_OAUTH_REFRESH_TOKEN: "refresh",
+        ...FEDERATION,
       })
-    ).toMatchObject({ customerId: "2101350707", loginCustomerId: null });
+    ).toMatchObject({
+      customerId: "2101350707",
+      loginCustomerId: null,
+      serviceAccountEmail: FEDERATION.GOOGLE_DATA_MANAGER_SERVICE_ACCOUNT_EMAIL,
+    });
 
     expect(
       readGoogleAdsConfig({
@@ -38,11 +51,16 @@ describe("Data Manager payload", () => {
         GOOGLE_ADS_LOGIN_CUSTOMER_ID: "111-222-3333",
         GOOGLE_ADS_TRIAL_CONVERSION_ACTION_ID: "7861619714",
         GOOGLE_ADS_PAYMENT_CONVERSION_ACTION_ID: "7861626227",
-        GOOGLE_DATA_MANAGER_OAUTH_CLIENT_ID: "client",
-        GOOGLE_DATA_MANAGER_OAUTH_CLIENT_SECRET: "secret",
-        GOOGLE_DATA_MANAGER_OAUTH_REFRESH_TOKEN: "refresh",
+        ...FEDERATION,
       })?.loginCustomerId
     ).toBe("1112223333");
+
+    expect(googleOidcAudience(config)).toBe(
+      "https://iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/vercel/providers/vercel"
+    );
+    expect(googleStsAudience(config)).toBe(
+      "//iam.googleapis.com/projects/123456789012/locations/global/workloadIdentityPools/vercel/providers/vercel"
+    );
 
     expect(
       readGoogleAdsConfig({
@@ -51,6 +69,16 @@ describe("Data Manager payload", () => {
         GOOGLE_ADS_PAYMENT_CONVERSION_ACTION_ID: "7861626227",
         GOOGLE_DATA_MANAGER_OAUTH_CLIENT_ID: "client",
         GOOGLE_DATA_MANAGER_OAUTH_CLIENT_SECRET: "secret",
+        GOOGLE_DATA_MANAGER_OAUTH_REFRESH_TOKEN: "refresh",
+      })
+    ).toBeNull();
+    expect(
+      readGoogleAdsConfig({
+        GOOGLE_ADS_CUSTOMER_ID: "2101350707",
+        GOOGLE_ADS_TRIAL_CONVERSION_ACTION_ID: "7861619714",
+        GOOGLE_ADS_PAYMENT_CONVERSION_ACTION_ID: "7861626227",
+        ...FEDERATION,
+        GOOGLE_DATA_MANAGER_SERVICE_ACCOUNT_EMAIL: "",
       })
     ).toBeNull();
     expect(googleAdsIngestEnabled({})).toBe(false);
