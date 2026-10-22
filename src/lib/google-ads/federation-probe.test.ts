@@ -25,9 +25,6 @@ function productionEnv(
 ): Record<string, string | undefined> {
   return {
     VERCEL_ENV: "production",
-    GOOGLE_ADS_CUSTOMER_ID: "2101350707",
-    GOOGLE_ADS_TRIAL_CONVERSION_ACTION_ID: "7861619714",
-    GOOGLE_ADS_PAYMENT_CONVERSION_ACTION_ID: "7861626227",
     GOOGLE_CLOUD_PROJECT_NUMBER: "400597218521",
     GOOGLE_WORKLOAD_IDENTITY_POOL_ID: "vercel-production",
     GOOGLE_WORKLOAD_IDENTITY_POOL_PROVIDER_ID: "vercel-summitt-mindset",
@@ -110,6 +107,25 @@ describe("temporary Google Ads federation probe", () => {
     }
     expect(subject).not.toHaveBeenCalled();
     expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("authenticates when conversion account settings are absent or invalid", async () => {
+    const { fetchImpl } = successFetch();
+    const result = await probeGoogleAdsFederation({
+      env: productionEnv({
+        GOOGLE_ADS_CUSTOMER_ID: undefined,
+        GOOGLE_ADS_TRIAL_CONVERSION_ACTION_ID: undefined,
+        GOOGLE_ADS_PAYMENT_CONVERSION_ACTION_ID: undefined,
+        GOOGLE_ADS_LOGIN_CUSTOMER_ID: "not-an-account",
+      }),
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      subjectToken: async () => jwt(claims()),
+      nowMs: NOW,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.stage).toBe("ready");
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expectNoSecrets(result);
   });
 
   it("fails closed when federation configuration is missing or unexpected", async () => {
@@ -319,6 +335,7 @@ describe("temporary Google Ads federation probe", () => {
     expect(page).not.toContain("probeGoogleAdsFederation");
     expect(page).toContain("GoogleAdsAuthProbeForm");
     expect(probe).not.toContain("datamanager.googleapis.com");
+    expect(probe).not.toContain("readGoogleAdsConfig");
     expect(probe).not.toContain("postGoogleAdsIngest");
     expect(probe).not.toContain("supabase");
     for (const rel of [
