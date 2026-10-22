@@ -96,6 +96,11 @@ describe("acquisition person and state", () => {
     expect(store).toContain('update({ status: "uncertain", claim_until: null');
     expect(store).toContain('video?.status !== "ready"');
     expect(readFileSync("src/app/admin/subscriber-growth/page.tsx", "utf8")).not.toContain("acquisition");
+    const middleware = readFileSync("src/middleware.ts", "utf8");
+    expect(middleware).toContain('"/api/acquisition/instantly"');
+    expect(middleware).toContain('"/api/acquisition/resend"');
+    expect(middleware).toContain('"/api/acquisition/unsubscribe"');
+    expect(middleware).not.toContain('"/api/admin/acquisition');
     expect(readFileSync("src/lib/acquisition/store.ts", "utf8")).not.toMatch(/kit\.com|convertkit|CONVERTKIT/i);
   });
 });

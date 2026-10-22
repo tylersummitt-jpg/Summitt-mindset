@@ -97,6 +97,11 @@ const isPublicRoute = createRouteMatcher([
   "/api/recovery/inbound",
   // Exact recovery unsubscribe route. The handler requires that message's token.
   "/api/recovery/unsubscribe",
+  // Exact acquisition routes. Instantly and Resend handlers reject a missing or bad signature.
+  // Unsubscribe requires the message token. The admin backfill route stays behind Tyler auth.
+  "/api/acquisition/instantly",
+  "/api/acquisition/resend",
+  "/api/acquisition/unsubscribe",
 
   // Challenge signup and unsubscribe (anonymous; no Clerk account)
   "/api/challenge/signup",
