@@ -13,6 +13,7 @@ import type { AcquisitionCohortBucket, CohortCounts } from "@/lib/retention-inte
 const MAX_CHANNELS = 8;
 const MAX_CONTENT = 12;
 const SMALL_SAMPLE = 15;
+const GOOGLE_ADS_CHANNEL = "Google ads";
 
 export type DistributionMetricRow = {
   channel: string;
@@ -78,10 +79,13 @@ export function buildDistributionIntelligence(args: {
 
   const channels = rollupChannels(args);
   const content = rollupContent(args);
-  const shownChannels = channels.slice(0, MAX_CHANNELS);
+  const shownChannels = selectDisplayedChannels(channels);
   const shownContent = content.slice(0, MAX_CONTENT);
   const trialSum = channels.reduce((sum, row) => sum + row.trials, 0);
-  const paidSum = channels.reduce((sum, row) => sum + row.paid, 0);
+  const paidKnown = channels.every((row) => row.paid != null);
+  const paidSum = paidKnown
+    ? channels.reduce((sum, row) => sum + (row.paid ?? 0), 0)
+    : null;
 
   return {
     readable: true,
@@ -146,7 +150,9 @@ type ChannelAcc = {
   trialClicks: number;
   checkouts: number;
   trials: number;
-  paid: number;
+  paid: number | null;
+  paidKnown: boolean;
+  spendIncomplete: boolean;
   spendCents: number | null;
   d30: CohortCounts;
   d60: CohortCounts;
@@ -174,9 +180,10 @@ function rollupChannels(args: {
     acc.trialClicks += row.trialClicks ?? 0;
     acc.checkouts += row.checkoutSessions ?? 0;
     acc.trials += row.trialsStarted ?? 0;
-    acc.paid += row.paidConversions ?? 0;
-    if (args.spendReadable && row.advertisingSpendCents != null && !row.utmContent) {
-      acc.spendCents = (acc.spendCents ?? 0) + row.advertisingSpendCents;
+    addPaid(acc, row.paidConversions);
+    if (args.spendReadable && !row.utmContent) {
+      if (row.advertisingSpendCents == null) acc.spendIncomplete = true;
+      else acc.spendCents = (acc.spendCents ?? 0) + row.advertisingSpendCents;
     }
     map.set(channel, acc);
   }
@@ -187,6 +194,7 @@ function rollupChannels(args: {
     addCounts(acc.d90, bucket.d90);
     map.set(bucket.channel, acc);
   }
+  for (const acc of map.values()) finalizeChannel(acc);
   return [...map.values()].sort(byOutcome);
 }
 
@@ -211,7 +219,7 @@ function rollupContent(args: {
     acc.trialClicks += row.trialClicks ?? 0;
     acc.checkouts += row.checkoutSessions ?? 0;
     acc.trials += row.trialsStarted ?? 0;
-    acc.paid += row.paidConversions ?? 0;
+    addPaid(acc, row.paidConversions);
     map.set(key, acc);
   }
   for (const bucket of args.cohorts) {
@@ -231,6 +239,7 @@ function rollupContent(args: {
     addCounts(acc.d90, bucket.d90);
     map.set(key, acc);
   }
+  for (const acc of map.values()) finalizeChannel(acc);
   for (const acc of map.values()) {
     const classes = [...acc.productions].filter((label) => label !== "Unknown");
     acc.production = classes.length === 1 ? classes[0] : "Unknown";
@@ -258,8 +267,8 @@ function presentChannel(
     trialClicks: String(row.trialClicks),
     checkouts: String(row.checkouts),
     trials: String(row.trials),
-    paid: String(row.paid),
-    trialToPaid: rate(row.paid, row.trials),
+    paid: countText(row.paid),
+    trialToPaid: row.paid == null ? "Not available" : rate(row.paid, row.trials),
     retention: retentionText(row, retentionReady),
     spend: spendText(row.spendCents, spendReadable),
     costPerTrial: costText(row.spendCents, row.trials, spendReadable),
@@ -283,8 +292,8 @@ function presentContent(
     trialClicks: String(row.trialClicks),
     checkouts: String(row.checkouts),
     trials: String(row.trials),
-    paid: String(row.paid),
-    trialToPaid: rate(row.paid, row.trials),
+    paid: countText(row.paid),
+    trialToPaid: row.paid == null ? "Not available" : rate(row.paid, row.trials),
     retention: retentionText(row, retentionReady),
     spend: !spendReadable
       ? "Not available"
@@ -294,7 +303,8 @@ function presentContent(
     costPerTrial: costText(row.spendCents, row.trials, spendReadable),
     costPerPaid: costText(row.spendCents, row.paid, spendReadable),
     coverage:
-      row.visitors === 0 && (row.trials > 0 || row.paid > 0 || mature(row.d30) > 0)
+      row.visitors === 0 &&
+      (row.trials > 0 || (row.paid != null && row.paid > 0) || mature(row.d30) > 0)
         ? "Paid outcome is outside this date range, or the visit was not in the loaded rows."
         : "First-touch content id. A missing tracking link stays Unknown, not zero.",
   };
@@ -328,13 +338,15 @@ function contentKey(campaign: string, content: string): string {
 
 function campaignSpendFor(rows: TrafficSourceRow[], campaign: string): number | null {
   let total: number | null = null;
+  let sawCampaignRow = false;
   for (const row of rows) {
     if ((row.utmCampaign || "Unknown") !== campaign) continue;
     if (row.utmContent) continue;
-    if (row.advertisingSpendCents == null) continue;
+    sawCampaignRow = true;
+    if (row.advertisingSpendCents == null) return null;
     total = (total ?? 0) + row.advertisingSpendCents;
   }
-  return total;
+  return sawCampaignRow ? total : null;
 }
 
 function line(label: string, value: string): string {
@@ -342,8 +354,8 @@ function line(label: string, value: string): string {
   return `${label}: ${text}.`;
 }
 
-function gapText(total: number | null, attributed: number): string {
-  if (total == null) return "Not available";
+function gapText(total: number | null, attributed: number | null): string {
+  if (total == null || attributed == null) return "Not available";
   if (attributed > total) return "Not available. The row total is larger than the range total.";
   return String(total - attributed);
 }
@@ -359,9 +371,13 @@ function spendText(cents: number | null, readable: boolean): string {
   return formatUnknownableUsdFromCents(cents);
 }
 
-function costText(cents: number | null, count: number, readable: boolean): string {
-  if (!readable || cents == null || count <= 0) return "Not available";
+function costText(cents: number | null, count: number | null, readable: boolean): string {
+  if (!readable || cents == null || count == null || count <= 0) return "Not available";
   return formatUnknownableUsdFromCents(Math.round(cents / count));
+}
+
+function countText(count: number | null): string {
+  return count == null ? "Not available" : String(count);
 }
 
 function emptyCounts(): CohortCounts {
@@ -384,6 +400,8 @@ function emptyChannel(channel: string): ChannelAcc {
     checkouts: 0,
     trials: 0,
     paid: 0,
+    paidKnown: true,
+    spendIncomplete: false,
     spendCents: null,
     d30: emptyCounts(),
     d60: emptyCounts(),
@@ -412,5 +430,52 @@ function mature(counts: CohortCounts): number {
 }
 
 function byOutcome(a: ChannelAcc, b: ChannelAcc): number {
-  return b.paid - a.paid || b.trials - a.trials || b.visitors - a.visitors || a.channel.localeCompare(b.channel);
+  return (
+    (b.paid ?? 0) - (a.paid ?? 0) ||
+    b.trials - a.trials ||
+    b.visitors - a.visitors ||
+    a.channel.localeCompare(b.channel)
+  );
+}
+
+function addPaid(acc: ChannelAcc, paid: number | null) {
+  if (paid == null) {
+    acc.paidKnown = false;
+    return;
+  }
+  acc.paid = (acc.paid ?? 0) + paid;
+}
+
+function finalizeChannel(acc: ChannelAcc) {
+  if (!acc.paidKnown) acc.paid = null;
+  if (acc.spendIncomplete) acc.spendCents = null;
+}
+
+function googleAdsHasSignal(row: ChannelAcc): boolean {
+  const paying =
+    row.d30.retained +
+    row.d30.ended +
+    row.d30.rejoined +
+    row.d60.retained +
+    row.d60.ended +
+    row.d60.rejoined +
+    row.d90.retained +
+    row.d90.ended +
+    row.d90.rejoined;
+  return (
+    row.visitors > 0 ||
+    row.trialClicks > 0 ||
+    row.checkouts > 0 ||
+    row.trials > 0 ||
+    (row.paid != null && row.paid > 0) ||
+    row.spendCents != null ||
+    paying > 0
+  );
+}
+
+function selectDisplayedChannels(ranked: ChannelAcc[]): ChannelAcc[] {
+  const top = ranked.slice(0, MAX_CHANNELS);
+  const google = ranked.find((row) => row.channel === GOOGLE_ADS_CHANNEL);
+  if (!google || top.includes(google) || !googleAdsHasSignal(google)) return top;
+  return [...top, google];
 }

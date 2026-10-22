@@ -30,6 +30,8 @@ import {
   countStripeWeekMovement,
   formatAdvertisingSpendDisplay,
   formatCostPerPaidDisplay,
+  formatTrafficCostDisplay,
+  formatTrafficSpendDisplay,
   formatCostPerTrialDisplay,
   formatLatestTrialSignedUp,
   formatPersonFlag,
@@ -62,6 +64,7 @@ import {
   NO_LABEL,
   NOT_AVAILABLE,
   SPEND_NOT_ENTERED,
+  SPEND_NOT_RECORDED,
   UNKNOWN_METRIC,
   YES_LABEL,
   type GrowthAppleRow,
@@ -120,6 +123,7 @@ function snapshot(args: {
   stripeRevenueCents?: number | null;
   stripeListComplete?: boolean;
   appleQueryComplete?: boolean;
+  paidInvoiceSubIds?: readonly string[];
 }) {
   return computeGrowthSnapshot({
     stripeSubs: args.stripeSubs ?? [],
@@ -133,6 +137,7 @@ function snapshot(args: {
     stripeRevenueCents: args.stripeRevenueCents ?? null,
     stripeListComplete: args.stripeListComplete ?? true,
     appleQueryComplete: args.appleQueryComplete ?? true,
+    paidInvoiceSubIds: new Set(args.paidInvoiceSubIds ?? []),
   });
 }
 
@@ -174,6 +179,12 @@ describe("slice 1 display language", () => {
     expect(formatCostPerPaidDisplay(5000, "empty")).toBe(UNKNOWN_METRIC);
     expect(formatCostPerPaidDisplay(5000, "unavailable")).toBe(NOT_AVAILABLE);
     expect(formatCostPerPaidDisplay(5000, "entered")).toBe("$50.00");
+    expect(formatTrafficSpendDisplay(null, "entered")).toBe(SPEND_NOT_RECORDED);
+    expect(formatTrafficSpendDisplay(0, "entered")).toBe("$0.00");
+    expect(formatTrafficSpendDisplay(null, "empty")).toBe(SPEND_NOT_ENTERED);
+    expect(formatTrafficSpendDisplay(null, "unavailable")).toBe(NOT_AVAILABLE);
+    expect(formatTrafficCostDisplay(null, 5000, "entered")).toBe(NOT_AVAILABLE);
+    expect(formatTrafficCostDisplay(5000, 2500, "entered")).toBe("$25.00");
   });
 
   it("does not change blended cost-per-paid math", () => {
@@ -476,6 +487,7 @@ describe("trial cohort metrics", () => {
           trial_end: trialEnd,
         }),
       ],
+      paidInvoiceSubIds: ["converted"],
     });
     expect(result.period.freeTrialsStarted).toBe(3);
     expect(result.period.trialsConvertedToPaid).toBe(1);
@@ -500,11 +512,78 @@ describe("trial cohort metrics", () => {
           ended_at: trialEnd + 2 * 86_400,
         }),
       ],
+      paidInvoiceSubIds: ["converted_then_canceled"],
     });
     expect(result.period.trialsConvertedToPaid).toBe(1);
     expect(result.period.cancelledDuringTrial).toBe(0);
     expect(result.period.finishedTrialWithoutPaid).toBe(0);
     expect(result.period.paidFullyEnded).toBe(1);
+  });
+
+  it("does not treat status, pause, or cancellation as a first payment", () => {
+    const trialEnd = NOW_UNIX - 2 * 86_400;
+    const trialStart = trialEnd - 7 * 86_400;
+    const base = { trial_start: trialStart, trial_end: trialEnd };
+    for (const sub of [
+      stripeSub({ id: "due", status: "past_due", ...base }),
+      stripeSub({ id: "unpaid", status: "unpaid", ...base }),
+      stripeSub({
+        id: "paused",
+        status: "active",
+        pause_collection: { behavior: "void" },
+        ...base,
+      }),
+      stripeSub({
+        id: "ended",
+        status: "canceled",
+        canceled_at: trialEnd + 86_400,
+        ended_at: trialEnd + 86_400,
+        ...base,
+      }),
+    ]) {
+      const result = snapshot({ stripeSubs: [sub] });
+      expect(result.period.trialsConvertedToPaid).toBe(0);
+      expect(result.period.paidFullyEnded).toBe(0);
+      expect(result.period.freeTrialsStarted).toBe(1);
+    }
+  });
+
+  it("leaves payment metrics unavailable when invoices are truncated", () => {
+    const trialEnd = NOW_UNIX - 2 * 86_400;
+    const result = computeGrowthSnapshot({
+      stripeSubs: [
+        stripeSub({
+          id: "converted",
+          status: "active",
+          trial_start: trialEnd - 7 * 86_400,
+          trial_end: trialEnd,
+        }),
+      ],
+      appleGranting: [],
+      appleCancelRequestedStillActive: [],
+      recognizedPriceIds: RECOGNIZED,
+      nowUnix: NOW_UNIX,
+      startMs: 0,
+      endMs: NOW.getTime() + 86_400_000,
+      accountsCreated: 2,
+      stripeRevenueCents: null,
+      stripeListComplete: true,
+      appleQueryComplete: true,
+      paidInvoiceSubIds: new Set(["converted"]),
+      invoiceListComplete: false,
+      uniqueVisitors: 8,
+      newPaidAttributedToAds: 1,
+      advertisingSpend: 5000,
+    });
+    expect(result.period.freeTrialsStarted).toBe(1);
+    expect(result.period.uniqueVisitors).toBe(8);
+    expect(result.period.trialsConvertedToPaid).toBeNull();
+    expect(result.period.trialToPaidRate).toBeNull();
+    expect(result.period.finishedTrialWithoutPaid).toBeNull();
+    expect(result.period.newPaidAttributedToAds).toBeNull();
+    expect(result.period.costPerPaid).toBeNull();
+    expect(result.period.funnelConversions[3]).toBeNull();
+    expect(result.period.paidChurnRate).toBeNull();
   });
 
   it("excludes immature trials from conversion", () => {
@@ -1278,7 +1357,7 @@ describe("latest trial seeds and rows", () => {
         ["user_cancel", "cancel@example.com"],
       ]),
       activatedClerkIds: new Set(["user_ig"]),
-      paidInvoiceSubIds: new Set<string>(),
+      paidInvoiceSubIds: new Set(["converted"]),
     });
 
     const ig = rows.find((r) => r.personEmail === "jane@example.com");
@@ -1474,6 +1553,7 @@ describe("this week on Stripe movement", () => {
         }),
       ],
       recognizedPriceIds: RECOGNIZED,
+      paidInvoiceSubIds: new Set(["new", "ended"]),
       startMs: mondayMs,
       endMs: nowMs + 1,
       stripeListComplete: true,
@@ -1824,6 +1904,7 @@ describe("recent activity events", () => {
         }),
       ],
       recognizedPriceIds: RECOGNIZED,
+      paidInvoiceSubIds: new Set(["sub_paid"]),
     });
     const paid = events.find((e) => e.type === "became_paid");
     expect(paid?.timestampUnix).toBe(trialEnd);
@@ -1893,6 +1974,7 @@ describe("recent activity events", () => {
         }),
       ],
       recognizedPriceIds: RECOGNIZED,
+      paidInvoiceSubIds: new Set(["sub_ended"]),
     });
     expect(ended.some((e) => e.type === "membership_ended")).toBe(true);
     const stillActive = collectRecentActivityEvents({
@@ -2297,6 +2379,144 @@ describe("google ads vs search and website referral grains", () => {
         ?.visitors
     ).toBe(1);
   });
+
+  it("keeps missing Google ads spend null and does not give it to Google search", () => {
+    const rows = aggregateTrafficSourceRows({
+      events: [
+        {
+          event_type: "page_viewed",
+          visitor_id: "v_ads",
+          occurred_at: "2026-09-01T00:00:00.000Z",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+          clerk_user_id: null,
+        },
+        {
+          event_type: "page_viewed",
+          visitor_id: "v_search",
+          occurred_at: "2026-09-01T00:00:00.000Z",
+          source_normalized: "google",
+          is_paid_acquisition: false,
+          referrer_host: "www.google.com",
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+          clerk_user_id: null,
+        },
+      ],
+      attributions: [],
+      trialClerkIds: ["u_ads"],
+      activatedClerkIds: [],
+      paidConversionClerkIds: ["u_ads"],
+      adSpend: [
+        { source_normalized: "google", utm_campaign: "brand", amount_cents: 8000 },
+      ],
+      sourceFilter: "all",
+    });
+    const ads = rows.find((row) => row.firstTouchLabel === "Google ads" && row.utmContent === "");
+    const search = rows.find((row) => row.firstTouchLabel === "Google search");
+    expect(ads?.advertisingSpendCents).toBe(8000);
+    expect(search?.advertisingSpendCents).toBeNull();
+    expect(search?.costPerPaidCents).toBeNull();
+
+    const missing = aggregateTrafficSourceRows({
+      events: [
+        {
+          event_type: "page_viewed",
+          visitor_id: "v_ads",
+          occurred_at: "2026-09-01T00:00:00.000Z",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+          clerk_user_id: null,
+        },
+      ],
+      attributions: [],
+      trialClerkIds: [],
+      activatedClerkIds: [],
+      paidConversionClerkIds: [],
+      adSpend: [],
+      sourceFilter: "all",
+    });
+    expect(
+      missing.find((row) => row.firstTouchLabel === "Google ads")?.advertisingSpendCents
+    ).toBeNull();
+
+    const explicitZero = aggregateTrafficSourceRows({
+      events: [
+        {
+          event_type: "page_viewed",
+          visitor_id: "v_ads",
+          occurred_at: "2026-09-01T00:00:00.000Z",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+          clerk_user_id: null,
+        },
+      ],
+      attributions: [],
+      trialClerkIds: [],
+      activatedClerkIds: [],
+      paidConversionClerkIds: [],
+      adSpend: [{ source_normalized: "google", utm_campaign: "brand", amount_cents: 0 }],
+      sourceFilter: "all",
+    });
+    expect(
+      explicitZero.find((row) => row.firstTouchLabel === "Google ads")?.advertisingSpendCents
+    ).toBe(0);
+
+    const truncated = aggregateTrafficSourceRows({
+      events: [
+        {
+          event_type: "page_viewed",
+          visitor_id: "v_ads",
+          occurred_at: "2026-09-01T00:00:00.000Z",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+          clerk_user_id: null,
+        },
+      ],
+      attributions: [
+        {
+          clerk_user_id: "u_ads",
+          visitor_id: "v_ads",
+          source_normalized: "google",
+          is_paid_acquisition: true,
+          source_detail: null,
+          referrer_host: null,
+          utm_source: "google",
+          utm_campaign: "brand",
+          utm_content: "",
+        },
+      ],
+      trialClerkIds: ["u_ads"],
+      activatedClerkIds: [],
+      paidConversionClerkIds: ["u_ads"],
+      adSpend: [{ source_normalized: "google", utm_campaign: "brand", amount_cents: 8000 }],
+      sourceFilter: "all",
+      paidReadable: false,
+    });
+    const hiddenPaid = truncated.find((row) => row.firstTouchLabel === "Google ads");
+    expect(hiddenPaid?.visitors).toBe(1);
+    expect(hiddenPaid?.trialsStarted).toBe(1);
+    expect(hiddenPaid?.paidConversions).toBeNull();
+    expect(hiddenPaid?.advertisingSpendCents).toBe(8000);
+    expect(hiddenPaid?.costPerPaidCents).toBeNull();
+  });
 });
 
 describe("trial onboarding funnel", () => {
@@ -2527,9 +2747,11 @@ describe("trial onboarding funnel", () => {
         }),
       ],
       accountsCreated: 2,
+      paidInvoiceSubIds: ["converted"],
     });
     expect(result.period.freeTrialsStarted).toBe(1);
     expect(result.period.trialsConvertedToPaid).toBe(1);
+    expect(result.period.funnelConversions[3]).toBeNull();
     expect(result.period.funnelConversions).toHaveLength(4);
     expect(result).not.toHaveProperty("trialOnboardingFunnel");
     expect("trialOnboardingFunnel" in result.period).toBe(false);

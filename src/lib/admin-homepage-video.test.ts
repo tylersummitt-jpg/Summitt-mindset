@@ -222,6 +222,50 @@ describe("homepage video cohort", () => {
     expect(incomplete.paidRate).toBeNull();
   });
 
+  it("does not turn a truncated invoice list into zero paid homepage viewers", () => {
+    const events = [
+      event({ event_type: "homepage_video_reached", visitor_id: "v1", occurred_at: new Date(WINDOW_START + 1000).toISOString() }),
+      event({ event_type: "homepage_video_50", visitor_id: "v1", occurred_at: new Date(T50).toISOString() }),
+    ];
+    const trialEnd = T50_SEC + 7 * 86_400;
+    const converted = sub({
+      id: "sub_trial_paid",
+      status: "active",
+      trial_start: T50_SEC,
+      trial_end: trialEnd,
+      metadata: { userId: "user_1" },
+    });
+    const truncated = computeHomepageVideoReport({
+      ...base,
+      events,
+      stripeSubs: [converted],
+      paidInvoiceSubIds: new Set(["sub_trial_paid"]),
+      paymentsReadable: false,
+    });
+    expect(truncated.stripeTrialsAfter50).toBe(1);
+    expect(truncated.stripePaidAfter50).toBeNull();
+    expect(truncated.paidRate).toBeNull();
+
+    const confirmed = computeHomepageVideoReport({
+      ...base,
+      events,
+      stripeSubs: [converted],
+      paidInvoiceSubIds: new Set(["sub_trial_paid"]),
+      paymentsReadable: true,
+    });
+    expect(confirmed.stripePaidAfter50).toBe(1);
+
+    const pastDue = computeHomepageVideoReport({
+      ...base,
+      events,
+      stripeSubs: [{ ...converted, id: "sub_due", status: "past_due" }],
+      paidInvoiceSubIds: new Set(),
+      paymentsReadable: true,
+    });
+    expect(pastDue.stripeTrialsAfter50).toBe(1);
+    expect(pastDue.stripePaidAfter50).toBe(0);
+  });
+
   it("counts started, halfway, and completed even when those timestamps are before reached", () => {
     const reachedAt = WINDOW_START + 10_000;
     const report = computeHomepageVideoReport({

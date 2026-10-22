@@ -118,6 +118,15 @@ export function unreadablePersonalVideoDistribution(note: string): PersonalVideo
   };
 }
 
+function personalVideoHasConfirmedPayment(
+  sub: GrowthStripeSubscription,
+  hadPaidInvoice: boolean
+): boolean {
+  if (!hadPaidInvoice) return false;
+  if (sub.trial_end != null) return becamePaidAfterTrial(sub, true);
+  return paidConversionUnix(sub, true) != null;
+}
+
 function countText(value: number | null): string {
   return value == null ? "Not available" : String(value);
 }
@@ -144,10 +153,18 @@ export function buildPersonalVideoDistribution(args: {
   events: readonly PersonalVideoEngagement[] | null;
   subscriptions: readonly GrowthStripeSubscription[] | null;
   subscriptionsComplete: boolean;
+  /**
+   * True only when paidInvoiceSubIds is a complete read for these subscriptions.
+   * Missing invoice evidence stays unavailable. It is not zero paid.
+   */
+  paymentsReadable?: boolean;
+  paidInvoiceSubIds?: ReadonlySet<string>;
 }): PersonalVideoDistribution {
   const known = new Set(args.videos.map((video) => video.id));
   const events = args.events?.filter((event) => known.has(event.personalVideoId)) ?? null;
   const billingReady = args.subscriptionsComplete && args.subscriptions != null;
+  const paymentsReadable = billingReady && args.paymentsReadable === true;
+  const paidInvoiceSubIds = args.paidInvoiceSubIds ?? new Set<string>();
   const subs = billingReady
     ? args.subscriptions!.filter((sub) => {
         const id = parsePersonalVideoId(sub.metadata?.[PERSONAL_VIDEO_METADATA_KEY]);
@@ -162,7 +179,9 @@ export function buildPersonalVideoDistribution(args: {
         (sub) => parsePersonalVideoId(sub.metadata?.[PERSONAL_VIDEO_METADATA_KEY]) === video.id
       );
       const trials = mine.filter((sub) => sub.trial_start != null).length;
-      const paid = mine.filter((sub) => paidConversionUnix(sub, false) != null || becamePaidAfterTrial(sub, false)).length;
+      const paid = paymentsReadable
+        ? mine.filter((sub) => personalVideoHasConfirmedPayment(sub, paidInvoiceSubIds.has(sub.id))).length
+        : null;
       return {
         id: video.id,
         createdAt: video.createdAt,
@@ -171,7 +190,7 @@ export function buildPersonalVideoDistribution(args: {
         plays: events ? uniqueVisitors(events, video.id, "personal_video_played") : null,
         ctaClicks: events ? uniqueVisitors(events, video.id, "personal_video_cta_clicked") : null,
         trials: billingReady ? trials : null,
-        paid: billingReady ? paid : null,
+        paid,
       };
     });
 
@@ -189,7 +208,7 @@ export function buildPersonalVideoDistribution(args: {
   const playCount = events ? rows.reduce((sum, row) => sum + (row.plays ?? 0), 0) : null;
   const ctaCount = events ? rows.reduce((sum, row) => sum + (row.ctaClicks ?? 0), 0) : null;
   const trials = billingReady ? rows.reduce((sum, row) => sum + (row.trials ?? 0), 0) : null;
-  const paid = billingReady ? rows.reduce((sum, row) => sum + (row.paid ?? 0), 0) : null;
+  const paid = paymentsReadable ? rows.reduce((sum, row) => sum + (row.paid ?? 0), 0) : null;
 
   return {
     readable: true,

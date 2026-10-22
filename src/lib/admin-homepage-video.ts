@@ -128,6 +128,7 @@ export function computeHomepageVideoReport(args: {
   stripeListComplete: boolean;
   recognizedPriceIds: ReadonlySet<string>;
   paidInvoiceSubIds: ReadonlySet<string>;
+  paymentsReadable?: boolean;
 }): HomepageVideoReport {
   const empty = emptyHomepageVideoReport();
   if (!args.events) return empty;
@@ -211,7 +212,7 @@ export function computeHomepageVideoReport(args: {
       }
     }
     stripeTrialsAfter50 = trialClerks.size;
-    stripePaidAfter50 = paidClerks.size;
+    stripePaidAfter50 = args.paymentsReadable === false ? null : paidClerks.size;
   }
 
   const reachedVisitors = visitorsForPairs(cohort.keys(), cohort);

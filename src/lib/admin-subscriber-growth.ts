@@ -542,6 +542,7 @@ async function loadLatestTrialRows(args: {
   stripeSubs: GrowthStripeSubscription[];
   recognized: ReadonlySet<string>;
   paidInvoiceSubIds: ReadonlySet<string>;
+  paymentsKnown: boolean;
 }): Promise<{ rows: LatestTrialRow[]; activationComplete: boolean }> {
   const seeds = selectLatestTrialSeeds(args.stripeSubs, args.recognized);
   if (seeds.length === 0) return { rows: [], activationComplete: true };
@@ -582,6 +583,7 @@ async function loadLatestTrialRows(args: {
       emailsByClerkId,
       activatedClerkIds: activationLookup.clerkIds,
       paidInvoiceSubIds: args.paidInvoiceSubIds,
+      paymentsKnown: args.paymentsKnown,
     }),
     activationComplete: activationLookup.complete,
   };
@@ -594,6 +596,7 @@ async function loadRecentActivityRows(args: {
   failedInvoices: RecentActivityFailedInvoice[];
   includePaymentFailed: boolean;
   stripeListComplete: boolean;
+  paymentsKnown: boolean;
   attributionsByClerkId: ReadonlyMap<string, MarketingAttributionRow>;
 }): Promise<RecentActivityEvent[] | null> {
   if (!args.stripeListComplete) return null;
@@ -601,6 +604,7 @@ async function loadRecentActivityRows(args: {
     stripeSubs: args.stripeSubs,
     recognizedPriceIds: args.recognized,
     paidInvoiceSubIds: args.paidInvoiceSubIds,
+    paymentsKnown: args.paymentsKnown,
     failedInvoices: args.failedInvoices,
     includePaymentFailed: args.includePaymentFailed,
   });
@@ -1280,12 +1284,15 @@ export async function loadSubscriberGrowthDashboard(args: {
     activationQueryComplete = false;
   }
 
+  const paymentsReadable = stripeListComplete && invoiceListComplete;
   const paidConversionClerkIds: string[] = [];
-  for (const sub of sourceFilteredSubs) {
-    const conv = paidConversionUnix(sub, paidInvoiceSubIds.has(sub.id));
-    if (!unixSecondsInPeriod(conv, period.startMs, period.endMs)) continue;
-    const clerk = clerkUserIdFromStripeSub(sub);
-    if (clerk) paidConversionClerkIds.push(clerk);
+  if (paymentsReadable) {
+    for (const sub of sourceFilteredSubs) {
+      const conv = paidConversionUnix(sub, paidInvoiceSubIds.has(sub.id));
+      if (!unixSecondsInPeriod(conv, period.startMs, period.endMs)) continue;
+      const clerk = clerkUserIdFromStripeSub(sub);
+      if (clerk) paidConversionClerkIds.push(clerk);
+    }
   }
 
   const tomorrowKey = addDaysToDateKey(todayKey, 1);
@@ -1359,6 +1366,7 @@ export async function loadSubscriberGrowthDashboard(args: {
         trialClerkIds,
         activatedClerkIds: activatedIds,
         paidConversionClerkIds,
+        paidReadable: paymentsReadable,
         adSpend: spendForFilter.map((r) => ({
           source_normalized: r.source_normalized,
           utm_campaign: r.utm_campaign,
@@ -1390,6 +1398,7 @@ export async function loadSubscriberGrowthDashboard(args: {
     stripeListComplete,
     appleQueryComplete: source === "all" ? appleQueryComplete : true,
     paidInvoiceSubIds,
+    invoiceListComplete,
     uniqueVisitors,
     freeTrialButtonClicks: ctaClicks,
     checkoutSessionsCreated: checkoutSummary?.sessions ?? null,
@@ -1435,7 +1444,7 @@ export async function loadSubscriberGrowthDashboard(args: {
         paidInvoiceSubIds,
         startMs: weekStart.getTime(),
         endMs: now.getTime() + 1,
-        stripeListComplete,
+        stripeListComplete: paymentsReadable,
       })
     : emptyStripeWeekMovement();
 
@@ -1464,6 +1473,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       stripeSubs,
       recognized,
       paidInvoiceSubIds,
+      paymentsKnown: paymentsReadable,
     }),
     loadRecentActivityRows({
       stripeSubs,
@@ -1472,6 +1482,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       failedInvoices,
       includePaymentFailed,
       stripeListComplete,
+      paymentsKnown: paymentsReadable,
       attributionsByClerkId: attrByClerk,
     }),
     loadTrialOnboardingFunnel({
@@ -1553,6 +1564,7 @@ export async function loadSubscriberGrowthDashboard(args: {
       stripeListComplete,
       recognizedPriceIds: recognized,
       paidInvoiceSubIds,
+      paymentsReadable: invoiceListComplete,
     });
   } catch (err) {
     console.warn("[subscriber-growth] homepage video report failed", err);

@@ -89,11 +89,57 @@ describe("personal video analytics", () => {
     expect(report.uniqueVisitors).toBe("2");
     expect(report.linkVisitRate).not.toContain("2 / 2");
     expect(report.trials).toBe("1");
-    expect(report.paid).toBe("0");
+    expect(report.paid).toBe("Not available");
+    expect(report.paidRate).toBe("Not available");
+    expect(report.rows.find((row) => row.id === A)?.paid).toBeNull();
     expect(report.rows[0]?.id).toBe(B);
     expect(report.rows[1]?.visitors).toBe(2);
     expect(isPersonalVideoWatchPath("/for/abcdefghijklmnopqrstuvwxyz012345")).toBe(true);
     expect(isPersonalVideoWatchPath("/")).toBe(false);
+  });
+
+  it("counts a personal-video payment only from a positive invoice and leaves missing invoices unavailable", () => {
+    const trialEnd = Math.floor(NOW / 1000) - 86_400;
+    const trialStart = trialEnd - 7 * 86_400;
+    const paidThenCanceled = sub("sub_paid", A, "canceled", trialStart);
+    paidThenCanceled.trial_end = trialEnd;
+    paidThenCanceled.canceled_at = trialEnd + 86_400;
+    paidThenCanceled.ended_at = trialEnd + 86_400;
+    const pastDue = sub("sub_due", A, "past_due", trialStart);
+    pastDue.trial_end = trialEnd;
+    const videos = [{ id: A, createdAt: "2026-10-01T00:00:00.000Z", linkSentAt: null }];
+
+    const missing = buildPersonalVideoDistribution({
+      videos,
+      events: [],
+      subscriptions: [paidThenCanceled, pastDue],
+      subscriptionsComplete: true,
+    });
+    expect(missing.trials).toBe("2");
+    expect(missing.paid).toBe("Not available");
+    expect(missing.rows[0]?.paid).toBeNull();
+
+    const confirmed = buildPersonalVideoDistribution({
+      videos,
+      events: [],
+      subscriptions: [paidThenCanceled, pastDue],
+      subscriptionsComplete: true,
+      paymentsReadable: true,
+      paidInvoiceSubIds: new Set(["sub_paid"]),
+    });
+    expect(confirmed.paid).toBe("1");
+    expect(confirmed.rows[0]?.paid).toBe(1);
+
+    const nonePaid = buildPersonalVideoDistribution({
+      videos,
+      events: [],
+      subscriptions: [pastDue],
+      subscriptionsComplete: true,
+      paymentsReadable: true,
+      paidInvoiceSubIds: new Set(),
+    });
+    expect(nonePaid.paid).toBe("0");
+    expect(nonePaid.paid).not.toBe("Not available");
   });
 
   it("keeps checkout, acquisition cookies, and admin exclusion in place", () => {

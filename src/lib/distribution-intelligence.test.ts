@@ -160,6 +160,137 @@ describe("distribution channel and content", () => {
     expect(text).not.toContain("@");
     expect(text).toContain("not proof");
   });
+
+  it("keeps Google ads visible and costs spend only when it was recorded", () => {
+    const others = Array.from({ length: 9 }, (_, index) =>
+      traffic({
+        platform: `Channel ${String(index).padStart(2, "0")}`,
+        firstTouchLabel: `Channel ${String(index).padStart(2, "0")}`,
+        utmCampaign: `c${index}`,
+        utmContent: "",
+        visitors: 20 + index,
+        trialsStarted: 4,
+        paidConversions: 3,
+        advertisingSpendCents: 1000,
+      })
+    );
+    const google = traffic({
+      platform: "",
+      firstTouchLabel: "Google ads",
+      sourceNormalized: "google",
+      isPaidAcquisition: true,
+      utmCampaign: "brand",
+      utmContent: "",
+      visitors: 2,
+      trialsStarted: 2,
+      paidConversions: 1,
+      advertisingSpendCents: 10000,
+    });
+    const intel = buildDistributionIntelligence({
+      trackingReadable: true,
+      spendReadable: true,
+      retentionReady: false,
+      rangeTrials: 38,
+      rangePaid: 28,
+      trafficRows: [...others, google],
+      cohorts: [],
+    });
+    const ads = intel.channels.find((row) => row.channel === "Google ads");
+    expect(intel.channels).toHaveLength(9);
+    expect(intel.hiddenChannels).toBe(1);
+    expect(ads?.spend).toBe("$100.00");
+    expect(ads?.trials).toBe("2");
+    expect(ads?.paid).toBe("1");
+    expect(ads?.costPerTrial).toBe("$50.00");
+    expect(ads?.costPerPaid).toBe("$100.00");
+    expect(ads?.trialToPaid).toBe("50% (1 of 2)");
+
+    const missing = buildDistributionIntelligence({
+      trackingReadable: true,
+      spendReadable: true,
+      retentionReady: false,
+      rangeTrials: 2,
+      rangePaid: 0,
+      trafficRows: [{ ...google, advertisingSpendCents: null, paidConversions: 0 }],
+      cohorts: [],
+    });
+    expect(missing.channels[0]?.spend).toBe("Spend not recorded");
+    expect(missing.channels[0]?.costPerTrial).toBe("Not available");
+    expect(missing.channels[0]?.costPerPaid).toBe("Not available");
+
+    const recordedZero = buildDistributionIntelligence({
+      trackingReadable: true,
+      spendReadable: true,
+      retentionReady: false,
+      rangeTrials: 2,
+      rangePaid: 1,
+      trafficRows: [{ ...google, advertisingSpendCents: 0 }],
+      cohorts: [],
+    });
+    expect(recordedZero.channels[0]?.spend).toBe("$0.00");
+    expect(recordedZero.channels[0]?.costPerTrial).toBe("$0.00");
+
+    const search = traffic({
+      platform: "",
+      firstTouchLabel: "Google search",
+      sourceNormalized: "google",
+      isPaidAcquisition: false,
+      utmCampaign: "brand",
+      utmContent: "",
+      visitors: 3,
+      trialsStarted: 1,
+      paidConversions: 0,
+      advertisingSpendCents: null,
+    });
+    const separated = buildDistributionIntelligence({
+      trackingReadable: true,
+      spendReadable: true,
+      retentionReady: false,
+      rangeTrials: 3,
+      rangePaid: 1,
+      trafficRows: [google, search],
+      cohorts: [],
+    });
+    expect(separated.channels.find((row) => row.channel === "Google search")?.spend).toBe(
+      "Spend not recorded"
+    );
+    expect(separated.channels.find((row) => row.channel === "Google ads")?.spend).toBe("$100.00");
+
+    const partial = buildDistributionIntelligence({
+      trackingReadable: true,
+      spendReadable: true,
+      retentionReady: false,
+      rangeTrials: 2,
+      rangePaid: 1,
+      trafficRows: [
+        google,
+        {
+          ...google,
+          utmCampaign: "other",
+          advertisingSpendCents: null,
+        },
+      ],
+      cohorts: [],
+    });
+    expect(partial.channels.find((row) => row.channel === "Google ads")?.spend).toBe(
+      "Spend not recorded"
+    );
+    expect(partial.channels.find((row) => row.channel === "Google ads")?.costPerPaid).toBe(
+      "Not available"
+    );
+
+    const withoutGoogle = buildDistributionIntelligence({
+      trackingReadable: true,
+      spendReadable: true,
+      retentionReady: false,
+      rangeTrials: 36,
+      rangePaid: 27,
+      trafficRows: others,
+      cohorts: [],
+    });
+    expect(withoutGoogle.channels.some((row) => row.channel === "Google ads")).toBe(false);
+    expect(withoutGoogle.channels).toHaveLength(8);
+  });
 });
 
 describe("distribution tracking links", () => {

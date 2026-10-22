@@ -14,11 +14,13 @@ export const YES_LABEL = "Yes";
 export const NO_LABEL = "No";
 export const NOT_AVAILABLE = "Not available";
 export const SPEND_NOT_ENTERED = "Spend not entered";
+export const SPEND_NOT_RECORDED = "Spend not recorded";
 export const UNKNOWN_SOURCE_LABEL = "Unknown";
 
 export type AdSpendDisplayStatus = "entered" | "empty" | "unavailable";
 
-export function formatPersonFlag(value: boolean): string {
+export function formatPersonFlag(value: boolean | null): string {
+  if (value == null) return UNKNOWN_METRIC;
   return value ? YES_LABEL : NO_LABEL;
 }
 
@@ -55,6 +57,28 @@ export function formatCostPerPaidDisplay(
   if (status === "unavailable") return NOT_AVAILABLE;
   if (status === "empty") return UNKNOWN_METRIC;
   return formatUnknownableUsdFromCents(cents);
+}
+
+/** Channel-row spend. Null is unrecorded. Zero is an entered zero. */
+export function formatTrafficSpendDisplay(
+  cents: MetricNumber,
+  status: AdSpendDisplayStatus
+): string {
+  if (status === "unavailable") return NOT_AVAILABLE;
+  if (cents == null) {
+    return status === "empty" ? SPEND_NOT_ENTERED : SPEND_NOT_RECORDED;
+  }
+  if (status === "empty" && cents === 0) return SPEND_NOT_ENTERED;
+  return formatUnknownableUsdFromCents(cents);
+}
+
+export function formatTrafficCostDisplay(
+  spendCents: MetricNumber,
+  costCents: MetricNumber,
+  status: AdSpendDisplayStatus
+): string {
+  if (status === "unavailable" || spendCents == null) return NOT_AVAILABLE;
+  return formatCostPerPaidDisplay(costCents, status);
 }
 
 export function formatCostPerTrialDisplay(args: {
@@ -617,9 +641,11 @@ export function collectRecentActivityEvents(args: {
   paidInvoiceSubIds?: ReadonlySet<string>;
   failedInvoices?: readonly RecentActivityFailedInvoice[];
   includePaymentFailed?: boolean;
+  paymentsKnown?: boolean;
   limit?: number;
 }): RecentActivityEvent[] {
   const paidInvoiceSubIds = args.paidInvoiceSubIds ?? new Set<string>();
+  const paymentsKnown = args.paymentsKnown !== false;
   const byKey = new Map<string, RecentActivityEvent>();
   const add = (event: RecentActivityEvent | null) => {
     if (!event) return;
@@ -646,16 +672,18 @@ export function collectRecentActivityEvents(args: {
       );
     }
 
-    const paidAt = paidConversionUnix(sub, hadPaidInvoice);
-    if (paidAt != null) {
-      add(
-        recentActivityBase(
-          "became_paid",
-          paidAt,
-          clerkUserId,
-          `became_paid:${sub.id}`
-        )
-      );
+    if (paymentsKnown) {
+      const paidAt = paidConversionUnix(sub, hadPaidInvoice);
+      if (paidAt != null) {
+        add(
+          recentActivityBase(
+            "became_paid",
+            paidAt,
+            clerkUserId,
+            `became_paid:${sub.id}`
+          )
+        );
+      }
     }
 
     if (cancelledDuringFreeTrial(sub) && sub.canceled_at != null) {
@@ -669,16 +697,18 @@ export function collectRecentActivityEvents(args: {
       );
     }
 
-    const endedAt = paidTerminalEndUnix(sub, hadPaidInvoice);
-    if (endedAt != null) {
-      add(
-        recentActivityBase(
-          "membership_ended",
-          endedAt,
-          clerkUserId,
-          `membership_ended:${sub.id}`
-        )
-      );
+    if (paymentsKnown) {
+      const endedAt = paidTerminalEndUnix(sub, hadPaidInvoice);
+      if (endedAt != null) {
+        add(
+          recentActivityBase(
+            "membership_ended",
+            endedAt,
+            clerkUserId,
+            `membership_ended:${sub.id}`
+          )
+        );
+      }
     }
   }
 
@@ -754,25 +784,19 @@ export function mrrCentsFromStripePriceAmount(
   return null;
 }
 
+/**
+ * First paying member after a trial. Requires a confirmed Stripe invoice
+ * with amount_paid > 0 (`hadPaidInvoice`). Status, pause, cancellation after
+ * the trial, and trial expiration are not payment. `paidConversionUnix` still
+ * displays `trial_end` as the conversion date.
+ */
 export function becamePaidAfterTrial(
   sub: GrowthStripeSubscription,
   hadPaidInvoice = false
 ): boolean {
-  const trialEnd = sub.trial_end;
-  if (trialEnd == null) return false;
+  if (sub.trial_end == null) return false;
   if (cancelledDuringFreeTrial(sub)) return false;
-  if (hadPaidInvoice) return true;
-  if (
-    sub.status === "active" ||
-    sub.status === "past_due" ||
-    sub.status === "unpaid"
-  ) {
-    return true;
-  }
-  if (hasPauseCollection(sub) && sub.status !== "trialing") return true;
-  if (sub.canceled_at != null && sub.canceled_at > trialEnd) return true;
-  if (sub.ended_at != null && sub.ended_at > trialEnd) return true;
-  return false;
+  return hadPaidInvoice;
 }
 
 export function cancelledDuringFreeTrial(sub: GrowthStripeSubscription): boolean {
@@ -904,7 +928,7 @@ export type LatestTrialRow = {
   utmCampaign: string | null;
   utmContent: string | null;
   activated: boolean;
-  paid: boolean;
+  paid: boolean | null;
 };
 
 /**
@@ -949,6 +973,7 @@ export function buildLatestTrialRows(args: {
   emailsByClerkId: ReadonlyMap<string, string | null>;
   activatedClerkIds: ReadonlySet<string>;
   paidInvoiceSubIds: ReadonlySet<string>;
+  paymentsKnown?: boolean;
 }): LatestTrialRow[] {
   return args.seeds.map((seed) => {
     const attr = args.attributionsByClerkId.get(seed.clerkUserId);
@@ -966,10 +991,13 @@ export function buildLatestTrialRows(args: {
       utmCampaign: attr?.utm_campaign ?? null,
       utmContent: attr?.utm_content ?? null,
       activated: args.activatedClerkIds.has(seed.clerkUserId),
-      paid: becamePaidAfterTrial(
-        seed.sub,
-        args.paidInvoiceSubIds.has(seed.sub.id)
-      ),
+      paid:
+        args.paymentsKnown === false
+          ? null
+          : becamePaidAfterTrial(
+              seed.sub,
+              args.paidInvoiceSubIds.has(seed.sub.id)
+            ),
     };
   });
 }
@@ -1327,7 +1355,9 @@ export function aggregateTrafficSourceRows(args: {
   paidConversionClerkIds: string[];
   adSpend: AdSpendAggregateRow[];
   sourceFilter: GrowthTrafficSource;
+  paidReadable?: boolean;
 }): TrafficSourceRow[] {
+  const paidReadable = args.paidReadable !== false;
   const attrByClerk = new Map(
     args.attributions.map((a) => [a.clerk_user_id, a] as const)
   );
@@ -1516,9 +1546,10 @@ export function aggregateTrafficSourceRows(args: {
     const utmContent = meta?.utmContent ?? parts[3] ?? "";
     const firstTouchLabel = meta?.firstTouchLabel ?? parts[4] ?? UNKNOWN_SOURCE_LABEL;
     const contentSpecific = utmContent.length > 0;
-    const spend = contentSpecific ? null : (spendByGrain.get(key) ?? 0);
-    const paidCount = paid.get(key)?.size ?? 0;
-    const paidForCps = contentSpecific ? null : paidCount;
+    const recordedSpend = spendByGrain.get(key);
+    const spend = contentSpecific || recordedSpend == null ? null : recordedSpend;
+    const paidCount = paidReadable ? (paid.get(key)?.size ?? 0) : null;
+    const paidForCps = contentSpecific || paidCount == null ? null : paidCount;
     rows.push({
       sourceNormalized,
       platform,
@@ -1935,6 +1966,8 @@ export function computeGrowthSnapshot(input: {
   stripeListComplete: boolean;
   appleQueryComplete: boolean;
   paidInvoiceSubIds?: ReadonlySet<string>;
+  /** False when the invoice list is truncated. Defaults to complete. */
+  invoiceListComplete?: boolean;
   uniqueVisitors?: MetricNumber;
   freeTrialButtonClicks?: MetricNumber;
   checkoutSessionsCreated?: MetricNumber;
@@ -2072,11 +2105,12 @@ export function computeGrowthSnapshot(input: {
   const stripeOk = input.stripeListComplete;
   const appleOk = input.appleQueryComplete;
   const snapshotOk = stripeOk && appleOk;
+  const paymentsOk = stripeOk && input.invoiceListComplete !== false;
   const periodStartUnix =
     input.startMs == null ? null : Math.floor(input.startMs / 1000);
   const periodEndUnix = Math.floor(input.endMs / 1000);
 
-  const churn = stripeOk
+  const churn = paymentsOk
     ? stripeChurnRate({
         subs: summitSubs,
         periodStartUnix,
@@ -2085,7 +2119,7 @@ export function computeGrowthSnapshot(input: {
       })
     : null;
 
-  const reactivated = stripeOk
+  const reactivated = paymentsOk
     ? reactivatedIdentityCount({
         subs: summitSubs,
         startMs: input.startMs,
@@ -2094,10 +2128,14 @@ export function computeGrowthSnapshot(input: {
       })
     : null;
 
-  const paidEndedCount =
-    input.paidFullyEnded != null
+  const paidEndedCount = paymentsOk
+    ? input.paidFullyEnded != null
       ? input.paidFullyEnded
-      : unknownIfIncomplete(paidEndedFromStripe.length, stripeOk);
+      : paidEndedFromStripe.length
+    : null;
+  const attributedNewPaid = paymentsOk
+    ? (input.newPaidAttributedToAds ?? null)
+    : null;
 
   const eventsPartial =
     input.instrumentationStartMs != null &&
@@ -2124,12 +2162,12 @@ export function computeGrowthSnapshot(input: {
   const period: GrowthDashboardSnapshot["period"] = {
     trialToPaidRate: unknownIfIncomplete(
       conversionRate(converted.length, matureTrials.length),
-      stripeOk
+      paymentsOk
     ),
-    paidChurnRate: unknownIfIncomplete(churn, stripeOk),
+    paidChurnRate: churn,
     costPerPaid: blendedCostPerPaidCents(
       input.advertisingSpend ?? null,
-      input.newPaidAttributedToAds ?? null
+      attributedNewPaid
     ),
     costPerTrial: blendedCostPerTrialCents(
       input.advertisingSpend ?? null,
@@ -2145,20 +2183,20 @@ export function computeGrowthSnapshot(input: {
     freeTrialsStarted: trialsStartedCount,
     stripeFirstTrialsStarted,
     activatedWithin24h: input.activatedWithin24h ?? null,
-    trialsConvertedToPaid: unknownIfIncomplete(converted.length, stripeOk),
+    trialsConvertedToPaid: unknownIfIncomplete(converted.length, paymentsOk),
     cancelledDuringTrial: unknownIfIncomplete(
       cancelledDuringTrial.length,
       stripeOk
     ),
     finishedTrialWithoutPaid: unknownIfIncomplete(
       finishedUnpaid.length,
-      stripeOk
+      paymentsOk
     ),
     paidFullyEnded: paidEndedCount,
-    reactivated: unknownIfIncomplete(reactivated, stripeOk),
+    reactivated,
     stripeRevenueCents: input.stripeRevenueCents,
     advertisingSpend: input.advertisingSpend ?? null,
-    newPaidAttributedToAds: input.newPaidAttributedToAds ?? null,
+    newPaidAttributedToAds: attributedNewPaid,
     paymentFailed: input.paymentFailedPeriod ?? null,
     funnelConversions: [
       visitorsToClicks,

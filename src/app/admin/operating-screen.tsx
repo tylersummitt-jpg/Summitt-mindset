@@ -240,7 +240,7 @@ function PersonalVideosSection({ report }: { report: PersonalVideoDistribution }
                   <td className="px-3 py-2">{count(row.plays)}</td>
                   <td className="px-3 py-2">{count(row.ctaClicks)}</td>
                   <td className="px-3 py-2">{billing(row.trials)}</td>
-                  <td className="px-3 py-2">{billing(row.paid)}</td>
+                  <td className="px-3 py-2">{row.paid == null ? "Not available" : billing(row.paid)}</td>
                 </tr>
               ))}
             </tbody>

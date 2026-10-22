@@ -6,6 +6,8 @@ import {
   formatAdvertisingSpendDisplay,
   formatCostPerPaidDisplay,
   formatCostPerTrialDisplay,
+  formatTrafficCostDisplay,
+  formatTrafficSpendDisplay,
   formatGoalTarget,
   formatLatestTrialSignedUp,
   formatMaybeAvailableCount,
@@ -1398,16 +1400,14 @@ export default function SubscriberGrowthDashboard({
                           {formatUnknownableCount(row.paidConversions)}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums">
-                          {row.advertisingSpendCents == null
-                            ? UNKNOWN_METRIC
-                            : spendStatus === "empty" && row.advertisingSpendCents === 0
-                              ? SPEND_NOT_ENTERED
-                              : spendStatus === "unavailable"
-                                ? NOT_AVAILABLE
-                                : formatUnknownableUsdFromCents(row.advertisingSpendCents)}
+                          {formatTrafficSpendDisplay(row.advertisingSpendCents, spendStatus)}
                         </td>
                         <td className="px-2 py-1.5 tabular-nums">
-                          {formatCostPerPaidDisplay(row.costPerPaidCents, spendStatus)}
+                          {formatTrafficCostDisplay(
+                            row.advertisingSpendCents,
+                            row.costPerPaidCents,
+                            spendStatus
+                          )}
                         </td>
                       </tr>
                     ))
@@ -1480,16 +1480,15 @@ export default function SubscriberGrowthDashboard({
                       <p className="mt-1 break-words text-gray-500">
                         Campaign: {row.utmCampaign || UNKNOWN_METRIC}
                       </p>
-                      {row.advertisingSpendCents != null &&
-                      row.advertisingSpendCents > 0 ? (
-                        <p className="text-gray-500">
-                          Spend:{" "}
-                          {formatUnknownableUsdFromCents(row.advertisingSpendCents)}
-                          {row.costPerPaidCents != null
-                            ? ` · CPS ${formatUnknownableUsdFromCents(row.costPerPaidCents)}`
-                            : ""}
-                        </p>
-                      ) : null}
+                      <p className="text-gray-500">
+                        Spend: {formatTrafficSpendDisplay(row.advertisingSpendCents, spendStatus)}
+                        {" · CPS "}
+                        {formatTrafficCostDisplay(
+                          row.advertisingSpendCents,
+                          row.costPerPaidCents,
+                          spendStatus
+                        )}
+                      </p>
                     </div>
                   );
                 })
