@@ -5,9 +5,16 @@ import { Resend } from "resend";
 import { readAcquisitionAsset } from "@/lib/acquisition/assets";
 import { ACQUISITION_ASSET_FILES } from "@/lib/acquisition/assets";
 import {
+  continueAfterInstantlyPage,
+  continueAfterRangePage,
+  INSTANTLY_PAGE_CAP,
+  INSTANTLY_PAGE_SIZE,
+  parseInstantlyListPayload,
   planInstantlyBackfill,
   type BackfillPlan,
   type BackfillProposal,
+  type CampaignName,
+  type InstantlyBackfillSource,
 } from "@/lib/acquisition/backfill";
 import {
   buildAcquisitionDashboard,
@@ -258,6 +265,7 @@ async function ensurePerson(args: {
   sport?: string | null;
   role?: string | null;
   geography?: string | null;
+  lifecycle?: AcquisitionLifecycle;
 }): Promise<PersonRow | null> {
   const existing = await findPersonByEmail(args.email);
   if (existing) {
@@ -287,7 +295,7 @@ async function ensurePerson(args: {
       sport: args.sport ?? null,
       role: args.role ?? null,
       geography: args.geography ?? null,
-      lifecycle_state: "cold_active",
+      lifecycle_state: args.lifecycle ?? "cold_active",
     })
     .select(PERSON_COLUMNS)
     .maybeSingle();
@@ -923,29 +931,65 @@ export async function loadAcquisitionDashboard(): Promise<AcquisitionDashboard> 
   }
 }
 
-export async function dryRunInstantlyBackfill(leads: readonly unknown[]): Promise<BackfillPlan> {
-  const { data, error } = await supabaseServer.from("acquisition_people").select("email_normalized, lifecycle_state").limit(5000);
-  if (error) {
+async function readPeopleForBackfill(): Promise<{
+  ok: boolean;
+  complete: boolean;
+  error: string | null;
+  rows: Map<string, AcquisitionLifecycle>;
+}> {
+  const rows = new Map<string, AcquisitionLifecycle>();
+  const pageSize = 1000;
+  const pageCap = 50;
+  for (let page = 0; page < pageCap; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await supabaseServer
+      .from("acquisition_people")
+      .select("email_normalized, lifecycle_state")
+      .order("email_normalized", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) return { ok: false, complete: false, error: "people_read_failed", rows };
+    const batch = data ?? [];
+    for (const row of batch) {
+      if (typeof row.email_normalized === "string" && typeof row.lifecycle_state === "string") {
+        rows.set(row.email_normalized, row.lifecycle_state as AcquisitionLifecycle);
+      }
+    }
+    const decision = continueAfterRangePage({
+      pageNumber: page + 1,
+      pageCap,
+      rowCount: batch.length,
+      pageSize,
+    });
+    if (!decision.continue) return { ok: true, complete: decision.complete, error: decision.error, rows };
+  }
+  return { ok: true, complete: false, error: "people_page_cap", rows };
+}
+
+export async function dryRunInstantlyBackfill(source: InstantlyBackfillSource): Promise<BackfillPlan> {
+  const people = await readPeopleForBackfill();
+  const plan = planInstantlyBackfill({
+    leads: source.leads,
+    currentByEmail: people.rows,
+    campaigns: source.campaigns,
+    fetched: source.fetched,
+    pages: source.pages,
+    paginationComplete: source.paginationComplete,
+    apiError: source.apiError,
+    campaignNamesLoaded: source.campaignNamesLoaded,
+    campaignError: source.campaignError,
+  });
+  if (!people.ok || !people.complete) {
     return {
-      readable: false,
+      ...plan,
+      readable: people.ok,
+      complete: false,
       proposals: [],
-      skippedNoEmail: 0,
-      skippedUnrecognized: 0,
-      wouldCreate: 0,
-      wouldApply: 0,
-      wouldSkipStronger: 0,
-      wouldSkipSame: 0,
-      interested: 0,
-      note: "Existing acquisition people could not be read. Nothing was written.",
+      note: people.ok
+        ? "Canonical people read stopped early. Nothing was written, and execute must not run on this report."
+        : "Existing acquisition people could not be read. Nothing was written.",
     };
   }
-  const current = new Map<string, AcquisitionLifecycle>();
-  for (const row of data ?? []) {
-    if (typeof row.email_normalized === "string" && typeof row.lifecycle_state === "string") {
-      current.set(row.email_normalized, row.lifecycle_state as AcquisitionLifecycle);
-    }
-  }
-  return planInstantlyBackfill({ leads, currentByEmail: current });
+  return plan;
 }
 
 export async function applyInstantlyBackfill(proposals: readonly BackfillProposal[]): Promise<{ written: number }> {
@@ -959,6 +1003,7 @@ export async function applyInstantlyBackfill(proposals: readonly BackfillProposa
       sport: proposal.sport,
       role: proposal.role,
       geography: proposal.geography,
+      lifecycle: proposal.lifecycle,
     });
     if (!person) continue;
     const stored = await insertEvent({
@@ -971,16 +1016,27 @@ export async function applyInstantlyBackfill(proposals: readonly BackfillProposa
       metadata: {
         interest: proposal.interest,
         lead_status: proposal.leadStatus,
+        historical_fulfillment: proposal.historicalFulfillment,
+        schedules_warm_email: false,
       },
     });
     if (stored === "duplicate") continue;
     const decision = proposal.lifecycle;
-    if (person.lifecycle_state === "cold_active" && decision === "cold_active") {
+    if (decision === "unsubscribed") await rememberSuppression(proposal.email, "unsubscribe");
+    if (decision === "suppressed") await rememberSuppression(proposal.email, "bounce");
+    if (person.lifecycle_state === decision) {
+      if (proposal.asset && !person.requested_asset) {
+        await supabaseServer
+          .from("acquisition_people")
+          .update({ requested_asset: proposal.asset, updated_at: new Date().toISOString() })
+          .eq("id", person.id);
+      }
       written += 1;
       continue;
     }
     const signal: AcquisitionSignal | null =
       decision === "cold_no_response" ? "campaign_completed"
+      : decision === "reply_needs_review" ? "reply_received"
       : decision === "asset_requested" ? "interested"
       : decision === "not_interested" ? "not_interested"
       : decision === "unsubscribed" ? "unsubscribed"
@@ -989,11 +1045,7 @@ export async function applyInstantlyBackfill(proposals: readonly BackfillProposa
     if (!signal) continue;
     const extra = proposal.asset ? { requested_asset: proposal.asset } : {};
     const updated = await applySignal(person, signal, extra);
-    if (signal === "unsubscribed") await rememberSuppression(proposal.email, "unsubscribe");
-    if (signal === "bounced") await rememberSuppression(proposal.email, "bounce");
-    if (updated.lifecycle_state === "asset_requested" && (proposal.asset || updated.requested_asset)) {
-      await scheduleAction(updated.id, "send_asset", new Date());
-    }
+    if (updated.lifecycle_state !== decision) continue;
     written += 1;
   }
   return { written };
@@ -1042,29 +1094,86 @@ export async function refreshInstantlySenderSignals(now = new Date()): Promise<{
   return { read };
 }
 
-export async function fetchInstantlyLeads(maxPages = 20): Promise<unknown[]> {
-  const key = process.env.INSTANTLY_API_KEY;
-  if (!key) return [];
-  const leads: unknown[] = [];
-  let startingAfter = "";
-  for (let page = 0; page < maxPages; page += 1) {
-    const response = await fetch("https://api.instantly.ai/api/v2/leads/list", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        limit: 100,
-        ...(startingAfter ? { starting_after: startingAfter } : {}),
-      }),
+async function readInstantlyPages(
+  key: string,
+  url: string,
+  method: "GET" | "POST",
+): Promise<{ items: unknown[]; pages: number; complete: boolean; error: string | null }> {
+  const items: unknown[] = [];
+  let requestCursor: string | null = null;
+  let pages = 0;
+  for (;;) {
+    const response = method === "POST"
+      ? await fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          limit: INSTANTLY_PAGE_SIZE,
+          ...(requestCursor ? { starting_after: requestCursor } : {}),
+        }),
+      })
+      : await fetch(`${url}${url.includes("?") ? "&" : "?"}limit=${INSTANTLY_PAGE_SIZE}${requestCursor ? `&starting_after=${encodeURIComponent(requestCursor)}` : ""}`, {
+        headers: { Authorization: `Bearer ${key}` },
+      });
+    if (!response.ok) return { items, pages, complete: false, error: `http_${response.status}` };
+    let body: unknown;
+    try {
+      body = await response.json() as unknown;
+    } catch {
+      return { items, pages, complete: false, error: "invalid_json" };
+    }
+    const parsed = parseInstantlyListPayload(body);
+    if (!parsed.ok) return { items, pages, complete: false, error: "invalid_shape" };
+    const pageItems = parsed.items;
+    items.push(...pageItems);
+    pages += 1;
+    const decision = continueAfterInstantlyPage({
+      pageNumber: pages,
+      pageCap: INSTANTLY_PAGE_CAP,
+      itemCount: pageItems.length,
+      nextCursor: parsed.nextCursor,
+      requestCursor,
     });
-    if (!response.ok) break;
-    const body = await response.json() as { items?: unknown[]; next_starting_after?: unknown };
-    const items = Array.isArray(body.items) ? body.items : [];
-    leads.push(...items);
-    if (typeof body.next_starting_after !== "string" || !body.next_starting_after || items.length === 0) break;
-    startingAfter = body.next_starting_after;
+    if (!decision.continue) return { items, pages, complete: decision.complete, error: decision.error };
+    requestCursor = parsed.nextCursor;
   }
-  return leads;
+}
+
+export async function fetchInstantlyBackfillSource(): Promise<InstantlyBackfillSource> {
+  const key = process.env.INSTANTLY_API_KEY;
+  if (!key) {
+    return {
+      leads: [],
+      campaigns: [],
+      fetched: 0,
+      pages: 0,
+      paginationComplete: false,
+      apiError: "missing_api_key",
+      campaignNamesLoaded: false,
+      campaignError: "missing_api_key",
+    };
+  }
+  const leads = await readInstantlyPages(key, "https://api.instantly.ai/api/v2/leads/list", "POST");
+  const campaigns = await readInstantlyPages(key, "https://api.instantly.ai/api/v2/campaigns", "GET");
+  const names: CampaignName[] = [];
+  for (const item of campaigns.items) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    if (typeof row.id !== "string" || !row.id.trim()) continue;
+    names.push({
+      id: row.id.trim(),
+      name: typeof row.name === "string" && row.name.trim() ? row.name.trim().slice(0, 180) : null,
+      status: typeof row.status === "number" ? row.status : null,
+    });
+  }
+  return {
+    leads: leads.items,
+    campaigns: names,
+    fetched: leads.items.length,
+    pages: leads.pages,
+    paginationComplete: leads.complete,
+    apiError: leads.error,
+    campaignNamesLoaded: campaigns.complete && !campaigns.error,
+    campaignError: campaigns.error,
+  };
 }

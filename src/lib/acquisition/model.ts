@@ -138,10 +138,22 @@ export function backfillMayApply(
 ): "create" | "apply" | "skip_same" | "skip_stronger" {
   if (!current) return "create";
   if (current === proposed) return "skip_same";
+  if (current === "reply_needs_review") {
+    if (
+      proposed === "asset_requested" ||
+      proposed === "not_interested" ||
+      proposed === "unsubscribed" ||
+      proposed === "suppressed"
+    ) {
+      return "apply";
+    }
+    return "skip_stronger";
+  }
   if (current !== "cold_active" && current !== "cold_no_response") return "skip_stronger";
   if (proposed === "cold_active") return "skip_stronger";
   if (
     proposed === "cold_no_response" ||
+    proposed === "reply_needs_review" ||
     proposed === "asset_requested" ||
     proposed === "not_interested" ||
     proposed === "unsubscribed" ||

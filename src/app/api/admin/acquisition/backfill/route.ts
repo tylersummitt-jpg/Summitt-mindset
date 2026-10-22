@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
 
+import { backfillExecuteAllowed } from "@/lib/acquisition/backfill";
 import {
   applyInstantlyBackfill,
   dryRunInstantlyBackfill,
-  fetchInstantlyLeads,
+  fetchInstantlyBackfillSource,
 } from "@/lib/acquisition/store";
 import { isTylerOwnerSession } from "@/lib/auth/require-tyler-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 export async function POST(request: Request) {
   if (!(await isTylerOwnerSession())) {
@@ -21,15 +23,16 @@ export async function POST(request: Request) {
   } catch {
     execute = false;
   }
-  const leads = await fetchInstantlyLeads();
-  const plan = await dryRunInstantlyBackfill(leads);
-  if (!execute) {
+  const source = await fetchInstantlyBackfillSource();
+  const plan = await dryRunInstantlyBackfill(source);
+  const report = { ...plan, proposals: plan.proposals.length, schedulesWarmEmail: false as const };
+  if (!execute || !backfillExecuteAllowed(plan)) {
     return NextResponse.json({
       dryRun: true,
-      ...plan,
-      proposals: plan.proposals.length,
+      refused: execute && !backfillExecuteAllowed(plan) ? "incomplete" : null,
+      ...report,
     });
   }
   const applied = await applyInstantlyBackfill(plan.proposals);
-  return NextResponse.json({ dryRun: false, ...plan, proposals: plan.proposals.length, written: applied.written });
+  return NextResponse.json({ dryRun: false, ...report, written: applied.written });
 }

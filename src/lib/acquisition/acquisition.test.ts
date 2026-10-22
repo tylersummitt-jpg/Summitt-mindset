@@ -102,6 +102,12 @@ describe("acquisition person and state", () => {
     expect(middleware).toContain('"/api/acquisition/unsubscribe"');
     expect(middleware).not.toContain('"/api/admin/acquisition');
     expect(readFileSync("src/lib/acquisition/store.ts", "utf8")).not.toMatch(/kit\.com|convertkit|CONVERTKIT/i);
+    const apply = store.slice(
+      store.indexOf("export async function applyInstantlyBackfill"),
+      store.indexOf("export async function refreshInstantlySenderSignals"),
+    );
+    expect(apply).not.toContain("scheduleAction");
+    expect(apply).toContain("schedules_warm_email: false");
   });
 });
 
@@ -345,7 +351,7 @@ describe("acquisition video, stripe, assets, and dashboard", () => {
       leads: [
         { id: "lead-1", email: "Coach@School.edu", first_name: "Pat", status: 1, lt_interest_status: 1, campaign: "camp" },
         { id: "lead-1b", email: "coach@school.edu", status: 1, lt_interest_status: 1 },
-        { id: "lead-2", email: "paid@school.edu", status: 1, lt_interest_status: null },
+        { id: "lead-2", email: "paid@school.edu", status: 1, lt_interest_status: null, timestamp_last_contact: "2026-02-01T00:00:00.000Z", email_reply_count: 0 },
         { id: "lead-3", email: "nope@school.edu", status: -1, lt_interest_status: 1 },
       ],
       currentByEmail: new Map([["paid@school.edu", "paid_member"]]),
@@ -356,6 +362,9 @@ describe("acquisition video, stripe, assets, and dashboard", () => {
     expect(plan.proposals.map((row) => row.email).sort()).toEqual(["coach@school.edu", "nope@school.edu"]);
     expect(plan.proposals.find((row) => row.email === "coach@school.edu")?.lifecycle).toBe("asset_requested");
     expect(plan.proposals.find((row) => row.email === "nope@school.edu")?.lifecycle).toBe("suppressed");
+    expect(plan.schedulesWarmEmail).toBe(false);
+    expect(plan.proposals.find((row) => row.email === "coach@school.edu")?.historicalFulfillment).toBe("unknown");
+    expect(plan.proposals.every((row) => row.schedulesWarmEmail === false)).toBe(true);
   });
 
   it("keeps the stronger Instantly row when one email appears twice", () => {
