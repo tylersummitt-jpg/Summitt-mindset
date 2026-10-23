@@ -23,6 +23,11 @@ const nextConfig: NextConfig = {
     "/api/onboarding/complete": [
       "./src/lib/onboarding-victory-milestones/assets/**/*.jpg",
     ],
+    "/api/cron/acquisition": [
+      "./data/acquisition-assets/pat-summitt-basketball-special-situations-playbook.pdf",
+      "./data/acquisition-assets/pat-summitt-definite-dozen-team-discussion-guide.pdf",
+      "./data/acquisition-assets/pat-summitt-definite-dozen-athletic-director-discussion-guide.pdf",
+    ],
   },
 };
 

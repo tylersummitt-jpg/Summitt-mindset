@@ -2,7 +2,7 @@ import "server-only";
 
 import { Resend } from "resend";
 
-import { readAcquisitionAsset } from "@/lib/acquisition/assets";
+import { readAcquisitionAsset, readAcquisitionAssetReport } from "@/lib/acquisition/assets";
 import { ACQUISITION_ASSET_FILES } from "@/lib/acquisition/assets";
 import {
   continueAfterInstantlyPage,
@@ -571,10 +571,20 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
   });
 }
 
-export async function runAcquisitionCron(now = new Date()): Promise<{ automation: string; accepted: number; skipped: string }> {
+export async function runAcquisitionCron(now = new Date()): Promise<{
+  automation: string;
+  accepted: number;
+  skipped: string;
+  assets?: Awaited<ReturnType<typeof readAcquisitionAssetReport>>;
+}> {
   const settings = await readAcquisitionSettings();
   if (settings.automation !== "pilot" && settings.automation !== "active") {
-    return { automation: settings.automation, accepted: 0, skipped: "automation_off" };
+    return {
+      automation: settings.automation,
+      accepted: 0,
+      skipped: "automation_off",
+      assets: await readAcquisitionAssetReport(),
+    };
   }
   await supabaseServer
     .from("acquisition_actions")

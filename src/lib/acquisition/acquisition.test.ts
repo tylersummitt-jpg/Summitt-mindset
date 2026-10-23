@@ -2,7 +2,13 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { readAcquisitionAsset } from "@/lib/acquisition/assets";
+import {
+  ACQUISITION_ASSET_FILES,
+  ACQUISITION_FILE_KEYS,
+  knownAssetOrNull,
+  readAcquisitionAsset,
+  readAcquisitionAssetReport,
+} from "@/lib/acquisition/assets";
 import { planInstantlyBackfill } from "@/lib/acquisition/backfill";
 import { buildAcquisitionDashboard } from "@/lib/acquisition/dashboard";
 import { INSTANTLY_WEBHOOK_EVENTS, instantlyPersonMetadata, normalizeInstantlyWebhook } from "@/lib/acquisition/instantly";
@@ -11,6 +17,7 @@ import {
   evaluateWarmSend,
   newAcquisitionToken,
   normalizeAcquisitionEmail,
+  parseAcquisitionAsset,
   reduceLiveSignal,
   settleAcceptedSend,
   settleFailedSend,
@@ -344,9 +351,56 @@ describe("acquisition video, stripe, assets, and dashboard", () => {
     expect(webhook).not.toContain("summittSubscribed = true");
   });
 
-  it("leaves both promised PDFs blocked until the authoritative file exists", async () => {
-    expect(await readAcquisitionAsset("definite_dozen")).toBeNull();
-    expect(await readAcquisitionAsset("playbook")).toBeNull();
+  it("reads the three authoritative PDFs and leaves legacy requested_asset unchanged", async () => {
+    for (const key of ACQUISITION_FILE_KEYS) {
+      const bytes = await readAcquisitionAsset(key);
+      expect(ACQUISITION_ASSET_FILES[key].relativePath).toMatch(/^data\/acquisition-assets\/pat-summitt-.*\.pdf$/);
+      expect(bytes).not.toBeNull();
+      expect(bytes!.subarray(0, 4).toString("utf8")).toBe("%PDF");
+      expect(bytes!.length).toBeGreaterThan(5);
+    }
+    expect(ACQUISITION_ASSET_FILES.playbook.relativePath).toBe(
+      "data/acquisition-assets/pat-summitt-basketball-special-situations-playbook.pdf"
+    );
+    expect(ACQUISITION_ASSET_FILES.definite_dozen.relativePath).toBe(
+      "data/acquisition-assets/pat-summitt-definite-dozen-team-discussion-guide.pdf"
+    );
+    expect(ACQUISITION_ASSET_FILES.definite_dozen_ad.relativePath).toBe(
+      "data/acquisition-assets/pat-summitt-definite-dozen-athletic-director-discussion-guide.pdf"
+    );
+
+    const report = await readAcquisitionAssetReport();
+    for (const key of ACQUISITION_FILE_KEYS) {
+      expect(report[key]).toMatchObject({ asset: key, readable: true, pdfHeaderValid: true });
+      expect(report[key].byteLength).toBeGreaterThan(5);
+    }
+
+    expect(parseAcquisitionAsset("playbook")).toBe("playbook");
+    expect(parseAcquisitionAsset("definite_dozen")).toBe("definite_dozen");
+    expect(parseAcquisitionAsset("definite_dozen_ad")).toBeNull();
+    expect(knownAssetOrNull("definite_dozen_ad")).toBeNull();
+    const migration = readFileSync("supabase/migrations/20261021200000_acquisition_funnel.sql", "utf8");
+    expect(migration).toContain("requested_asset IN ('definite_dozen', 'playbook')");
+    expect(migration).not.toContain("definite_dozen_ad");
+
+    const store = readFileSync("src/lib/acquisition/store.ts", "utf8");
+    const cron = store.slice(store.indexOf("export async function runAcquisitionCron"));
+    const offReport = cron.indexOf("readAcquisitionAssetReport");
+    expect(offReport).toBeGreaterThan(-1);
+    expect(offReport).toBeLessThan(cron.indexOf("acquisition_actions"));
+    expect(offReport).toBeLessThan(cron.indexOf("new Resend"));
+    expect(cron).toContain('skipped: "automation_off"');
+    expect(cron).toContain("accepted: 0");
+    expect(store).toContain("attachments: [{ filename: copy.filename, content: copy.content }]");
+    expect(store).not.toContain("offer_key");
+    expect(store).not.toContain("pilot_action_ids");
+    expect(store).not.toContain("definite_dozen_ad");
+
+    const config = readFileSync("next.config.ts", "utf8");
+    expect(config).toContain('"/api/cron/acquisition"');
+    for (const key of ACQUISITION_FILE_KEYS) {
+      expect(config).toContain(`./${ACQUISITION_ASSET_FILES[key].relativePath}`);
+    }
   });
 
   it("counts the funnel from canonical rows and keeps needs-tyler at zero when nothing is waiting", () => {
