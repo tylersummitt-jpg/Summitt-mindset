@@ -12,6 +12,41 @@ export const GOOGLE_ADS_CONVERSION_MAX_EVENT_AGE_SECONDS = 90 * 24 * 60 * 60;
 export const GOOGLE_ADS_CONVERSION_RETRY_MIN_AGE_MS = 2 * 60 * 1000;
 export const GOOGLE_ADS_CONVERSION_RETRY_BATCH_LIMIT = 20;
 
+/** Held across one operator HTTP attempt. Cron and a second confirm must not take it. */
+export const GOOGLE_ADS_OPERATOR_SENDING = "operator_sending";
+/** The ingest response did not prove acceptance or rejection. Do not post again. */
+export const GOOGLE_ADS_OPERATOR_AMBIGUOUS = "operator_ambiguous";
+/** Local revalidation failed after the row was claimed. Do not post it. */
+export const GOOGLE_ADS_OPERATOR_BLOCKED = "operator_blocked";
+
+const OPERATOR_LOCKS = [
+  GOOGLE_ADS_OPERATOR_SENDING,
+  GOOGLE_ADS_OPERATOR_AMBIGUOUS,
+  GOOGLE_ADS_OPERATOR_BLOCKED,
+] as const;
+
+/** Rows whose last_error is still free for a normal write or the operator lock. */
+export const GOOGLE_ADS_OPERATOR_LOCK_FREE_FILTER = `last_error.is.null,and(${OPERATOR_LOCKS.map((lock) => `last_error.neq.${lock}`).join(",")})`;
+
+const OPERATOR_SEND_LOCK_CONSTRAINT = "google_ads_conversion_events_operator_send_uq";
+const EXISTING_CONVERSION_CONSTRAINTS = new Set([
+  "google_ads_conversion_events_kind_sub_uq",
+  "google_ads_conversion_events_transaction_uq",
+]);
+
+export type GoogleAdsOperatorLock = "open" | "sending" | "ambiguous" | "blocked";
+
+export type GoogleAdsTrialOccupancy =
+  | { status: "empty" }
+  | { status: "blocked" }
+  | { status: "unavailable" }
+  | {
+      status: "this_trial";
+      ledgerStatus: GoogleAdsLedgerStatus;
+      requestId: string | null;
+      lock: GoogleAdsOperatorLock;
+    };
+
 const TABLE = "google_ads_conversion_events";
 
 export type GoogleAdsEventKind = "trial_started" | "first_payment";
@@ -166,6 +201,100 @@ export async function claimGoogleAdsConversion(args: {
   }
 }
 
+export type OperatorGoogleAdsInsertResult =
+  | { status: "locked"; row: GoogleAdsLedgerRow }
+  | { status: "existing"; row: GoogleAdsLedgerRow }
+  | { status: "ingestion_accepted" | "suppressed" }
+  | { status: "busy" }
+  | { status: "unavailable" };
+
+function postgresConstraintName(error: { message?: string; details?: string | null }): string | null {
+  const text = `${error.message ?? ""}\n${error.details ?? ""}`;
+  const match = text.match(/google_ads_conversion_events_[a-z0-9_]+/);
+  return match?.[0] ?? null;
+}
+
+/**
+ * One INSERT that already holds operator_sending. The partial unique index
+ * rejects a second holder inside this statement, so a loser creates no row.
+ */
+export async function insertOperatorGoogleAdsSend(args: {
+  eventKind: GoogleAdsEventKind;
+  stripeSubscriptionId: string;
+  transactionId: string;
+  eventTime: number;
+  value: number | null;
+  currency: "USD" | null;
+  clickType: GoogleClickIdType;
+  clickId: string;
+}): Promise<OperatorGoogleAdsInsertResult> {
+  try {
+    const subId = args.stripeSubscriptionId.trim();
+    const transactionId = args.transactionId.trim();
+    if (!subId || !transactionId || !args.clickId) return { status: "unavailable" };
+
+    const { data, error } = await supabaseServer
+      .from(TABLE)
+      .insert({
+        event_kind: args.eventKind,
+        stripe_subscription_id: subId,
+        transaction_id: transactionId,
+        event_time: Math.floor(args.eventTime),
+        value: args.value,
+        currency: args.currency,
+        google_click_id_type: args.clickType,
+        google_click_id: args.clickId,
+        request_country: "US",
+        status: "pending",
+        last_error: GOOGLE_ADS_OPERATOR_SENDING,
+      })
+      .select(COLUMNS)
+      .single();
+
+    if (!error) {
+      const row = asRow(data as Record<string, unknown> | null);
+      if (!row || row.status !== "pending") return { status: "unavailable" };
+      return { status: "locked", row };
+    }
+
+    if (error.code !== "23505") {
+      console.warn("[google-ads] operator insert failed", { code: error.code ?? "unknown" });
+      return { status: "unavailable" };
+    }
+
+    const constraint = postgresConstraintName(error);
+    if (constraint === OPERATOR_SEND_LOCK_CONSTRAINT) return { status: "busy" };
+    if (!constraint || !EXISTING_CONVERSION_CONSTRAINTS.has(constraint)) {
+      return { status: "unavailable" };
+    }
+
+    const { data: existing, error: selectError } = await supabaseServer
+      .from(TABLE)
+      .select(COLUMNS)
+      .eq("event_kind", args.eventKind)
+      .eq("stripe_subscription_id", subId)
+      .maybeSingle();
+
+    if (selectError || !existing) {
+      console.warn("[google-ads] operator existing-row lookup failed");
+      return { status: "unavailable" };
+    }
+    const row = asRow(existing as Record<string, unknown>);
+    if (!row) {
+      const status = (existing as { status?: unknown }).status;
+      if (status === "ingestion_accepted") return { status: "ingestion_accepted" };
+      if (status === "suppressed") return { status: "suppressed" };
+      return { status: "unavailable" };
+    }
+    if (row.status === "ingestion_accepted") return { status: "ingestion_accepted" };
+    if (row.status === "suppressed") return { status: "suppressed" };
+    return { status: "existing", row };
+  } catch {
+    console.warn("[google-ads] operator insert unexpected");
+    return { status: "unavailable" };
+  }
+}
+
 export async function readGoogleAdsConversionStatus(
   id: string
 ): Promise<GoogleAdsLedgerStatus | null> {
@@ -219,15 +348,232 @@ export async function markGoogleAdsConversionError(id: string, reason: string): 
   try {
     const trimmed = id.trim();
     if (!trimmed) return;
-    const safe = reason.replace(/[^a-z0-9_]/gi, "").slice(0, 40) || "error";
+    const safe = safeGoogleAdsLedgerError(reason);
     const { error } = await supabaseServer
       .from(TABLE)
       .update({ last_error: safe, updated_at: new Date().toISOString() })
       .eq("id", trimmed)
-      .eq("status", "pending");
+      .eq("status", "pending")
+      .or(GOOGLE_ADS_OPERATOR_LOCK_FREE_FILTER);
     if (error) console.warn("[google-ads] ledger error mark failed");
   } catch {
     console.warn("[google-ads] ledger error mark unexpected");
+  }
+}
+
+function safeGoogleAdsLedgerError(reason: string): string {
+  const safe = reason.replace(/[^a-z0-9_]/gi, "").slice(0, 40) || "error";
+  if (
+    safe === GOOGLE_ADS_OPERATOR_SENDING ||
+    safe === GOOGLE_ADS_OPERATOR_AMBIGUOUS ||
+    safe === GOOGLE_ADS_OPERATOR_BLOCKED
+  ) {
+    return "error";
+  }
+  return safe;
+}
+
+function operatorLock(lastError: unknown): GoogleAdsOperatorLock {
+  if (lastError === GOOGLE_ADS_OPERATOR_SENDING) return "sending";
+  if (lastError === GOOGLE_ADS_OPERATOR_AMBIGUOUS) return "ambiguous";
+  if (lastError === GOOGLE_ADS_OPERATOR_BLOCKED) return "blocked";
+  return "open";
+}
+
+export type OperatorSendHold =
+  | { status: "clear" }
+  | { status: "suppressed" }
+  | { status: "accepted"; requestId: string | null }
+  | { status: "occupied" }
+  | { status: "unavailable" };
+
+/**
+ * One conditional UPDATE. The partial unique index lets only one row
+ * hold operator_sending. A 23505 from that index is busy: this request
+ * must not upload or try the lock again.
+ */
+export async function acquireOperatorGoogleAdsSend(
+  id: string
+): Promise<{ status: "acquired" | "busy" | "not_held" | "unavailable" }> {
+  const trimmed = id.trim();
+  if (!trimmed) return { status: "unavailable" };
+  try {
+    const { data, error } = await supabaseServer
+      .from(TABLE)
+      .update({
+        last_error: GOOGLE_ADS_OPERATOR_SENDING,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", trimmed)
+      .eq("status", "pending")
+      .is("google_request_id", null)
+      .or(GOOGLE_ADS_OPERATOR_LOCK_FREE_FILTER)
+      .select("id");
+    if (error) {
+      if (error.code === "23505") return { status: "busy" };
+      console.warn("[google-ads] operator claim failed");
+      return { status: "unavailable" };
+    }
+    return Array.isArray(data) && data.length === 1
+      ? { status: "acquired" }
+      : { status: "not_held" };
+  } catch {
+    console.warn("[google-ads] operator claim unexpected");
+    return { status: "unavailable" };
+  }
+}
+
+async function replaceOperatorSendLock(
+  id: string,
+  lastError: string
+): Promise<void> {
+  const trimmed = id.trim();
+  if (!trimmed) return;
+  const { error } = await supabaseServer
+    .from(TABLE)
+    .update({ last_error: lastError, updated_at: new Date().toISOString() })
+    .eq("id", trimmed)
+    .eq("status", "pending")
+    .eq("last_error", GOOGLE_ADS_OPERATOR_SENDING);
+  if (error) console.warn("[google-ads] operator lock update failed");
+}
+
+/** Definite local or Google rejection. A later confirm may try this same row again. */
+export async function finishOperatorGoogleAdsSend(id: string, reason: string): Promise<void> {
+  try {
+    await replaceOperatorSendLock(id, safeGoogleAdsLedgerError(reason));
+  } catch {
+    console.warn("[google-ads] operator lock update unexpected");
+  }
+}
+
+/** HTTP started and the outcome is unknown. Keeps the row from being posted again. */
+export async function markOperatorGoogleAdsAmbiguous(id: string): Promise<void> {
+  try {
+    await replaceOperatorSendLock(id, GOOGLE_ADS_OPERATOR_AMBIGUOUS);
+  } catch {
+    console.warn("[google-ads] operator lock update unexpected");
+  }
+}
+
+/** Claimed, then found ineligible or conflicting. Cron must not upload the row. */
+export async function markOperatorGoogleAdsBlocked(id: string): Promise<void> {
+  try {
+    await replaceOperatorSendLock(id, GOOGLE_ADS_OPERATOR_BLOCKED);
+  } catch {
+    console.warn("[google-ads] operator lock update unexpected");
+  }
+}
+
+export async function readGoogleAdsOperatorGate(id: string): Promise<{
+  status: GoogleAdsLedgerStatus;
+  lock: GoogleAdsOperatorLock;
+  requestId: string | null;
+} | null> {
+  try {
+    const trimmed = id.trim();
+    if (!trimmed) return null;
+    const { data, error } = await supabaseServer
+      .from(TABLE)
+      .select("status, last_error, google_request_id")
+      .eq("id", trimmed)
+      .maybeSingle();
+    if (error || !data) return null;
+    const status = (data as { status?: unknown }).status;
+    if (status !== "pending" && status !== "ingestion_accepted" && status !== "suppressed") {
+      return null;
+    }
+    const requestId = (data as { google_request_id?: unknown }).google_request_id;
+    return {
+      status,
+      lock: operatorLock((data as { last_error?: unknown }).last_error),
+      requestId: typeof requestId === "string" && requestId.trim() ? requestId.trim() : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+const OPERATOR_SEND_HOLD_LIMIT = 10;
+
+/**
+ * After this request holds operator_sending, another pending row from a
+ * competing confirm may exist. Any other accepted, suppressed, or locked
+ * row still stops the upload.
+ */
+export async function assessOperatorSendHold(rowId: string): Promise<OperatorSendHold> {
+  try {
+    const id = rowId.trim();
+    if (!id) return { status: "unavailable" };
+    const { data, error } = await supabaseServer
+      .from(TABLE)
+      .select("id, status, last_error, google_request_id")
+      .limit(OPERATOR_SEND_HOLD_LIMIT);
+    if (error || !data) return { status: "unavailable" };
+    if (data.length >= OPERATOR_SEND_HOLD_LIMIT) return { status: "occupied" };
+    const ours = data.find((row) => (row as { id?: unknown }).id === id) as
+      | Record<string, unknown>
+      | undefined;
+    if (!ours) return { status: "occupied" };
+    const status = ours.status;
+    if (status === "suppressed") return { status: "suppressed" };
+    if (status === "ingestion_accepted") {
+      const requestId = ours.google_request_id;
+      return {
+        status: "accepted",
+        requestId: typeof requestId === "string" && requestId.trim() ? requestId.trim() : null,
+      };
+    }
+    if (status !== "pending" || operatorLock(ours.last_error) !== "sending") {
+      return { status: "occupied" };
+    }
+    for (const raw of data) {
+      const other = raw as Record<string, unknown>;
+      if (other.id === id) continue;
+      if (other.status !== "pending" || operatorLock(other.last_error) !== "open") {
+        return { status: "occupied" };
+      }
+    }
+    return { status: "clear" };
+  } catch {
+    return { status: "unavailable" };
+  }
+}
+
+/** Reads at most three identities. A second row blocks a new attempt. */
+export async function inspectGoogleAdsTrialOccupancy(
+  subscriptionId: string
+): Promise<GoogleAdsTrialOccupancy> {
+  try {
+    const subId = subscriptionId.trim();
+    if (!subId) return { status: "unavailable" };
+    const { data, error } = await supabaseServer
+      .from(TABLE)
+      .select("id, event_kind, stripe_subscription_id, status, google_request_id, last_error")
+      .limit(3);
+    if (error || !data) return { status: "unavailable" };
+    if (data.length === 0) return { status: "empty" };
+    if (data.length !== 1) return { status: "blocked" };
+    const raw = data[0] as Record<string, unknown>;
+    const eventKind = raw.event_kind;
+    const rowSub = typeof raw.stripe_subscription_id === "string" ? raw.stripe_subscription_id : "";
+    const status = raw.status;
+    if (eventKind !== "trial_started" && eventKind !== "first_payment") {
+      return { status: "unavailable" };
+    }
+    if (status !== "pending" && status !== "ingestion_accepted" && status !== "suppressed") {
+      return { status: "unavailable" };
+    }
+    if (rowSub !== subId || eventKind !== "trial_started") return { status: "blocked" };
+    const requestId = raw.google_request_id;
+    return {
+      status: "this_trial",
+      ledgerStatus: status,
+      requestId: typeof requestId === "string" && requestId.trim() ? requestId.trim() : null,
+      lock: operatorLock(raw.last_error),
+    };
+  } catch {
+    return { status: "unavailable" };
   }
 }
 

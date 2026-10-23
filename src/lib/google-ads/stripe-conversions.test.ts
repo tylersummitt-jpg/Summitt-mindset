@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 
 const claimMock = vi.fn();
 const readStatusMock = vi.fn();
+const readGateMock = vi.fn();
 const markAcceptedMock = vi.fn();
 const markErrorMock = vi.fn();
 const listRetryableMock = vi.fn();
@@ -23,10 +24,17 @@ vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({
 vi.mock("@/lib/google-ads/conversion-ledger", () => ({
   claimGoogleAdsConversion: (...args: unknown[]) => claimMock(...args),
   readGoogleAdsConversionStatus: (...args: unknown[]) => readStatusMock(...args),
+  readGoogleAdsOperatorGate: (...args: unknown[]) => readGateMock(...args),
   markGoogleAdsIngestionAccepted: (...args: unknown[]) => markAcceptedMock(...args),
   markGoogleAdsConversionError: (...args: unknown[]) => markErrorMock(...args),
   listRetryableGoogleAdsConversions: (...args: unknown[]) => listRetryableMock(...args),
+  acquireOperatorGoogleAdsSend: vi.fn(async () => ({ status: "busy" })),
+  finishOperatorGoogleAdsSend: vi.fn(async () => undefined),
+  markOperatorGoogleAdsAmbiguous: vi.fn(async () => undefined),
+  markOperatorGoogleAdsBlocked: vi.fn(async () => undefined),
+  inspectGoogleAdsTrialOccupancy: vi.fn(async () => ({ status: "blocked" })),
   GOOGLE_ADS_CONVERSION_RETRY_MIN_AGE_MS: 2 * 60 * 1000,
+  GOOGLE_ADS_CONVERSION_MAX_EVENT_AGE_SECONDS: 90 * 24 * 60 * 60,
 }));
 
 vi.mock("@/lib/google-ads/data-manager-client", () => ({
@@ -124,6 +132,7 @@ describe("Stripe to Google Ads conversions", () => {
     delete process.env.GOOGLE_ADS_LOGIN_CUSTOMER_ID;
     claimMock.mockResolvedValue(claimedRow());
     readStatusMock.mockResolvedValue("pending");
+    readGateMock.mockResolvedValue({ status: "pending", lock: "open", requestId: null });
     markAcceptedMock.mockResolvedValue(undefined);
     markErrorMock.mockResolvedValue(undefined);
     listRetryableMock.mockResolvedValue([]);
@@ -249,6 +258,31 @@ describe("Stripe to Google Ads conversions", () => {
     ]);
     await retryBoundedPendingGoogleAdsConversions(Date.now());
     expect(markAcceptedMock).toHaveBeenCalledWith("row-1", "req-retry");
+  });
+
+  it("does not let the hourly retry upload a row the operator still holds", async () => {
+    readGateMock.mockResolvedValue({ status: "pending", lock: "sending", requestId: null });
+    listRetryableMock.mockResolvedValue([
+      { ...claimedRow().row, created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
+    ]);
+    process.env.GOOGLE_ADS_INGEST_ENABLED = "true";
+    const { retryBoundedPendingGoogleAdsConversions } = await import("./stripe-conversions");
+    await retryBoundedPendingGoogleAdsConversions(Date.now());
+    expect(ingestMock).not.toHaveBeenCalled();
+
+    readGateMock.mockResolvedValue({ status: "pending", lock: "ambiguous", requestId: null });
+    listRetryableMock.mockResolvedValue([
+      { ...claimedRow().row, created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString() },
+    ]);
+    await retryBoundedPendingGoogleAdsConversions(Date.now());
+    expect(ingestMock).not.toHaveBeenCalled();
+    expect(tokenMock).not.toHaveBeenCalled();
+
+    readGateMock.mockResolvedValue({ status: "suppressed", lock: "open", requestId: null });
+    process.env.GOOGLE_ADS_INGEST_ENABLED = "true";
+    await retryBoundedPendingGoogleAdsConversions(Date.now());
+    expect(ingestMock).not.toHaveBeenCalled();
+    expect(tokenMock).not.toHaveBeenCalled();
   });
 
   it("does not call Google when ingestion is disabled or credentials are missing", async () => {

@@ -6,16 +6,25 @@
 
 import "server-only";
 
-import type Stripe from "stripe";
+import Stripe from "stripe";
 
 import {
+  acquireOperatorGoogleAdsSend,
+  assessOperatorSendHold,
   claimGoogleAdsConversion,
+  finishOperatorGoogleAdsSend,
+  insertOperatorGoogleAdsSend,
+  inspectGoogleAdsTrialOccupancy,
   listRetryableGoogleAdsConversions,
   markGoogleAdsConversionError,
   markGoogleAdsIngestionAccepted,
-  readGoogleAdsConversionStatus,
+  markOperatorGoogleAdsAmbiguous,
+  markOperatorGoogleAdsBlocked,
+  readGoogleAdsOperatorGate,
+  GOOGLE_ADS_CONVERSION_MAX_EVENT_AGE_SECONDS,
   GOOGLE_ADS_CONVERSION_RETRY_MIN_AGE_MS,
   type GoogleAdsLedgerRow,
+  type GoogleAdsTrialOccupancy,
 } from "@/lib/google-ads/conversion-ledger";
 import {
   googleAdsAccessToken,
@@ -32,6 +41,11 @@ import {
   googleAdsUploadEligibility,
   type GoogleAdsCheckoutEvidence,
 } from "@/lib/google-ads/google-ads-eligibility";
+import { googleClickIdFromIntent } from "@/lib/marketing-attribution-pure";
+import {
+  type OperatorClickType,
+  type OperatorTrialView,
+} from "@/lib/google-ads/operator-trial-view";
 import {
   checkFirstPaidInvoiceForSubscription,
   invoiceCurrencyIsUsd,
@@ -63,8 +77,8 @@ async function evidenceFor(args: {
 }
 
 async function deliverRow(row: GoogleAdsLedgerRow): Promise<void> {
-  const status = await readGoogleAdsConversionStatus(row.id);
-  if (status !== "pending") return;
+  const gate = await readGoogleAdsOperatorGate(row.id);
+  if (!gate || gate.status !== "pending" || gate.lock !== "open") return;
 
   const config = readGoogleAdsConfig(process.env);
   if (!config) {
@@ -240,5 +254,429 @@ export async function retryBoundedPendingGoogleAdsConversions(
     }
   } catch {
     console.warn("[google-ads] retry unexpected");
+  }
+}
+
+const OPERATOR_SUBSCRIPTION_ID = /^sub_[A-Za-z0-9]{1,64}$/;
+const AMBIGUOUS_INGEST = new Set(["timeout", "network", "missing_request_id"]);
+
+export type { OperatorClickType, OperatorTrialView } from "@/lib/google-ads/operator-trial-view";
+
+type OperatorTrialDeps = {
+  loadSubscription?: (subscriptionId: string) => Promise<Stripe.Subscription>;
+  nowUnix?: number;
+};
+
+type ReadyTrial = {
+  ok: true;
+  subscriptionId: string;
+  click: { type: OperatorClickType; value: string };
+  eventTime: number;
+  transactionId: string;
+  country: "US";
+};
+
+function operatorView(args: {
+  eligibility: OperatorTrialView["eligibility"];
+  subscriptionId: string;
+  clickType: OperatorClickType | null;
+  requestCountry: string | null;
+  transactionId: string | null;
+  deliveryStatus: string;
+  requestId?: string | null;
+}): OperatorTrialView {
+  const deliveryStatus = args.deliveryStatus.replace(/[^a-z0-9_]/gi, "").slice(0, 40) || "stopped";
+  return {
+    eligibility: args.eligibility,
+    subscriptionId: args.subscriptionId,
+    clickType: args.clickType,
+    requestCountry: args.requestCountry,
+    transactionId: args.transactionId,
+    deliveryStatus,
+    requestId: publicRequestId(args.requestId ?? null),
+  };
+}
+
+function publicRequestId(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > 200) return null;
+  if (/[\s@]/.test(trimmed)) return null;
+  if (/bearer|ya29|access_token/i.test(trimmed)) return null;
+  return trimmed;
+}
+
+function countryCode(value: string | null | undefined): string | null {
+  return typeof value === "string" && /^[A-Z]{2}$/.test(value) ? value : null;
+}
+
+function clickTypeOf(intent: GoogleAdsCheckoutEvidence | null): OperatorClickType | null {
+  const click = googleClickIdFromIntent(intent);
+  return click?.type ?? null;
+}
+
+async function loadOperatorSubscription(
+  subscriptionId: string,
+  deps: OperatorTrialDeps | undefined
+): Promise<Stripe.Subscription> {
+  if (deps?.loadSubscription) return deps.loadSubscription(subscriptionId);
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) throw Object.assign(new Error("stripe_unavailable"), { code: "stripe_unavailable" });
+  return new Stripe(key).subscriptions.retrieve(subscriptionId);
+}
+
+function stripeLoadStatus(err: unknown): "not_found" | "stripe_unavailable" {
+  if (err && typeof err === "object" && "code" in err) {
+    const code = (err as { code?: unknown }).code;
+    if (code === "resource_missing") return "not_found";
+  }
+  return "stripe_unavailable";
+}
+
+function stoppedView(
+  subscriptionId: string,
+  intent: GoogleAdsCheckoutEvidence | null,
+  deliveryStatus: string,
+  requestId: string | null = null
+): OperatorTrialView {
+  const parsed = OPERATOR_SUBSCRIPTION_ID.test(subscriptionId) ? subscriptionId : "";
+  return operatorView({
+    eligibility: "ineligible",
+    subscriptionId: parsed,
+    clickType: clickTypeOf(intent),
+    requestCountry: countryCode(intent?.request_country),
+    transactionId: parsed ? googleAdsTransactionId("trial_started", parsed) : null,
+    deliveryStatus,
+    requestId,
+  });
+}
+
+function decideTrial(args: {
+  subscription: Stripe.Subscription;
+  intent: GoogleAdsCheckoutEvidence | null;
+  nowUnix: number;
+}): ReadyTrial | { ok: false; view: OperatorTrialView } {
+  const subscriptionId =
+    typeof args.subscription.id === "string" ? args.subscription.id.trim() : "";
+  if (!OPERATOR_SUBSCRIPTION_ID.test(subscriptionId)) {
+    return { ok: false, view: stoppedView("", args.intent, "invalid_subscription_id") };
+  }
+  const base = {
+    subscriptionId,
+    intent: args.intent,
+  };
+  if (!isRecognizedSummittSubscription(args.subscription)) {
+    return { ok: false, view: stoppedView(base.subscriptionId, base.intent, "not_recognized") };
+  }
+  if (!subscriptionHasActiveTrial(args.subscription, args.nowUnix)) {
+    return { ok: false, view: stoppedView(base.subscriptionId, base.intent, "trial_inactive") };
+  }
+  const eligible = googleAdsUploadEligibility({
+    ownerCanary: isOwnerCanaryMetadata(args.subscription.metadata),
+    subscriptionLivemode: args.subscription.livemode,
+    intent: args.intent,
+  });
+  if (!eligible.ok) {
+    return { ok: false, view: stoppedView(base.subscriptionId, base.intent, eligible.reason) };
+  }
+  const eventTime = metaStartTrialEventUnix(
+    args.subscription,
+    typeof args.subscription.created === "number" ? args.subscription.created : args.nowUnix
+  );
+  const transactionId = googleAdsTransactionId("trial_started", subscriptionId);
+  if (!transactionId || eventTime < args.nowUnix - GOOGLE_ADS_CONVERSION_MAX_EVENT_AGE_SECONDS) {
+    return { ok: false, view: stoppedView(base.subscriptionId, base.intent, "event_too_old") };
+  }
+  return {
+    ok: true,
+    subscriptionId,
+    click: eligible.click,
+    eventTime,
+    transactionId,
+    country: "US",
+  };
+}
+
+async function loadReadyTrial(
+  rawSubscriptionId: string,
+  deps: OperatorTrialDeps | undefined
+): Promise<{ subscription: Stripe.Subscription; intent: GoogleAdsCheckoutEvidence | null; ready: ReadyTrial } | { view: OperatorTrialView }> {
+  const subscriptionId = rawSubscriptionId.trim();
+  if (!OPERATOR_SUBSCRIPTION_ID.test(subscriptionId)) {
+    return { view: stoppedView("", null, "invalid_subscription_id") };
+  }
+  if (googleAdsIngestEnabled(process.env)) {
+    return { view: stoppedView(subscriptionId, null, "automatic_ingestion_enabled") };
+  }
+  if (!readGoogleAdsConfig(process.env)) {
+    return { view: stoppedView(subscriptionId, null, "credentials_missing") };
+  }
+  let subscription: Stripe.Subscription;
+  try {
+    subscription = await loadOperatorSubscription(subscriptionId, deps);
+  } catch (err) {
+    return { view: stoppedView(subscriptionId, null, stripeLoadStatus(err)) };
+  }
+  if (subscription.id.trim() !== subscriptionId) {
+    return { view: stoppedView(subscriptionId, null, "not_found") };
+  }
+  let intent: GoogleAdsCheckoutEvidence | null;
+  try {
+    intent = await loadIntentBySubscriptionId(subscriptionId);
+  } catch {
+    return { view: stoppedView(subscriptionId, null, "intent_unavailable") };
+  }
+  const decision = decideTrial({
+    subscription,
+    intent,
+    nowUnix: deps?.nowUnix ?? Math.floor(Date.now() / 1000),
+  });
+  if (!decision.ok) return { view: decision.view };
+  return { subscription, intent, ready: decision };
+}
+
+function viewFromReady(
+  ready: ReadyTrial,
+  intent: GoogleAdsCheckoutEvidence | null,
+  deliveryStatus: string,
+  eligibility: OperatorTrialView["eligibility"],
+  requestId: string | null = null
+): OperatorTrialView {
+  return operatorView({
+    eligibility,
+    subscriptionId: ready.subscriptionId,
+    clickType: clickTypeOf(intent) ?? ready.click.type,
+    requestCountry: countryCode(intent?.request_country) ?? ready.country,
+    transactionId: ready.transactionId,
+    deliveryStatus,
+    requestId,
+  });
+}
+
+function occupancyStops(
+  occupancy: GoogleAdsTrialOccupancy,
+  ready: ReadyTrial,
+  intent: GoogleAdsCheckoutEvidence | null
+): OperatorTrialView | null {
+  if (occupancy.status === "empty") return null;
+  if (occupancy.status === "blocked") {
+    return viewFromReady(ready, intent, "ledger_occupied", "ineligible");
+  }
+  if (occupancy.status === "unavailable") {
+    return viewFromReady(ready, intent, "ledger_unavailable", "ineligible");
+  }
+  if (occupancy.ledgerStatus === "ingestion_accepted") {
+    return viewFromReady(ready, intent, "already_accepted", "eligible", occupancy.requestId);
+  }
+  if (occupancy.ledgerStatus === "suppressed") {
+    return viewFromReady(ready, intent, "suppressed", "ineligible");
+  }
+  if (occupancy.lock === "sending") return viewFromReady(ready, intent, "in_flight", "ineligible");
+  if (occupancy.lock === "ambiguous") return viewFromReady(ready, intent, "ambiguous", "ineligible");
+  if (occupancy.lock === "blocked") return viewFromReady(ready, intent, "blocked", "ineligible");
+  return null;
+}
+
+/** Read-only eligibility. Does not claim a row or call Google. */
+export async function previewOperatorGoogleAdsTrial(
+  rawSubscriptionId: string,
+  deps?: OperatorTrialDeps
+): Promise<OperatorTrialView> {
+  try {
+    const loaded = await loadReadyTrial(rawSubscriptionId, deps);
+    if ("view" in loaded) return loaded.view;
+    const occupancy = await inspectGoogleAdsTrialOccupancy(loaded.ready.subscriptionId);
+    const stopped = occupancyStops(occupancy, loaded.ready, loaded.intent);
+    if (stopped) return stopped;
+    return viewFromReady(loaded.ready, loaded.intent, "not_sent", "eligible");
+  } catch {
+    console.warn("[google-ads] operator preview unexpected");
+    return stoppedView("", null, "unavailable");
+  }
+}
+
+/** One authorized trial upload. Automatic ingestion stays behind the global flag. */
+export async function confirmOperatorGoogleAdsTrial(
+  rawSubscriptionId: string,
+  deps?: OperatorTrialDeps
+): Promise<OperatorTrialView> {
+  try {
+    const loaded = await loadReadyTrial(rawSubscriptionId, deps);
+    if ("view" in loaded) return loaded.view;
+    const before = await inspectGoogleAdsTrialOccupancy(loaded.ready.subscriptionId);
+    const blocked = occupancyStops(before, loaded.ready, loaded.intent);
+    if (blocked) return blocked;
+
+    const inserted = await insertOperatorGoogleAdsSend({
+      eventKind: "trial_started",
+      stripeSubscriptionId: loaded.ready.subscriptionId,
+      transactionId: loaded.ready.transactionId,
+      eventTime: loaded.ready.eventTime,
+      value: null,
+      currency: null,
+      clickType: loaded.ready.click.type,
+      clickId: loaded.ready.click.value,
+    });
+    if (inserted.status === "busy") {
+      return viewFromReady(loaded.ready, loaded.intent, "busy", "ineligible");
+    }
+    if (inserted.status === "ingestion_accepted" || inserted.status === "suppressed") {
+      const again = await inspectGoogleAdsTrialOccupancy(loaded.ready.subscriptionId);
+      const settled = occupancyStops(again, loaded.ready, loaded.intent);
+      if (settled) return settled;
+      return viewFromReady(
+        loaded.ready,
+        loaded.intent,
+        inserted.status === "ingestion_accepted" ? "already_accepted" : "suppressed",
+        inserted.status === "ingestion_accepted" ? "eligible" : "ineligible"
+      );
+    }
+    if (inserted.status !== "locked" && inserted.status !== "existing") {
+      return viewFromReady(loaded.ready, loaded.intent, "ledger_unavailable", "ineligible");
+    }
+
+    const row = inserted.row;
+    if (inserted.status === "existing") {
+      const acquired = await acquireOperatorGoogleAdsSend(row.id);
+      if (acquired.status === "busy") {
+        return viewFromReady(loaded.ready, loaded.intent, "busy", "ineligible");
+      }
+      if (acquired.status !== "acquired") {
+        const gate = await readGoogleAdsOperatorGate(row.id);
+        if (gate?.status === "ingestion_accepted") {
+          return viewFromReady(loaded.ready, loaded.intent, "already_accepted", "eligible", gate.requestId);
+        }
+        if (gate?.status === "suppressed" || gate?.lock === "blocked") {
+          return viewFromReady(
+            loaded.ready,
+            loaded.intent,
+            gate?.status === "suppressed" ? "suppressed" : "blocked",
+            "ineligible"
+          );
+        }
+        if (gate?.lock === "ambiguous") {
+          return viewFromReady(loaded.ready, loaded.intent, "ambiguous", "ineligible");
+        }
+        if (gate?.lock === "sending") {
+          return viewFromReady(loaded.ready, loaded.intent, "in_flight", "ineligible");
+        }
+        return viewFromReady(loaded.ready, loaded.intent, "ledger_unavailable", "ineligible");
+      }
+    }
+
+    const tokenConfig = readGoogleAdsConfig(process.env);
+    if (!tokenConfig || googleAdsIngestEnabled(process.env)) {
+      await markOperatorGoogleAdsBlocked(row.id);
+      return viewFromReady(
+        loaded.ready,
+        loaded.intent,
+        googleAdsIngestEnabled(process.env) ? "automatic_ingestion_enabled" : "credentials_missing",
+        "ineligible"
+      );
+    }
+    const accessToken = await googleAdsAccessToken(tokenConfig);
+    if (!accessToken) {
+      await finishOperatorGoogleAdsSend(row.id, "token_rejected");
+      return viewFromReady(loaded.ready, loaded.intent, "token_rejected", "ineligible");
+    }
+
+    const fresh = await loadReadyTrial(rawSubscriptionId, deps);
+    if ("view" in fresh) {
+      if (
+        fresh.view.deliveryStatus === "stripe_unavailable" ||
+        fresh.view.deliveryStatus === "intent_unavailable"
+      ) {
+        await finishOperatorGoogleAdsSend(row.id, fresh.view.deliveryStatus);
+      } else {
+        await markOperatorGoogleAdsBlocked(row.id);
+      }
+      return fresh.view;
+    }
+    if (
+      fresh.ready.click.type !== row.google_click_id_type ||
+      fresh.ready.click.value !== row.google_click_id ||
+      fresh.ready.eventTime !== row.event_time
+    ) {
+      await markOperatorGoogleAdsBlocked(row.id);
+      return viewFromReady(fresh.ready, fresh.intent, "eligibility_changed", "ineligible");
+    }
+    if (googleAdsIngestEnabled(process.env) || !readGoogleAdsConfig(process.env)) {
+      await markOperatorGoogleAdsBlocked(row.id);
+      return viewFromReady(
+        fresh.ready,
+        fresh.intent,
+        googleAdsIngestEnabled(process.env) ? "automatic_ingestion_enabled" : "credentials_missing",
+        "ineligible"
+      );
+    }
+    const hold = await assessOperatorSendHold(row.id);
+    if (hold.status === "suppressed") {
+      return viewFromReady(fresh.ready, fresh.intent, "suppressed", "ineligible");
+    }
+    if (hold.status === "accepted") {
+      return viewFromReady(fresh.ready, fresh.intent, "already_accepted", "eligible", hold.requestId);
+    }
+    if (hold.status !== "clear") {
+      if (hold.status === "unavailable") {
+        await finishOperatorGoogleAdsSend(row.id, "ledger_unavailable");
+      } else {
+        await markOperatorGoogleAdsBlocked(row.id);
+      }
+      return viewFromReady(
+        fresh.ready,
+        fresh.intent,
+        hold.status === "unavailable" ? "ledger_unavailable" : "ledger_occupied",
+        "ineligible"
+      );
+    }
+    const gate = await readGoogleAdsOperatorGate(row.id);
+    if (gate?.status === "suppressed") {
+      return viewFromReady(fresh.ready, fresh.intent, "suppressed", "ineligible");
+    }
+    if (gate?.status === "ingestion_accepted") {
+      return viewFromReady(fresh.ready, fresh.intent, "already_accepted", "eligible", gate.requestId);
+    }
+    if (!gate) {
+      await finishOperatorGoogleAdsSend(row.id, "ledger_unavailable");
+      return viewFromReady(fresh.ready, fresh.intent, "ledger_unavailable", "ineligible");
+    }
+    if (gate.status !== "pending" || gate.lock !== "sending") {
+      return viewFromReady(fresh.ready, fresh.intent, "in_flight", "ineligible");
+    }
+
+    const config = readGoogleAdsConfig(process.env);
+    if (googleAdsIngestEnabled(process.env) || !config) {
+      await markOperatorGoogleAdsBlocked(row.id);
+      return viewFromReady(
+        fresh.ready,
+        fresh.intent,
+        googleAdsIngestEnabled(process.env) ? "automatic_ingestion_enabled" : "credentials_missing",
+        "ineligible"
+      );
+    }
+    const result = await postGoogleAdsIngest({
+      config,
+      accessToken,
+      draft: {
+        kind: "trial_started",
+        transactionId: row.transaction_id,
+        eventTimeUnix: row.event_time,
+        click: { type: row.google_click_id_type, value: row.google_click_id },
+        valueUsd: null,
+      },
+    });
+    if (result.outcome === "ingestion_accepted") {
+      await markGoogleAdsIngestionAccepted(row.id, result.requestId);
+      return viewFromReady(fresh.ready, fresh.intent, "ingestion_accepted", "eligible", result.requestId);
+    }
+    if (AMBIGUOUS_INGEST.has(result.reason)) {
+      await markOperatorGoogleAdsAmbiguous(row.id);
+      return viewFromReady(fresh.ready, fresh.intent, result.reason, "ineligible");
+    }
+    await finishOperatorGoogleAdsSend(row.id, result.reason);
+    return viewFromReady(fresh.ready, fresh.intent, result.reason, "ineligible");
+  } catch {
+    console.warn("[google-ads] operator confirm unexpected");
+    return stoppedView("", null, "unavailable");
   }
 }
