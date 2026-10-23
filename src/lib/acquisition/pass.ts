@@ -2,6 +2,7 @@ import { pdfHeaderValid } from "@/lib/acquisition/assets";
 import {
   actionMatchesState,
   evaluateWarmSend,
+  nextWarmAction,
   salesEmailMustStop,
   settleAcceptedSend,
   settleFailedSend,
@@ -34,6 +35,9 @@ export type PassAction = {
   actionType: AcquisitionActionType;
   attemptCount: number;
   idempotencyKey: string;
+  journeyId: string | null;
+  promisedAssets: unknown;
+  promisedLabel: string | null;
 };
 
 export type PassSendRequest = {
@@ -73,7 +77,7 @@ export async function runAcquisitionPass(args: {
   person: (id: string) => Promise<PassPerson | null>;
   suppression: (email: string) => Promise<boolean | null>;
   clerkSubscribed: (clerkUserId: string | null) => Promise<boolean | null>;
-  assetFiles: (person: PassPerson) => Promise<{ label: string | null; files: PassAttachment[] } | null>;
+  assetFiles: (person: PassPerson, action: PassAction) => Promise<{ label: string | null; files: PassAttachment[] } | null>;
   videoToken: (person: PassPerson) => Promise<string | null>;
   unsubscribeToken: () => string;
   send: (request: PassSendRequest) => Promise<{
@@ -120,7 +124,8 @@ export async function runAcquisitionPass(args: {
       await args.apply({ kind: "release", actionId: action.id });
       continue;
     }
-    if (gate === "suppressed" || gate === "member" || gate === "state") {
+    const journeyFulfillment = action.journeyId !== null;
+    if (gate === "suppressed" || gate === "member" || (gate === "state" && !journeyFulfillment)) {
       await args.apply({
         kind: "stop",
         actionId: action.id,
@@ -129,12 +134,16 @@ export async function runAcquisitionPass(args: {
       });
       continue;
     }
-    if (!actionMatchesState(action.actionType, person.lifecycle)) {
+    if (!journeyFulfillment && !actionMatchesState(action.actionType, person.lifecycle)) {
       await args.apply({ kind: "stop", actionId: action.id, status: "canceled", cancelSiblings: false });
       continue;
     }
     const fresh = await args.person(action.personId);
-    if (!fresh || !actionMatchesState(action.actionType, fresh.lifecycle) || salesEmailMustStop(fresh.lifecycle)) {
+    if (
+      !fresh
+      || salesEmailMustStop(fresh.lifecycle)
+      || (!journeyFulfillment && !actionMatchesState(action.actionType, fresh.lifecycle))
+    ) {
       await args.apply({
         kind: "stop",
         actionId: action.id,
@@ -143,7 +152,7 @@ export async function runAcquisitionPass(args: {
       });
       continue;
     }
-    const bundle = action.actionType === "send_asset" ? await args.assetFiles(fresh) : null;
+    const bundle = action.actionType === "send_asset" ? await args.assetFiles(fresh, action) : null;
     if (
       action.actionType === "send_asset" &&
       (!bundle || bundle.files.length === 0 || bundle.files.some((file) => !pdfHeaderValid(file.bytes)))
@@ -167,7 +176,9 @@ export async function runAcquisitionPass(args: {
     const result = await args.send(request);
     const kind = providerKind(result.outcome);
     if (kind === "accepted") {
-      const settle = settleAcceptedSend(action.actionType, fresh.lifecycle);
+      const settle = journeyFulfillment
+        ? { status: "accepted" as const, state: fresh.lifecycle, schedule: nextWarmAction(action.actionType) }
+        : settleAcceptedSend(action.actionType, fresh.lifecycle);
       await args.apply({ kind: "accept", actionId: action.id, settle, providerMessageId: result.providerMessageId });
       if (settle.status === "accepted") accepted += 1;
       acceptedToday += 1;

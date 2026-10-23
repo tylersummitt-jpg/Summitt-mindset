@@ -6,8 +6,11 @@ import {
   assignInterestFulfillment,
   loadBundleFiles,
   parseAcquisitionOffers,
+  parsePromisedAssetKeys,
   readAcquisitionAssetReport,
+  resolveCampaignPromise,
   resolveSendAssets,
+  type AcquisitionFileKey,
   type AcquisitionOffer,
 } from "@/lib/acquisition/assets";
 import {
@@ -38,6 +41,7 @@ import {
   normalizeAcquisitionEmail,
   parseAcquisitionAsset,
   reduceLiveSignal,
+  salesEmailMustStop,
   type AcquisitionActionType,
   type AcquisitionAsset,
   type AcquisitionAutomation,
@@ -243,12 +247,28 @@ async function applySignal(person: PersonRow, signal: AcquisitionSignal, extra: 
   return person;
 }
 
-async function scheduleAction(personId: string, action: AcquisitionActionType, when: Date): Promise<void> {
+async function scheduleAction(
+  personId: string,
+  action: AcquisitionActionType,
+  when: Date,
+  scope?: {
+    journeyId: string;
+    promise?: { offerKey: string | null; label: string | null; assets: AcquisitionFileKey[] } | null;
+  },
+): Promise<void> {
+  const journeyId = scope?.journeyId ?? null;
+  const promise = journeyId && action === "send_asset" ? scope?.promise ?? null : null;
   const { error } = await supabaseServer.from("acquisition_actions").insert({
     person_id: personId,
     action_type: action,
     status: "scheduled",
-    idempotency_key: `acquisition:${personId}:${action}`,
+    journey_id: journeyId,
+    idempotency_key: journeyId
+      ? `acquisition:${personId}:${journeyId}:${action}`
+      : `acquisition:${personId}:${action}`,
+    promised_offer_key: promise?.offerKey ?? null,
+    promised_label: promise?.label ?? null,
+    promised_assets: promise?.assets ?? null,
     scheduled_at: when.toISOString(),
   });
   if (error) {
@@ -343,6 +363,16 @@ export async function applyInstantlyWebhook(payload: unknown, now = new Date()):
   return applyPersonEvent(normalized, now);
 }
 
+function readJourneyPersistResult(data: unknown): { status: "inserted"; journeyId: string | null } | { status: "duplicate" } | null {
+  if (!data || typeof data !== "object" || Array.isArray(data)) return null;
+  const row = data as { result?: unknown; journey_id?: unknown };
+  if (row.result === "duplicate") return { status: "duplicate" };
+  if (row.result !== "inserted") return null;
+  if (row.journey_id == null) return { status: "inserted", journeyId: null };
+  if (typeof row.journey_id === "string" && row.journey_id.length > 0) return { status: "inserted", journeyId: row.journey_id };
+  return null;
+}
+
 async function persistInstantlyPersonEvent(args: {
   personId: string;
   providerEventId: string;
@@ -351,8 +381,8 @@ async function persistInstantlyPersonEvent(args: {
   campaignId: string | null;
   sender: string | null;
   metadata: Record<string, unknown>;
-}): Promise<"inserted" | "duplicate" | "failed"> {
-  const { data, error } = await supabaseServer.rpc("acquisition_persist_instantly_person_event", {
+}): Promise<{ status: "inserted"; journeyId: string | null } | { status: "duplicate" } | { status: "failed" }> {
+  const { data, error } = await supabaseServer.rpc("acquisition_persist_instantly_person_event_result", {
     p_person_id: args.personId,
     p_provider_event_id: args.providerEventId,
     p_event_type: args.eventType,
@@ -361,9 +391,8 @@ async function persistInstantlyPersonEvent(args: {
     p_sender: args.sender,
     p_metadata: args.metadata,
   });
-  if (error) return "failed";
-  if (data === "inserted" || data === "duplicate") return data;
-  return "failed";
+  if (error) return { status: "failed" };
+  return readJourneyPersistResult(data) ?? { status: "failed" };
 }
 
 async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "person" }>, now: Date) {
@@ -384,8 +413,8 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
     sender: event.sender,
     metadata: instantlyPersonMetadata(event),
   });
-  if (stored === "duplicate") return { ok: true as const, duplicate: true };
-  if (stored === "failed") return { ok: false as const };
+  if (stored.status === "duplicate") return { ok: true as const, duplicate: true };
+  if (stored.status === "failed") return { ok: false as const };
   const settings = await readAcquisitionSettings();
   const fulfillment = event.signal === "interested"
     ? assignInterestFulfillment({
@@ -397,16 +426,28 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
     : null;
   const extra: Record<string, unknown> = {};
   if (event.closeReason) extra.close_reason = event.closeReason;
-  if (fulfillment?.assetToStore) extra.requested_asset = fulfillment.assetToStore;
-  if (fulfillment?.offerKeyToStore) extra.offer_key = fulfillment.offerKeyToStore;
+  if (!stored.journeyId && fulfillment?.assetToStore) extra.requested_asset = fulfillment.assetToStore;
+  if (!stored.journeyId && fulfillment?.offerKeyToStore) extra.offer_key = fulfillment.offerKeyToStore;
   const updated = await applySignal(person, event.signal, extra);
   if (event.signal === "unsubscribed") await rememberSuppression(email, "unsubscribe");
   if (event.signal === "bounced") await rememberSuppression(email, "bounce");
   if (event.signal === "complained") await rememberSuppression(email, "complaint");
+  // lead_not_interested stays a global stop. An offer-specific decline is a separate later requirement.
+  if (salesEmailMustStop(updated.lifecycle_state)) return { ok: true as const };
+  if (event.signal === "interested" && stored.journeyId) {
+    const promise = resolveCampaignPromise({
+      campaignValue: event.campaignId ? settings.campaignAssets[event.campaignId] : null,
+      offers: settings.offers,
+    });
+    if (promise) {
+      await scheduleAction(updated.id, "send_asset", now, { journeyId: stored.journeyId, promise });
+    }
+    return { ok: true as const };
+  }
   const canSendAsset = Boolean(
     fulfillment?.hasFulfillment || person.requested_asset || person.offer_key
   );
-  if (updated.lifecycle_state === "asset_requested" && canSendAsset) {
+  if (!stored.journeyId && updated.lifecycle_state === "asset_requested" && canSendAsset) {
     await scheduleAction(updated.id, "send_asset", now);
   }
   return { ok: true as const };
@@ -589,12 +630,13 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
   }
   const { data } = await supabaseServer
     .from("acquisition_actions")
-    .select("person_id, action_type")
+    .select("person_id, action_type, journey_id")
     .eq("id", effect.actionId)
     .maybeSingle();
   if (!data?.person_id || (data.action_type !== "send_asset" && data.action_type !== "send_video" && data.action_type !== "send_trial_followup")) {
     return;
   }
+  const journeyId = typeof data.journey_id === "string" ? data.journey_id : null;
   await supabaseServer
     .from("acquisition_actions")
     .update({
@@ -609,9 +651,14 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
   const person = await findPersonById(String(data.person_id));
   if (!person || effect.settle.status !== "accepted") return;
   const updated = await applySignal(person, data.action_type === "send_asset" ? "asset_accepted" : data.action_type === "send_video" ? "video_accepted" : "trial_followup_accepted");
-  if (effect.settle.schedule && updated.lifecycle_state !== person.lifecycle_state) {
+  if (effect.settle.schedule && (journeyId || updated.lifecycle_state !== person.lifecycle_state)) {
     const hours = effect.settle.schedule === "send_video" ? settings.videoDelayHours : settings.trialFollowupDelayHours;
-    await scheduleAction(updated.id, effect.settle.schedule, new Date(now.getTime() + hours * 60 * 60 * 1000));
+    await scheduleAction(
+      updated.id,
+      effect.settle.schedule,
+      new Date(now.getTime() + hours * 60 * 60 * 1000),
+      journeyId ? { journeyId } : undefined,
+    );
   }
   await insertEvent({
     personId: person.id,
@@ -654,7 +701,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
   }
   const { data: dueRows } = await supabaseServer
     .from("acquisition_actions")
-    .select("id, person_id, action_type, attempt_count, idempotency_key")
+    .select("id, person_id, action_type, attempt_count, idempotency_key, journey_id, promised_assets, promised_label")
     .eq("status", "scheduled")
     .lte("scheduled_at", now.toISOString())
     .order("scheduled_at", { ascending: true })
@@ -668,6 +715,9 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       actionType: row.action_type,
       attemptCount: typeof row.attempt_count === "number" ? row.attempt_count : 0,
       idempotencyKey: row.idempotency_key,
+      journeyId: typeof row.journey_id === "string" ? row.journey_id : null,
+      promisedAssets: row.promised_assets ?? null,
+      promisedLabel: typeof row.promised_label === "string" ? row.promised_label : null,
     }];
   });
   const tokens = new Map<string, string>();
@@ -723,7 +773,14 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
         return null;
       }
     },
-    assetFiles: async (person) => {
+    assetFiles: async (person, action) => {
+      if (action.journeyId) {
+        const keys = parsePromisedAssetKeys(action.promisedAssets);
+        if (!keys) return null;
+        const files = await loadBundleFiles(keys);
+        if (!files) return null;
+        return { label: action.promisedLabel, files };
+      }
       const resolved = resolveSendAssets({
         offerKey: person.offerKey,
         requestedAsset: person.requestedAsset,

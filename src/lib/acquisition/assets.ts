@@ -152,6 +152,32 @@ export function resolveSendAssets(args: {
   return null;
 }
 
+/** Promise for this campaign only. A stored person offer does not replace it. */
+export function resolveCampaignPromise(args: {
+  campaignValue: unknown;
+  offers: ReadonlyMap<string, AcquisitionOffer>;
+}): { offerKey: string | null; assets: AcquisitionFileKey[]; label: string | null } | null {
+  const asset = parseAcquisitionAsset(args.campaignValue);
+  if (asset) return { offerKey: null, assets: [asset], label: null };
+  if (typeof args.campaignValue !== "string" || !args.offers.has(args.campaignValue)) return null;
+  const offer = args.offers.get(args.campaignValue);
+  if (!offer || offer.assets.length === 0) return null;
+  return { offerKey: args.campaignValue, assets: [...offer.assets], label: offer.label };
+}
+
+/** Application catalog check. The database stores the snapshot without naming the files. */
+export function parsePromisedAssetKeys(value: unknown): AcquisitionFileKey[] | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 4) return null;
+  const keys: AcquisitionFileKey[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string" || seen.has(item) || !ACQUISITION_FILE_KEYS.includes(item as AcquisitionFileKey)) return null;
+    seen.add(item);
+    keys.push(item as AcquisitionFileKey);
+  }
+  return keys;
+}
+
 export async function loadBundleFiles(
   keys: readonly AcquisitionFileKey[],
   root = process.cwd()

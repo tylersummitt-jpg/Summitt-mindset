@@ -12,7 +12,9 @@ import {
   knownAssetOrNull,
   loadBundleFiles,
   parseAcquisitionOffers,
+  parsePromisedAssetKeys,
   readAcquisitionAsset,
+  resolveCampaignPromise,
   readAcquisitionAssetReport,
   resolveSendAssets,
 } from "@/lib/acquisition/assets";
@@ -52,6 +54,9 @@ function action(overrides: Partial<PassAction> = {}): PassAction {
     actionType: "send_asset",
     attemptCount: 0,
     idempotencyKey: "acquisition:person-1:send_asset",
+    journeyId: null,
+    promisedAssets: null,
+    promisedLabel: null,
     ...overrides,
   };
 }
@@ -240,7 +245,19 @@ describe("acquisition warm sends", () => {
       person: async (id) => rows.get(id) ?? null,
       suppression: async () => overrides.suppressed ?? false,
       clerkSubscribed: async () => overrides.subscribed ?? false,
-      assetFiles: async (row) => {
+      assetFiles: async (row, scheduled) => {
+        if (scheduled.journeyId) {
+          if (overrides.bytes === null || !Array.isArray(scheduled.promisedAssets) || scheduled.promisedAssets.length === 0) return null;
+          const bytes = overrides.bytes ?? Buffer.from("%PDF-1.4");
+          return {
+            label: scheduled.promisedLabel,
+            files: scheduled.promisedAssets.map((key) => ({
+              filename: `${String(key)}.pdf`,
+              label: String(key),
+              bytes,
+            })),
+          };
+        }
         if (overrides.files !== undefined) return overrides.files;
         if (overrides.bytes === null || (!row.requestedAsset && !row.offerKey)) return null;
         const bytes = overrides.bytes ?? Buffer.from("%PDF-1.4");
@@ -375,6 +392,58 @@ describe("acquisition warm sends", () => {
       const ran = await pass({ people: [person({ lifecycle })] });
       expect(ran.sends).toHaveLength(0);
     }
+  });
+
+  it("lets a later journey send after an earlier one finished, and blocks a broken promise", async () => {
+    const asset = await pass({
+      people: [person({ lifecycle: "asset_sent", requestedAsset: "definite_dozen" })],
+      due: [action({
+        journeyId: "journey-2",
+        idempotencyKey: "acquisition:person-1:journey-2:send_asset",
+        promisedAssets: ["playbook"],
+        promisedLabel: "Playbook",
+      })],
+    });
+    expect(asset.sends).toHaveLength(1);
+    expect(asset.sends[0]?.attachments.map((file) => file.filename)).toEqual(["playbook.pdf"]);
+    expect(asset.effects).toEqual(["accept:accepted:send_video"]);
+
+    const video = await pass({
+      people: [person({ lifecycle: "warm_video_sent" })],
+      due: [action({
+        actionType: "send_video",
+        journeyId: "journey-2",
+        idempotencyKey: "acquisition:person-1:journey-2:send_video",
+      })],
+      video: "recipient-token-recipient-token-1234",
+    });
+    expect(video.sends[0]?.videoToken).toBe("recipient-token-recipient-token-1234");
+    expect(video.effects).toEqual(["accept:accepted:send_trial_followup"]);
+
+    const followup = await pass({
+      people: [person({ lifecycle: "trial_invited" })],
+      due: [action({
+        actionType: "send_trial_followup",
+        journeyId: "journey-2",
+        idempotencyKey: "acquisition:person-1:journey-2:send_trial_followup",
+      })],
+    });
+    expect(followup.sends).toHaveLength(1);
+    expect(followup.effects).toEqual(["accept:accepted:none"]);
+
+    const missing = await pass({
+      people: [person({ lifecycle: "asset_sent", requestedAsset: "definite_dozen" })],
+      due: [action({ journeyId: "journey-3", promisedAssets: null })],
+    });
+    expect(missing.sends).toHaveLength(0);
+    expect(missing.effects[0]).toContain("blocked");
+
+    const declined = await pass({
+      people: [person({ lifecycle: "not_interested" })],
+      due: [action({ journeyId: "journey-4", promisedAssets: ["playbook"] })],
+    });
+    expect(declined.sends).toHaveLength(0);
+    expect(declined.effects[0]).toContain("canceled");
   });
 });
 
@@ -706,7 +775,8 @@ describe("acquisition journeys", () => {
     expect(sql).not.toContain("person_id, action_type");
     expect(sql).not.toContain("idempotency_key");
 
-    expect(store).toContain("idempotency_key: `acquisition:${personId}:${action}`");
+    expect(store).toContain("`acquisition:${personId}:${action}`");
+    expect(store).toContain("`acquisition:${personId}:${journeyId}:${action}`");
     expect(sql).not.toContain("acquisition_persist_instantly_person_event");
   });
 });
@@ -756,9 +826,10 @@ describe("acquisition observational journeys", () => {
     expect(sql).not.toContain("SECURITY DEFINER");
     expect(sql).not.toContain("ORDER BY created_at");
 
-    expect(personPath).toContain('rpc("acquisition_persist_instantly_person_event"');
-    expect(personPath).toContain('if (stored === "duplicate") return { ok: true as const, duplicate: true }');
-    expect(personPath).toContain('if (stored === "failed") return { ok: false as const }');
+    expect(personPath).toContain('rpc("acquisition_persist_instantly_person_event_result"');
+    expect(personPath).not.toContain('rpc("acquisition_persist_instantly_person_event",');
+    expect(personPath).toContain('if (stored.status === "duplicate") return { ok: true as const, duplicate: true }');
+    expect(personPath).toContain('if (stored.status === "failed") return { ok: false as const }');
     expect(personPath).not.toContain("await insertEvent(");
     expect(otherWriters).toContain("await insertEvent(");
     expect(otherWriters).not.toContain("acquisition_persist_instantly_person_event");
@@ -767,7 +838,58 @@ describe("acquisition observational journeys", () => {
     expect(backfill).not.toContain("scheduleAction");
     expect(cron).toContain('skipped: "automation_off"');
     expect(cron).not.toContain("acquisition_persist_instantly_person_event");
-    expect(store).toContain("idempotency_key: `acquisition:${personId}:${action}`");
+    expect(store).toContain("`acquisition:${personId}:${action}`");
+    expect(store).toContain("`acquisition:${personId}:${journeyId}:${action}`");
+    expect(store).toContain("idempotency_key: journeyId");
     expect(store).not.toContain("pilot_action_ids");
+  });
+});
+
+describe("journey fulfillment", () => {
+  it("snapshots each campaign promise and leaves a later catalog edit on the shelf", () => {
+    const offers = parseAcquisitionOffers({
+      playbook_offer: { assets: ["playbook"], label: "Playbook" },
+      director_offer: { assets: ["definite_dozen", "definite_dozen_ad"], label: "Director set" },
+    });
+    const first = resolveCampaignPromise({ campaignValue: "playbook_offer", offers });
+    const second = resolveCampaignPromise({ campaignValue: "definite_dozen", offers });
+    expect(first).toEqual({ offerKey: "playbook_offer", assets: ["playbook"], label: "Playbook" });
+    expect(second).toEqual({ offerKey: null, assets: ["definite_dozen"], label: null });
+    const remembered = first ? [...first.assets] : [];
+    offers.set("playbook_offer", { assets: ["definite_dozen"], label: "Changed" });
+    expect(remembered).toEqual(["playbook"]);
+    expect(parsePromisedAssetKeys(["not_a_file"])).toBeNull();
+    expect(parsePromisedAssetKeys(["playbook", "playbook"])).toBeNull();
+    expect(parsePromisedAssetKeys(["playbook"])).toEqual(["playbook"]);
+  });
+
+  it("keeps the additive migration separate from the uniqueness drop", () => {
+    const additive = readFileSync("supabase/migrations/20261023240000_acquisition_journey_fulfillment.sql", "utf8");
+    const drop = readFileSync("supabase/migrations/20261023241000_acquisition_action_uniqueness.sql", "utf8");
+    const previous = readFileSync("supabase/migrations/20261023230000_acquisition_instantly_event_journey.sql", "utf8");
+    expect(additive).toContain("acquisition_persist_instantly_person_event_result");
+    expect(additive).toContain("RETURNS JSONB");
+    expect(additive).toContain("jsonb_build_object('result', 'duplicate', 'journey_id', NULL)");
+    expect(additive).toContain("jsonb_build_object('result', 'inserted', 'journey_id', v_journey_id)");
+    expect(additive).toContain("acquisition_actions_legacy_person_type_uq");
+    expect(additive).toContain("acquisition_actions_journey_type_uq");
+    expect(additive).toContain("WHERE journey_id IS NULL");
+    expect(additive).toContain("WHERE journey_id IS NOT NULL");
+    expect(additive).toContain("WHEN jsonb_typeof(promised_assets) <> 'array' THEN false");
+    expect(additive).toContain("jsonb_array_length(promised_assets) BETWEEN 1 AND 4");
+    expect(additive).toContain("pg_column_size(promised_assets) <= 500");
+    expect(additive).not.toContain("promised_assets::text");
+    expect(additive).not.toContain("definite_dozen");
+    expect(additive).not.toContain("playbook");
+    expect(additive).not.toContain("DROP CONSTRAINT");
+    expect(previous).toContain("RETURNS TEXT");
+    expect(previous).toContain("RETURN 'inserted'");
+    expect(drop.trim().endsWith("DROP CONSTRAINT acquisition_actions_person_id_action_type_key;")).toBe(true);
+    const store = readFileSync("src/lib/acquisition/store.ts", "utf8");
+    const instantly = readFileSync("src/lib/acquisition/instantly.ts", "utf8");
+    expect(instantly).toContain('lead_not_interested: "not_interested"');
+    expect(store).toContain("salesEmailMustStop(updated.lifecycle_state)");
+    expect(store).toContain("parsePromisedAssetKeys(action.promisedAssets)");
+    expect(store).toContain("resolveCampaignPromise");
   });
 });
