@@ -79,3 +79,90 @@ export async function readAcquisitionAssetReport(
 export function knownAssetOrNull(value: unknown): AcquisitionAsset | null {
   return parseAcquisitionAsset(value);
 }
+
+export type AcquisitionOffer = {
+  assets: AcquisitionFileKey[];
+  label: string | null;
+};
+
+const OFFER_KEY = /^[a-z0-9_]{1,64}$/;
+const MAX_OFFERS = 20;
+const MAX_OFFER_ASSETS = 4;
+const MAX_OFFER_LABEL = 120;
+
+export function parseAcquisitionOffers(value: unknown): Map<string, AcquisitionOffer> {
+  const offers = new Map<string, AcquisitionOffer>();
+  if (!value || typeof value !== "object" || Array.isArray(value)) return offers;
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>).slice(0, MAX_OFFERS)) {
+    if (!OFFER_KEY.test(key) || !raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+    const record = raw as Record<string, unknown>;
+    if (!Array.isArray(record.assets) || record.assets.length === 0 || record.assets.length > MAX_OFFER_ASSETS) continue;
+    const assets: AcquisitionFileKey[] = [];
+    const seen = new Set<string>();
+    let valid = true;
+    for (const item of record.assets) {
+      if (typeof item !== "string" || !ACQUISITION_FILE_KEYS.includes(item as AcquisitionFileKey) || seen.has(item)) {
+        valid = false;
+        break;
+      }
+      seen.add(item);
+      assets.push(item as AcquisitionFileKey);
+    }
+    if (!valid) continue;
+    let label: string | null = null;
+    if (record.label != null) {
+      if (typeof record.label !== "string") continue;
+      const trimmed = record.label.trim();
+      if (!trimmed || trimmed.length > MAX_OFFER_LABEL) continue;
+      label = trimmed;
+    }
+    offers.set(key, { assets, label });
+  }
+  return offers;
+}
+
+export function assignInterestFulfillment(args: {
+  currentOfferKey: string | null;
+  currentAsset: AcquisitionAsset | null;
+  campaignValue: unknown;
+  offers: ReadonlyMap<string, AcquisitionOffer>;
+}): { offerKeyToStore: string | null; assetToStore: AcquisitionAsset | null; hasFulfillment: boolean } {
+  if (args.currentOfferKey || args.currentAsset) {
+    return { offerKeyToStore: null, assetToStore: null, hasFulfillment: true };
+  }
+  const asset = parseAcquisitionAsset(args.campaignValue);
+  if (asset) return { offerKeyToStore: null, assetToStore: asset, hasFulfillment: true };
+  if (typeof args.campaignValue === "string" && args.offers.has(args.campaignValue)) {
+    return { offerKeyToStore: args.campaignValue, assetToStore: null, hasFulfillment: true };
+  }
+  return { offerKeyToStore: null, assetToStore: null, hasFulfillment: false };
+}
+
+export function resolveSendAssets(args: {
+  offerKey: string | null;
+  requestedAsset: AcquisitionAsset | null;
+  offers: ReadonlyMap<string, AcquisitionOffer>;
+}): { assets: AcquisitionFileKey[]; label: string | null } | null {
+  if (args.offerKey) {
+    const offer = args.offers.get(args.offerKey);
+    if (!offer || offer.assets.length === 0) return null;
+    return { assets: [...offer.assets], label: offer.label };
+  }
+  if (args.requestedAsset) return { assets: [args.requestedAsset], label: null };
+  return null;
+}
+
+export async function loadBundleFiles(
+  keys: readonly AcquisitionFileKey[],
+  root = process.cwd()
+): Promise<Array<{ filename: string; label: string; bytes: Buffer }> | null> {
+  if (keys.length === 0) return null;
+  const files: Array<{ filename: string; label: string; bytes: Buffer }> = [];
+  for (const key of keys) {
+    const bytes = await readAcquisitionAsset(key, root);
+    if (!bytes) return null;
+    const meta = ACQUISITION_ASSET_FILES[key];
+    files.push({ filename: meta.filename, label: meta.label, bytes });
+  }
+  return files;
+}

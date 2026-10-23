@@ -2,8 +2,14 @@ import "server-only";
 
 import { Resend } from "resend";
 
-import { readAcquisitionAsset, readAcquisitionAssetReport } from "@/lib/acquisition/assets";
-import { ACQUISITION_ASSET_FILES } from "@/lib/acquisition/assets";
+import {
+  assignInterestFulfillment,
+  loadBundleFiles,
+  parseAcquisitionOffers,
+  readAcquisitionAssetReport,
+  resolveSendAssets,
+  type AcquisitionOffer,
+} from "@/lib/acquisition/assets";
 import {
   continueAfterInstantlyPage,
   continueAfterRangePage,
@@ -28,7 +34,6 @@ import {
   ACQUISITION_CLAIM_MS,
   ACQUISITION_RETRY_MS,
   acquisitionTokenHash,
-  assetFromCampaign,
   newAcquisitionToken,
   normalizeAcquisitionEmail,
   parseAcquisitionAsset,
@@ -46,7 +51,7 @@ import { RECOVERY_FROM } from "@/lib/recovery-engine";
 import { supabaseServer } from "@/lib/supabase-server";
 
 const PERSON_COLUMNS =
-  "id, email_normalized, first_name, last_name, lifecycle_state, requested_asset, clerk_user_id, stripe_customer_id, stripe_subscription_id, source_campaign, source_sender, sport, role, geography, close_reason";
+  "id, email_normalized, first_name, last_name, lifecycle_state, requested_asset, offer_key, clerk_user_id, stripe_customer_id, stripe_subscription_id, source_campaign, source_sender, sport, role, geography, close_reason";
 
 type PersonRow = {
   id: string;
@@ -55,6 +60,7 @@ type PersonRow = {
   last_name: string | null;
   lifecycle_state: AcquisitionLifecycle;
   requested_asset: AcquisitionAsset | null;
+  offer_key: string | null;
   clerk_user_id: string | null;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
@@ -73,17 +79,19 @@ type Settings = {
   dailyCap: number;
   evergreenPersonalVideoId: string | null;
   campaignAssets: Record<string, unknown>;
+  offers: Map<string, AcquisitionOffer>;
 };
 
 function asPerson(row: PersonRow | null): PersonRow | null {
   if (!row || typeof row.id !== "string") return null;
-  return row;
+  const offerKey = typeof row.offer_key === "string" ? row.offer_key.trim() : "";
+  return { ...row, offer_key: offerKey || null, requested_asset: parseAcquisitionAsset(row.requested_asset) };
 }
 
 export async function readAcquisitionSettings(): Promise<Settings> {
   const { data, error } = await supabaseServer
     .from("acquisition_settings")
-    .select("automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets")
+    .select("automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers")
     .eq("id", "default")
     .maybeSingle();
   if (error || !data) {
@@ -94,6 +102,7 @@ export async function readAcquisitionSettings(): Promise<Settings> {
       dailyCap: 25,
       evergreenPersonalVideoId: null,
       campaignAssets: {},
+      offers: new Map(),
     };
   }
   const status = data.automation_status;
@@ -106,6 +115,7 @@ export async function readAcquisitionSettings(): Promise<Settings> {
     dailyCap: typeof data.daily_send_cap === "number" ? data.daily_send_cap : 25,
     evergreenPersonalVideoId: typeof data.evergreen_personal_video_id === "string" ? data.evergreen_personal_video_id : null,
     campaignAssets: data.campaign_assets && typeof data.campaign_assets === "object" ? data.campaign_assets as Record<string, unknown> : {},
+    offers: parseAcquisitionOffers(data.offers),
   };
 }
 
@@ -355,18 +365,26 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   if (stored === "duplicate") return { ok: true as const, duplicate: true };
   if (stored === "failed") return { ok: false as const };
   const settings = await readAcquisitionSettings();
-  let asset = person.requested_asset;
-  if (event.signal === "interested" && !asset) {
-    asset = assetFromCampaign(event.campaignId, settings.campaignAssets);
-  }
+  const fulfillment = event.signal === "interested"
+    ? assignInterestFulfillment({
+        currentOfferKey: person.offer_key,
+        currentAsset: person.requested_asset,
+        campaignValue: event.campaignId ? settings.campaignAssets[event.campaignId] : null,
+        offers: settings.offers,
+      })
+    : null;
   const extra: Record<string, unknown> = {};
   if (event.closeReason) extra.close_reason = event.closeReason;
-  if (asset && !person.requested_asset) extra.requested_asset = asset;
+  if (fulfillment?.assetToStore) extra.requested_asset = fulfillment.assetToStore;
+  if (fulfillment?.offerKeyToStore) extra.offer_key = fulfillment.offerKeyToStore;
   const updated = await applySignal(person, event.signal, extra);
   if (event.signal === "unsubscribed") await rememberSuppression(email, "unsubscribe");
   if (event.signal === "bounced") await rememberSuppression(email, "bounce");
   if (event.signal === "complained") await rememberSuppression(email, "complaint");
-  if (updated.lifecycle_state === "asset_requested" && (asset || updated.requested_asset)) {
+  const canSendAsset = Boolean(
+    fulfillment?.hasFulfillment || person.requested_asset || person.offer_key
+  );
+  if (updated.lifecycle_state === "asset_requested" && canSendAsset) {
     await scheduleAction(updated.id, "send_asset", now);
   }
   return { ok: true as const };
@@ -449,18 +467,28 @@ async function ensureRecipient(personId: string, personalVideoId: string): Promi
   return typeof again?.public_token === "string" ? again.public_token : null;
 }
 
-function warmCopy(request: PassSendRequest): { subject: string; text: string; html: string; filename?: string; content?: string } {
+function warmCopy(request: PassSendRequest): {
+  subject: string;
+  text: string;
+  html: string;
+  attachments: Array<{ filename: string; content: string }>;
+} {
   const name = request.person.firstName ? ` ${request.person.firstName}` : "";
   const unsubscribe = `https://summittmindset.com/api/acquisition/unsubscribe?token=${request.unsubscribeToken}`;
-  if (request.action.actionType === "send_asset" && request.asset && request.assetBytes) {
-    const label = ACQUISITION_ASSET_FILES[request.asset].label;
-    const text = `Hi${name},\n\nYou asked for the ${label}. It is attached.\n\nTyler Summitt\n\nUnsubscribe: ${unsubscribe}`;
+  if (request.action.actionType === "send_asset" && request.attachments.length > 0) {
+    const label = request.attachments.length === 1
+      ? request.attachments[0].label
+      : request.offerLabel ?? request.attachments.map((file) => file.label).join(" and ");
+    const attached = request.attachments.length === 1 ? "It is attached." : "They are attached.";
+    const text = `Hi${name},\n\nYou asked for the ${label}. ${attached}\n\nTyler Summitt\n\nUnsubscribe: ${unsubscribe}`;
     return {
       subject: label,
       text,
-      html: `<p>Hi${name},</p><p>You asked for the ${label}. It is attached.</p><p>Tyler Summitt</p><p><a href="${unsubscribe}">Unsubscribe</a></p>`,
-      filename: ACQUISITION_ASSET_FILES[request.asset].filename,
-      content: request.assetBytes.toString("base64"),
+      html: `<p>Hi${name},</p><p>You asked for the ${label}. ${attached}</p><p>Tyler Summitt</p><p><a href="${unsubscribe}">Unsubscribe</a></p>`,
+      attachments: request.attachments.map((file) => ({
+        filename: file.filename,
+        content: file.bytes.toString("base64"),
+      })),
     };
   }
   if (request.action.actionType === "send_video" && request.videoToken) {
@@ -470,6 +498,7 @@ function warmCopy(request: PassSendRequest): { subject: string; text: string; ht
       subject: "A short note from Tyler Summitt",
       text,
       html: `<p>Hi${name},</p><p>I recorded a short note for you.</p><p><a href="${url}">Watch the video</a></p><p>Tyler Summitt</p><p><a href="${unsubscribe}">Unsubscribe</a></p>`,
+      attachments: [],
     };
   }
   const url = "https://summittmindset.com/checkout/start";
@@ -478,6 +507,7 @@ function warmCopy(request: PassSendRequest): { subject: string; text: string; ht
     subject: "Your 7-day free trial",
     text,
     html: `<p>Hi${name},</p><p><a href="${url}">Start the 7-day free trial</a></p><p>Tyler Summitt</p><p><a href="${unsubscribe}">Unsubscribe</a></p>`,
+    attachments: [],
   };
 }
 
@@ -648,6 +678,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
         firstName: person.first_name,
         lifecycle: person.lifecycle_state,
         requestedAsset: person.requested_asset,
+        offerKey: person.offer_key,
         clerkUserId: person.clerk_user_id,
       };
     },
@@ -670,7 +701,17 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
         return null;
       }
     },
-    assetBytes: (asset) => readAcquisitionAsset(asset),
+    assetFiles: async (person) => {
+      const resolved = resolveSendAssets({
+        offerKey: person.offerKey,
+        requestedAsset: person.requestedAsset,
+        offers: settings.offers,
+      });
+      if (!resolved) return null;
+      const files = await loadBundleFiles(resolved.assets);
+      if (!files) return null;
+      return { label: resolved.label, files };
+    },
     videoToken: async (person) => {
       if (!settings.evergreenPersonalVideoId) return null;
       return ensureRecipient(person.id, settings.evergreenPersonalVideoId);
@@ -696,9 +737,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
             "List-Unsubscribe": `<${`https://summittmindset.com/api/acquisition/unsubscribe?token=${request.unsubscribeToken}`}>`,
             "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
           },
-          ...(copy.filename && copy.content
-            ? { attachments: [{ filename: copy.filename, content: copy.content }] }
-            : {}),
+          ...(copy.attachments.length > 0 ? { attachments: copy.attachments } : {}),
         }, { idempotencyKey: request.action.idempotencyKey });
         const classified = classifyResendSend({ result: { data: result.data, error: result.error } });
         return { outcome: classified.outcome, providerMessageId: classified.providerMessageId };
@@ -880,7 +919,7 @@ export async function loadAcquisitionDashboard(): Promise<AcquisitionDashboard> 
     const settings = await readAcquisitionSettings();
     const { data: people, error } = await supabaseServer
       .from("acquisition_people")
-      .select("id, first_name, last_name, lifecycle_state, requested_asset")
+      .select("id, first_name, last_name, lifecycle_state, requested_asset, offer_key")
       .limit(5000);
     if (error) return emptyAcquisitionDashboard("Acquisition people could not be read. Do not treat that as zero.");
     const { data: actions } = await supabaseServer
@@ -916,6 +955,10 @@ export async function loadAcquisitionDashboard(): Promise<AcquisitionDashboard> 
           lastName: typeof row.last_name === "string" ? row.last_name : null,
           lifecycle: row.lifecycle_state as AcquisitionLifecycle,
           requestedAsset: parseAcquisitionAsset(row.requested_asset),
+          offerKey: typeof row.offer_key === "string" && row.offer_key.trim() ? row.offer_key.trim() : null,
+          offerLabel: typeof row.offer_key === "string"
+            ? settings.offers.get(row.offer_key.trim())?.label ?? null
+            : null,
         }];
       }),
       actions: (actions ?? []).flatMap((row) => {

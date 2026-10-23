@@ -80,6 +80,8 @@ export function buildAcquisitionDashboard(args: {
     lastName: string | null;
     lifecycle: AcquisitionLifecycle;
     requestedAsset: string | null;
+    offerKey?: string | null;
+    offerLabel?: string | null;
   }>;
   actions: Array<{ personId: string; actionType: string; status: string }>;
   videoEvents: Array<{ personId: string; eventType: string }>;
@@ -112,7 +114,7 @@ export function buildAcquisitionDashboard(args: {
     if (person.lifecycle === "reply_needs_review") {
       needs.push({ id: person.id, name, reason: "Reply needs a decision" });
     }
-    if (person.lifecycle === "asset_requested" && !person.requestedAsset && !openAsset.has(person.id)) {
+    if (person.lifecycle === "asset_requested" && !person.requestedAsset && !person.offerKey && !openAsset.has(person.id)) {
       needs.push({ id: person.id, name, reason: "Asset was requested and the asset type is not set" });
     }
   }

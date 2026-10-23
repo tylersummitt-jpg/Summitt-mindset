@@ -1,3 +1,4 @@
+import { pdfHeaderValid } from "@/lib/acquisition/assets";
 import {
   actionMatchesState,
   evaluateWarmSend,
@@ -17,7 +18,14 @@ export type PassPerson = {
   firstName: string | null;
   lifecycle: AcquisitionLifecycle;
   requestedAsset: AcquisitionAsset | null;
+  offerKey: string | null;
   clerkUserId: string | null;
+};
+
+export type PassAttachment = {
+  filename: string;
+  label: string;
+  bytes: Buffer;
 };
 
 export type PassAction = {
@@ -31,8 +39,8 @@ export type PassAction = {
 export type PassSendRequest = {
   action: PassAction;
   person: PassPerson;
-  asset: AcquisitionAsset | null;
-  assetBytes: Buffer | null;
+  attachments: PassAttachment[];
+  offerLabel: string | null;
   videoToken: string | null;
   unsubscribeToken: string;
 };
@@ -65,7 +73,7 @@ export async function runAcquisitionPass(args: {
   person: (id: string) => Promise<PassPerson | null>;
   suppression: (email: string) => Promise<boolean | null>;
   clerkSubscribed: (clerkUserId: string | null) => Promise<boolean | null>;
-  assetBytes: (asset: AcquisitionAsset) => Promise<Buffer | null>;
+  assetFiles: (person: PassPerson) => Promise<{ label: string | null; files: PassAttachment[] } | null>;
   videoToken: (person: PassPerson) => Promise<string | null>;
   unsubscribeToken: () => string;
   send: (request: PassSendRequest) => Promise<{
@@ -135,11 +143,11 @@ export async function runAcquisitionPass(args: {
       });
       continue;
     }
-    const assetBytes =
-      action.actionType === "send_asset" && fresh.requestedAsset
-        ? await args.assetBytes(fresh.requestedAsset)
-        : null;
-    if (action.actionType === "send_asset" && (!fresh.requestedAsset || !assetBytes)) {
+    const bundle = action.actionType === "send_asset" ? await args.assetFiles(fresh) : null;
+    if (
+      action.actionType === "send_asset" &&
+      (!bundle || bundle.files.length === 0 || bundle.files.some((file) => !pdfHeaderValid(file.bytes)))
+    ) {
       await args.apply({ kind: "stop", actionId: action.id, status: "blocked", cancelSiblings: false });
       continue;
     }
@@ -151,8 +159,8 @@ export async function runAcquisitionPass(args: {
     const request: PassSendRequest = {
       action,
       person: fresh,
-      asset: fresh.requestedAsset,
-      assetBytes,
+      attachments: bundle?.files ?? [],
+      offerLabel: bundle?.label ?? null,
       videoToken,
       unsubscribeToken: args.unsubscribeToken(),
     };

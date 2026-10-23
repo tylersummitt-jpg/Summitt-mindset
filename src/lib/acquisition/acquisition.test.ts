@@ -1,13 +1,20 @@
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import {
   ACQUISITION_ASSET_FILES,
   ACQUISITION_FILE_KEYS,
+  assignInterestFulfillment,
   knownAssetOrNull,
+  loadBundleFiles,
+  parseAcquisitionOffers,
   readAcquisitionAsset,
   readAcquisitionAssetReport,
+  resolveSendAssets,
 } from "@/lib/acquisition/assets";
 import { planInstantlyBackfill } from "@/lib/acquisition/backfill";
 import { buildAcquisitionDashboard } from "@/lib/acquisition/dashboard";
@@ -19,6 +26,7 @@ import {
   normalizeAcquisitionEmail,
   parseAcquisitionAsset,
   reduceLiveSignal,
+  salesEmailMustStop,
   settleAcceptedSend,
   settleFailedSend,
 } from "@/lib/acquisition/model";
@@ -31,6 +39,7 @@ function person(overrides: Partial<PassPerson> = {}): PassPerson {
     firstName: "Pat",
     lifecycle: "asset_requested",
     requestedAsset: "definite_dozen",
+    offerKey: null,
     clerkUserId: null,
     ...overrides,
   };
@@ -208,6 +217,7 @@ describe("acquisition warm sends", () => {
     suppressed?: boolean | null;
     subscribed?: boolean | null;
     bytes?: Buffer | null;
+    files?: { label: string | null; files: PassSendRequest["attachments"] } | null;
     video?: string | null;
     outcome?: "accepted" | "temporary_failure" | "permanent_failure" | "unknown";
     due?: PassAction[];
@@ -230,7 +240,21 @@ describe("acquisition warm sends", () => {
       person: async (id) => rows.get(id) ?? null,
       suppression: async () => overrides.suppressed ?? false,
       clerkSubscribed: async () => overrides.subscribed ?? false,
-      assetBytes: async () => (overrides.bytes === undefined ? Buffer.from("%PDF-1.4") : overrides.bytes),
+      assetFiles: async (row) => {
+        if (overrides.files !== undefined) return overrides.files;
+        if (overrides.bytes === null || (!row.requestedAsset && !row.offerKey)) return null;
+        const bytes = overrides.bytes ?? Buffer.from("%PDF-1.4");
+        if (row.offerKey) {
+          return {
+            label: "Definite Dozen discussion guides",
+            files: [
+              { filename: "pat-summitt-definite-dozen-team-discussion-guide.pdf", label: "team", bytes },
+              { filename: "pat-summitt-definite-dozen-athletic-director-discussion-guide.pdf", label: "ad", bytes },
+            ],
+          };
+        }
+        return { label: null, files: [{ filename: "one.pdf", label: "one", bytes }] };
+      },
       videoToken: async () => (overrides.video === undefined ? "video-token" : overrides.video),
       unsubscribeToken: () => "unsubscribe-token-unsubscribe-token",
       send: async (request) => {
@@ -285,7 +309,8 @@ describe("acquisition warm sends", () => {
 
   it("advances only when the asset send is accepted and schedules the video after that", async () => {
     const accepted = await pass({});
-    expect(accepted.sends[0]?.assetBytes?.subarray(0, 4).toString()).toBe("%PDF");
+    expect(accepted.sends[0]?.attachments).toHaveLength(1);
+    expect(accepted.sends[0]?.attachments[0]?.bytes.subarray(0, 4).toString()).toBe("%PDF");
     expect(accepted.effects[0]).toBe("accept:accepted:send_video");
     expect(settleAcceptedSend("send_asset", "asset_requested").schedule).toBe("send_video");
     const failed = await pass({ outcome: "permanent_failure" });
@@ -315,6 +340,41 @@ describe("acquisition warm sends", () => {
       due: [action({ actionType: "send_video" })],
     });
     expect(early.sends).toHaveLength(0);
+  });
+
+  it("sends an offer bundle as one action and schedules one video", async () => {
+    const ran = await pass({
+      people: [person({ requestedAsset: null, offerKey: "athletic_director_offer" })],
+    });
+    expect(ran.sends).toHaveLength(1);
+    expect(ran.sends[0]?.attachments.map((file) => file.filename)).toEqual([
+      "pat-summitt-definite-dozen-team-discussion-guide.pdf",
+      "pat-summitt-definite-dozen-athletic-director-discussion-guide.pdf",
+    ]);
+    expect(ran.sends[0]?.action.idempotencyKey).toBe("acquisition:person-1:send_asset");
+    expect(ran.effects).toEqual(["accept:accepted:send_video"]);
+    const again = await pass({
+      claimed: ran.claimed,
+      people: [person({ requestedAsset: null, offerKey: "athletic_director_offer" })],
+    });
+    expect(again.sends).toHaveLength(0);
+  });
+
+  it("blocks a bundle when either file is missing and does not send", async () => {
+    const missing = await pass({
+      people: [person({ requestedAsset: null, offerKey: "athletic_director_offer" })],
+      files: null,
+    });
+    expect(missing.sends).toHaveLength(0);
+    expect(missing.effects[0]).toContain("blocked");
+  });
+
+  it("still stops sales email for trial, paid, and suppression states", async () => {
+    for (const lifecycle of ["trial_started", "paid_member", "trial_expired", "unsubscribed", "suppressed", "not_interested"] as const) {
+      expect(salesEmailMustStop(lifecycle)).toBe(true);
+      const ran = await pass({ people: [person({ lifecycle })] });
+      expect(ran.sends).toHaveLength(0);
+    }
   });
 });
 
@@ -391,8 +451,9 @@ describe("acquisition video, stripe, assets, and dashboard", () => {
     expect(offReport).toBeLessThan(cron.indexOf("new Resend"));
     expect(cron).toContain('skipped: "automation_off"');
     expect(cron).toContain("accepted: 0");
-    expect(store).toContain("attachments: [{ filename: copy.filename, content: copy.content }]");
-    expect(store).not.toContain("offer_key");
+    expect(store).toContain("attachments: copy.attachments");
+    expect(store).toContain("idempotencyKey: request.action.idempotencyKey");
+    expect(store).toContain("offer_key");
     expect(store).not.toContain("pilot_action_ids");
     expect(store).not.toContain("definite_dozen_ad");
 
@@ -460,5 +521,152 @@ describe("acquisition video, stripe, assets, and dashboard", () => {
     expect(plan.proposals.find((row) => row.email === "mix@school.edu")?.lifecycle).toBe("asset_requested");
     expect(plan.proposals.find((row) => row.email === "bounce@school.edu")?.lifecycle).toBe("suppressed");
     expect(plan.interested).toBe(1);
+  });
+});
+
+describe("acquisition offers", () => {
+  const offers = parseAcquisitionOffers({
+    athletic_director_offer: {
+      assets: ["definite_dozen", "definite_dozen_ad"],
+      label: "Definite Dozen discussion guides",
+    },
+    broken: { assets: ["not_a_file"] },
+    empty: { assets: [] },
+  });
+
+  it("keeps legacy campaign assets on requested_asset and stores an offer key separately", () => {
+    expect(offers.get("broken")).toBeUndefined();
+    expect(offers.get("empty")).toBeUndefined();
+    expect(parseAcquisitionOffers({ athletic_director_offer: { assets: ["definite_dozen", "definite_dozen"] } }).size).toBe(0);
+    expect(parseAcquisitionOffers(null).size).toBe(0);
+
+    const playbook = assignInterestFulfillment({
+      currentOfferKey: null,
+      currentAsset: null,
+      campaignValue: "playbook",
+      offers,
+    });
+    expect(playbook).toEqual({ offerKeyToStore: null, assetToStore: "playbook", hasFulfillment: true });
+    const team = assignInterestFulfillment({
+      currentOfferKey: null,
+      currentAsset: null,
+      campaignValue: "definite_dozen",
+      offers,
+    });
+    expect(team.assetToStore).toBe("definite_dozen");
+    expect(team.offerKeyToStore).toBeNull();
+
+    const director = assignInterestFulfillment({
+      currentOfferKey: null,
+      currentAsset: null,
+      campaignValue: "athletic_director_offer",
+      offers,
+    });
+    expect(director).toEqual({
+      offerKeyToStore: "athletic_director_offer",
+      assetToStore: null,
+      hasFulfillment: true,
+    });
+    const again = assignInterestFulfillment({
+      currentOfferKey: "athletic_director_offer",
+      currentAsset: null,
+      campaignValue: "playbook",
+      offers,
+    });
+    expect(again.offerKeyToStore).toBeNull();
+    expect(again.assetToStore).toBeNull();
+    expect(again.hasFulfillment).toBe(true);
+    const unknown = assignInterestFulfillment({
+      currentOfferKey: null,
+      currentAsset: null,
+      campaignValue: "missing_offer",
+      offers,
+    });
+    expect(unknown.hasFulfillment).toBe(false);
+
+    expect(resolveSendAssets({ offerKey: null, requestedAsset: "playbook", offers })?.assets).toEqual(["playbook"]);
+    expect(resolveSendAssets({ offerKey: null, requestedAsset: "definite_dozen", offers })?.assets).toEqual(["definite_dozen"]);
+    expect(resolveSendAssets({
+      offerKey: "athletic_director_offer",
+      requestedAsset: "playbook",
+      offers,
+    })?.assets).toEqual(["definite_dozen", "definite_dozen_ad"]);
+    expect(resolveSendAssets({ offerKey: "missing_offer", requestedAsset: null, offers })).toBeNull();
+    expect(resolveSendAssets({ offerKey: "broken", requestedAsset: null, offers })).toBeNull();
+  });
+
+  it("loads a complete bundle and returns nothing when either file is missing", async () => {
+    const playbook = await loadBundleFiles(["playbook"]);
+    const team = await loadBundleFiles(["definite_dozen"]);
+    const both = await loadBundleFiles(["definite_dozen", "definite_dozen_ad"]);
+    expect(playbook?.map((file) => file.filename)).toEqual([
+      "pat-summitt-basketball-special-situations-playbook.pdf",
+    ]);
+    expect(team?.map((file) => file.filename)).toEqual([
+      "pat-summitt-definite-dozen-team-discussion-guide.pdf",
+    ]);
+    expect(both?.map((file) => file.filename)).toEqual([
+      "pat-summitt-definite-dozen-team-discussion-guide.pdf",
+      "pat-summitt-definite-dozen-athletic-director-discussion-guide.pdf",
+    ]);
+    expect(playbook?.[0]?.bytes.subarray(0, 4).toString()).toBe("%PDF");
+    expect(both).toHaveLength(2);
+
+    const root = await mkdtemp(path.join(tmpdir(), "acquisition-offers-"));
+    const directory = path.join(root, "data", "acquisition-assets");
+    await mkdir(directory, { recursive: true });
+    const teamName = ACQUISITION_ASSET_FILES.definite_dozen.filename;
+    const adName = ACQUISITION_ASSET_FILES.definite_dozen_ad.filename;
+    await writeFile(path.join(directory, teamName), Buffer.from("%PDF-1.4 team"));
+    expect(await loadBundleFiles(["definite_dozen", "definite_dozen_ad"], root)).toBeNull();
+    await rm(path.join(directory, teamName));
+    await writeFile(path.join(directory, adName), Buffer.from("%PDF-1.4 director"));
+    expect(await loadBundleFiles(["definite_dozen", "definite_dozen_ad"], root)).toBeNull();
+    await rm(root, { recursive: true, force: true });
+  });
+
+  it("recognizes an offer on the dashboard and leaves historical rows untouched", () => {
+    const dashboard = buildAcquisitionDashboard({
+      automation: "off",
+      people: [{
+        id: "ad",
+        firstName: "A",
+        lastName: null,
+        lifecycle: "asset_requested",
+        requestedAsset: null,
+        offerKey: "athletic_director_offer",
+        offerLabel: "Definite Dozen discussion guides",
+      }],
+      actions: [],
+      videoEvents: [],
+      senders: [],
+    });
+    expect(dashboard.needsTyler ?? []).toEqual([]);
+    const missing = buildAcquisitionDashboard({
+      automation: "off",
+      people: [{
+        id: "blank",
+        firstName: null,
+        lastName: null,
+        lifecycle: "asset_requested",
+        requestedAsset: null,
+      }],
+      actions: [],
+      videoEvents: [],
+      senders: [],
+    });
+    expect(missing.needsTyler?.[0]?.reason).toBe("Asset was requested and the asset type is not set");
+
+    const sql = readFileSync("supabase/migrations/20261023190000_acquisition_offer_key.sql", "utf8");
+    expect(sql).toContain("ADD COLUMN offer_key TEXT NULL");
+    expect(sql).toContain("ADD COLUMN offers JSONB NOT NULL DEFAULT '{}'::jsonb");
+    expect(sql).not.toMatch(/\bUPDATE\b/);
+    expect(sql).not.toMatch(/\bDELETE\b/);
+    expect(sql).not.toMatch(/\bDROP\b/);
+    expect(sql).not.toMatch(/\bTRUNCATE\b/);
+    expect(sql).not.toContain("definite_dozen_ad");
+    expect(sql).not.toContain("automation_status");
+    const original = readFileSync("supabase/migrations/20261021200000_acquisition_funnel.sql", "utf8");
+    expect(original).toContain("requested_asset IN ('definite_dozen', 'playbook')");
   });
 });
