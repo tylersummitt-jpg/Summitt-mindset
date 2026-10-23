@@ -10,6 +10,7 @@ import {
   parseInstantlyListPayload,
   planInstantlyBackfill,
   type CampaignName,
+  type ExistingBackfillPerson,
   type InstantlyPage,
 } from "@/lib/acquisition/backfill";
 import { backfillMayApply } from "@/lib/acquisition/model";
@@ -21,7 +22,11 @@ function lead(overrides: Record<string, unknown>) {
   return { id: "lead", email: "coach@school.edu", status: 1, ...overrides };
 }
 
-function completeArgs(leads: unknown[], campaigns: CampaignName[] = [], current = new Map<string, "cold_active" | "paid_member" | "unsubscribed" | "asset_sent" | "trial_started" | "cold_no_response">()) {
+function completeArgs(
+  leads: unknown[],
+  campaigns: CampaignName[] = [],
+  current: ReadonlyMap<string, "cold_active" | "paid_member" | "unsubscribed" | "asset_sent" | "trial_started" | "cold_no_response" | "reply_needs_review" | ExistingBackfillPerson> = new Map(),
+) {
   return {
     leads,
     currentByEmail: current,
@@ -301,6 +306,187 @@ describe("acquisition backfill trust", () => {
     expect(unnamed.tennesseeInterested.reliable).toBe(false);
     expect(unnamed.tennesseeInterested.total).toBeNull();
     expect(backfillExecuteAllowed(unnamed)).toBe(false);
+  });
+
+  it("lists every wouldApply update without changing counts or scheduling mail", () => {
+    const creates = Array.from({ length: 26 }, (_, index) => lead({
+      id: `new-${index}`,
+      email: `new${index}@school.edu`,
+      status: 1,
+      timestamp_last_contact: sent,
+      email_reply_count: 0,
+    }));
+    const plan = planInstantlyBackfill(completeArgs([
+      ...creates,
+      lead({
+        id: "interest",
+        email: "apply@school.edu",
+        status: 1,
+        lt_interest_status: 1,
+        campaign: "tn-other",
+        payload: { asset: "definite_dozen" },
+      }),
+      lead({
+        id: "reply",
+        email: "reply@school.edu",
+        status: 1,
+        timestamp_last_contact: sent,
+        email_reply_count: 1,
+        timestamp_last_reply: later,
+        campaign: "tn-bball",
+      }),
+      lead({
+        id: "paid",
+        email: "paid@school.edu",
+        status: 1,
+        lt_interest_status: 1,
+        campaign: "tn-other",
+      }),
+    ], [
+      { id: "tn-other", name: "TN OTHER Girls Sports", status: 1 },
+      { id: "tn-bball", name: "TN Basketball", status: 1 },
+    ], new Map([
+      ["apply@school.edu", "cold_active"],
+      ["reply@school.edu", "cold_no_response"],
+      ["paid@school.edu", "paid_member"],
+    ])));
+    expect(plan.wouldCreate).toBe(26);
+    expect(plan.wouldApply).toBe(2);
+    expect(plan.wouldSkipStronger).toBe(1);
+    expect(plan.wouldApplyDetails).toHaveLength(plan.wouldApply);
+    expect(plan.wouldApplyDetails.map((row) => row.email).sort()).toEqual(["apply@school.edu", "reply@school.edu"]);
+    expect(plan.wouldApplyDetails.find((row) => row.email === "apply@school.edu")).toMatchObject({
+      existingLifecycle: "cold_active",
+      proposedLifecycle: "asset_requested",
+      existingRequestedAssetLoaded: false,
+      proposedRequestedAsset: "definite_dozen",
+      existingSourceCampaignLoaded: false,
+      proposedCampaignId: "tn-other",
+      proposedCampaignName: "TN OTHER Girls Sports",
+      reasonCode: "interested",
+      lifecycleChanges: true,
+      requestedAssetWouldChange: false,
+      sourceCampaignWouldChange: false,
+      createsEvent: true,
+      createsAction: false,
+      schedulesWarmEmail: false,
+    });
+    expect(plan.wouldApplyDetails.find((row) => row.email === "reply@school.edu")).toMatchObject({
+      existingLifecycle: "cold_no_response",
+      proposedLifecycle: "reply_needs_review",
+      reasonCode: "reply",
+      lifecycleChanges: true,
+      createsAction: false,
+    });
+    expect(plan.wouldApplyDetails.some((row) => row.email === "paid@school.edu")).toBe(false);
+    expect(plan.proposals.some((row) => row.email === "paid@school.edu")).toBe(false);
+    expect(plan.wouldCreateDetails).toHaveLength(plan.wouldCreateDetailsLimit);
+    expect(plan.wouldCreateDetailsTruncated).toBe(true);
+    expect(plan.wouldCreateDetails.every((row) => row.existingLifecycle === null && row.schedulesWarmEmail === false)).toBe(true);
+    expect(plan.schedulesWarmEmail).toBe(false);
+    expect(JSON.stringify(plan.wouldApplyDetails)).not.toContain("send_asset");
+    const apply = readFileSync("src/lib/acquisition/store.ts", "utf8");
+    const applyFn = apply.slice(
+      apply.indexOf("export async function applyInstantlyBackfill"),
+      apply.indexOf("export async function refreshInstantlySenderSignals"),
+    );
+    expect(applyFn).not.toContain("scheduleAction");
+    expect(backfillExecuteAllowed({ ...plan, complete: false })).toBe(false);
+  });
+
+  it("compares loaded requested asset and source campaign without changing who would apply", () => {
+    const current = new Map<string, ExistingBackfillPerson>([
+      ["set@school.edu", { lifecycle: "cold_active", requestedAsset: null, sourceCampaign: null }],
+      ["replace@school.edu", { lifecycle: "cold_active", requestedAsset: "playbook", sourceCampaign: "already-stored" }],
+      ["keep@school.edu", { lifecycle: "reply_needs_review", requestedAsset: "definite_dozen", sourceCampaign: "tn-other" }],
+      ["paid@school.edu", { lifecycle: "paid_member", requestedAsset: "playbook", sourceCampaign: "old" }],
+    ]);
+    const plan = planInstantlyBackfill(completeArgs([
+      lead({
+        id: "set",
+        email: "set@school.edu",
+        status: 1,
+        lt_interest_status: 1,
+        campaign: "tn-other",
+        payload: { asset: "definite_dozen" },
+      }),
+      lead({
+        id: "replace",
+        email: "replace@school.edu",
+        status: 3,
+        timestamp_last_contact: sent,
+        email_reply_count: 0,
+        campaign: "tn-bball",
+      }),
+      lead({
+        id: "keep",
+        email: "keep@school.edu",
+        status: 1,
+        lt_interest_status: 1,
+        campaign: "tn-other",
+        payload: { asset: "definite_dozen" },
+      }),
+      lead({
+        id: "paid",
+        email: "paid@school.edu",
+        status: 1,
+        lt_interest_status: 1,
+        campaign: "tn-other",
+        payload: { asset: "definite_dozen" },
+      }),
+    ], [
+      { id: "tn-other", name: "TN OTHER Girls Sports", status: 1 },
+      { id: "tn-bball", name: "TN Basketball", status: 1 },
+    ], current));
+    expect(plan.wouldApply).toBe(3);
+    expect(plan.wouldSkipStronger).toBe(1);
+    expect(plan.wouldApplyDetails).toHaveLength(3);
+    expect(plan.wouldApplyDetails.find((row) => row.email === "set@school.edu")).toMatchObject({
+      existingRequestedAsset: null,
+      existingRequestedAssetLoaded: true,
+      proposedRequestedAsset: "definite_dozen",
+      requestedAssetValuesDiffer: true,
+      requestedAssetWouldChange: true,
+      existingSourceCampaign: null,
+      existingSourceCampaignLoaded: true,
+      proposedCampaignId: "tn-other",
+      sourceCampaignValuesDiffer: true,
+      sourceCampaignWouldChange: true,
+      reasonCode: "interested",
+    });
+    expect(plan.wouldApplyDetails.find((row) => row.email === "set@school.edu")?.reason).toContain("cold_active would become asset_requested");
+    expect(plan.wouldApplyDetails.find((row) => row.email === "replace@school.edu")).toMatchObject({
+      existingLifecycle: "cold_active",
+      proposedLifecycle: "cold_no_response",
+      existingRequestedAsset: "playbook",
+      proposedRequestedAsset: null,
+      requestedAssetValuesDiffer: true,
+      requestedAssetWouldChange: false,
+      existingSourceCampaign: "already-stored",
+      proposedCampaignId: "tn-bball",
+      sourceCampaignValuesDiffer: true,
+      sourceCampaignWouldChange: false,
+      reasonCode: "completed_no_reply",
+    });
+    expect(plan.wouldApplyDetails.find((row) => row.email === "replace@school.edu")?.requestedAssetNote).toContain("does not clear");
+    expect(plan.wouldApplyDetails.find((row) => row.email === "replace@school.edu")?.sourceCampaignNote).toContain("keeps the campaign already stored");
+    expect(plan.wouldApplyDetails.find((row) => row.email === "keep@school.edu")).toMatchObject({
+      existingRequestedAsset: "definite_dozen",
+      proposedRequestedAsset: "definite_dozen",
+      requestedAssetWouldChange: false,
+      existingSourceCampaign: "tn-other",
+      proposedCampaignId: "tn-other",
+      sourceCampaignWouldChange: false,
+      sourceCampaignValuesDiffer: false,
+    });
+    expect(plan.wouldApplyDetails.some((row) => row.email === "paid@school.edu")).toBe(false);
+    expect(plan.proposals.map((row) => row.lifecycle).sort()).toEqual(["asset_requested", "asset_requested", "cold_no_response"]);
+    const store = readFileSync("src/lib/acquisition/store.ts", "utf8");
+    const peopleRead = store.slice(store.indexOf("async function readPeopleForBackfill"), store.indexOf("export async function dryRunInstantlyBackfill"));
+    expect(peopleRead).toContain("requested_asset, source_campaign");
+    expect(store).toContain("if (!existing.source_campaign && args.campaignId)");
+    const apply = store.slice(store.indexOf("export async function applyInstantlyBackfill"), store.indexOf("export async function refreshInstantlySenderSignals"));
+    expect(apply).not.toContain("scheduleAction");
   });
 
   it("does not downgrade a stronger canonical state and does not resurrect a suppressed person", () => {

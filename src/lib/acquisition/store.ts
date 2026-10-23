@@ -14,6 +14,7 @@ import {
   type BackfillPlan,
   type BackfillProposal,
   type CampaignName,
+  type ExistingBackfillPerson,
   type InstantlyBackfillSource,
 } from "@/lib/acquisition/backfill";
 import {
@@ -935,23 +936,29 @@ async function readPeopleForBackfill(): Promise<{
   ok: boolean;
   complete: boolean;
   error: string | null;
-  rows: Map<string, AcquisitionLifecycle>;
+  rows: Map<string, ExistingBackfillPerson>;
 }> {
-  const rows = new Map<string, AcquisitionLifecycle>();
+  const rows = new Map<string, ExistingBackfillPerson>();
   const pageSize = 1000;
   const pageCap = 50;
   for (let page = 0; page < pageCap; page += 1) {
     const from = page * pageSize;
     const { data, error } = await supabaseServer
       .from("acquisition_people")
-      .select("email_normalized, lifecycle_state")
+      .select("email_normalized, lifecycle_state, requested_asset, source_campaign")
       .order("email_normalized", { ascending: true })
       .range(from, from + pageSize - 1);
     if (error) return { ok: false, complete: false, error: "people_read_failed", rows };
     const batch = data ?? [];
     for (const row of batch) {
       if (typeof row.email_normalized === "string" && typeof row.lifecycle_state === "string") {
-        rows.set(row.email_normalized, row.lifecycle_state as AcquisitionLifecycle);
+        rows.set(row.email_normalized, {
+          lifecycle: row.lifecycle_state as AcquisitionLifecycle,
+          requestedAsset: parseAcquisitionAsset(row.requested_asset),
+          sourceCampaign: typeof row.source_campaign === "string" && row.source_campaign.trim()
+            ? row.source_campaign.trim()
+            : null,
+        });
       }
     }
     const decision = continueAfterRangePage({

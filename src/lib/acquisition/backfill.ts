@@ -15,6 +15,7 @@ export const INSTANTLY_PAGE_SIZE = 100;
  */
 export const INSTANTLY_PAGE_CAP = 500;
 const REPORT_ROW_CAP = 100;
+const CREATE_DETAIL_CAP = 25;
 
 export type InstantlyLeadSnapshot = {
   id: string;
@@ -62,6 +63,37 @@ export type DuplicateDiscard = {
   evidenceAt: string | null;
 };
 
+export type ExistingBackfillPerson = {
+  lifecycle: AcquisitionLifecycle;
+  requestedAsset: AcquisitionAsset | null;
+  sourceCampaign: string | null;
+};
+
+export type BackfillMutationDetail = {
+  email: string;
+  existingLifecycle: AcquisitionLifecycle | null;
+  proposedLifecycle: AcquisitionLifecycle;
+  existingRequestedAsset: AcquisitionAsset | null;
+  existingRequestedAssetLoaded: boolean;
+  proposedRequestedAsset: AcquisitionAsset | null;
+  requestedAssetValuesDiffer: boolean;
+  requestedAssetWouldChange: boolean;
+  requestedAssetNote: string;
+  existingSourceCampaign: string | null;
+  existingSourceCampaignLoaded: boolean;
+  proposedCampaignId: string | null;
+  proposedCampaignName: string | null;
+  sourceCampaignValuesDiffer: boolean;
+  sourceCampaignWouldChange: boolean;
+  sourceCampaignNote: string;
+  reason: string;
+  reasonCode: string;
+  lifecycleChanges: boolean;
+  createsEvent: true;
+  createsAction: false;
+  schedulesWarmEmail: false;
+};
+
 export type BackfillPlan = {
   readable: boolean;
   complete: boolean;
@@ -81,6 +113,10 @@ export type BackfillPlan = {
   wouldApply: number;
   wouldSkipStronger: number;
   wouldSkipSame: number;
+  wouldApplyDetails: BackfillMutationDetail[];
+  wouldCreateDetails: BackfillMutationDetail[];
+  wouldCreateDetailsTruncated: boolean;
+  wouldCreateDetailsLimit: number;
   interested: number;
   replies: number;
   notInterested: number;
@@ -410,9 +446,112 @@ function proposalFrom(row: Classified): BackfillProposal | null {
   };
 }
 
+function readExisting(value: AcquisitionLifecycle | ExistingBackfillPerson | undefined): {
+  lifecycle: AcquisitionLifecycle | null;
+  requestedAsset: AcquisitionAsset | null;
+  sourceCampaign: string | null;
+  loaded: boolean;
+} {
+  if (!value) return { lifecycle: null, requestedAsset: null, sourceCampaign: null, loaded: false };
+  if (typeof value === "string") return { lifecycle: value, requestedAsset: null, sourceCampaign: null, loaded: false };
+  return {
+    lifecycle: value.lifecycle,
+    requestedAsset: value.requestedAsset,
+    sourceCampaign: value.sourceCampaign,
+    loaded: true,
+  };
+}
+
+function mutationReason(reason: string, from: AcquisitionLifecycle | null, to: AcquisitionLifecycle): string {
+  const current = from ?? "no canonical person";
+  if (reason === "interested") return `Instantly marked this lead interested. ${current} would become ${to}. A past PDF send is still unknown.`;
+  if (reason === "reply") return `Instantly recorded a reply without an interested or not-interested label. ${current} would become ${to}.`;
+  if (reason === "wrong_person") return `Instantly marked this lead the wrong person. ${current} would become ${to}.`;
+  if (reason === "completed_no_reply") return `Instantly shows a completed sequence, at least one send, and a reply count of zero. ${current} would become ${to}.`;
+  if (reason === "not_interested") return `Instantly marked this lead not interested. ${current} would become ${to}.`;
+  if (reason === "bounced") return `Instantly marked this lead bounced. ${current} would become ${to}.`;
+  if (reason === "unsubscribed") return `Instantly marked this lead unsubscribed. ${current} would become ${to}.`;
+  if (reason === "sent") return `Instantly shows a send on an active or paused lead and no reply. ${current} would become ${to}.`;
+  return `Instantly evidence "${reason}" would move ${current} to ${to}.`;
+}
+
+function assetDiagnostic(existing: AcquisitionAsset | null, proposed: AcquisitionAsset | null, loaded: boolean): {
+  valuesDiffer: boolean;
+  wouldChange: boolean;
+  note: string;
+} {
+  if (!loaded) {
+    return {
+      valuesDiffer: false,
+      wouldChange: false,
+      note: "Existing requested_asset was not loaded, so this row does not claim an asset change.",
+    };
+  }
+  const valuesDiffer = existing !== proposed;
+  if (!proposed) {
+    return {
+      valuesDiffer,
+      wouldChange: false,
+      note: existing
+        ? "The Instantly lead has no definite_dozen or playbook value. Execute does not clear the stored requested_asset."
+        : "Neither side has an asset. Execute does not write requested_asset.",
+    };
+  }
+  if (existing === proposed) {
+    return {
+      valuesDiffer: false,
+      wouldChange: false,
+      note: "Requested asset already matches. The lifecycle update may repeat that same value.",
+    };
+  }
+  return {
+    valuesDiffer: true,
+    wouldChange: true,
+    note: existing
+      ? "Execute would replace requested_asset because the lifecycle update writes the asset carried on the Instantly lead."
+      : "Execute would set requested_asset because the Instantly lead carries one and the person has none.",
+  };
+}
+
+function campaignDiagnostic(existing: string | null, proposed: string | null, loaded: boolean): {
+  valuesDiffer: boolean;
+  wouldChange: boolean;
+  note: string;
+} {
+  if (!loaded) {
+    return {
+      valuesDiffer: false,
+      wouldChange: false,
+      note: "Existing source_campaign was not loaded, so this row does not claim a campaign change.",
+    };
+  }
+  const valuesDiffer = existing !== proposed;
+  if (!existing && proposed) {
+    return {
+      valuesDiffer: true,
+      wouldChange: true,
+      note: "Execute would fill the empty source_campaign. It does not replace a campaign already stored.",
+    };
+  }
+  if (existing && proposed && existing !== proposed) {
+    return {
+      valuesDiffer: true,
+      wouldChange: false,
+      note: "The Instantly campaign differs from source_campaign. Execute keeps the campaign already stored.",
+    };
+  }
+  return {
+    valuesDiffer: false,
+    wouldChange: false,
+    note: existing
+      ? "Source campaign already matches. Execute does not rewrite it."
+      : "There is no campaign id to write.",
+  };
+}
+
 export function planInstantlyBackfill(args: {
   leads: readonly unknown[];
-  currentByEmail: ReadonlyMap<string, AcquisitionLifecycle>;
+  currentByEmail: ReadonlyMap<string, AcquisitionLifecycle | ExistingBackfillPerson>;
   campaigns?: readonly CampaignName[];
   fetched?: number;
   pages?: number;
@@ -487,6 +626,8 @@ export function planInstantlyBackfill(args: {
   let wouldApply = 0;
   let wouldSkipStronger = 0;
   let wouldSkipSame = 0;
+  const wouldApplyDetails: BackfillMutationDetail[] = [];
+  const wouldCreateDetails: BackfillMutationDetail[] = [];
   let multiCampaign = 0;
   let duplicateEmails = 0;
   let duplicateConflicts = 0;
@@ -579,12 +720,43 @@ export function planInstantlyBackfill(args: {
     if (chosen.lifecycle === "cold_no_response") coldNoResponse += 1;
     const proposal = proposalFrom(chosen);
     if (!proposal) continue;
-    const decision = backfillMayApply(args.currentByEmail.get(email) ?? null, proposal.lifecycle);
+    const existing = readExisting(args.currentByEmail.get(email));
+    const decision = backfillMayApply(existing.lifecycle, proposal.lifecycle);
     if (decision === "create") wouldCreate += 1;
     else if (decision === "apply") wouldApply += 1;
     else if (decision === "skip_same") wouldSkipSame += 1;
     else wouldSkipStronger += 1;
     if (decision === "create" || decision === "apply") proposals.push(proposal);
+    if (decision === "apply" || (decision === "create" && wouldCreateDetails.length < CREATE_DETAIL_CAP)) {
+      const asset = assetDiagnostic(existing.requestedAsset, proposal.asset, existing.loaded);
+      const campaign = campaignDiagnostic(existing.sourceCampaign, proposal.campaignId, existing.loaded);
+      const detail: BackfillMutationDetail = {
+        email,
+        existingLifecycle: existing.lifecycle,
+        proposedLifecycle: proposal.lifecycle,
+        existingRequestedAsset: existing.loaded ? existing.requestedAsset : null,
+        existingRequestedAssetLoaded: existing.loaded,
+        proposedRequestedAsset: proposal.asset,
+        requestedAssetValuesDiffer: asset.valuesDiffer,
+        requestedAssetWouldChange: asset.wouldChange,
+        requestedAssetNote: asset.note,
+        existingSourceCampaign: existing.loaded ? existing.sourceCampaign : null,
+        existingSourceCampaignLoaded: existing.loaded,
+        proposedCampaignId: proposal.campaignId,
+        proposedCampaignName: names.get(proposal.campaignId ?? "")?.name ?? null,
+        sourceCampaignValuesDiffer: campaign.valuesDiffer,
+        sourceCampaignWouldChange: campaign.wouldChange,
+        sourceCampaignNote: campaign.note,
+        reason: mutationReason(chosen.reason, existing.lifecycle, proposal.lifecycle),
+        reasonCode: chosen.reason,
+        lifecycleChanges: existing.lifecycle !== proposal.lifecycle,
+        createsEvent: true,
+        createsAction: false,
+        schedulesWarmEmail: false,
+      };
+      if (decision === "apply") wouldApplyDetails.push(detail);
+      else wouldCreateDetails.push(detail);
+    }
   }
 
   for (const [id, stat] of campaignStats) {
@@ -640,6 +812,10 @@ export function planInstantlyBackfill(args: {
     wouldApply,
     wouldSkipStronger,
     wouldSkipSame,
+    wouldApplyDetails,
+    wouldCreateDetails,
+    wouldCreateDetailsTruncated: wouldCreate > wouldCreateDetails.length,
+    wouldCreateDetailsLimit: CREATE_DETAIL_CAP,
     interested,
     replies,
     notInterested,
