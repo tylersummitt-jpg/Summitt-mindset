@@ -41,6 +41,7 @@ export type InstantlyNormalized =
   | {
       kind: "person";
       eventType: string;
+      rawEventType: string;
       signal: AcquisitionSignal;
       email: string;
       providerEventId: string;
@@ -144,6 +145,7 @@ export function normalizeInstantlyWebhook(payload: unknown, now = new Date()): I
   return {
     kind: "person",
     eventType: known ?? "unrecognized",
+    rawEventType: rawType,
     signal: known ? SIGNAL[known] : "observe",
     email,
     providerEventId: identity.slice(0, 180),
@@ -154,6 +156,17 @@ export function normalizeInstantlyWebhook(payload: unknown, now = new Date()): I
     preview: previewText(record.reply_text_snippet) ?? previewText(record.reply_text),
     closeReason: known ? CLOSE_REASON[known] ?? null : null,
     step,
+  };
+}
+
+export function instantlyPersonMetadata(
+  event: Extract<InstantlyNormalized, { kind: "person" }>
+): Record<string, unknown> {
+  return {
+    ...(event.preview ? { preview: event.preview } : {}),
+    ...(event.closeReason ? { close_reason: event.closeReason } : {}),
+    ...(event.step != null ? { step: event.step } : {}),
+    ...(event.eventType === "unrecognized" ? { instantly_event_type: event.rawEventType } : {}),
   };
 }
 

@@ -23,7 +23,7 @@ import {
   type AcquisitionDashboard,
   type AcquisitionSenderRow,
 } from "@/lib/acquisition/dashboard";
-import { normalizeInstantlyWebhook, type InstantlyNormalized } from "@/lib/acquisition/instantly";
+import { instantlyPersonMetadata, normalizeInstantlyWebhook, type InstantlyNormalized } from "@/lib/acquisition/instantly";
 import {
   ACQUISITION_CLAIM_MS,
   ACQUISITION_RETRY_MS,
@@ -350,12 +350,7 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
     occurredAt: event.occurredAt,
     campaignId: event.campaignId,
     sender: event.sender,
-    metadata: {
-      ...(event.preview ? { preview: event.preview } : {}),
-      ...(event.closeReason ? { close_reason: event.closeReason } : {}),
-      ...(event.step != null ? { step: event.step } : {}),
-      ...(event.eventType === "unrecognized" ? { instantly_event_type: "unrecognized" } : {}),
-    },
+    metadata: instantlyPersonMetadata(event),
   });
   if (stored === "duplicate") return { ok: true as const, duplicate: true };
   if (stored === "failed") return { ok: false as const };

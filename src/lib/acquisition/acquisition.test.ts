@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { readAcquisitionAsset } from "@/lib/acquisition/assets";
 import { planInstantlyBackfill } from "@/lib/acquisition/backfill";
 import { buildAcquisitionDashboard } from "@/lib/acquisition/dashboard";
-import { INSTANTLY_WEBHOOK_EVENTS, normalizeInstantlyWebhook } from "@/lib/acquisition/instantly";
+import { INSTANTLY_WEBHOOK_EVENTS, instantlyPersonMetadata, normalizeInstantlyWebhook } from "@/lib/acquisition/instantly";
 import {
   backfillMayApply,
   evaluateWarmSend,
@@ -138,6 +138,7 @@ describe("acquisition instantly events", () => {
       kind: "person",
       signal: "observe",
       eventType: "unrecognized",
+      rawEventType: "made_up_event",
     });
     expect(instantly("reply_received").kind).toBe("person");
     const again = instantly("reply_received");
@@ -145,6 +146,31 @@ describe("acquisition instantly events", () => {
     if (again.kind === "person" && first.kind === "person") {
       expect(again.providerEventId).toBe(first.providerEventId);
     }
+  });
+
+  it("keeps an unknown Instantly event informational and records its raw name", () => {
+    const unknown = normalizeInstantlyWebhook({
+      event_type: "  custom_workspace_label  ",
+      lead_email: "coach@school.edu",
+      timestamp: "2026-10-21T16:00:00.000Z",
+      campaign_id: "camp-1",
+    });
+    expect(unknown.kind).toBe("person");
+    if (unknown.kind !== "person") return;
+    expect(unknown.eventType).toBe("unrecognized");
+    expect(unknown.signal).toBe("observe");
+    expect(instantlyPersonMetadata(unknown)).toEqual({ instantly_event_type: "custom_workspace_label" });
+    expect(reduceLiveSignal("cold_active", unknown.signal)).toEqual({ outcome: "unchanged", state: "cold_active" });
+    expect(reduceLiveSignal("asset_requested", unknown.signal)).toEqual({ outcome: "unchanged", state: "asset_requested" });
+
+    const known = instantly("lead_interested");
+    expect(known.kind).toBe("person");
+    if (known.kind !== "person") return;
+    expect(known.eventType).toBe("lead_interested");
+    expect(known.signal).toBe("interested");
+    expect(instantlyPersonMetadata(known).instantly_event_type).toBeUndefined();
+    expect(reduceLiveSignal("cold_active", known.signal)).toEqual({ outcome: "advance", state: "asset_requested" });
+    expect(reduceLiveSignal("reply_needs_review", known.signal)).toEqual({ outcome: "advance", state: "asset_requested" });
   });
 
   it("ignores a duplicate provider event id without a second advance", () => {
