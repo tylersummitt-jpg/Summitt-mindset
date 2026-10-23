@@ -707,7 +707,67 @@ describe("acquisition journeys", () => {
     expect(sql).not.toContain("idempotency_key");
 
     expect(store).toContain("idempotency_key: `acquisition:${personId}:${action}`");
-    expect(store).not.toContain("journey_id");
-    expect(store).not.toContain("acquisition_journeys");
+    expect(sql).not.toContain("acquisition_persist_instantly_person_event");
+  });
+});
+
+describe("acquisition observational journeys", () => {
+  it("persists an Instantly person event through one atomic function and leaves other writers alone", () => {
+    const sql = readFileSync("supabase/migrations/20261023230000_acquisition_instantly_event_journey.sql", "utf8");
+    const store = readFileSync("src/lib/acquisition/store.ts", "utf8");
+    const personPath = store.slice(
+      store.indexOf("async function persistInstantlyPersonEvent"),
+      store.indexOf("export async function recordAcquisitionVideoEvent"),
+    );
+    const otherWriters = store.slice(
+      store.indexOf("export async function recordAcquisitionVideoEvent"),
+      store.indexOf("export async function applyInstantlyBackfill"),
+    );
+    const backfill = store.slice(
+      store.indexOf("export async function applyInstantlyBackfill"),
+      store.indexOf("export async function refreshInstantlySenderSignals"),
+    );
+    const cron = store.slice(store.indexOf("export async function runAcquisitionCron"));
+
+    expect(sql).toContain("SECURITY INVOKER");
+    expect(sql).toContain("SET search_path = pg_catalog");
+    expect(sql).toContain("pg_advisory_xact_lock(");
+    expect(sql).toContain("6102317");
+    expect(sql).not.toContain("6091213");
+    expect(sql).toContain("public.acquisition_events");
+    expect(sql).toContain("public.acquisition_journeys");
+    expect(sql).toContain("provider = 'instantly'");
+    expect(sql).toContain("WHEN unique_violation THEN");
+    expect(sql).toContain("RETURN 'duplicate'");
+    expect(sql).toContain("RETURN 'inserted'");
+    expect(sql).toContain("RAISE;");
+    expect(sql).toContain("person_id = p_person_id");
+    expect(sql).toContain("campaign_id = v_campaign");
+    expect(sql).not.toMatch(/UNIQUE\s*\(\s*person_id\s*,\s*campaign_id\s*\)/i);
+    expect(sql).not.toMatch(/\bUPDATE\b/);
+    expect(sql).not.toMatch(/\bDELETE\s+FROM\b/);
+    expect(sql).not.toMatch(/GRANT\s+(UPDATE|DELETE|ALL)/);
+    expect(sql).toContain("REVOKE ALL ON FUNCTION public.acquisition_persist_instantly_person_event");
+    expect(sql).toContain("FROM PUBLIC");
+    expect(sql).toContain("FROM anon");
+    expect(sql).toContain("FROM authenticated");
+    expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.acquisition_persist_instantly_person_event");
+    expect(sql).toContain("TO service_role");
+    expect(sql).not.toContain("SECURITY DEFINER");
+    expect(sql).not.toContain("ORDER BY created_at");
+
+    expect(personPath).toContain('rpc("acquisition_persist_instantly_person_event"');
+    expect(personPath).toContain('if (stored === "duplicate") return { ok: true as const, duplicate: true }');
+    expect(personPath).toContain('if (stored === "failed") return { ok: false as const }');
+    expect(personPath).not.toContain("await insertEvent(");
+    expect(otherWriters).toContain("await insertEvent(");
+    expect(otherWriters).not.toContain("acquisition_persist_instantly_person_event");
+    expect(backfill).toContain("await insertEvent(");
+    expect(backfill).not.toContain("acquisition_persist_instantly_person_event");
+    expect(backfill).not.toContain("scheduleAction");
+    expect(cron).toContain('skipped: "automation_off"');
+    expect(cron).not.toContain("acquisition_persist_instantly_person_event");
+    expect(store).toContain("idempotency_key: `acquisition:${personId}:${action}`");
+    expect(store).not.toContain("pilot_action_ids");
   });
 });

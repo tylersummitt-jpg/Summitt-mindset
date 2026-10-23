@@ -343,6 +343,29 @@ export async function applyInstantlyWebhook(payload: unknown, now = new Date()):
   return applyPersonEvent(normalized, now);
 }
 
+async function persistInstantlyPersonEvent(args: {
+  personId: string;
+  providerEventId: string;
+  eventType: string;
+  occurredAt: string;
+  campaignId: string | null;
+  sender: string | null;
+  metadata: Record<string, unknown>;
+}): Promise<"inserted" | "duplicate" | "failed"> {
+  const { data, error } = await supabaseServer.rpc("acquisition_persist_instantly_person_event", {
+    p_person_id: args.personId,
+    p_provider_event_id: args.providerEventId,
+    p_event_type: args.eventType,
+    p_occurred_at: args.occurredAt,
+    p_campaign_id: args.campaignId,
+    p_sender: args.sender,
+    p_metadata: args.metadata,
+  });
+  if (error) return "failed";
+  if (data === "inserted" || data === "duplicate") return data;
+  return "failed";
+}
+
 async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "person" }>, now: Date) {
   const email = normalizeAcquisitionEmail(event.email);
   if (!email) return { ok: true as const };
@@ -352,9 +375,8 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
     sender: event.sender,
   });
   if (!person) return { ok: false as const };
-  const stored = await insertEvent({
+  const stored = await persistInstantlyPersonEvent({
     personId: person.id,
-    provider: "instantly",
     providerEventId: event.providerEventId,
     eventType: event.eventType,
     occurredAt: event.occurredAt,
