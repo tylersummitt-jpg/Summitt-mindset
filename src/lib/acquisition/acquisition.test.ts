@@ -670,3 +670,44 @@ describe("acquisition offers", () => {
     expect(original).toContain("requested_asset IN ('definite_dozen', 'playbook')");
   });
 });
+
+describe("acquisition journeys", () => {
+  it("adds a nullable enrollment reference without rewriting current rows or sends", () => {
+    const sql = readFileSync("supabase/migrations/20261023220000_acquisition_journeys.sql", "utf8");
+    const original = readFileSync("supabase/migrations/20261021200000_acquisition_funnel.sql", "utf8");
+    const store = readFileSync("src/lib/acquisition/store.ts", "utf8");
+
+    expect(sql).toContain("CREATE TABLE public.acquisition_journeys");
+    expect(sql).toContain("person_id UUID NOT NULL");
+    expect(sql).toContain("campaign_id TEXT NULL");
+    expect(sql).toContain("created_at TIMESTAMPTZ NOT NULL DEFAULT now()");
+    expect(sql).toContain("ADD COLUMN journey_id UUID NULL");
+    expect(sql).toContain("UNIQUE (id, person_id)");
+    expect(sql).toContain("REFERENCES public.acquisition_people (id)");
+    expect(sql).toContain("FOREIGN KEY (journey_id, person_id)");
+    expect(sql).toContain("REFERENCES public.acquisition_journeys (id, person_id)");
+    expect(sql).toContain("CHECK (journey_id IS NULL OR person_id IS NOT NULL)");
+    expect(sql).toContain("MATCH SIMPLE");
+    expect(sql).not.toContain("MATCH FULL");
+    expect(sql).not.toMatch(/REFERENCES public\.acquisition_journeys \(id\)/);
+    expect(sql).toContain("ON DELETE RESTRICT");
+    expect(sql).not.toContain("ON DELETE CASCADE");
+    expect(sql).toContain("GRANT SELECT, INSERT ON TABLE public.acquisition_journeys TO service_role");
+    expect(sql).not.toMatch(/GRANT\s+(UPDATE|DELETE|ALL)/);
+    expect(sql).not.toMatch(/UNIQUE\s*\(\s*person_id\s*,\s*campaign_id\s*\)/i);
+    expect(sql).not.toMatch(/\bDELETE\s+FROM\b/);
+    expect(sql).not.toMatch(/\bUPDATE\b/);
+    expect(sql).not.toMatch(/\bDROP\b/);
+    expect(sql).not.toMatch(/\bTRUNCATE\b/);
+    expect(sql).not.toMatch(/\bINSERT\s+INTO\b/);
+
+    expect(original).toContain("UNIQUE (person_id, action_type)");
+    expect(original).toContain("idempotency_key TEXT NOT NULL UNIQUE");
+    expect(sql).not.toContain("person_id, action_type");
+    expect(sql).not.toContain("idempotency_key");
+
+    expect(store).toContain("idempotency_key: `acquisition:${personId}:${action}`");
+    expect(store).not.toContain("journey_id");
+    expect(store).not.toContain("acquisition_journeys");
+  });
+});
