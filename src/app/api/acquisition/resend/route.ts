@@ -26,15 +26,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
   const event = interpretResendRecoveryEvent(payload);
-  if (event.kind === "delivered") {
-    await applyAcquisitionResendEvent({ kind: "delivered", providerMessageId: event.providerMessageId });
-  } else if (event.kind === "suppress") {
-    await applyAcquisitionResendEvent({
-      kind: "suppress",
-      providerMessageId: event.providerMessageId,
-      email: event.email,
-      reason: event.reason,
-    });
-  }
+  const stored = event.kind === "delivered"
+    ? await applyAcquisitionResendEvent({ kind: "delivered", providerMessageId: event.providerMessageId })
+    : event.kind === "suppress"
+      ? await applyAcquisitionResendEvent({
+        kind: "suppress",
+        providerMessageId: event.providerMessageId,
+        email: event.email,
+        reason: event.reason,
+      })
+      : true;
+  if (stored === false) return NextResponse.json({ error: "Not stored." }, { status: 500 });
   return NextResponse.json({ ok: true });
 }

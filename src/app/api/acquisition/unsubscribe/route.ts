@@ -14,7 +14,7 @@ async function unsubscribe(request: Request) {
   if (result === "unknown") {
     return NextResponse.json({ error: "This unsubscribe link is not valid." }, { status: 400 });
   }
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, blockStored: result === "done" });
 }
 
 export async function GET(request: Request) {

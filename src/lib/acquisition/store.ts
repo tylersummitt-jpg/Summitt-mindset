@@ -31,6 +31,12 @@ import {
 } from "@/lib/acquisition/conversation";
 import { outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
 import {
+  instantlyBlocklistEnabled,
+  instantlyBlockReasonForSuppression,
+  instantlyBlockSourceId,
+} from "@/lib/acquisition/instantly-block";
+import { deliverPendingInstantlyBlocks, ensureInstantlyBlock, reconcileMissingInstantlyBlocks } from "@/lib/acquisition/instantly-block.server";
+import {
   continueAfterInstantlyPage,
   continueAfterRangePage,
   INSTANTLY_PAGE_CAP,
@@ -104,9 +110,11 @@ type Settings = {
   conversationInterpretation: "off" | "pilot";
   conversationSending: "off" | "on";
   conversationPilotCampaigns: string[];
+  instantlyBlocklist: "off" | "on";
 };
 
-const SETTINGS_COLUMNS = "automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers, conversation_interpretation, conversation_sending, conversation_pilot_campaigns";
+const SETTINGS_COLUMNS_WITHOUT_BLOCKLIST = "automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers, conversation_interpretation, conversation_sending, conversation_pilot_campaigns";
+const SETTINGS_COLUMNS = `${SETTINGS_COLUMNS_WITHOUT_BLOCKLIST}, instantly_blocklist`;
 const LEGACY_SETTINGS_COLUMNS = "automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers";
 
 function parsePilotCampaigns(value: unknown): string[] {
@@ -121,7 +129,7 @@ function parsePilotCampaigns(value: unknown): string[] {
   return ids;
 }
 
-function settingsFromRow(data: Record<string, unknown>, conversationReady: boolean): Settings {
+function settingsFromRow(data: Record<string, unknown>, conversationReady: boolean, blocklistReady: boolean): Settings {
   const status = data.automation_status;
   const automation: AcquisitionAutomation =
     status === "off" || status === "pilot" || status === "active" || status === "paused" ? status : "unavailable";
@@ -138,6 +146,7 @@ function settingsFromRow(data: Record<string, unknown>, conversationReady: boole
     conversationInterpretation: conversationReady ? interpretation : "off",
     conversationSending: conversationReady ? sending : "off",
     conversationPilotCampaigns: conversationReady ? parsePilotCampaigns(data.conversation_pilot_campaigns) : [],
+    instantlyBlocklist: blocklistReady && instantlyBlocklistEnabled(data.instantly_blocklist) ? "on" : "off",
   };
 }
 
@@ -152,6 +161,7 @@ const SETTINGS_UNAVAILABLE: Settings = {
   conversationInterpretation: "off",
   conversationSending: "off",
   conversationPilotCampaigns: [],
+  instantlyBlocklist: "off",
 };
 
 function asPerson(row: PersonRow | null): PersonRow | null {
@@ -166,18 +176,28 @@ export async function readAcquisitionSettings(): Promise<Settings> {
     .select(SETTINGS_COLUMNS)
     .eq("id", "default")
     .maybeSingle();
-  if (!first.error && first.data) return settingsFromRow(first.data as Record<string, unknown>, true);
+  if (!first.error && first.data) return settingsFromRow(first.data as Record<string, unknown>, true, true);
   const message = first.error?.message ?? "";
   const missingConversationColumns = message.includes("conversation_interpretation")
     || message.includes("conversation_sending")
     || message.includes("conversation_pilot_campaigns");
+  if (message.includes("instantly_blocklist") && !missingConversationColumns) {
+    const withoutBlocklist = await supabaseServer
+      .from("acquisition_settings")
+      .select(SETTINGS_COLUMNS_WITHOUT_BLOCKLIST)
+      .eq("id", "default")
+      .maybeSingle();
+    if (!withoutBlocklist.error && withoutBlocklist.data) {
+      return settingsFromRow(withoutBlocklist.data as Record<string, unknown>, true, false);
+    }
+  }
   if (missingConversationColumns) {
     const legacy = await supabaseServer
       .from("acquisition_settings")
       .select(LEGACY_SETTINGS_COLUMNS)
       .eq("id", "default")
       .maybeSingle();
-    if (!legacy.error && legacy.data) return settingsFromRow(legacy.data as Record<string, unknown>, false);
+    if (!legacy.error && legacy.data) return settingsFromRow(legacy.data as Record<string, unknown>, false, false);
   }
   return SETTINGS_UNAVAILABLE;
 }
@@ -273,7 +293,10 @@ async function rememberSenderSignal(row: {
     .eq("sender_email", row.sender_email);
 }
 
-async function rememberSuppression(email: string, reason: "unsubscribe" | "complaint" | "bounce" | "provider"): Promise<void> {
+async function rememberSuppression(
+  email: string,
+  reason: "unsubscribe" | "complaint" | "bounce" | "provider",
+): Promise<{ ok: boolean }> {
   const { error } = await supabaseServer.from("recovery_suppressions").insert({
     email_normalized: email,
     reason,
@@ -281,6 +304,16 @@ async function rememberSuppression(email: string, reason: "unsubscribe" | "compl
   if (error && (error as { code?: string }).code !== "23505") {
     console.warn("[acquisition] suppression was not stored");
   }
+  const blockReason = instantlyBlockReasonForSuppression(reason);
+  if (!blockReason) return { ok: true };
+  const block = await ensureInstantlyBlock({
+    email,
+    personId: null,
+    reason: blockReason,
+    sourceEventId: instantlyBlockSourceId(`suppression:${blockReason}`, email),
+  });
+  if (block.outcome === "not_stored") return { ok: false };
+  return { ok: true };
 }
 
 async function applySignal(person: PersonRow, signal: AcquisitionSignal, extra: Record<string, unknown> = {}): Promise<PersonRow> {
@@ -566,7 +599,17 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   }
   const plan = inboundPersistencePlan({ event: stored.status, message });
   if (plan === "retry") return { ok: false as const };
-  if (plan === "already_recorded") return { ok: true as const, duplicate: true };
+  const blockReason =
+    event.signal === "unsubscribed" ? "unsubscribe" as const
+    : event.signal === "bounced" ? "bounce" as const
+    : event.signal === "complained" ? "complaint" as const
+    : null;
+  if (plan === "already_recorded") {
+    if (!blockReason) return { ok: true as const, duplicate: true };
+    const block = await rememberSuppression(email, blockReason);
+    if (!block.ok) return { ok: false as const };
+    return { ok: true as const, duplicate: true };
+  }
   const labelMayApply = providerLabelMayApplyLifecycle({
     interpretation: settings.conversationInterpretation,
     pilotCampaigns: settings.conversationPilotCampaigns,
@@ -588,9 +631,10 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   if (!journeyId && fulfillment?.assetToStore) extra.requested_asset = fulfillment.assetToStore;
   if (!journeyId && fulfillment?.offerKeyToStore) extra.offer_key = fulfillment.offerKeyToStore;
   const updated = await applySignal(person, event.signal, extra);
-  if (event.signal === "unsubscribed") await rememberSuppression(email, "unsubscribe");
-  if (event.signal === "bounced") await rememberSuppression(email, "bounce");
-  if (event.signal === "complained") await rememberSuppression(email, "complaint");
+  if (blockReason) {
+    const block = await rememberSuppression(email, blockReason);
+    if (!block.ok) return { ok: false as const };
+  }
   // Outside the pilot, lead_not_interested remains a global stop. Inside the pilot it does not.
   if (salesEmailMustStop(updated.lifecycle_state)) return { ok: true as const };
   if (event.signal === "interested" && journeyId) {
@@ -1100,13 +1144,21 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
         continue;
       }
     }
-    if (effect.type === "global_unsubscribe") {
-      await rememberSuppression(person.email_normalized, "unsubscribe");
-      await applySignal(person, "unsubscribed");
-    }
-    if (effect.type === "global_complaint") {
-      await rememberSuppression(person.email_normalized, "complaint");
-      await applySignal(person, "complained");
+    if (effect.type === "global_unsubscribe" || effect.type === "global_complaint") {
+      const stopReason = effect.type === "global_unsubscribe" ? "unsubscribe" : "complaint";
+      const signal = effect.type === "global_unsubscribe" ? "unsubscribed" : "complained";
+      const block = await rememberSuppression(person.email_normalized, stopReason);
+      await applySignal(person, signal);
+      if (!block.ok) {
+        await finishInbound(row.id, {
+          processing_status: "failed",
+          processing_error: "effect_unconfirmed",
+          ai_outcome: outcome,
+          ai_reason: reason,
+        }, now);
+        failed += 1;
+        continue;
+      }
     }
     const reviewedBody = reviewConversationDraft(draftBody);
     const reviewedSubject = reviewConversationSubject(draftSubject, row.subject);
@@ -1273,6 +1325,33 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
   assets?: Awaited<ReturnType<typeof readAcquisitionAssetReport>>;
 }> {
   const settings = await readAcquisitionSettings();
+  try {
+    const repaired = await reconcileMissingInstantlyBlocks({ now });
+    if (!repaired.readable || !repaired.complete || repaired.failed > 0 || repaired.deferred > 0) {
+      console.warn("[acquisition] instantly block reconciliation incomplete", {
+        readable: repaired.readable,
+        complete: repaired.complete,
+        stored: repaired.stored,
+        failed: repaired.failed,
+        deferred: repaired.deferred,
+      });
+    }
+  } catch {
+    console.error("[acquisition] instantly block reconciliation failed", {
+      reason: "reconciliation_failed",
+    });
+  }
+  try {
+    await deliverPendingInstantlyBlocks({
+      enabled: settings.instantlyBlocklist === "on",
+      apiKey: process.env.INSTANTLY_API_KEY ?? null,
+      now,
+    });
+  } catch (err) {
+    console.error("[acquisition] instantly block drain failed", {
+      reason: err instanceof Error ? err.message : "block_drain_failed",
+    });
+  }
   const converse = async () => {
     if (settings.conversationInterpretation !== "pilot" && settings.conversationSending !== "on") return;
     try {
@@ -1442,7 +1521,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
   return { automation: settings.automation, accepted: result.accepted, skipped: result.skipped };
 }
 
-export async function unsubscribeAcquisition(token: string): Promise<"done" | "unknown"> {
+export async function unsubscribeAcquisition(token: string): Promise<"done" | "unknown" | "block_unconfirmed"> {
   const hash = acquisitionTokenHash(token);
   const { data } = await supabaseServer
     .from("acquisition_actions")
@@ -1452,7 +1531,7 @@ export async function unsubscribeAcquisition(token: string): Promise<"done" | "u
   if (typeof data?.person_id !== "string") return "unknown";
   const person = await findPersonById(data.person_id);
   if (!person) return "unknown";
-  await rememberSuppression(person.email_normalized, "unsubscribe");
+  const block = await rememberSuppression(person.email_normalized, "unsubscribe");
   await insertEvent({
     personId: person.id,
     provider: "resend",
@@ -1462,6 +1541,10 @@ export async function unsubscribeAcquisition(token: string): Promise<"done" | "u
   });
   await applySignal(person, "unsubscribed");
   await cancelPending(person.id);
+  if (!block.ok) {
+    console.warn("[acquisition] instantly block intent remains unconfirmed");
+    return "block_unconfirmed";
+  }
   return "done";
 }
 
@@ -1470,22 +1553,22 @@ export async function applyAcquisitionResendEvent(event: {
   providerMessageId?: string | null;
   email?: string | null;
   reason?: "bounce" | "complaint" | "provider";
-}): Promise<void> {
-  if (!event.providerMessageId && event.kind !== "suppress") return;
+}): Promise<boolean> {
+  if (!event.providerMessageId && event.kind !== "suppress") return true;
   if (event.kind === "delivered" && event.providerMessageId) {
     await supabaseServer
       .from("acquisition_actions")
       .update({ status: "delivered", delivered_at: new Date().toISOString() })
       .eq("provider_message_id", event.providerMessageId)
       .eq("status", "accepted");
-    return;
+    return true;
   }
-  if (event.kind !== "suppress" || !event.email || !event.reason) return;
+  if (event.kind !== "suppress" || !event.email || !event.reason) return true;
   const email = normalizeAcquisitionEmail(event.email);
-  if (!email) return;
-  await rememberSuppression(email, event.reason);
+  if (!email) return true;
+  const block = await rememberSuppression(email, event.reason);
   const person = await findPersonByEmail(email);
-  if (!person) return;
+  if (!person) return block.ok;
   const stored = await insertEvent({
     personId: person.id,
     provider: "resend",
@@ -1493,9 +1576,11 @@ export async function applyAcquisitionResendEvent(event: {
     eventType: event.reason === "complaint" ? "resend_complained" : event.reason === "bounce" ? "resend_bounced" : "resend_suppressed",
     occurredAt: new Date().toISOString(),
   });
-  if (stored === "duplicate") return;
+  if (stored === "duplicate") return block.ok;
   await applySignal(person, event.reason === "complaint" ? "complained" : "bounced");
   await cancelPending(person.id);
+  if (!block.ok) console.warn("[acquisition] instantly block intent remains unconfirmed");
+  return block.ok;
 }
 
 export async function noteAcquisitionTrial(args: {
@@ -1524,6 +1609,17 @@ export async function noteAcquisitionTrial(args: {
     occurredAt: new Date().toISOString(),
     metadata: { subscription_id: args.subscriptionId },
   });
+  let blockUnconfirmed = false;
+  if (stored !== "failed") {
+    const block = await ensureInstantlyBlock({
+      email: person.email_normalized,
+      personId: person.id,
+      reason: "trial_started",
+      sourceEventId: instantlyBlockSourceId("stripe:trial", args.eventId),
+    });
+    blockUnconfirmed = block.outcome === "not_stored";
+  }
+  if (blockUnconfirmed) console.warn("[acquisition] instantly block intent remains unconfirmed");
   if (stored === "duplicate") return;
   await applySignal(person, "trial_started", {
     clerk_user_id: args.clerkUserId ?? person.clerk_user_id,
@@ -1574,6 +1670,17 @@ export async function noteAcquisitionPaid(args: {
     occurredAt: new Date().toISOString(),
     metadata: { subscription_id: args.subscriptionId },
   });
+  let blockUnconfirmed = false;
+  if (stored !== "failed") {
+    const block = await ensureInstantlyBlock({
+      email: person.email_normalized,
+      personId: person.id,
+      reason: "paid_member",
+      sourceEventId: instantlyBlockSourceId("stripe:paid", args.eventId),
+    });
+    blockUnconfirmed = block.outcome === "not_stored";
+  }
+  if (blockUnconfirmed) console.warn("[acquisition] instantly block intent remains unconfirmed");
   if (stored === "duplicate") return;
   await applySignal(person, "paid_member", {
     clerk_user_id: args.clerkUserId ?? person.clerk_user_id,
