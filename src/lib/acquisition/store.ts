@@ -8,11 +8,28 @@ import {
   parseAcquisitionOffers,
   parsePromisedAssetKeys,
   readAcquisitionAssetReport,
+  resourceLabels,
   resolveCampaignPromise,
   resolveSendAssets,
   type AcquisitionFileKey,
   type AcquisitionOffer,
 } from "@/lib/acquisition/assets";
+import {
+  bindAcceptanceToOffer,
+  buildConversationInterpreterInput,
+  conversationOwnsCampaign,
+  decideConversationEffect,
+  inboundPersistencePlan,
+  initialInboundStatus,
+  nextClaimDecision,
+  providerLabelMayApplyLifecycle,
+  threadReplyAuthorization,
+  reviewConversationDraft,
+  reviewConversationSubject,
+  runAcquisitionConversationInterpreter,
+  type ConversationOutcome,
+} from "@/lib/acquisition/conversation";
+import { outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
 import {
   continueAfterInstantlyPage,
   continueAfterRangePage,
@@ -84,6 +101,57 @@ type Settings = {
   evergreenPersonalVideoId: string | null;
   campaignAssets: Record<string, unknown>;
   offers: Map<string, AcquisitionOffer>;
+  conversationInterpretation: "off" | "pilot";
+  conversationSending: "off" | "on";
+  conversationPilotCampaigns: string[];
+};
+
+const SETTINGS_COLUMNS = "automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers, conversation_interpretation, conversation_sending, conversation_pilot_campaigns";
+const LEGACY_SETTINGS_COLUMNS = "automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers";
+
+function parsePilotCampaigns(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") continue;
+    const id = item.trim();
+    if (id.length < 1 || id.length > 80 || ids.includes(id)) continue;
+    ids.push(id);
+  }
+  return ids;
+}
+
+function settingsFromRow(data: Record<string, unknown>, conversationReady: boolean): Settings {
+  const status = data.automation_status;
+  const automation: AcquisitionAutomation =
+    status === "off" || status === "pilot" || status === "active" || status === "paused" ? status : "unavailable";
+  const interpretation = data.conversation_interpretation === "pilot" ? "pilot" : "off";
+  const sending = data.conversation_sending === "on" ? "on" : "off";
+  return {
+    automation,
+    videoDelayHours: typeof data.video_delay_hours === "number" ? data.video_delay_hours : 24,
+    trialFollowupDelayHours: typeof data.trial_followup_delay_hours === "number" ? data.trial_followup_delay_hours : 72,
+    dailyCap: typeof data.daily_send_cap === "number" ? data.daily_send_cap : 25,
+    evergreenPersonalVideoId: typeof data.evergreen_personal_video_id === "string" ? data.evergreen_personal_video_id : null,
+    campaignAssets: data.campaign_assets && typeof data.campaign_assets === "object" ? data.campaign_assets as Record<string, unknown> : {},
+    offers: parseAcquisitionOffers(data.offers),
+    conversationInterpretation: conversationReady ? interpretation : "off",
+    conversationSending: conversationReady ? sending : "off",
+    conversationPilotCampaigns: conversationReady ? parsePilotCampaigns(data.conversation_pilot_campaigns) : [],
+  };
+}
+
+const SETTINGS_UNAVAILABLE: Settings = {
+  automation: "unavailable",
+  videoDelayHours: 24,
+  trialFollowupDelayHours: 72,
+  dailyCap: 25,
+  evergreenPersonalVideoId: null,
+  campaignAssets: {},
+  offers: new Map(),
+  conversationInterpretation: "off",
+  conversationSending: "off",
+  conversationPilotCampaigns: [],
 };
 
 function asPerson(row: PersonRow | null): PersonRow | null {
@@ -93,34 +161,25 @@ function asPerson(row: PersonRow | null): PersonRow | null {
 }
 
 export async function readAcquisitionSettings(): Promise<Settings> {
-  const { data, error } = await supabaseServer
+  const first = await supabaseServer
     .from("acquisition_settings")
-    .select("automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers")
+    .select(SETTINGS_COLUMNS)
     .eq("id", "default")
     .maybeSingle();
-  if (error || !data) {
-    return {
-      automation: "unavailable",
-      videoDelayHours: 24,
-      trialFollowupDelayHours: 72,
-      dailyCap: 25,
-      evergreenPersonalVideoId: null,
-      campaignAssets: {},
-      offers: new Map(),
-    };
+  if (!first.error && first.data) return settingsFromRow(first.data as Record<string, unknown>, true);
+  const message = first.error?.message ?? "";
+  const missingConversationColumns = message.includes("conversation_interpretation")
+    || message.includes("conversation_sending")
+    || message.includes("conversation_pilot_campaigns");
+  if (missingConversationColumns) {
+    const legacy = await supabaseServer
+      .from("acquisition_settings")
+      .select(LEGACY_SETTINGS_COLUMNS)
+      .eq("id", "default")
+      .maybeSingle();
+    if (!legacy.error && legacy.data) return settingsFromRow(legacy.data as Record<string, unknown>, false);
   }
-  const status = data.automation_status;
-  const automation: AcquisitionAutomation =
-    status === "off" || status === "pilot" || status === "active" || status === "paused" ? status : "unavailable";
-  return {
-    automation,
-    videoDelayHours: typeof data.video_delay_hours === "number" ? data.video_delay_hours : 24,
-    trialFollowupDelayHours: typeof data.trial_followup_delay_hours === "number" ? data.trial_followup_delay_hours : 72,
-    dailyCap: typeof data.daily_send_cap === "number" ? data.daily_send_cap : 25,
-    evergreenPersonalVideoId: typeof data.evergreen_personal_video_id === "string" ? data.evergreen_personal_video_id : null,
-    campaignAssets: data.campaign_assets && typeof data.campaign_assets === "object" ? data.campaign_assets as Record<string, unknown> : {},
-    offers: parseAcquisitionOffers(data.offers),
-  };
+  return SETTINGS_UNAVAILABLE;
 }
 
 async function findPersonByEmail(email: string): Promise<PersonRow | null> {
@@ -247,6 +306,16 @@ async function applySignal(person: PersonRow, signal: AcquisitionSignal, extra: 
   return person;
 }
 
+export function acquisitionActionIdempotencyKey(
+  personId: string,
+  action: AcquisitionActionType,
+  journeyId: string | null,
+): string {
+  return journeyId
+    ? `acquisition:${personId}:${journeyId}:${action}`
+    : `acquisition:${personId}:${action}`;
+}
+
 async function scheduleAction(
   personId: string,
   action: AcquisitionActionType,
@@ -263,9 +332,7 @@ async function scheduleAction(
     action_type: action,
     status: "scheduled",
     journey_id: journeyId,
-    idempotency_key: journeyId
-      ? `acquisition:${personId}:${journeyId}:${action}`
-      : `acquisition:${personId}:${action}`,
+    idempotency_key: acquisitionActionIdempotencyKey(personId, action, journeyId),
     promised_offer_key: promise?.offerKey ?? null,
     promised_label: promise?.label ?? null,
     promised_assets: promise?.assets ?? null,
@@ -395,6 +462,65 @@ async function persistInstantlyPersonEvent(args: {
   return readJourneyPersistResult(data) ?? { status: "failed" };
 }
 
+async function provenJourneyId(
+  personId: string,
+  campaignId: string | null,
+  known: string | null,
+  eventStatus: "inserted" | "duplicate",
+): Promise<{ ok: true; journeyId: string | null } | { ok: false }> {
+  if (eventStatus === "inserted") return { ok: true, journeyId: known };
+  if (!campaignId) return { ok: true, journeyId: null };
+  const { data, error } = await supabaseServer
+    .from("acquisition_journeys")
+    .select("id")
+    .eq("person_id", personId)
+    .eq("campaign_id", campaignId);
+  if (error || !Array.isArray(data)) return { ok: false };
+  if (data.length !== 1 || typeof data[0]?.id !== "string") return { ok: true, journeyId: null };
+  return { ok: true, journeyId: data[0].id };
+}
+
+async function ensureInboundReply(args: {
+  personId: string;
+  email: string;
+  event: Extract<InstantlyNormalized, { kind: "person" }>;
+  journeyId: string | null;
+  aiOwns: boolean;
+}): Promise<"inserted" | "duplicate" | "failed"> {
+  const status = initialInboundStatus({
+    hasBody: Boolean(args.event.replyText),
+    truncated: args.event.replyTextTruncated,
+    aiOwns: args.aiOwns,
+  });
+  const replyBlock = !args.event.providerMessageId
+    ? "missing_reply_target"
+    : !args.event.sender
+      ? "missing_account"
+      : !args.event.replySubject
+        ? "missing_subject"
+        : null;
+  const { error } = await supabaseServer.from("acquisition_messages").insert({
+    person_id: args.personId,
+    journey_id: args.journeyId,
+    direction: "inbound",
+    provider: "instantly",
+    provider_message_id: args.event.providerMessageId ?? args.event.providerEventId,
+    reply_to_provider_message_id: args.event.providerMessageId,
+    campaign_id: args.event.campaignId,
+    sender_account: args.event.sender,
+    lead_email: args.email,
+    subject: args.event.replySubject,
+    body_text: args.event.replyText ?? "",
+    occurred_at: args.event.occurredAt,
+    processing_status: status.status,
+    processing_error: status.error,
+    reply_block: replyBlock,
+  });
+  if (!error) return "inserted";
+  if ((error as { code?: string }).code === "23505") return "duplicate";
+  return "failed";
+}
+
 async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "person" }>, now: Date) {
   const email = normalizeAcquisitionEmail(event.email);
   if (!email) return { ok: true as const };
@@ -413,9 +539,42 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
     sender: event.sender,
     metadata: instantlyPersonMetadata(event),
   });
-  if (stored.status === "duplicate") return { ok: true as const, duplicate: true };
   if (stored.status === "failed") return { ok: false as const };
   const settings = await readAcquisitionSettings();
+  let message: "inserted" | "duplicate" | "failed" | "skipped" = "skipped";
+  let journeyId = stored.status === "inserted" ? stored.journeyId : null;
+  if (event.eventType === "reply_received") {
+    const journey = await provenJourneyId(
+      person.id,
+      event.campaignId,
+      stored.status === "inserted" ? stored.journeyId : null,
+      stored.status,
+    );
+    if (!journey.ok) return { ok: false as const };
+    journeyId = journey.journeyId;
+    message = await ensureInboundReply({
+      personId: person.id,
+      email,
+      event,
+      journeyId,
+      aiOwns: conversationOwnsCampaign({
+        interpretation: settings.conversationInterpretation,
+        pilotCampaigns: settings.conversationPilotCampaigns,
+        campaignId: event.campaignId,
+      }),
+    });
+  }
+  const plan = inboundPersistencePlan({ event: stored.status, message });
+  if (plan === "retry") return { ok: false as const };
+  if (plan === "already_recorded") return { ok: true as const, duplicate: true };
+  const labelMayApply = providerLabelMayApplyLifecycle({
+    interpretation: settings.conversationInterpretation,
+    pilotCampaigns: settings.conversationPilotCampaigns,
+    campaignId: event.campaignId,
+  });
+  if ((event.signal === "interested" || event.signal === "not_interested") && !labelMayApply) {
+    return { ok: true as const };
+  }
   const fulfillment = event.signal === "interested"
     ? assignInterestFulfillment({
         currentOfferKey: person.offer_key,
@@ -426,28 +585,28 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
     : null;
   const extra: Record<string, unknown> = {};
   if (event.closeReason) extra.close_reason = event.closeReason;
-  if (!stored.journeyId && fulfillment?.assetToStore) extra.requested_asset = fulfillment.assetToStore;
-  if (!stored.journeyId && fulfillment?.offerKeyToStore) extra.offer_key = fulfillment.offerKeyToStore;
+  if (!journeyId && fulfillment?.assetToStore) extra.requested_asset = fulfillment.assetToStore;
+  if (!journeyId && fulfillment?.offerKeyToStore) extra.offer_key = fulfillment.offerKeyToStore;
   const updated = await applySignal(person, event.signal, extra);
   if (event.signal === "unsubscribed") await rememberSuppression(email, "unsubscribe");
   if (event.signal === "bounced") await rememberSuppression(email, "bounce");
   if (event.signal === "complained") await rememberSuppression(email, "complaint");
-  // lead_not_interested stays a global stop. An offer-specific decline is a separate later requirement.
+  // Outside the pilot, lead_not_interested remains a global stop. Inside the pilot it does not.
   if (salesEmailMustStop(updated.lifecycle_state)) return { ok: true as const };
-  if (event.signal === "interested" && stored.journeyId) {
+  if (event.signal === "interested" && journeyId) {
     const promise = resolveCampaignPromise({
       campaignValue: event.campaignId ? settings.campaignAssets[event.campaignId] : null,
       offers: settings.offers,
     });
     if (promise) {
-      await scheduleAction(updated.id, "send_asset", now, { journeyId: stored.journeyId, promise });
+      await scheduleAction(updated.id, "send_asset", now, { journeyId, promise });
     }
     return { ok: true as const };
   }
   const canSendAsset = Boolean(
     fulfillment?.hasFulfillment || person.requested_asset || person.offer_key
   );
-  if (!stored.journeyId && updated.lifecycle_state === "asset_requested" && canSendAsset) {
+  if (!journeyId && updated.lifecycle_state === "asset_requested" && canSendAsset) {
     await scheduleAction(updated.id, "send_asset", now);
   }
   return { ok: true as const };
@@ -670,6 +829,443 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
   });
 }
 
+type InboundWork = {
+  id: string;
+  personId: string;
+  journeyId: string | null;
+  campaignId: string | null;
+  subject: string | null;
+  body: string;
+  occurredAt: string;
+  status: string;
+  claimUntil: string | null;
+  attemptCount: number;
+  outcome: ConversationOutcome | null;
+  reason: string | null;
+  draftSubject: string | null;
+  draftBody: string | null;
+  effectApplied: boolean;
+};
+
+function asOutcome(value: unknown): ConversationOutcome | null {
+  if (
+    value === "accept_offer" ||
+    value === "ask_question" ||
+    value === "referral" ||
+    value === "offer_decline" ||
+    value === "unsubscribe" ||
+    value === "complaint" ||
+    value === "ambiguous"
+  ) {
+    return value;
+  }
+  return null;
+}
+
+async function loadInboundWork(now: Date): Promise<InboundWork[]> {
+  const select = "id, person_id, journey_id, campaign_id, subject, body_text, occurred_at, processing_status, claim_until, attempt_count, ai_outcome, ai_reason, draft_subject, draft_body, effect_applied_at";
+  const [pending, failed, expired] = await Promise.all([
+    supabaseServer.from("acquisition_messages").select(select).eq("direction", "inbound").eq("processing_status", "pending").limit(5),
+    supabaseServer.from("acquisition_messages").select(select).eq("direction", "inbound").eq("processing_status", "failed").is("effect_applied_at", null).limit(5),
+    supabaseServer.from("acquisition_messages").select(select).eq("direction", "inbound").eq("processing_status", "processing").lt("claim_until", now.toISOString()).limit(5),
+  ]);
+  const rows = [...(pending.data ?? []), ...(failed.data ?? []), ...(expired.data ?? [])];
+  const seen = new Set<string>();
+  const work: InboundWork[] = [];
+  for (const row of rows) {
+    if (typeof row.id !== "string" || seen.has(row.id) || typeof row.person_id !== "string" || typeof row.body_text !== "string") continue;
+    seen.add(row.id);
+    work.push({
+      id: row.id,
+      personId: row.person_id,
+      journeyId: typeof row.journey_id === "string" ? row.journey_id : null,
+      campaignId: typeof row.campaign_id === "string" ? row.campaign_id : null,
+      subject: typeof row.subject === "string" ? row.subject : null,
+      body: row.body_text,
+      occurredAt: typeof row.occurred_at === "string" ? row.occurred_at : now.toISOString(),
+      status: typeof row.processing_status === "string" ? row.processing_status : "",
+      claimUntil: typeof row.claim_until === "string" ? row.claim_until : null,
+      attemptCount: typeof row.attempt_count === "number" ? row.attempt_count : 0,
+      outcome: asOutcome(row.ai_outcome),
+      reason: typeof row.ai_reason === "string" ? row.ai_reason : null,
+      draftSubject: typeof row.draft_subject === "string" ? row.draft_subject : null,
+      draftBody: typeof row.draft_body === "string" ? row.draft_body : null,
+      effectApplied: row.effect_applied_at != null,
+    });
+  }
+  return work;
+}
+
+async function claimInbound(row: InboundWork, now: Date, increment: boolean): Promise<boolean> {
+  const patch: Record<string, unknown> = {
+    processing_status: "processing",
+    claimed_at: now.toISOString(),
+    claim_until: new Date(now.getTime() + ACQUISITION_CLAIM_MS).toISOString(),
+    updated_at: now.toISOString(),
+  };
+  if (increment) patch.attempt_count = row.attemptCount + 1;
+  let query = supabaseServer.from("acquisition_messages").update(patch).eq("id", row.id);
+  query = row.status === "processing"
+    ? query.eq("processing_status", "processing").lt("claim_until", now.toISOString())
+    : query.eq("processing_status", row.status);
+  const { data, error } = await query.select("id");
+  return !error && Array.isArray(data) && data.length === 1;
+}
+
+async function finishInbound(id: string, patch: Record<string, unknown>, now: Date): Promise<void> {
+  await supabaseServer.from("acquisition_messages").update({
+    ...patch,
+    claim_until: null,
+    updated_at: now.toISOString(),
+  }).eq("id", id).eq("processing_status", "processing");
+}
+
+export async function processAcquisitionConversations(now = new Date(), known?: Settings): Promise<{
+  skipped: string;
+  interpreted: number;
+  failed: number;
+  sent: number;
+}> {
+  const settings = known ?? await readAcquisitionSettings();
+  const interpret = settings.conversationInterpretation === "pilot";
+  const sending = settings.conversationSending === "on";
+  if (!interpret && !sending) {
+    return { skipped: "conversation_off", interpreted: 0, failed: 0, sent: 0 };
+  }
+  const work = interpret ? await loadInboundWork(now) : [];
+  let interpreted = 0;
+  let failed = 0;
+  let sent = 0;
+  for (const row of work) {
+    const decision = nextClaimDecision({
+      status: row.status,
+      claimUntil: row.claimUntil,
+      attemptCount: row.attemptCount,
+      outcome: row.outcome,
+      effectApplied: row.effectApplied,
+      now,
+    });
+    if (decision === "leave") continue;
+    if (decision === "give_up") {
+      if (row.status !== "failed") {
+        await supabaseServer.from("acquisition_messages").update({
+          processing_status: "failed",
+          processing_error: "model_failed",
+          claim_until: null,
+          updated_at: now.toISOString(),
+        }).eq("id", row.id);
+      }
+      failed += 1;
+      continue;
+    }
+    const claimed = await claimInbound(row, now, decision === "claim");
+    if (!claimed) continue;
+    let outcome = row.outcome;
+    let reason = row.reason;
+    let draftSubject = row.draftSubject;
+    let draftBody = row.draftBody;
+    let draftRejected = false;
+    if (!outcome) {
+      const person = await findPersonById(row.personId);
+      if (!person || !row.body.trim()) {
+        await finishInbound(row.id, { processing_status: "blocked", processing_error: "missing_body" }, now);
+        failed += 1;
+        continue;
+      }
+      const promise = resolveCampaignPromise({
+        campaignValue: row.campaignId ? settings.campaignAssets[row.campaignId] : null,
+        offers: settings.offers,
+      });
+      const historyQuery = supabaseServer
+        .from("acquisition_messages")
+        .select("direction, body_text, occurred_at, processing_error")
+        .eq("person_id", row.personId)
+        .neq("id", row.id)
+        .order("occurred_at", { ascending: true })
+        .limit(4);
+      const { data: prior } = row.journeyId
+        ? await historyQuery.eq("journey_id", row.journeyId)
+        : row.campaignId
+          ? await historyQuery.eq("campaign_id", row.campaignId)
+          : { data: [] };
+      const history = (prior ?? []).flatMap((item) => {
+        if ((item.direction !== "inbound" && item.direction !== "outbound") || typeof item.body_text !== "string" || !item.body_text.trim()) return [];
+        if (item.processing_error === "body_exceeds_cap" || item.processing_error === "missing_body") return [];
+        const complete = item.body_text.length <= 4000;
+        return [{
+          direction: item.direction,
+          body: complete ? item.body_text : item.body_text.slice(0, 4000),
+          occurred_at: typeof item.occurred_at === "string" ? item.occurred_at : row.occurredAt,
+          body_complete: complete,
+        }];
+      });
+      const { data: actions } = row.journeyId
+        ? await supabaseServer
+          .from("acquisition_actions")
+          .select("action_type, status, promised_label")
+          .eq("person_id", row.personId)
+          .eq("journey_id", row.journeyId)
+        : { data: [] };
+      const fulfillment = (actions ?? []).flatMap((action) => {
+        if (typeof action.action_type !== "string" || typeof action.status !== "string") return [];
+        return [{
+          action_type: action.action_type,
+          status: action.status,
+          label: typeof action.promised_label === "string" ? action.promised_label : null,
+        }];
+      });
+      const interpretedResult = await runAcquisitionConversationInterpreter({
+        input: buildConversationInterpreterInput({
+          firstName: person.first_name,
+          role: person.role,
+          sport: person.sport,
+          geography: person.geography,
+          lifecycle: person.lifecycle_state,
+          campaignId: row.campaignId,
+          journeyId: row.journeyId,
+          offerLabel: promise?.label ?? null,
+          offerAssets: promise?.assets ?? null,
+          history,
+          fulfillment,
+          subject: row.subject,
+          body: row.body,
+          occurredAt: row.occurredAt,
+        }),
+      });
+      if (!interpretedResult.ok) {
+        await finishInbound(row.id, { processing_status: "failed", processing_error: interpretedResult.error }, now);
+        failed += 1;
+        continue;
+      }
+      const bound = bindAcceptanceToOffer(interpretedResult.parsed, [
+        ...(promise?.label ? [promise.label] : []),
+        ...resourceLabels(promise?.assets ?? []),
+      ]);
+      outcome = bound.outcome;
+      reason = bound.reason;
+      draftSubject = bound.draftSubject;
+      draftBody = bound.draftBody;
+      draftRejected = bound.draftRejected;
+    }
+    const person = await findPersonById(row.personId);
+    if (!person || !outcome) {
+      await finishInbound(row.id, { processing_status: "failed", processing_error: "model_failed" }, now);
+      failed += 1;
+      continue;
+    }
+    const { data: suppression, error: suppressionError } = await supabaseServer
+      .from("recovery_suppressions")
+      .select("id")
+      .eq("email_normalized", person.email_normalized)
+      .maybeSingle();
+    const promise = resolveCampaignPromise({
+      campaignValue: row.campaignId ? settings.campaignAssets[row.campaignId] : null,
+      offers: settings.offers,
+    });
+    const effect = decideConversationEffect({
+      outcome,
+      journeyId: row.journeyId,
+      hasPromise: Boolean(promise),
+      stopped: salesEmailMustStop(person.lifecycle_state),
+      suppressed: suppressionError ? null : Boolean(suppression?.id),
+    });
+    if (effect.type === "retry") {
+      await finishInbound(row.id, {
+        processing_status: "failed",
+        processing_error: effect.error,
+        ai_outcome: outcome,
+        ai_reason: reason,
+      }, now);
+      failed += 1;
+      continue;
+    }
+    if (effect.type === "schedule_asset" && promise && row.journeyId) {
+      await scheduleAction(person.id, "send_asset", now, { journeyId: row.journeyId, promise });
+      const key = acquisitionActionIdempotencyKey(person.id, "send_asset", row.journeyId);
+      const { data: action } = await supabaseServer
+        .from("acquisition_actions")
+        .select("id")
+        .eq("idempotency_key", key)
+        .maybeSingle();
+      if (!action?.id) {
+        await finishInbound(row.id, {
+          processing_status: "failed",
+          processing_error: "effect_unconfirmed",
+          ai_outcome: outcome,
+          ai_reason: reason,
+          draft_subject: draftSubject,
+          draft_body: draftBody,
+        }, now);
+        failed += 1;
+        continue;
+      }
+    }
+    if (effect.type === "global_unsubscribe") {
+      await rememberSuppression(person.email_normalized, "unsubscribe");
+      await applySignal(person, "unsubscribed");
+    }
+    if (effect.type === "global_complaint") {
+      await rememberSuppression(person.email_normalized, "complaint");
+      await applySignal(person, "complained");
+    }
+    const reviewedBody = reviewConversationDraft(draftBody);
+    const reviewedSubject = reviewConversationSubject(draftSubject, row.subject);
+    await finishInbound(row.id, {
+      processing_status: "interpreted",
+      processing_error: effect.type === "record" && effect.error
+        ? effect.error
+        : draftRejected || (draftBody && !reviewedBody)
+          ? "draft_rejected"
+          : null,
+      ai_outcome: outcome,
+      ai_reason: reason,
+      draft_subject: outcome === "accept_offer" || outcome === "ask_question" ? reviewedSubject : null,
+      draft_body: outcome === "accept_offer" || outcome === "ask_question" ? reviewedBody : null,
+      effect_applied_at: now.toISOString(),
+    }, now);
+    interpreted += 1;
+  }
+  if (sending) {
+    const { data: ready } = await supabaseServer
+      .from("acquisition_messages")
+      .select("id")
+      .eq("direction", "inbound")
+      .eq("processing_status", "interpreted")
+      .in("ai_outcome", ["accept_offer", "ask_question"])
+      .not("draft_body", "is", null)
+      .limit(5);
+    for (const row of ready ?? []) {
+      if (typeof row.id !== "string") continue;
+      const result = await deliverAcquisitionThreadReply({ inboundMessageId: row.id });
+      if (result.state === "accepted") sent += 1;
+    }
+  }
+  return { skipped: "processed", interpreted, failed, sent };
+}
+
+export async function deliverAcquisitionThreadReply(args: {
+  inboundMessageId: string;
+  fetchImpl?: typeof fetch;
+}): Promise<{ state: string; reason?: string; providerMessageId?: string | null }> {
+  const settings = await readAcquisitionSettings();
+  if (settings.conversationSending !== "on") return { state: "blocked", reason: "sending_off" };
+  const { data: inbound } = await supabaseServer
+    .from("acquisition_messages")
+    .select("id, person_id, journey_id, campaign_id, provider_message_id, reply_to_provider_message_id, sender_account, subject, draft_subject, draft_body, lead_email, ai_outcome")
+    .eq("id", args.inboundMessageId)
+    .eq("direction", "inbound")
+    .maybeSingle();
+  if (!inbound || typeof inbound.id !== "string" || typeof inbound.person_id !== "string") {
+    return { state: "blocked", reason: "missing_reply_target" };
+  }
+  const localId = `outbound:${inbound.id}`;
+  const now = new Date();
+  const { data: existing } = await supabaseServer
+    .from("acquisition_messages")
+    .select("processing_status, provider_response_id, processing_error, claim_until")
+    .eq("provider", "instantly")
+    .eq("direction", "outbound")
+    .eq("provider_message_id", localId)
+    .maybeSingle();
+  const plan = outboundSendPlan(existing ? {
+    status: typeof existing.processing_status === "string" ? existing.processing_status : "",
+    providerMessageId: typeof existing.provider_response_id === "string" ? existing.provider_response_id : null,
+    claimUntil: typeof existing.claim_until === "string" ? existing.claim_until : null,
+  } : null, now);
+  if (plan === "leave") {
+    return existing?.processing_status === "sent" && typeof existing.provider_response_id === "string"
+      ? { state: "accepted", providerMessageId: existing.provider_response_id }
+      : { state: typeof existing?.processing_status === "string" ? existing.processing_status : "blocked", reason: typeof existing?.processing_error === "string" ? existing.processing_error : "provider_error" };
+  }
+  if (plan === "reconcile") {
+    const reconciled = await reconcileInstantlyReply({
+      apiKey: process.env.INSTANTLY_API_KEY ?? null,
+      providerMessageId: typeof existing?.provider_response_id === "string" ? existing.provider_response_id : null,
+      fetchImpl: args.fetchImpl,
+    });
+    const patch = replyRowFromAttempt(reconciled);
+    await supabaseServer.from("acquisition_messages").update({ ...patch, updated_at: now.toISOString() })
+      .eq("provider_message_id", localId)
+      .eq("direction", "outbound")
+      .eq("processing_status", existing?.processing_status ?? "");
+    return reconciled.state === "accepted"
+      ? { state: "accepted", providerMessageId: reconciled.providerMessageId }
+      : { state: reconciled.state, reason: reconciled.reason, providerMessageId: reconciled.state === "uncertain" ? reconciled.providerMessageId : null };
+  }
+  const { error: claimError } = await supabaseServer.from("acquisition_messages").insert({
+    person_id: inbound.person_id,
+    journey_id: inbound.journey_id ?? null,
+    campaign_id: inbound.campaign_id ?? null,
+    direction: "outbound",
+    provider: "instantly",
+    provider_message_id: localId,
+    reply_to_provider_message_id: inbound.reply_to_provider_message_id ?? null,
+    sender_account: inbound.sender_account ?? null,
+    lead_email: inbound.lead_email,
+    subject: inbound.draft_subject ?? inbound.subject ?? null,
+    body_text: typeof inbound.draft_body === "string" ? inbound.draft_body : "",
+    occurred_at: now.toISOString(),
+    processing_status: "processing",
+    claim_until: new Date(now.getTime() + ACQUISITION_CLAIM_MS).toISOString(),
+    attempt_count: 1,
+  });
+  if (claimError) return { state: "blocked", reason: (claimError as { code?: string }).code === "23505" ? "duplicate_send" : "provider_error" };
+  const person = await findPersonById(inbound.person_id);
+  const suppressed = person
+    ? await supabaseServer.from("recovery_suppressions").select("id").eq("email_normalized", person.email_normalized).maybeSingle()
+    : { data: null, error: { message: "missing" } };
+  let clerkSubscribed = false;
+  if (person?.clerk_user_id) {
+    try {
+      const user = await getClerkUserOrNull(person.clerk_user_id);
+      clerkSubscribed = user?.public_metadata?.summittSubscribed === true;
+    } catch {
+      clerkSubscribed = true;
+    }
+  }
+  const decision = threadReplyAuthorization({
+    sending: settings.conversationSending,
+    outcome: asOutcome(inbound.ai_outcome),
+    draftBody: typeof inbound.draft_body === "string" ? inbound.draft_body : null,
+    replyToProviderMessageId: typeof inbound.reply_to_provider_message_id === "string" ? inbound.reply_to_provider_message_id : null,
+    senderAccount: typeof inbound.sender_account === "string" ? inbound.sender_account : null,
+    stopped: !person || clerkSubscribed || salesEmailMustStop(person.lifecycle_state),
+    suppressed: suppressed.error ? null : Boolean(suppressed.data?.id),
+  });
+  if (!decision.send) {
+    const processingError = decision.reason === "missing_draft"
+      ? "missing_body"
+      : decision.reason === "outcome" || decision.reason === "sending_off"
+        ? "ineligible"
+        : decision.reason;
+    await supabaseServer.from("acquisition_messages").update({
+      processing_status: "blocked",
+      processing_error: processingError,
+      claim_until: null,
+      updated_at: new Date().toISOString(),
+    }).eq("provider_message_id", localId).eq("direction", "outbound").eq("processing_status", "processing");
+    return { state: "blocked", reason: decision.reason };
+  }
+  const attempt = await postInstantlyThreadReply({
+    apiKey: process.env.INSTANTLY_API_KEY ?? null,
+    sending: "on",
+    eligible: true,
+    eaccount: typeof inbound.sender_account === "string" ? inbound.sender_account : null,
+    replyToUuid: typeof inbound.reply_to_provider_message_id === "string" ? inbound.reply_to_provider_message_id : null,
+    subject: typeof inbound.draft_subject === "string" ? inbound.draft_subject : null,
+    text: typeof inbound.draft_body === "string" ? inbound.draft_body : null,
+    fetchImpl: args.fetchImpl,
+  });
+  const patch = replyRowFromAttempt(attempt);
+  await supabaseServer.from("acquisition_messages").update({ ...patch, claim_until: null, updated_at: new Date().toISOString() })
+    .eq("provider_message_id", localId)
+    .eq("direction", "outbound")
+    .eq("processing_status", "processing");
+  return attempt.state === "accepted"
+    ? { state: "accepted", providerMessageId: attempt.providerMessageId }
+    : { state: attempt.state, reason: attempt.reason, providerMessageId: attempt.state === "uncertain" ? attempt.providerMessageId : null };
+}
+
 export async function runAcquisitionCron(now = new Date()): Promise<{
   automation: string;
   accepted: number;
@@ -677,7 +1273,18 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
   assets?: Awaited<ReturnType<typeof readAcquisitionAssetReport>>;
 }> {
   const settings = await readAcquisitionSettings();
+  const converse = async () => {
+    if (settings.conversationInterpretation !== "pilot" && settings.conversationSending !== "on") return;
+    try {
+      await processAcquisitionConversations(now, settings);
+    } catch (err) {
+      console.error("[acquisition] conversation processing failed", {
+        reason: err instanceof Error ? err.message : "processing_failed",
+      });
+    }
+  };
   if (settings.automation !== "pilot" && settings.automation !== "active") {
+    await converse();
     return {
       automation: settings.automation,
       accepted: 0,
@@ -697,6 +1304,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
     .in("status", ["accepted", "delivered"])
     .gte("updated_at", start);
   if (countError || count == null) {
+    await converse();
     return { automation: settings.automation, accepted: 0, skipped: "cap_unreadable" };
   }
   const { data: dueRows } = await supabaseServer
@@ -830,6 +1438,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       await applyEffect(effect, settings, now, token ? acquisitionTokenHash(token) : null);
     },
   });
+  await converse();
   return { automation: settings.automation, accepted: result.accepted, skipped: result.skipped };
 }
 

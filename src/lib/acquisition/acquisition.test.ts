@@ -144,7 +144,8 @@ describe("acquisition instantly events", () => {
       expect(reply.signal).toBe("reply_received");
       expect(reply.email).toBe("Coach@School.edu");
       expect(reply.preview).toBe("I am interested");
-      expect(JSON.stringify(reply)).not.toContain("playbook and the trial");
+      expect(reply.replyText).toContain("playbook and the trial");
+      expect(JSON.stringify(instantlyPersonMetadata(reply))).not.toContain("playbook and the trial");
     }
     const interested = instantly("lead_interested");
     expect(interested.kind).toBe("person");
@@ -828,7 +829,8 @@ describe("acquisition observational journeys", () => {
 
     expect(personPath).toContain('rpc("acquisition_persist_instantly_person_event_result"');
     expect(personPath).not.toContain('rpc("acquisition_persist_instantly_person_event",');
-    expect(personPath).toContain('if (stored.status === "duplicate") return { ok: true as const, duplicate: true }');
+    expect(personPath).toContain("inboundPersistencePlan");
+    expect(personPath).toContain('plan === "already_recorded"');
     expect(personPath).toContain('if (stored.status === "failed") return { ok: false as const }');
     expect(personPath).not.toContain("await insertEvent(");
     expect(otherWriters).toContain("await insertEvent(");
@@ -840,7 +842,7 @@ describe("acquisition observational journeys", () => {
     expect(cron).not.toContain("acquisition_persist_instantly_person_event");
     expect(store).toContain("`acquisition:${personId}:${action}`");
     expect(store).toContain("`acquisition:${personId}:${journeyId}:${action}`");
-    expect(store).toContain("idempotency_key: journeyId");
+    expect(store).toContain("acquisitionActionIdempotencyKey");
     expect(store).not.toContain("pilot_action_ids");
   });
 });

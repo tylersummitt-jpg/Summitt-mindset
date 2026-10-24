@@ -52,6 +52,12 @@ export type InstantlyNormalized =
       preview: string | null;
       closeReason: string | null;
       step: number | null;
+      /** Instantly email id when it fits unchanged. Not a thread id. */
+      providerMessageId: string | null;
+      replySubject: string | null;
+      /** Full plain text for reply_received only. Null when the payload has none. */
+      replyText: string | null;
+      replyTextTruncated: boolean;
     }
   | {
       kind: "sender";
@@ -95,11 +101,29 @@ const CLOSE_REASON: Partial<Record<InstantlyWebhookEvent, string>> = {
   lead_no_show: "no_show",
 };
 
+export const ACQUISITION_REPLY_TEXT_CAP = 20_000;
+
 function text(value: unknown, max = 120): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
   return trimmed.slice(0, max);
+}
+
+/** Reject an id that would have to be shortened. A shortened id is not a reply target. */
+function exactToken(value: unknown, max = 80): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > max || /\s/.test(trimmed)) return null;
+  return trimmed;
+}
+
+function replyBody(value: unknown): { text: string; truncated: boolean } | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.replace(/\u0000/g, "").trim();
+  if (!trimmed) return null;
+  if (trimmed.length <= ACQUISITION_REPLY_TEXT_CAP) return { text: trimmed, truncated: false };
+  return { text: trimmed.slice(0, ACQUISITION_REPLY_TEXT_CAP), truncated: true };
 }
 
 function timestamp(value: unknown): string | null {
@@ -142,6 +166,8 @@ export function normalizeInstantlyWebhook(payload: unknown, now = new Date()): I
   if (!email) return { kind: "ignore", reason: "no_email" };
   const known = KNOWN.has(rawType) ? (rawType as InstantlyWebhookEvent) : null;
   const step = typeof record.step === "number" && Number.isFinite(record.step) ? record.step : null;
+  const isReply = rawType === "reply_received";
+  const body = isReply ? replyBody(record.reply_text) : null;
   return {
     kind: "person",
     eventType: known ?? "unrecognized",
@@ -156,6 +182,10 @@ export function normalizeInstantlyWebhook(payload: unknown, now = new Date()): I
     preview: previewText(record.reply_text_snippet) ?? previewText(record.reply_text),
     closeReason: known ? CLOSE_REASON[known] ?? null : null,
     step,
+    providerMessageId: exactToken(record.email_id, 80),
+    replySubject: isReply ? text(record.reply_subject, 300) : null,
+    replyText: body?.text ?? null,
+    replyTextTruncated: body?.truncated ?? false,
   };
 }
 

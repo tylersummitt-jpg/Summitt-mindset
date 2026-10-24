@@ -165,6 +165,10 @@ export function resolveCampaignPromise(args: {
   return { offerKey: args.campaignValue, assets: [...offer.assets], label: offer.label };
 }
 
+export function resourceLabels(keys: readonly AcquisitionFileKey[]): string[] {
+  return keys.map((key) => ACQUISITION_ASSET_FILES[key].label);
+}
+
 /** Application catalog check. The database stores the snapshot without naming the files. */
 export function parsePromisedAssetKeys(value: unknown): AcquisitionFileKey[] | null {
   if (!Array.isArray(value) || value.length < 1 || value.length > 4) return null;
