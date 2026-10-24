@@ -57,6 +57,13 @@ import {
   type AcquisitionDashboard,
 } from "@/lib/acquisition/dashboard";
 import {
+  formatExperimentSections,
+  unavailableEligibility,
+  unavailableExperimentActivity,
+  type EligibilityReport,
+  type ExperimentActivity,
+} from "@/lib/acquisition/experiment-activity";
+import {
   buildNonmemberRecovery,
   formatNonmemberRecovery,
   type NonmemberRecovery,
@@ -169,6 +176,8 @@ export type OperatingSnapshot = {
   distributionIntelligence: DistributionIntelligence;
   personalVideos: PersonalVideoDistribution;
   acquisition: AcquisitionDashboard;
+  experimentActivity: ExperimentActivity;
+  eligibility: EligibilityReport;
   nonmemberRecovery: NonmemberRecovery;
   recoveryAutomation: RecoveryAttention;
   limitations: string[];
@@ -642,6 +651,14 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     `Accounts created: ${snapshot.distribution.accountsCreated}`,
     `Trials per day in this range: ${snapshot.distribution.trialsPerDay}`,
     "",
+    ...formatExperimentSections({
+      rangeLabel: snapshot.rangeLabel,
+      timezone: snapshot.timezone,
+      companyTrialStarts: snapshot.distribution.trialStarts,
+      activity: snapshot.experimentActivity,
+      eligibility: snapshot.eligibility,
+    }),
+    "",
     ...formatAcquisitionReport(snapshot.acquisition),
     "",
     "Known acquisition sources",
@@ -791,6 +808,8 @@ export function buildOperatingSnapshot(args: {
   recoveryAutomation?: RecoveryAttention;
   personalVideos?: PersonalVideoDistribution;
   acquisition?: AcquisitionDashboard;
+  experimentActivity?: ExperimentActivity;
+  eligibility?: EligibilityReport;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
@@ -884,6 +903,12 @@ export function buildOperatingSnapshot(args: {
       emptyAcquisitionDashboard(
         "Acquisition counts were not loaded. Do not treat that as zero."
       ),
+    experimentActivity:
+      args.experimentActivity ??
+      unavailableExperimentActivity("Acquisition events were not loaded. Do not treat that as zero."),
+    eligibility:
+      args.eligibility ??
+      unavailableEligibility("Eligibility was not loaded. Do not treat that as zero."),
     nonmemberRecovery,
     recoveryAutomation,
     limitations: [

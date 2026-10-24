@@ -4,6 +4,14 @@ import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-butto
 import { DistributionIntelligencePanel } from "@/app/admin/distribution-intelligence-panel";
 import type { PersonalVideoDistribution } from "@/lib/personal-videos/analytics";
 import type { AcquisitionDashboard } from "@/lib/acquisition/dashboard";
+import {
+  experimentEligibilityMetrics,
+  experimentHistoryMetrics,
+  experimentTrialMetrics,
+  type EligibilityReport,
+  type ExperimentActivity,
+  type ExperimentMetric,
+} from "@/lib/acquisition/experiment-activity";
 import { NonmemberRecoveryPanel } from "@/app/admin/nonmember-recovery-panel";
 import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
@@ -369,7 +377,7 @@ function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
   const needs = dashboard.readable ? String(dashboard.needsTyler?.length ?? 0) : "Not available";
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold text-gray-900">Cold email</h2>
+      <h2 className="text-lg font-semibold text-gray-900">Current prospect status — all time</h2>
       <p className="text-sm text-gray-700">{dashboard.note}</p>
       <p className="text-sm text-gray-700">Automation: {dashboard.automation}.</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -379,12 +387,12 @@ function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
         <Metric label="Cold no response" value={count(c?.cold_no_response)} />
         <Metric label="Replies needing review" value={count(c?.reply_needs_review)} />
         <Metric label="Interested / asset requested" value={count(c?.asset_requested)} />
-        <Metric label="Assets sent" value={count(c?.asset_sent)} />
+        <Metric label="Assets sent" value={count(c?.asset_sent)} note="People currently in this lifecycle. Not resource emails accepted in the selected range." />
         <Metric label="Warm videos sent" value={count(c?.warm_video_sent)} />
         <Metric label="Video visited" value={count(c?.video_visited)} />
         <Metric label="Video played" value={count(c?.video_played)} />
         <Metric label="CTA clicked" value={count(c?.cta_clicked)} note="A click is not a trial." />
-        <Metric label="Trials started" value={count(c?.trial_started)} />
+        <Metric label="Trials started" value={count(c?.trial_started)} note="People currently in this lifecycle. Not the company trial-start count and not the selected range." />
         <Metric label="Trial expired" value={count(c?.trial_expired)} />
         <Metric label="Paid members" value={count(c?.paid_member)} />
         <Metric label="Not interested" value={count(c?.not_interested)} />
@@ -424,6 +432,56 @@ function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
   );
 }
 
+function MetricGrid({ metrics }: { metrics: ExperimentMetric[] }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {metrics.map((metric) => (
+        <Metric key={metric.label} label={metric.label} value={metric.value} note={metric.note} />
+      ))}
+    </div>
+  );
+}
+
+function ExperimentActivitySection({
+  snapshot,
+}: {
+  snapshot: OperatingSnapshot;
+}) {
+  const activity: ExperimentActivity = snapshot.experimentActivity;
+  const eligibility: EligibilityReport = snapshot.eligibility;
+  return (
+    <>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900">
+          Historical acquisition activity — {snapshot.rangeLabel}
+        </h2>
+        <p className="text-sm text-gray-700">
+          Counted in {snapshot.timezone}, using the same bounds as the range buttons. The end of the range is the next local midnight. These numbers are events in that range. They are not the current lifecycle headcount.
+        </p>
+        <p className="text-sm text-gray-700">{activity.note}</p>
+        <MetricGrid metrics={experimentHistoryMetrics(activity)} />
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900">Trial performance — {snapshot.rangeLabel}</h2>
+        <MetricGrid
+          metrics={experimentTrialMetrics({
+            companyTrialStarts: snapshot.distribution.trialStarts,
+            activity,
+          })}
+        />
+      </section>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900">Current eligibility — all time</h2>
+        <p className="text-sm text-gray-700">
+          The date range does not filter this section. Internal eligibility does not prove Instantly&apos;s own sending state.
+        </p>
+        <p className="text-sm text-gray-700">{eligibility.note}</p>
+        <MetricGrid metrics={experimentEligibilityMetrics(eligibility)} />
+      </section>
+    </>
+  );
+}
+
 function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
   const d = snapshot.distribution;
   return (
@@ -436,7 +494,11 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
           value={d.checkoutSessions}
           note="Distinct Checkout Sessions. Not a free trial."
         />
-        <Metric label="Trial starts" value={d.trialStarts} />
+        <Metric
+          label="Trial starts"
+          value={d.trialStarts}
+          note="All Summitt Mindset trial starts in this range. The target is 25 new trials per day."
+        />
         <Metric
           label="Visitor-to-trial"
           value={d.visitorToTrial}
@@ -510,6 +572,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
       </section>
 
       <PersonalVideosSection report={snapshot.personalVideos} />
+
+      <ExperimentActivitySection snapshot={snapshot} />
 
       <ColdEmailSection dashboard={snapshot.acquisition} />
 

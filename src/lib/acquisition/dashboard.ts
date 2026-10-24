@@ -136,21 +136,21 @@ export function buildAcquisitionDashboard(args: {
     counts,
     needsTyler: needs.slice(0, 25),
     senders: args.senders.slice(0, 20),
-    note: "Counts are acquisition people and their events. A CTA click is not a trial. Stripe remains the trial and payment record.",
+    note: "These are current lifecycle headcounts for the loaded people. The people read stops at 5,000 rows, so a full page may be incomplete. The date range does not filter them. A CTA click is not a trial. Stripe remains the trial and payment record.",
   };
 }
 
 export function formatAcquisitionReport(dashboard: AcquisitionDashboard): string[] {
   if (!dashboard.readable || !dashboard.counts) {
     return [
-      "COLD EMAIL",
+      "CURRENT PROSPECT STATUS — ALL TIME",
       dashboard.note,
       "Needs Tyler: Not available",
     ];
   }
   const c = dashboard.counts;
   return [
-    "COLD EMAIL",
+    "CURRENT PROSPECT STATUS — ALL TIME",
     `Automation: ${dashboard.automation}.`,
     `Cold prospects: ${c.cold_prospects}`,
     `Cold active: ${c.cold_active}`,

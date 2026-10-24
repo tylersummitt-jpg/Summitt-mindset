@@ -30,6 +30,8 @@ import { emptyRecoveryAttention, type RecoveryAttention } from "@/lib/recovery-r
 import { loadPersonalVideoDistribution } from "@/lib/personal-videos/analytics.server";
 import { unreadablePersonalVideoDistribution } from "@/lib/personal-videos/analytics";
 import { emptyAcquisitionDashboard } from "@/lib/acquisition/dashboard";
+import { loadExperimentActivity } from "@/lib/acquisition/experiment-activity.server";
+import { unavailableEligibility, unavailableExperimentActivity } from "@/lib/acquisition/experiment-activity";
 import { loadAcquisitionDashboard } from "@/lib/acquisition/store";
 
 export async function loadOperatingSnapshot(args: {
@@ -190,6 +192,22 @@ export async function loadOperatingSnapshot(args: {
     });
   }
 
+  let experimentActivity = unavailableExperimentActivity(
+    "Acquisition events could not be read. Do not treat that as zero."
+  );
+  let eligibility = unavailableEligibility(
+    "Eligibility could not be read. Do not treat that as zero."
+  );
+  try {
+    const loaded = await loadExperimentActivity({ range: growth.range, now: args.now });
+    experimentActivity = loaded.activity;
+    eligibility = loaded.eligibility;
+  } catch (err) {
+    console.warn("[operating] acquisition experiment activity failed", {
+      reason: err instanceof Error ? err.message : "experiment_activity_failed",
+    });
+  }
+
   return buildOperatingSnapshot({
     growth,
     challengeAttention,
@@ -204,5 +222,7 @@ export async function loadOperatingSnapshot(args: {
     recoveryAutomation,
     personalVideos,
     acquisition,
+    experimentActivity,
+    eligibility,
   });
 }
