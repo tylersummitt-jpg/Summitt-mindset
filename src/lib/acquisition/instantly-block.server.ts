@@ -2,6 +2,7 @@ import "server-only";
 
 import {
   advanceInstantlyBlock,
+  instantlyBlocklistEnabled,
   mergeBlockIntent,
   planInstantlyBlockCoverage,
   type BlockCoverageInputPerson,
@@ -13,6 +14,10 @@ import {
   type InstantlyBlockReason,
   type InstantlyBlockStatus,
 } from "@/lib/acquisition/instantly-block";
+import {
+  unavailableInstantlyBlockVisibility,
+  type InstantlyBlockVisibility,
+} from "@/lib/acquisition/instantly-block-visibility";
 import { normalizeAcquisitionEmail } from "@/lib/acquisition/model";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -644,4 +649,59 @@ export async function deliverPendingInstantlyBlocks(args: {
       .eq("id", row.id);
   }
   return { attempted, skipped: args.apiKey ? null : "missing_credentials" };
+}
+
+/** Exact current totals. This does not insert, update, or call Instantly. */
+export async function loadInstantlyBlockVisibility(): Promise<InstantlyBlockVisibility> {
+  const unavailable = unavailableInstantlyBlockVisibility();
+  try {
+    const [pending, confirmed, failed, uncertain, oldest, settings] = await Promise.all([
+      countBlockStatus("pending"),
+      countBlockStatus("confirmed"),
+      countBlockStatus("failed"),
+      countBlockStatus("uncertain"),
+      supabaseServer
+        .from("acquisition_instantly_blocks")
+        .select("created_at")
+        .in("status", ["pending", "failed", "uncertain"])
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabaseServer
+        .from("acquisition_settings")
+        .select("instantly_blocklist")
+        .eq("id", "default")
+        .maybeSingle(),
+    ]);
+    const countsReadable = pending != null && confirmed != null && failed != null && uncertain != null;
+    const oldestPayload = oldest.data as { created_at?: unknown } | Array<{ created_at?: unknown }> | null;
+    const oldestRow = Array.isArray(oldestPayload) ? oldestPayload[0] ?? null : oldestPayload;
+    const oldestAt = typeof oldestRow?.created_at === "string" ? oldestRow.created_at : null;
+    const settingsPayload = settings.data as { instantly_blocklist?: unknown } | Array<{ instantly_blocklist?: unknown }> | null;
+    const switchValue = Array.isArray(settingsPayload) ? settingsPayload[0] ?? null : settingsPayload;
+    return {
+      countsReadable,
+      switchReadable: !settings.error && switchValue != null,
+      ageReadable: !oldest.error,
+      blocking: !settings.error && switchValue != null
+        ? instantlyBlocklistEnabled(switchValue.instantly_blocklist) ? "on" : "off"
+        : null,
+      pending: countsReadable ? pending : null,
+      confirmed: countsReadable ? confirmed : null,
+      failed: countsReadable ? failed : null,
+      uncertain: countsReadable ? uncertain : null,
+      oldestOutstandingAt: oldest.error ? null : oldestAt,
+    };
+  } catch {
+    return unavailable;
+  }
+}
+
+async function countBlockStatus(status: InstantlyBlockStatus): Promise<number | null> {
+  const { count, error } = await supabaseServer
+    .from("acquisition_instantly_blocks")
+    .select("id", { count: "exact", head: true })
+    .eq("status", status);
+  if (error || typeof count !== "number") return null;
+  return count;
 }

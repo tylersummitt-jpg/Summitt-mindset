@@ -125,6 +125,7 @@ describe("retention intelligence on the admin pages", () => {
     expect(details?.hasAttribute("open")).toBe(false);
     expect(details?.querySelector("summary")?.textContent).toBe("How this works");
     expect(retention.container.textContent).toContain("Retention over time");
+    expect(retention.container.textContent).not.toContain("Subscriber stops — all time");
     expect(retention.container.textContent).toContain("D30");
     expect(retention.container.textContent).toContain("user_private_lookup");
     expect(details?.textContent).not.toContain("five landing pages");
@@ -136,6 +137,9 @@ describe("retention intelligence on the admin pages", () => {
     const distribution = render(<OperatingScreen focus="distribution" snapshot={snapshot} />);
     expect(screen.getByText("Connection to retention")).toBeTruthy();
     expect(distribution.container.textContent).toContain("Open Retention");
+    expect(distribution.container.textContent).toContain("Subscriber stops — all time");
+    expect(distribution.container.textContent).toContain("Not a confirmed Instantly block.");
+    expect(distribution.container.textContent).toContain("Native Instantly blocking");
     expect(distribution.container.textContent).not.toContain("user_private_lookup");
     expect(distribution.container.querySelector("summary")?.textContent).toBe("How this works");
   });

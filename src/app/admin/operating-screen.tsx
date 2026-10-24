@@ -4,6 +4,7 @@ import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-butto
 import { DistributionIntelligencePanel } from "@/app/admin/distribution-intelligence-panel";
 import type { PersonalVideoDistribution } from "@/lib/personal-videos/analytics";
 import type { AcquisitionDashboard } from "@/lib/acquisition/dashboard";
+import type { InstantlyBlockVisibilityView } from "@/lib/acquisition/instantly-block-visibility";
 import {
   experimentEligibilityMetrics,
   experimentHistoryMetrics,
@@ -432,6 +433,60 @@ function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
   );
 }
 
+function SubscriberStopSection({ report }: { report: InstantlyBlockVisibilityView }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="text-lg font-semibold text-gray-900">Subscriber stops — all time</h2>
+      <p className="text-sm text-gray-700">
+        The date range does not filter this section. These are current stop records, not activity inside the selected range.
+      </p>
+      <p className="text-sm text-gray-700">{report.note}</p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Metric
+          label="Native Instantly blocking"
+          value={report.blocking}
+          note="OFF stores local stop requests and does not call Instantly."
+        />
+        <Metric
+          label="Local stop requests"
+          value={report.localRequests}
+          note="Every saved stop request, including ones Instantly has not confirmed."
+        />
+        <Metric
+          label="Confirmed Instantly blocks"
+          value={report.confirmed}
+          note="Instantly returned a matched blocklist entry. This is the provider block count."
+        />
+        <Metric
+          label="Pending local stop requests"
+          value={report.pending}
+          note="Saved here. Not a confirmed Instantly block."
+        />
+        <Metric
+          label="Failed local stop requests"
+          value={report.failed}
+          note="The last provider attempt failed. The request stays until Instantly confirms it."
+        />
+        <Metric
+          label="Uncertain local stop requests"
+          value={report.uncertain}
+          note="The provider result could not be read. Not a confirmed Instantly block."
+        />
+        <Metric
+          label="Outstanding stops"
+          value={report.outstanding}
+          note="Pending, failed, and uncertain. Confirmed blocks are not outstanding."
+        />
+        <Metric
+          label="Oldest outstanding stop"
+          value={report.oldestAge}
+          note="Age of the earliest local request that Instantly has not confirmed."
+        />
+      </div>
+    </section>
+  );
+}
+
 function MetricGrid({ metrics }: { metrics: ExperimentMetric[] }) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -576,6 +631,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
       <ExperimentActivitySection snapshot={snapshot} />
 
       <ColdEmailSection dashboard={snapshot.acquisition} />
+
+      <SubscriberStopSection report={snapshot.instantlyBlocks} />
 
       <DistributionIntelligencePanel intel={snapshot.distributionIntelligence} />
 

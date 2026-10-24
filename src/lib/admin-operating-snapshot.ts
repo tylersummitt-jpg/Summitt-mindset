@@ -57,6 +57,13 @@ import {
   type AcquisitionDashboard,
 } from "@/lib/acquisition/dashboard";
 import {
+  formatInstantlyBlockVisibility,
+  presentInstantlyBlockVisibility,
+  unavailableInstantlyBlockVisibility,
+  type InstantlyBlockVisibility,
+  type InstantlyBlockVisibilityView,
+} from "@/lib/acquisition/instantly-block-visibility";
+import {
   formatExperimentSections,
   unavailableEligibility,
   unavailableExperimentActivity,
@@ -176,6 +183,7 @@ export type OperatingSnapshot = {
   distributionIntelligence: DistributionIntelligence;
   personalVideos: PersonalVideoDistribution;
   acquisition: AcquisitionDashboard;
+  instantlyBlocks: InstantlyBlockVisibilityView;
   experimentActivity: ExperimentActivity;
   eligibility: EligibilityReport;
   nonmemberRecovery: NonmemberRecovery;
@@ -661,6 +669,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     "",
     ...formatAcquisitionReport(snapshot.acquisition),
     "",
+    ...formatInstantlyBlockVisibility(snapshot.instantlyBlocks),
+    "",
     "Known acquisition sources",
     ...sourceLines,
     "",
@@ -808,8 +818,10 @@ export function buildOperatingSnapshot(args: {
   recoveryAutomation?: RecoveryAttention;
   personalVideos?: PersonalVideoDistribution;
   acquisition?: AcquisitionDashboard;
+  instantlyBlocks?: InstantlyBlockVisibility;
   experimentActivity?: ExperimentActivity;
   eligibility?: EligibilityReport;
+  now?: Date;
 }): OperatingSnapshot {
   const period = args.growth.snapshot.period;
   const now = args.growth.snapshot.asOfNow;
@@ -903,6 +915,10 @@ export function buildOperatingSnapshot(args: {
       emptyAcquisitionDashboard(
         "Acquisition counts were not loaded. Do not treat that as zero."
       ),
+    instantlyBlocks: presentInstantlyBlockVisibility(
+      args.instantlyBlocks ?? unavailableInstantlyBlockVisibility(),
+      args.now ?? new Date(),
+    ),
     experimentActivity:
       args.experimentActivity ??
       unavailableExperimentActivity("Acquisition events were not loaded. Do not treat that as zero."),

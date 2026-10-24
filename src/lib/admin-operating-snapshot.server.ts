@@ -32,6 +32,8 @@ import { unreadablePersonalVideoDistribution } from "@/lib/personal-videos/analy
 import { emptyAcquisitionDashboard } from "@/lib/acquisition/dashboard";
 import { loadExperimentActivity } from "@/lib/acquisition/experiment-activity.server";
 import { unavailableEligibility, unavailableExperimentActivity } from "@/lib/acquisition/experiment-activity";
+import { loadInstantlyBlockVisibility } from "@/lib/acquisition/instantly-block.server";
+import { unavailableInstantlyBlockVisibility } from "@/lib/acquisition/instantly-block-visibility";
 import { loadAcquisitionDashboard } from "@/lib/acquisition/store";
 
 export async function loadOperatingSnapshot(args: {
@@ -192,6 +194,15 @@ export async function loadOperatingSnapshot(args: {
     });
   }
 
+  let instantlyBlocks = unavailableInstantlyBlockVisibility();
+  try {
+    instantlyBlocks = await loadInstantlyBlockVisibility();
+  } catch (err) {
+    console.warn("[operating] instantly block visibility failed", {
+      reason: err instanceof Error ? err.message : "instantly_block_visibility_failed",
+    });
+  }
+
   let experimentActivity = unavailableExperimentActivity(
     "Acquisition events could not be read. Do not treat that as zero."
   );
@@ -222,7 +233,9 @@ export async function loadOperatingSnapshot(args: {
     recoveryAutomation,
     personalVideos,
     acquisition,
+    instantlyBlocks,
     experimentActivity,
     eligibility,
+    now: args.now,
   });
 }
