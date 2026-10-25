@@ -130,13 +130,18 @@ async function requestBlock(
   }
 }
 
-function matchingEntry(value: unknown, email: string): string | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+/** Exact email entry. A domain block and an id outside the safe pattern do not match. */
+export function exactEmailBlockEntry(value: unknown, email: string): boolean {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
   const row = value as Record<string, unknown>;
-  if (row.is_domain !== false) return null;
-  if (typeof row.bl_value !== "string" || row.bl_value.trim().toLowerCase() !== email) return null;
-  if (typeof row.id !== "string" || !SAFE_ENTRY_ID.test(row.id)) return null;
-  return row.id;
+  if (row.is_domain !== false) return false;
+  if (typeof row.bl_value !== "string" || row.bl_value.trim().toLowerCase() !== email) return false;
+  return typeof row.id === "string" && SAFE_ENTRY_ID.test(row.id);
+}
+
+function matchingEntry(value: unknown, email: string): string | null {
+  if (!exactEmailBlockEntry(value, email)) return null;
+  return (value as { id: string }).id;
 }
 
 export function matchBlockListEntry(payload: unknown, email: string): {
