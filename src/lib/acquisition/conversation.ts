@@ -8,6 +8,7 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 import { resourceLabels, type AcquisitionFileKey } from "@/lib/acquisition/assets";
+import { MEMBERSHIP_PUBLIC_OFFER } from "@/lib/membership-public-offer";
 import { scrubOpenAiRequestErrorForCapture } from "@/lib/openai-request-error-scrub";
 
 export const ACQUISITION_CONVERSATION_MODEL = "gpt-5.6-sol" as const;
@@ -28,6 +29,7 @@ export const ACQUISITION_CONVERSATION_FACTS = {
   trial: "$0 due today, then a 7-day free trial",
   monthly: "$29/month after the 7-day free trial",
   annual: "$249/year after the 7-day free trial",
+  cancel: MEMBERSHIP_PUBLIC_OFFER.cancel,
 } as const;
 
 /** Fields a later /admin/distribution read can count. Person-level trial and paid rows are not journey causation. */
@@ -121,7 +123,7 @@ Voice:
 - Do not invent a relationship, a meeting, a school detail, a game, a promise, or a prior conversation that is not in the input.
 - Do not say a file is attached. The resource, when accepted, arrives in a separate email.
 - Do not include a URL or a web address.
-- Use only the product facts in the input. The public monthly price is $29/month after the 7-day free trial. The annual price is $249/year after the 7-day free trial. $0 is due today. Do not quote any other price.
+- Use only the product facts in the input. The public monthly price is $29/month after the 7-day free trial. The annual price is $249/year after the 7-day free trial. $0 is due today. Cancel anytime is part of the public membership offer, so you may say that. Do not quote any other price. Do not promise a refund, a billing credit, or a cancellation method.
 
 Use ambiguous when the input is not enough.`;
 
@@ -217,6 +219,7 @@ export function reviewConversationDraft(value: string | null): string | null {
   if (!trimmed || trimmed.length > 2000) return null;
   if (/https?:\/\//i.test(trimmed) || /\bwww\./i.test(trimmed)) return null;
   if (/\battach(?:ed|ment|ing)\b/i.test(trimmed)) return null;
+  if (/\brefunds?\b/i.test(trimmed) || /\bmoney[\s-]?back\b/i.test(trimmed) || /\bbilling credit\b/i.test(trimmed)) return null;
   return trimmed;
 }
 

@@ -22,6 +22,7 @@ import {
 import { ACQUISITION_REPLY_TEXT_CAP, instantlyPersonMetadata, normalizeInstantlyWebhook } from "@/lib/acquisition/instantly";
 import { INSTANTLY_REPLY_URL, outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply } from "@/lib/acquisition/instantly-reply";
 import { salesEmailMustStop } from "@/lib/acquisition/model";
+import { MEMBERSHIP_PUBLIC_OFFER } from "@/lib/membership-public-offer";
 
 const NOW = new Date("2026-10-23T22:00:00.000Z");
 
@@ -216,6 +217,43 @@ describe("one interpreter", () => {
     expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("sounds good");
     expect(ACQUISITION_CONVERSATION_FACTS.monthly).toBe("$29/month after the 7-day free trial");
     expect(ACQUISITION_CONVERSATION_FACTS.annual).toBe("$249/year after the 7-day free trial");
+  });
+
+  it("answers the trial and cancel-anytime question from the public offer and rejects unsupported billing claims", () => {
+    const question = "How does the seven-day free trial work? Is it really free for the first seven days, and can I cancel anytime?";
+    expect(question.toLowerCase()).toContain("seven days");
+    expect(question.toLowerCase()).toContain("cancel anytime");
+    expect(ACQUISITION_CONVERSATION_FACTS.trial).toBe("$0 due today, then a 7-day free trial");
+    expect(ACQUISITION_CONVERSATION_FACTS.cancel).toBe(MEMBERSHIP_PUBLIC_OFFER.cancel);
+    expect(ACQUISITION_CONVERSATION_FACTS.cancel).toBe("Cancel anytime");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("Cancel anytime is part of the public membership offer");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("Do not promise a refund, a billing credit, or a cancellation method.");
+    expect(JSON.stringify(ACQUISITION_CONVERSATION_FACTS).toLowerCase()).not.toContain("refund");
+    const input = buildConversationInterpreterInput({
+      firstName: null,
+      role: null,
+      sport: null,
+      geography: null,
+      lifecycle: "cold_active",
+      campaignId: "camp-1",
+      journeyId: "journey-1",
+      offerLabel: null,
+      offerAssets: ["playbook"],
+      history: [],
+      fulfillment: [],
+      subject: "Re: the trial",
+      body: question,
+      occurredAt: "2026-10-25T19:00:00.000Z",
+    });
+    expect(input.facts.cancel).toBe("Cancel anytime");
+    expect(input.message.body).toBe(question);
+    const grounded = reviewConversationDraft(
+      "Yes. $0 is due today, and the first seven days are free. After that it is $29/month, or $249/year. You can cancel anytime.\n\nTyler Summitt"
+    );
+    expect(grounded?.toLowerCase()).toContain("cancel anytime");
+    expect(reviewConversationDraft("You can cancel anytime and we will refund the charge.")).toBeNull();
+    expect(reviewConversationDraft("Cancel anytime. We will give you your money back.")).toBeNull();
+    expect(reviewConversationDraft("Cancel anytime and we will add a billing credit.")).toBeNull();
   });
 
   it("separates an offer decline from unsubscribe and complaint", () => {
