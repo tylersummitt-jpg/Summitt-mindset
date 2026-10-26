@@ -222,6 +222,30 @@ export function conversationOwnsCampaign(args: {
   return args.pilotCampaigns.includes(args.campaignId);
 }
 
+/** Replies and PDF fulfillment both stay inside the interpretation allowlist. */
+export function selectAutonomousThreadReplies<T extends { campaignId: string | null }>(
+  rows: readonly T[],
+  pilotCampaigns: readonly string[],
+): T[] {
+  return rows.filter((row) => conversationOwnsCampaign({
+    interpretation: "pilot",
+    pilotCampaigns,
+    campaignId: row.campaignId,
+  }));
+}
+
+export function selectAutonomousFulfillment<T extends { journeyId: string | null }>(
+  actions: readonly T[],
+  campaignByJourney: ReadonlyMap<string, string | null>,
+  pilotCampaigns: readonly string[],
+): T[] {
+  return actions.filter((action) => conversationOwnsCampaign({
+    interpretation: "pilot",
+    pilotCampaigns,
+    campaignId: action.journeyId ? campaignByJourney.get(action.journeyId) ?? null : null,
+  }));
+}
+
 export function providerInterestSchedulesFulfillment(args: {
   interpretation: "off" | "pilot";
   pilotCampaigns: readonly string[];
@@ -397,8 +421,15 @@ export function threadReplyAuthorization(args: {
   senderAccount: string | null;
   stopped: boolean;
   suppressed: boolean | null;
-}): { send: false; reason: "sending_off" | "outcome" | "missing_draft" | "missing_reply_target" | "missing_account" | "ineligible" | "suppression_unknown" } | { send: true } {
+  campaignId: string | null;
+  pilotCampaigns: readonly string[];
+}): { send: false; reason: "sending_off" | "outcome" | "missing_draft" | "missing_reply_target" | "missing_account" | "ineligible" | "suppression_unknown" | "campaign" } | { send: true } {
   if (args.sending !== "on") return { send: false, reason: "sending_off" };
+  if (!conversationOwnsCampaign({
+    interpretation: "pilot",
+    pilotCampaigns: args.pilotCampaigns,
+    campaignId: args.campaignId,
+  })) return { send: false, reason: "campaign" };
   if (args.outcome !== "accept_offer" && args.outcome !== "ask_question") return { send: false, reason: "outcome" };
   if (!args.draftBody) return { send: false, reason: "missing_draft" };
   if (!args.replyToProviderMessageId) return { send: false, reason: "missing_reply_target" };

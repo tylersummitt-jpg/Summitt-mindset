@@ -18,6 +18,8 @@ import {
   parseConversationInterpreterOutput,
   providerInterestSchedulesFulfillment,
   providerLabelMayApplyLifecycle,
+  selectAutonomousFulfillment,
+  selectAutonomousThreadReplies,
   reviewConversationDraft,
   runAcquisitionConversationInterpreter,
   threadReplyAuthorization,
@@ -448,6 +450,8 @@ describe("thread reply authorization and send claims", () => {
     senderAccount: "outreach@summittmindset.com",
     stopped: false,
     suppressed: false as boolean | null,
+    campaignId: "856a5ef5-88c6-44c6-b001-a5b020d641f7",
+    pilotCampaigns: ["856a5ef5-88c6-44c6-b001-a5b020d641f7"],
   };
 
   it("refuses a draft when sending is off, the person is protected, or the thread target is missing", () => {
@@ -459,7 +463,42 @@ describe("thread reply authorization and send claims", () => {
     expect(threadReplyAuthorization({ ...ready, stopped: true })).toEqual({ send: false, reason: "ineligible" });
     expect(threadReplyAuthorization({ ...ready, suppressed: true })).toEqual({ send: false, reason: "ineligible" });
     expect(threadReplyAuthorization({ ...ready, suppressed: null })).toEqual({ send: false, reason: "suppression_unknown" });
+    expect(threadReplyAuthorization({ ...ready, campaignId: "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5" })).toEqual({ send: false, reason: "campaign" });
+    expect(threadReplyAuthorization({ ...ready, campaignId: null })).toEqual({ send: false, reason: "campaign" });
     expect(threadReplyAuthorization(ready)).toEqual({ send: true });
+  });
+
+  it("keeps autonomous replies and PDF fulfillment inside the owner campaign allowlist", () => {
+    const pilots = ["856a5ef5-88c6-44c6-b001-a5b020d641f7"];
+    const replies = selectAutonomousThreadReplies([
+      { id: "owner-question", campaignId: pilots[0] },
+      { id: "prospect-reply", campaignId: "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5" },
+      { id: "unknown-reply", campaignId: "not-allowlisted" },
+      { id: "unscoped", campaignId: null },
+    ], pilots);
+    expect(replies.map((row) => row.id)).toEqual(["owner-question"]);
+    const fulfillment = selectAutonomousFulfillment([
+      { id: "owner-pdf", journeyId: "owner-journey" },
+      { id: "playbook-pdf", journeyId: "playbook-journey" },
+      { id: "dozen-a", journeyId: "dozen-a" },
+      { id: "dozen-b", journeyId: "dozen-b" },
+      { id: "unknown-pdf", journeyId: "unknown-journey" },
+      { id: "missing-campaign", journeyId: "missing-journey" },
+      { id: "legacy-pdf", journeyId: null },
+    ], new Map<string, string | null>([
+      ["owner-journey", pilots[0]],
+      ["playbook-journey", "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5"],
+      ["dozen-a", "ab5b139c-0f7e-44f9-b42a-86726fd024a8"],
+      ["dozen-b", "80d88a66-78a2-4367-a4ea-6d5a562ebf92"],
+      ["unknown-journey", "not-allowlisted"],
+      ["missing-journey", null],
+    ]), pilots);
+    expect(fulfillment.map((row) => row.id)).toEqual(["owner-pdf"]);
+    expect(selectAutonomousFulfillment(
+      [{ id: "playbook-pdf", journeyId: "playbook-journey" }],
+      new Map([["playbook-journey", "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5"]]),
+      ["856a5ef5-88c6-44c6-b001-a5b020d641f7", "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5"],
+    ).map((row) => row.id)).toEqual(["playbook-pdf"]);
   });
 
   it("claims a new send once and does not post again after success, rejection, or an uncertain result", () => {
@@ -563,6 +602,12 @@ describe("conversation wiring stays behind the existing switches", () => {
     expect(cron).not.toContain("deliverAcquisitionThreadReply");
     expect(cron).not.toContain(INSTANTLY_REPLY_URL);
     expect(cron).toContain('conversationSending !== "on"');
+    expect(cron).toContain("selectAutonomousFulfillment");
+    expect(cron).toContain('skipped: "campaign_unreadable"');
+    expect(cron.indexOf('settings.automation !== "pilot" && settings.automation !== "active"')).toBeLessThan(cron.indexOf("selectAutonomousFulfillment"));
+    expect(cron.indexOf("selectAutonomousFulfillment")).toBeLessThan(cron.indexOf("runAcquisitionPass"));
+    expect(cron).toContain("due: autonomousDue");
+    expect(processor).toContain("selectAutonomousThreadReplies");
     expect(processor).not.toContain("not_interested");
     expect(processor).not.toContain("postInstantlyThreadReply");
     expect(processor).toContain("deliverAcquisitionThreadReply");

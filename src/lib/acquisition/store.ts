@@ -25,6 +25,8 @@ import {
   initialInboundStatus,
   nextClaimDecision,
   providerLabelMayApplyLifecycle,
+  selectAutonomousFulfillment,
+  selectAutonomousThreadReplies,
   threadReplyAuthorization,
   reviewConversationDraft,
   reviewConversationSubject,
@@ -1252,15 +1254,20 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
     });
   }
   if (sending) {
-    const { data: ready } = await supabaseServer
+    const { data: ready, error: readyError } = await supabaseServer
       .from("acquisition_messages")
-      .select("id")
+      .select("id, campaign_id")
       .eq("direction", "inbound")
       .eq("processing_status", "interpreted")
       .in("ai_outcome", ["accept_offer", "ask_question"])
       .not("draft_body", "is", null)
       .limit(5);
-    const readyIds = (ready ?? []).flatMap((row) => typeof row.id === "string" ? [row.id] : []);
+    const readyRows = readyError || !Array.isArray(ready) ? [] : ready.flatMap((row) => (
+      typeof row.id === "string"
+        ? [{ id: row.id, campaignId: typeof row.campaign_id === "string" ? row.campaign_id : null }]
+        : []
+    ));
+    const readyIds = selectAutonomousThreadReplies(readyRows, settings.conversationPilotCampaigns).map((row) => row.id);
     let blockedIds = new Set<string>();
     let holdFailed = false;
     try {
@@ -1316,6 +1323,16 @@ export async function deliverAcquisitionThreadReply(args: {
       ? { state: "accepted", providerMessageId: existing.provider_response_id }
       : { state: typeof existing?.processing_status === "string" ? existing.processing_status : "blocked", reason: typeof existing?.processing_error === "string" ? existing.processing_error : "provider_error" };
   }
+  if (
+    plan === "claim_and_send"
+    && !conversationOwnsCampaign({
+      interpretation: "pilot",
+      pilotCampaigns: settings.conversationPilotCampaigns,
+      campaignId: typeof inbound.campaign_id === "string" ? inbound.campaign_id : null,
+    })
+  ) {
+    return { state: "blocked", reason: "campaign" };
+  }
   if (plan === "reconcile") {
     const reconciled = await reconcileInstantlyReply({
       apiKey: process.env.INSTANTLY_API_KEY ?? null,
@@ -1370,6 +1387,8 @@ export async function deliverAcquisitionThreadReply(args: {
     senderAccount: typeof inbound.sender_account === "string" ? inbound.sender_account : null,
     stopped: !person || clerkSubscribed || salesEmailMustStop(person.lifecycle_state),
     suppressed: suppressed.error ? null : Boolean(suppressed.data?.id),
+    campaignId: typeof inbound.campaign_id === "string" ? inbound.campaign_id : null,
+    pilotCampaigns: settings.conversationPilotCampaigns,
   });
   if (!decision.send) {
     const processingError = decision.reason === "missing_draft"
@@ -1494,13 +1513,33 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       promisedLabel: typeof row.promised_label === "string" ? row.promised_label : null,
     }];
   });
+  const journeyIds = [...new Set(due.flatMap((action) => action.journeyId ? [action.journeyId] : []))];
+  let autonomousDue = due;
+  if (journeyIds.length > 0) {
+    const { data: journeys, error: journeyError } = await supabaseServer
+      .from("acquisition_journeys")
+      .select("id, campaign_id")
+      .in("id", journeyIds);
+    if (journeyError || !Array.isArray(journeys)) {
+      await converse();
+      return { automation: settings.automation, accepted: 0, skipped: "campaign_unreadable" };
+    }
+    const campaignByJourney = new Map(journeys.flatMap((row) => (
+      typeof row.id === "string"
+        ? [[row.id, typeof row.campaign_id === "string" ? row.campaign_id : null] as const]
+        : []
+    )));
+    autonomousDue = selectAutonomousFulfillment(due, campaignByJourney, settings.conversationPilotCampaigns);
+  } else {
+    autonomousDue = [];
+  }
   const tokens = new Map<string, string>();
   const result = await runAcquisitionPass({
     now,
     automation: settings.automation,
     dailyCap: settings.dailyCap,
     acceptedToday: count,
-    due,
+    due: autonomousDue,
     claim: async (action) => {
       const { data, error } = await supabaseServer
         .from("acquisition_actions")
