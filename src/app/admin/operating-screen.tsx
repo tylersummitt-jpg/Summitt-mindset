@@ -391,6 +391,10 @@ function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
         <Link href="/admin/distribution/email-knowledge" className="underline">
           Approved email knowledge
         </Link>
+        {" · "}
+        <Link href="/admin/distribution/campaign-playbooks" className="underline">
+          Campaign playbooks
+        </Link>
       </p>
       <p className="text-sm text-gray-700">{dashboard.note}</p>
       <p className="text-sm text-gray-700">Automation: {dashboard.automation}.</p>

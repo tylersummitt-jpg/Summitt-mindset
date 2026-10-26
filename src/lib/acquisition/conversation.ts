@@ -143,6 +143,7 @@ export type ConversationInterpreterInput = {
   today: { date: string; weekday: string } | null;
   history: Array<{ direction: "inbound" | "outbound"; body: string; occurred_at: string; body_complete: boolean }>;
   fulfillment: Array<{ action_type: string; status: string; label: string | null }>;
+  campaign_guidance: string | null;
   message: { subject: string | null; body: string; occurred_at: string };
 };
 
@@ -206,6 +207,7 @@ Voice, as Tyler Summitt:
 - Do not use robotic wording such as "I'd be delighted to assist you" or "As an AI language model".
 - Use only verified, this journey's offer, and approved_knowledge. The public monthly price is $29/month after the 7-day free trial. The annual price is $249/year after the 7-day free trial. $0 is due today. Cancel anytime is part of the public membership offer, so you may say that cancellation stops future recurring billing. Do not quote any other price. Do not promise a refund, a billing credit, or a cancellation method.
 - Do not mention the Leadership Kit unless approved_knowledge contains it for this campaign or offer. Do not add shipping, a delivery date, a country, a quantity, trial shipment, or what happens to a Kit after cancellation.
+- campaign_guidance applies only to this campaign. It does not authorize a send, a shipment, or a promotion. When campaign_guidance is null, do not make a campaign-specific promise. Membership facts are not themselves a campaign offer.
 
 Use needs_human when a clear question needs a fact the input does not contain. Use ambiguous when the message itself is unclear.`;
 
@@ -424,6 +426,7 @@ export function buildConversationInterpreterInput(args: {
   approvedKnowledge?: readonly ApprovedKnowledgeFact[];
   knowledgeConflicts?: readonly string[];
   today?: { date: string; weekday: string } | null;
+  campaignGuidance?: string | null;
 }): ConversationInterpreterInput {
   return {
     person: {
@@ -445,6 +448,7 @@ export function buildConversationInterpreterInput(args: {
     today: args.today ?? null,
     history: args.history,
     fulfillment: args.fulfillment,
+    campaign_guidance: args.campaignGuidance ?? null,
     message: { subject: args.subject, body: args.body, occurred_at: args.occurredAt },
   };
 }

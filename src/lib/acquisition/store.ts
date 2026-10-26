@@ -32,6 +32,8 @@ import {
   type ConversationOutcome,
 } from "@/lib/acquisition/conversation";
 import { loadInterpreterKnowledge } from "@/lib/acquisition/email-knowledge.server";
+import { choosePlaybookSend, recoverPlaybookAcceptance } from "@/lib/acquisition/playbook";
+import { campaignPlaybookPresence, journeyPlaybookFollowUp, loadResolvedCampaign, pinJourneyPlaybook, pinnedDeliveryVideoId } from "@/lib/acquisition/playbook.server";
 import { inboundIdsBlockedByEmailAnswers, reconcileAcquisitionEmailAnswers } from "@/lib/acquisition/email-manual-answer.server";
 import { outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
 import {
@@ -601,8 +603,13 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
       }),
     });
   }
+  if (stored.status === "inserted") {
+    await pinJourneyPlaybook({ event: stored.status, journeyId, campaignId: event.campaignId });
+  }
   const plan = inboundPersistencePlan({ event: stored.status, message });
   if (plan === "retry") return { ok: false as const };
+  const playbookPresence = event.campaignId ? await campaignPlaybookPresence(event.campaignId) : "absent";
+  const playbookGoverns = playbookPresence !== "absent";
   const blockReason =
     event.signal === "unsubscribed" ? "unsubscribe" as const
     : event.signal === "bounced" ? "bounce" as const
@@ -641,7 +648,7 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   }
   // Outside the pilot, lead_not_interested remains a global stop. Inside the pilot it does not.
   if (salesEmailMustStop(updated.lifecycle_state)) return { ok: true as const };
-  if (event.signal === "interested" && journeyId) {
+  if (!playbookGoverns && event.signal === "interested" && journeyId) {
     const promise = resolveCampaignPromise({
       campaignValue: event.campaignId ? settings.campaignAssets[event.campaignId] : null,
       offers: settings.offers,
@@ -651,10 +658,11 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
     }
     return { ok: true as const };
   }
+  if (playbookGoverns && event.signal === "interested") return { ok: true as const };
   const canSendAsset = Boolean(
     fulfillment?.hasFulfillment || person.requested_asset || person.offer_key
   );
-  if (!journeyId && updated.lifecycle_state === "asset_requested" && canSendAsset) {
+  if (!playbookGoverns && !journeyId && updated.lifecycle_state === "asset_requested" && canSendAsset) {
     await scheduleAction(updated.id, "send_asset", now);
   }
   return { ok: true as const };
@@ -706,13 +714,14 @@ export async function resolveAcquisitionRecipient(token: string): Promise<{
   };
 }
 
-async function ensureRecipient(personId: string, personalVideoId: string): Promise<string | null> {
+async function ensureRecipient(personId: string, personalVideoId: string): Promise<string | null | "unavailable"> {
   const { data: video, error: videoError } = await supabaseServer
     .from("personal_videos")
     .select("status")
     .eq("id", personalVideoId)
     .maybeSingle();
-  if (videoError || video?.status !== "ready") return null;
+  if (videoError) return "unavailable";
+  if (video?.status !== "ready") return null;
   const { data: existing } = await supabaseServer
     .from("acquisition_video_recipients")
     .select("public_token")
@@ -858,7 +867,8 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
   const person = await findPersonById(String(data.person_id));
   if (!person || effect.settle.status !== "accepted") return;
   const updated = await applySignal(person, data.action_type === "send_asset" ? "asset_accepted" : data.action_type === "send_video" ? "video_accepted" : "trial_followup_accepted");
-  if (effect.settle.schedule && (journeyId || updated.lifecycle_state !== person.lifecycle_state)) {
+  const followUp = journeyId ? await journeyPlaybookFollowUp(journeyId) : "legacy";
+  if (followUp === "legacy" && effect.settle.schedule && (journeyId || updated.lifecycle_state !== person.lifecycle_state)) {
     const hours = effect.settle.schedule === "send_video" ? settings.videoDelayHours : settings.trialFollowupDelayHours;
     await scheduleAction(
       updated.id,
@@ -1014,13 +1024,16 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
     }
     const claimed = await claimInbound(row, now, decision === "claim");
     if (!claimed) continue;
-    const knowledgePromise = resolveCampaignPromise({
+    const campaignContext = await loadResolvedCampaign({
+      journeyId: row.journeyId,
+      campaignId: row.campaignId,
       campaignValue: row.campaignId ? settings.campaignAssets[row.campaignId] : null,
       offers: settings.offers,
     });
+    const knowledgePromise = campaignContext.promise;
     const loadedKnowledge = await loadInterpreterKnowledge({
-      campaignId: row.campaignId,
-      offerKey: knowledgePromise?.offerKey ?? null,
+      campaignId: campaignContext.useCampaignKnowledge ? row.campaignId : null,
+      offerKey: campaignContext.useCampaignKnowledge ? knowledgePromise?.offerKey ?? null : null,
     });
     if (!loadedKnowledge.ok) {
       await finishInbound(row.id, {
@@ -1031,11 +1044,13 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       continue;
     }
     const approvedKnowledge = loadedKnowledge.knowledge;
+    const priorOutcome = row.outcome;
     let outcome = row.outcome;
     let reason = row.reason;
     let draftSubject = row.draftSubject;
     let draftBody = row.draftBody;
     let draftRejected = false;
+    let acceptedResource: string | null = null;
     if (!outcome) {
       const person = await findPersonById(row.personId);
       if (!person || !row.body.trim()) {
@@ -1091,8 +1106,8 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
           lifecycle: person.lifecycle_state,
           campaignId: row.campaignId,
           journeyId: row.journeyId,
-          offerLabel: promise?.label ?? null,
-          offerAssets: promise?.assets ?? null,
+          offerLabel: campaignContext.source === "playbook" && !campaignContext.sendable ? null : promise?.label ?? null,
+          offerAssets: campaignContext.source === "playbook" && !campaignContext.sendable ? null : promise?.assets ?? null,
           history,
           fulfillment,
           subject: row.subject,
@@ -1101,6 +1116,7 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
           approvedKnowledge: approvedKnowledge.statements,
           knowledgeConflicts: approvedKnowledge.conflicts,
           today: conversationCalendar(now),
+          campaignGuidance: campaignContext.guidance,
         }),
       });
       if (!interpretedResult.ok) {
@@ -1108,15 +1124,18 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
         failed += 1;
         continue;
       }
-      const bound = bindAcceptanceToOffer(interpretedResult.parsed, [
-        ...(promise?.label ? [promise.label] : []),
-        ...resourceLabels(promise?.assets ?? []),
-      ]);
+      const bound = bindAcceptanceToOffer(interpretedResult.parsed, campaignContext.labels.length > 0
+        ? campaignContext.labels
+        : [
+            ...(promise?.label ? [promise.label] : []),
+            ...resourceLabels(promise?.assets ?? []),
+          ]);
       outcome = bound.outcome;
       reason = bound.reason;
       draftSubject = bound.draftSubject;
       draftBody = bound.draftBody;
       draftRejected = bound.draftRejected;
+      acceptedResource = bound.acceptedResource;
     }
     const person = await findPersonById(row.personId);
     if (!person || !outcome) {
@@ -1129,14 +1148,16 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       .select("id")
       .eq("email_normalized", person.email_normalized)
       .maybeSingle();
-    const promise = resolveCampaignPromise({
-      campaignValue: row.campaignId ? settings.campaignAssets[row.campaignId] : null,
-      offers: settings.offers,
-    });
+    const acceptanceMode = priorOutcome ? "established" as const : "new" as const;
+    const promise = acceptanceMode === "established" && campaignContext.source === "playbook"
+      ? campaignContext.obligationPromise
+      : campaignContext.promise;
+    acceptedResource = recoverPlaybookAcceptance(campaignContext, outcome, acceptedResource, acceptanceMode);
+    const playbookSend = choosePlaybookSend(campaignContext, acceptedResource, acceptanceMode);
     const effect = decideConversationEffect({
       outcome,
       journeyId: row.journeyId,
-      hasPromise: Boolean(promise),
+      hasPromise: campaignContext.source === "legacy" ? Boolean(promise) : playbookSend !== null,
       stopped: salesEmailMustStop(person.lifecycle_state),
       suppressed: suppressionError ? null : Boolean(suppression?.id),
     });
@@ -1150,9 +1171,21 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       failed += 1;
       continue;
     }
-    if (effect.type === "schedule_asset" && promise && row.journeyId) {
-      await scheduleAction(person.id, "send_asset", now, { journeyId: row.journeyId, promise });
-      const key = acquisitionActionIdempotencyKey(person.id, "send_asset", row.journeyId);
+    const scheduledAction = effect.type === "schedule_asset" && row.journeyId
+      ? playbookSend === "send_video"
+        ? "send_video" as const
+        : promise
+          ? "send_asset" as const
+          : null
+      : null;
+    if (scheduledAction && row.journeyId) {
+      await scheduleAction(
+        person.id,
+        scheduledAction,
+        now,
+        { journeyId: row.journeyId, promise: scheduledAction === "send_asset" ? promise : null },
+      );
+      const key = acquisitionActionIdempotencyKey(person.id, scheduledAction, row.journeyId);
       const { data: action } = await supabaseServer
         .from("acquisition_actions")
         .select("id")
@@ -1532,7 +1565,15 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       if (!files) return null;
       return { label: resolved.label, files };
     },
-    videoToken: async (person) => {
+    videoToken: async (person, action) => {
+      if (action.journeyId) {
+        const delivery = await pinnedDeliveryVideoId(action.journeyId);
+        if (delivery === "unavailable") return "unavailable";
+        if (delivery) return ensureRecipient(person.id, delivery);
+        const followUp = await journeyPlaybookFollowUp(action.journeyId);
+        if (followUp === "unknown") return "unavailable";
+        if (followUp === "pinned") return null;
+      }
       if (!settings.evergreenPersonalVideoId) return null;
       return ensureRecipient(person.id, settings.evergreenPersonalVideoId);
     },

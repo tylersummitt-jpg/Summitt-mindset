@@ -78,7 +78,7 @@ export async function runAcquisitionPass(args: {
   suppression: (email: string) => Promise<boolean | null>;
   clerkSubscribed: (clerkUserId: string | null) => Promise<boolean | null>;
   assetFiles: (person: PassPerson, action: PassAction) => Promise<{ label: string | null; files: PassAttachment[] } | null>;
-  videoToken: (person: PassPerson) => Promise<string | null>;
+  videoToken: (person: PassPerson, action: PassAction) => Promise<string | null | "unavailable">;
   unsubscribeToken: () => string;
   send: (request: PassSendRequest) => Promise<{
     outcome: "accepted" | "temporary_failure" | "permanent_failure" | "provider_rejected" | "unknown";
@@ -160,7 +160,11 @@ export async function runAcquisitionPass(args: {
       await args.apply({ kind: "stop", actionId: action.id, status: "blocked", cancelSiblings: false });
       continue;
     }
-    const videoToken = action.actionType === "send_video" ? await args.videoToken(fresh) : null;
+    const videoToken = action.actionType === "send_video" ? await args.videoToken(fresh, action) : null;
+    if (videoToken === "unavailable") {
+      await args.apply({ kind: "release", actionId: action.id });
+      continue;
+    }
     if (action.actionType === "send_video" && !videoToken) {
       await args.apply({ kind: "stop", actionId: action.id, status: "blocked", cancelSiblings: false });
       continue;
