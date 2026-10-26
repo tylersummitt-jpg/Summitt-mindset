@@ -17,6 +17,7 @@ import {
 import {
   bindAcceptanceToOffer,
   buildConversationInterpreterInput,
+  conversationCalendar,
   conversationOwnsCampaign,
   decideConversationEffect,
   inboundInterpretationError,
@@ -30,6 +31,7 @@ import {
   runAcquisitionConversationInterpreter,
   type ConversationOutcome,
 } from "@/lib/acquisition/conversation";
+import { loadInterpreterKnowledge } from "@/lib/acquisition/email-knowledge.server";
 import { inboundIdsBlockedByEmailAnswers, reconcileAcquisitionEmailAnswers } from "@/lib/acquisition/email-manual-answer.server";
 import { outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
 import {
@@ -1012,6 +1014,23 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
     }
     const claimed = await claimInbound(row, now, decision === "claim");
     if (!claimed) continue;
+    const knowledgePromise = resolveCampaignPromise({
+      campaignValue: row.campaignId ? settings.campaignAssets[row.campaignId] : null,
+      offers: settings.offers,
+    });
+    const loadedKnowledge = await loadInterpreterKnowledge({
+      campaignId: row.campaignId,
+      offerKey: knowledgePromise?.offerKey ?? null,
+    });
+    if (!loadedKnowledge.ok) {
+      await finishInbound(row.id, {
+        processing_status: "failed",
+        processing_error: "knowledge_unreadable",
+      }, now);
+      failed += 1;
+      continue;
+    }
+    const approvedKnowledge = loadedKnowledge.knowledge;
     let outcome = row.outcome;
     let reason = row.reason;
     let draftSubject = row.draftSubject;
@@ -1024,10 +1043,7 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
         failed += 1;
         continue;
       }
-      const promise = resolveCampaignPromise({
-        campaignValue: row.campaignId ? settings.campaignAssets[row.campaignId] : null,
-        offers: settings.offers,
-      });
+      const promise = knowledgePromise;
       const historyQuery = supabaseServer
         .from("acquisition_messages")
         .select("direction, body_text, occurred_at, processing_error")
@@ -1082,6 +1098,9 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
           subject: row.subject,
           body: row.body,
           occurredAt: row.occurredAt,
+          approvedKnowledge: approvedKnowledge.statements,
+          knowledgeConflicts: approvedKnowledge.conflicts,
+          today: conversationCalendar(now),
         }),
       });
       if (!interpretedResult.ok) {
@@ -1168,7 +1187,9 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
         continue;
       }
     }
-    const reviewedBody = reviewConversationDraft(draftBody);
+    const reviewedBody = reviewConversationDraft(draftBody, {
+      allowLeadershipKit: approvedKnowledge.allowLeadershipKit,
+    });
     const reviewedSubject = reviewConversationSubject(draftSubject, row.subject);
     const stored = await finishInbound(row.id, {
       processing_status: "interpreted",

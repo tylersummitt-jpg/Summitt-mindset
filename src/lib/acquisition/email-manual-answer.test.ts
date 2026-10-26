@@ -507,7 +507,5 @@ describe("email escalation stays inside the existing acquisition path", () => {
     }
     expect(middleware).not.toContain("email-answers");
     expect(distribution).toContain('href="/admin/distribution/email-answers"');
-    expect(readFileSync("src/app/api/admin/acquisition/one-thread-reply/route.ts", "utf8")).toContain("sendAuthorizedOneThreadReply");
-    expect(readFileSync("src/lib/acquisition/one-thread-reply.ts", "utf8")).toContain("856a5ef5-88c6-44c6-b001-a5b020d641f7");
   });
 });

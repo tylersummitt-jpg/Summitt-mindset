@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-button";
+import { EmailRepresentativePanel } from "@/app/admin/email-representative-panel";
 import { DistributionIntelligencePanel } from "@/app/admin/distribution-intelligence-panel";
 import type { PersonalVideoDistribution } from "@/lib/personal-videos/analytics";
 import type { AcquisitionDashboard } from "@/lib/acquisition/dashboard";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/acquisition/experiment-activity";
 import { NonmemberRecoveryPanel } from "@/app/admin/nonmember-recovery-panel";
 import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
+import type { EmailRepresentativeReport } from "@/lib/acquisition/email-representative-metrics";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
 import { EXPERIMENT_NO_AUTOMATIC_WINNER } from "@/lib/operating-experiments";
@@ -40,9 +42,11 @@ function Metric({ label, value, note }: { label: string; value: string; note?: s
 export function OperatingScreen({
   focus,
   snapshot,
+  emailRepresentative = null,
 }: {
   focus: "distribution" | "retention";
   snapshot: OperatingSnapshot;
+  emailRepresentative?: EmailRepresentativeReport | null;
 }) {
   const href = (range: GrowthDateRange) =>
     focus === "distribution"
@@ -114,7 +118,7 @@ export function OperatingScreen({
       </p>
 
       {focus === "distribution" ? (
-        <DistributionBody snapshot={snapshot} />
+        <DistributionBody snapshot={snapshot} emailRepresentative={emailRepresentative} />
       ) : (
         <RetentionBody snapshot={snapshot} />
       )}
@@ -383,6 +387,10 @@ function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
         <Link href="/admin/distribution/email-answers" className="underline">
           Email questions waiting for your answer
         </Link>
+        {" · "}
+        <Link href="/admin/distribution/email-knowledge" className="underline">
+          Approved email knowledge
+        </Link>
       </p>
       <p className="text-sm text-gray-700">{dashboard.note}</p>
       <p className="text-sm text-gray-700">Automation: {dashboard.automation}.</p>
@@ -542,7 +550,13 @@ function ExperimentActivitySection({
   );
 }
 
-function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
+function DistributionBody({
+  snapshot,
+  emailRepresentative,
+}: {
+  snapshot: OperatingSnapshot;
+  emailRepresentative: EmailRepresentativeReport | null;
+}) {
   const d = snapshot.distribution;
   return (
     <>
@@ -634,6 +648,8 @@ function DistributionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
       <PersonalVideosSection report={snapshot.personalVideos} />
 
       <ExperimentActivitySection snapshot={snapshot} />
+
+      {emailRepresentative ? <EmailRepresentativePanel report={emailRepresentative} /> : null}
 
       <ColdEmailSection dashboard={snapshot.acquisition} />
 

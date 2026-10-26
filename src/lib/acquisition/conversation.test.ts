@@ -5,8 +5,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   ACQUISITION_CONVERSATION_FACTS,
   ACQUISITION_CONVERSATION_SYSTEM_PROMPT,
+  ACQUISITION_VERIFIED_CONTEXT,
   bindAcceptanceToOffer,
   buildConversationInterpreterInput,
+  conversationCalendar,
   conversationOwnsCampaign,
   decideConversationEffect,
   inboundInterpretationError,
@@ -566,6 +568,9 @@ describe("conversation wiring stays behind the existing switches", () => {
     expect(processor).toContain("deliverAcquisitionThreadReply");
     expect(processor).toContain('conversationSending === "on"');
     expect(processor).toContain("scheduleAction");
+    expect(processor).toContain("loadInterpreterKnowledge");
+    expect(processor).toContain("knowledge_unreadable");
+    expect(processor).toContain("allowLeadershipKit");
     const personPath = store.slice(
       store.indexOf("async function applyPersonEvent"),
       store.indexOf("export async function recordAcquisitionVideoEvent"),
@@ -582,5 +587,106 @@ describe("conversation wiring stays behind the existing switches", () => {
     expect(sql).toContain("GRANT SELECT, INSERT, UPDATE ON TABLE public.acquisition_messages TO service_role");
     expect(store).toContain("`acquisition:${personId}:${journeyId}:${action}`");
     expect(store).toContain("`acquisition:${personId}:${action}`");
+  });
+});
+
+describe("Tyler voice and verified knowledge", () => {
+  it("keeps public biography and membership facts, and keeps the Kit out of every campaign", () => {
+    const verified = JSON.stringify(ACQUISITION_VERIFIED_CONTEXT);
+    expect(verified).toContain("Tyler Summitt is Pat Summitt's son.");
+    expect(verified).toContain("1,098 career wins");
+    expect(verified).toContain("38 seasons");
+    expect(verified).toContain("eight NCAA national championships");
+    expect(verified).toContain("1984 U.S. women's Olympic basketball team");
+    expect(verified).toContain("Presidential Medal of Freedom in 2012");
+    expect(verified).toContain("Coach Pat is an AI-powered coaching experience");
+    expect(verified).toContain("Cancellation stops future recurring billing.");
+    expect(ACQUISITION_VERIFIED_CONTEXT.product.join(" ")).not.toMatch(/leadership kit/i);
+    expect(ACQUISITION_VERIFIED_CONTEXT.withheld.join(" ")).toContain("Leadership Kit");
+    expect(verified).not.toContain("$400");
+    expect(verified.toLowerCase()).not.toContain("wristband");
+    expect(ACQUISITION_VERIFIED_CONTEXT.membership.cancel.toLowerCase()).not.toContain("refund");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("Vary the greeting");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("AI-assisted");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("Do not mention the Leadership Kit");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("knowledge_conflicts");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("Do not use robotic wording");
+    const input = buildConversationInterpreterInput({
+      firstName: "Sarah",
+      role: null,
+      sport: null,
+      geography: null,
+      lifecycle: "reply_needs_review",
+      campaignId: "camp-1",
+      journeyId: "journey-1",
+      offerLabel: null,
+      offerAssets: ["definite_dozen"],
+      history: [],
+      fulfillment: [],
+      subject: null,
+      body: "What is included?",
+      occurredAt: "2026-10-26T14:00:00.000Z",
+    });
+    expect(input.approved_knowledge).toEqual([]);
+    expect(input.knowledge_conflicts).toEqual([]);
+    expect(input.verified.product.join(" ")).toContain("Victory Room");
+    expect(input.offer?.resources[0]).toContain("team discussion guide");
+    expect(conversationCalendar(new Date("2026-10-26T14:00:00.000Z"))).toEqual({
+      date: "2026-10-26",
+      weekday: "Monday",
+    });
+  });
+
+  it("rejects an unapproved Kit, a shipping promise, and a false claim that Tyler typed the email", () => {
+    const kit = "Hey Coach!! The Leadership Kit was $400 and includes wristbands.\n\nTyler Summitt";
+    expect(reviewConversationDraft(kit)).toBeNull();
+    expect(reviewConversationDraft(kit, { allowLeadershipKit: true })?.toLowerCase()).toContain("leadership kit");
+    expect(reviewConversationDraft("The Kit ships free next Tuesday.\n\nTyler Summitt", { allowLeadershipKit: true })).toBeNull();
+    expect(reviewConversationDraft("I personally typed this reply.\n\nTyler Summitt")).toBeNull();
+    expect(reviewConversationDraft("I'd be delighted to assist you with that.\n\nTyler Summitt")).toBeNull();
+    expect(reviewConversationDraft("As an AI language model, I can help.\n\nTyler Summitt")).toBeNull();
+    expect(reviewConversationDraft("Yes! It is free for 7 days, then $29/month or $249/year. You can cancel anytime.\n\nTyler Summitt")?.toLowerCase()).toContain("cancel anytime");
+    expect(reviewConversationDraft("My mom believed so strongly in accountability.\n\nTyler Summitt")).toContain("My mom believed");
+    expect(reviewConversationDraft("When I was a kid, we sat in the gym together.\n\nTyler Summitt")).toBeNull();
+    expect(reviewConversationDraft("Absolutely!! I can do $19/month for you.\n\nTyler Summitt")).toBeNull();
+    expect(reviewConversationDraft("I can take 20 percent off the annual plan.\n\nTyler Summitt")).toBeNull();
+  });
+
+  it("holds the twelve review cases to the approved facts and the original thread rules", () => {
+    const warm = reviewConversationDraft("Hey Sarah!! Great to hear from you! The first 7 days are free, with $0 due today. After that it is $29/month or $249/year, and you can cancel anytime.\n\nTyler Summitt");
+    expect(warm).toContain("Hey Sarah!!");
+    expect(warm?.toLowerCase()).not.toContain("leadership kit");
+    const kit = "Hey Coach!! The Leadership Kit was previously $400, and it is free with a membership. It includes one Coach's Guide, 25 Student-Athlete Handbooks, wristbands, pens, stickers, a poster, and Quotes from the Summitt.\n\nTyler Summitt";
+    expect(reviewConversationDraft(kit)).toBeNull();
+    expect(reviewConversationDraft(kit, { allowLeadershipKit: true })).toContain("Leadership Kit");
+    expect(reviewConversationDraft("It ships next Tuesday.\n\nTyler Summitt", { allowLeadershipKit: true })).toBeNull();
+    const stopped = parseConversationInterpreterOutput(JSON.stringify({
+      outcome: "unsubscribe",
+      reason: "They asked not to be emailed.",
+      draft_subject: "Re: stop",
+      draft_body: "No problem, I will keep writing!!",
+      accepted_resource: null,
+    }));
+    expect(stopped?.draftBody).toBeNull();
+    expect(decideConversationEffect({
+      outcome: "unsubscribe",
+      journeyId: "journey-1",
+      hasPromise: true,
+      stopped: false,
+      suppressed: false,
+    })).toEqual({ type: "global_unsubscribe" });
+    const refund = parseConversationInterpreterOutput(JSON.stringify({
+      outcome: "needs_human",
+      reason: "The refund rule is not approved.",
+      draft_subject: "Re: refund",
+      draft_body: "Yes, every charge is refunded.",
+      accepted_resource: null,
+    }));
+    expect(refund).toMatchObject({ outcome: "needs_human", draftBody: null, draftRejected: false });
+    expect(reviewConversationDraft("See https://summittmindset.com/subscribe to start.\n\nTyler Summitt")).toBeNull();
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("AI-assisted");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("Do not invent a relationship");
+    expect(ACQUISITION_VERIFIED_CONTEXT.audience.join(" ")).toContain("not exclusively for basketball coaches");
+    expect(ACQUISITION_VERIFIED_CONTEXT.pat.join(" ")).toContain("1,098 career wins");
   });
 });

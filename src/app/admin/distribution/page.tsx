@@ -1,3 +1,4 @@
+import { loadEmailRepresentativeReport } from "@/lib/acquisition/email-representative-metrics.server";
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 import { loadOperatingSnapshot } from "@/lib/admin-operating-snapshot.server";
 
@@ -13,5 +14,6 @@ export default async function AdminDistributionPage({
   await requireTylerAdmin();
   const resolved = searchParams ? await searchParams : {};
   const snapshot = await loadOperatingSnapshot({ searchParams: resolved });
-  return <OperatingScreen focus="distribution" snapshot={snapshot} />;
+  const emailRepresentative = await loadEmailRepresentativeReport();
+  return <OperatingScreen focus="distribution" snapshot={snapshot} emailRepresentative={emailRepresentative} />;
 }

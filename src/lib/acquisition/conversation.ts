@@ -8,6 +8,7 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 import { resourceLabels, type AcquisitionFileKey } from "@/lib/acquisition/assets";
+import { LEADERSHIP_KIT_CLAIM } from "@/lib/acquisition/email-knowledge";
 import { MEMBERSHIP_PUBLIC_OFFER } from "@/lib/membership-public-offer";
 import { scrubOpenAiRequestErrorForCapture } from "@/lib/openai-request-error-scrub";
 
@@ -32,6 +33,73 @@ export const ACQUISITION_CONVERSATION_FACTS = {
   annual: "$249/year after the 7-day free trial",
   cancel: MEMBERSHIP_PUBLIC_OFFER.cancel,
 } as const;
+
+/**
+ * Public facts Tyler approved for every acquisition reply.
+ * The physical Leadership Kit is not here. It enters a reply only through
+ * approved knowledge scoped to that campaign or offer.
+ * Pat's record is the public coaching record from the University of Tennessee
+ * and the Women's Basketball Hall of Fame, not a personal family story.
+ */
+export const ACQUISITION_VERIFIED_CONTEXT = {
+  tyler: [
+    "Tyler Summitt is Pat Summitt's son.",
+    "Tyler is building Summitt Mindset.",
+    "Tyler cares deeply about continuing Pat Summitt's leadership principles and legacy.",
+    "Summitt Mindset is intended to help people develop goals, accountability, consistency, and meaningful lives.",
+  ],
+  pat: [
+    "Pat Summitt was the head coach of the University of Tennessee Lady Vols.",
+    "She coached Tennessee for 38 seasons, from 1974 to 2012.",
+    "She earned 1,098 career wins.",
+    "Her teams won eight NCAA national championships.",
+    "She coached the 1984 U.S. women's Olympic basketball team to a gold medal.",
+    "She received the Presidential Medal of Freedom in 2012.",
+    "Her coaching principles emphasized discipline, accountability, hard work, respect, teamwork, communication, preparation, and integrity.",
+    "Her influence extended beyond basketball to personal character and leadership.",
+  ],
+  product: [
+    "Summitt Mindset is a personal coach who texts you to help you reach your goals and build a life you're proud of.",
+    "Along the way, Coach Pat helps members recognize victories and special moments so they can remember them.",
+    "The promise is: Build a life you're proud of. And remember it.",
+    "Coach Pat provides ongoing SMS-based accountability, encouragement, and conversation.",
+    "Members can identify the person they want to become, set a Current Goal, receive coaching texts, complete Morning, Evening, and Weekly reflections, recognize Goal Wins and Proud Moments, revisit progress in the Victory Room, ask Pat questions, explore Film Room content, and access Programs.",
+    "Coach Pat is an AI-powered coaching experience created by Summitt Mindset and inspired by Pat Summitt. It is not literally Pat Summitt communicating.",
+  ],
+  audience: [
+    "Summitt Mindset is not exclusively for basketball coaches.",
+    "It can be relevant to coaches in any sport, athletic directors, teachers, school administrators, parents, students and athletes where membership eligibility permits, business leaders, and people pursuing personal accountability.",
+  ],
+  membership: {
+    trial: "Seven-day free trial.",
+    dueToday: "$0 due today.",
+    monthly: "$29/month for the monthly plan after the trial.",
+    annual: "$249/year for the annual plan.",
+    cancel: "Cancel anytime. Cancellation stops future recurring billing.",
+  },
+  withheld: [
+    "Refund eligibility, automatic money-back guarantees, and billing credits.",
+    "The screens or steps used to cancel.",
+    "Special discounts, a different trial length, and unapproved team pricing.",
+    "Any personal story, meeting, or memory that is not in this input.",
+    "The physical Leadership Kit, unless approved_knowledge includes it for this campaign or offer.",
+    "Shipping, a delivery date, a country, a quantity limit, when a Kit ships, whether monthly and annual members qualify equally, and whether a member keeps a Kit after cancellation.",
+  ],
+} as const;
+
+export type ApprovedKnowledgeFact = {
+  id: string;
+  topic: string;
+  category: string;
+  statement: string;
+};
+
+export function conversationCalendar(now: Date, timeZone = "America/New_York"): { date: string; weekday: string } {
+  return {
+    date: new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now),
+    weekday: new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(now),
+  };
+}
 
 /** Fields a later /admin/distribution read can count. Person-level trial and paid rows are not journey causation. */
 export const ACQUISITION_CONVERSATION_MEASUREMENT = {
@@ -69,6 +137,10 @@ export type ConversationInterpreterInput = {
   journey_id: string | null;
   offer: { label: string | null; resources: string[] } | null;
   facts: typeof ACQUISITION_CONVERSATION_FACTS;
+  verified: typeof ACQUISITION_VERIFIED_CONTEXT;
+  approved_knowledge: ApprovedKnowledgeFact[];
+  knowledge_conflicts: string[];
+  today: { date: string; weekday: string } | null;
   history: Array<{ direction: "inbound" | "outbound"; body: string; occurred_at: string; body_complete: boolean }>;
   fulfillment: Array<{ action_type: string; status: string; label: string | null }>;
   message: { subject: string | null; body: string; occurred_at: string };
@@ -117,15 +189,23 @@ Outcomes:
 - unsubscribe: they explicitly ask to stop email or all contact. A decline of this offer is not unsubscribe. accepted_resource is null.
 - complaint: they report abuse, spam, or a complaint about being emailed. accepted_resource is null.
 - ambiguous: anything unclear, mixed, automated, or not covered above. accepted_resource is null. Do not use ambiguous for a clear question whose fact is missing.
-- needs_human: a clear question that asks for a fact, policy, price, refund, billing rule, cancellation method, biography, or product detail that is not in the product facts or this journey's offer. draft_subject and draft_body are null. accepted_resource is null. Do not draft an answer. Do not use needs_human for unclear messages, declines, referrals, unsubscribe, complaints, or questions the product facts already answer.
+- needs_human: a clear question that asks for a fact, policy, price, refund, billing rule, cancellation method, biography, product detail, discount, partnership, personal anecdote, or Leadership Kit fulfillment term that is not in verified, this journey's offer, or approved_knowledge. Also use needs_human when knowledge_conflicts names a topic the question depends on. draft_subject and draft_body are null. accepted_resource is null. Do not draft an answer. Do not choose between conflicting facts. Do not use needs_human for unclear messages, declines, referrals, unsubscribe, complaints, or questions the verified facts already answer.
 
-Voice:
-- Short, warm, and plain. Sign Tyler Summitt.
-- Do not say Tyler personally opened, read, or typed the message.
-- Do not invent a relationship, a meeting, a school detail, a game, a promise, or a prior conversation that is not in the input.
-- Do not say a file is attached. The resource, when accepted, arrives in a separate email.
+Voice, as Tyler Summitt:
+- Sound warm, happy, enthusiastic, personal, and genuinely encouraging. Exclamation points are welcome in ordinary mail. Vary the greeting. Do not reuse one template.
+- Use the person's name, role, or coaching title only when that field is present. Do not assume the sender is a coach.
+- Answer the question before mentioning an offer. Ordinary replies are usually 50 to 130 words. Explain more only when the question needs it.
+- Sign ordinary acquisition emails "Tyler Summitt".
+- Mention a weekday only when today is present and the weekday equals today.weekday. Never invent the day.
+- A complaint or a serious concern gets calm empathy and few exclamation points. Do not draft unsubscribe or complaint replies.
+- Do not say Tyler personally opened, read, or typed the message. If asked whether a human or AI is responding, say truthfully that the message is AI-assisted, written in Tyler's approved voice, and limited to approved facts.
+- Do not invent a relationship, a meeting, a school detail, a game, a shared memory, or a personal experience that is not in the input.
+- Do not say the literal Pat Summitt is sending messages or texts. Coach Pat is an AI-powered experience inspired by her.
+- Do not say a file is attached. An accepted digital resource arrives in a separate email. Do not call a digital guide the physical Leadership Kit.
 - Do not include a URL or a web address.
-- Use only the product facts in the input. The public monthly price is $29/month after the 7-day free trial. The annual price is $249/year after the 7-day free trial. $0 is due today. Cancel anytime is part of the public membership offer, so you may say that. Do not quote any other price. Do not promise a refund, a billing credit, or a cancellation method.
+- Do not use robotic wording such as "I'd be delighted to assist you" or "As an AI language model".
+- Use only verified, this journey's offer, and approved_knowledge. The public monthly price is $29/month after the 7-day free trial. The annual price is $249/year after the 7-day free trial. $0 is due today. Cancel anytime is part of the public membership offer, so you may say that cancellation stops future recurring billing. Do not quote any other price. Do not promise a refund, a billing credit, or a cancellation method.
+- Do not mention the Leadership Kit unless approved_knowledge contains it for this campaign or offer. Do not add shipping, a delivery date, a country, a quantity, trial shipment, or what happens to a Kit after cancellation.
 
 Use needs_human when a clear question needs a fact the input does not contain. Use ambiguous when the message itself is unclear.`;
 
@@ -227,13 +307,32 @@ export function inboundInterpretationError(args: {
   return null;
 }
 
-export function reviewConversationDraft(value: string | null): string | null {
+const UNAPPROVED_COMMERCE = /\bfree shipping\b|\bshipping\b|\bshipment\b|\bships\b|\bdelivery date\b|\bdiscount\b|\bcoupon\b|\b% off\b|\bpercent off\b/i;
+const MISLEADING_IDENTITY = /\bi (?:personally )?(?:typed|wrote) (?:this|every)\b|\bas an ai language model\b|\bi'd be delighted to assist\b|\bpat summitt (?:is|will be) (?:texting|emailing|writing)\b/i;
+const INVENTED_MEMORY = /\bwhen I was\b|\bmy childhood\b|\bI remember when\b|\bgrowing up\b/i;
+const PUBLIC_PRICE = new Set(["$0", "$29", "$249"]);
+
+function unapprovedPrice(text: string, allowLeadershipKit: boolean): boolean {
+  const amounts = text.match(/\$\d+(?:\.\d+)?/g) ?? [];
+  return amounts.some((amount) => {
+    if (PUBLIC_PRICE.has(amount)) return false;
+    return !(allowLeadershipKit && amount === "$400");
+  });
+}
+
+export function reviewConversationDraft(
+  value: string | null,
+  options?: { allowLeadershipKit?: boolean },
+): string | null {
   if (!value) return null;
   const trimmed = value.replace(/\u0000/g, "").trim();
   if (!trimmed || trimmed.length > 2000) return null;
   if (/https?:\/\//i.test(trimmed) || /\bwww\./i.test(trimmed)) return null;
   if (/\battach(?:ed|ment|ing)\b/i.test(trimmed)) return null;
   if (/\brefunds?\b/i.test(trimmed) || /\bmoney[\s-]?back\b/i.test(trimmed) || /\bbilling credit\b/i.test(trimmed)) return null;
+  if (UNAPPROVED_COMMERCE.test(trimmed) || MISLEADING_IDENTITY.test(trimmed) || INVENTED_MEMORY.test(trimmed)) return null;
+  if (unapprovedPrice(trimmed, Boolean(options?.allowLeadershipKit))) return null;
+  if (!options?.allowLeadershipKit && LEADERSHIP_KIT_CLAIM.test(trimmed)) return null;
   return trimmed;
 }
 
@@ -322,6 +421,9 @@ export function buildConversationInterpreterInput(args: {
   subject: string | null;
   body: string;
   occurredAt: string;
+  approvedKnowledge?: readonly ApprovedKnowledgeFact[];
+  knowledgeConflicts?: readonly string[];
+  today?: { date: string; weekday: string } | null;
 }): ConversationInterpreterInput {
   return {
     person: {
@@ -337,6 +439,10 @@ export function buildConversationInterpreterInput(args: {
       ? { label: args.offerLabel, resources: resourceLabels(args.offerAssets) }
       : null,
     facts: ACQUISITION_CONVERSATION_FACTS,
+    verified: ACQUISITION_VERIFIED_CONTEXT,
+    approved_knowledge: [...(args.approvedKnowledge ?? [])],
+    knowledge_conflicts: [...(args.knowledgeConflicts ?? [])],
+    today: args.today ?? null,
     history: args.history,
     fulfillment: args.fulfillment,
     message: { subject: args.subject, body: args.body, occurred_at: args.occurredAt },

@@ -26,6 +26,57 @@ type Card = {
   hasSender: boolean;
 };
 
+function PromoteAnswer({ row }: { row: Card }) {
+  const [topic, setTopic] = useState("");
+  const [statement, setStatement] = useState(row.approvedBody);
+  const [category, setCategory] = useState("approved_answer");
+  const [scope, setScope] = useState(row.campaignId ? "campaign" : "general");
+  const [campaignId, setCampaignId] = useState(row.campaignId ?? "");
+  const [offerKey, setOfferKey] = useState("");
+  const [approved, setApproved] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+
+  async function promote() {
+    const res = await fetch(`/api/admin/acquisition/email-answers/${encodeURIComponent(row.id)}/knowledge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic, statement, category, scope, campaignId, offerKey, explicitApproval: approved }),
+    });
+    const json = await res.json();
+    setNote(res.ok && json.ok ? "Saved as reusable knowledge for the scope you chose." : (json.error || "Not saved."));
+  }
+
+  return (
+    <div className="space-y-2 border-t border-gray-100 pt-3">
+      <p className="text-sm font-medium text-gray-900">Save as reusable knowledge</p>
+      <p className="text-sm text-gray-600">This is separate from the email already sent. A refund or shipping promise cannot be saved.</p>
+      <input value={topic} onChange={(event) => setTopic(event.target.value)} placeholder="topic id" className="w-full rounded border border-gray-300 p-2 text-sm" />
+      <select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded border border-gray-300 p-2 text-sm">
+        <option value="approved_answer">approved_answer</option>
+        <option value="membership">membership</option>
+        <option value="offer">offer</option>
+        <option value="product">product</option>
+        <option value="pat_biography">pat_biography</option>
+        <option value="tyler_biography">tyler_biography</option>
+      </select>
+      <select value={scope} onChange={(event) => setScope(event.target.value)} className="w-full rounded border border-gray-300 p-2 text-sm">
+        <option value="general">Everyone</option>
+        <option value="campaign">This campaign</option>
+        <option value="offer">One offer</option>
+      </select>
+      {scope === "campaign" ? <input value={campaignId} onChange={(event) => setCampaignId(event.target.value)} className="w-full rounded border border-gray-300 p-2 text-sm" /> : null}
+      {scope === "offer" ? <input value={offerKey} onChange={(event) => setOfferKey(event.target.value)} placeholder="offer key" className="w-full rounded border border-gray-300 p-2 text-sm" /> : null}
+      <textarea value={statement} onChange={(event) => setStatement(event.target.value)} rows={5} className="w-full rounded border border-gray-300 p-2 text-sm" />
+      <label className="flex items-start gap-2 text-sm text-gray-800">
+        <input type="checkbox" checked={approved} onChange={(event) => setApproved(event.target.checked)} />
+        Approve this wording for future questions in the scope above.
+      </label>
+      <button type="button" onClick={() => void promote()} className="rounded border border-gray-300 px-3 py-2 text-sm text-gray-900">Approve as reusable knowledge</button>
+      {note ? <p className="text-sm text-gray-800">{note}</p> : null}
+    </div>
+  );
+}
+
 export default function EmailAnswersDashboard({ highlightRequestId = "" }: { highlightRequestId?: string }) {
   const [rows, setRows] = useState<Card[]>([]);
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -151,6 +202,7 @@ export default function EmailAnswersDashboard({ highlightRequestId = "" }: { hig
             className="w-full rounded border border-gray-300 p-2 text-sm text-gray-900"
           />
           <p className="text-sm text-gray-600">This answer stays on this thread. It is not saved as a general policy.</p>
+          {row.status === "sent" ? <PromoteAnswer row={row} /> : null}
           {row.status === "open" ? (
             <button
               type="button"
