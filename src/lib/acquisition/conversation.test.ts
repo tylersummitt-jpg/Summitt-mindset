@@ -9,6 +9,7 @@ import {
   buildConversationInterpreterInput,
   conversationOwnsCampaign,
   decideConversationEffect,
+  inboundInterpretationError,
   inboundPersistencePlan,
   initialInboundStatus,
   nextClaimDecision,
@@ -353,6 +354,61 @@ describe("one interpreter", () => {
     });
     expect(create).toHaveBeenCalledTimes(2);
     expect(result.ok).toBe(true);
+  });
+
+  it("holds a clear unsupported question and still answers a question the facts cover", () => {
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("needs_human");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("Cancel anytime");
+    expect(ACQUISITION_CONVERSATION_SYSTEM_PROMPT).toContain("Do not use needs_human for unclear messages");
+    const held = parseConversationInterpreterOutput(JSON.stringify({
+      outcome: "needs_human",
+      reason: "The refund rule is not in the verified facts.",
+      draft_subject: "Re: refund",
+      draft_body: "We can refund the first month.",
+      accepted_resource: null,
+    }));
+    expect(held).toMatchObject({ outcome: "needs_human", draftSubject: null, draftBody: null, draftRejected: false });
+    expect(decideConversationEffect({
+      outcome: "needs_human",
+      journeyId: "journey-1",
+      hasPromise: true,
+      stopped: false,
+      suppressed: false,
+    })).toEqual({ type: "record", error: null });
+    expect(decideConversationEffect({
+      outcome: "unsubscribe",
+      journeyId: "journey-1",
+      hasPromise: true,
+      stopped: false,
+      suppressed: false,
+    })).toEqual({ type: "global_unsubscribe" });
+    const supported = parseConversationInterpreterOutput(JSON.stringify({
+      outcome: "ask_question",
+      reason: "They asked about the public trial price.",
+      draft_subject: "Re: trial",
+      draft_body: "Hi,\n\nThe free trial is 7 days, with $0 due today. After that, membership is $29/month or $249/year. You can cancel anytime.\n\nTyler Summitt",
+      accepted_resource: null,
+    }));
+    expect(supported?.draftBody?.toLowerCase()).toContain("cancel anytime");
+    expect(supported?.draftRejected).toBe(false);
+    expect(inboundInterpretationError({
+      effectError: null,
+      draftRejected: true,
+      draftBody: "We can refund the first month.",
+      reviewedBody: null,
+    })).toBe("draft_rejected");
+    expect(inboundInterpretationError({
+      effectError: null,
+      draftRejected: false,
+      draftBody: null,
+      reviewedBody: null,
+    })).toBeNull();
+    expect(inboundInterpretationError({
+      effectError: "eligibility_stop",
+      draftRejected: true,
+      draftBody: "We can refund the first month.",
+      reviewedBody: null,
+    })).toBe("eligibility_stop");
   });
 });
 

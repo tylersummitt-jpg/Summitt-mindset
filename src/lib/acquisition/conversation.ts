@@ -20,6 +20,7 @@ export const ACQUISITION_CONVERSATION_OUTCOMES = [
   "unsubscribe",
   "complaint",
   "ambiguous",
+  "needs_human",
 ] as const;
 
 export type ConversationOutcome = (typeof ACQUISITION_CONVERSATION_OUTCOMES)[number];
@@ -115,7 +116,8 @@ Outcomes:
 - offer_decline: they decline this resource or this offer and do not ask to stop all contact. accepted_resource is null.
 - unsubscribe: they explicitly ask to stop email or all contact. A decline of this offer is not unsubscribe. accepted_resource is null.
 - complaint: they report abuse, spam, or a complaint about being emailed. accepted_resource is null.
-- ambiguous: anything unclear, mixed, automated, or not covered above. accepted_resource is null.
+- ambiguous: anything unclear, mixed, automated, or not covered above. accepted_resource is null. Do not use ambiguous for a clear question whose fact is missing.
+- needs_human: a clear question that asks for a fact, policy, price, refund, billing rule, cancellation method, biography, or product detail that is not in the product facts or this journey's offer. draft_subject and draft_body are null. accepted_resource is null. Do not draft an answer. Do not use needs_human for unclear messages, declines, referrals, unsubscribe, complaints, or questions the product facts already answer.
 
 Voice:
 - Short, warm, and plain. Sign Tyler Summitt.
@@ -125,7 +127,7 @@ Voice:
 - Do not include a URL or a web address.
 - Use only the product facts in the input. The public monthly price is $29/month after the 7-day free trial. The annual price is $249/year after the 7-day free trial. $0 is due today. Cancel anytime is part of the public membership offer, so you may say that. Do not quote any other price. Do not promise a refund, a billing credit, or a cancellation method.
 
-Use ambiguous when the input is not enough.`;
+Use needs_human when a clear question needs a fact the input does not contain. Use ambiguous when the message itself is unclear.`;
 
 const SCHEMA_RETRY = "Your previous response did not match acquisition_conversation_v1. Return only JSON with outcome, reason, draft_subject, draft_body, and accepted_resource.";
 
@@ -204,13 +206,25 @@ export function decideConversationEffect(args: {
 }): ConversationEffect {
   if (args.outcome === "unsubscribe") return { type: "global_unsubscribe" };
   if (args.outcome === "complaint") return { type: "global_complaint" };
-  if (args.outcome === "offer_decline" || args.outcome === "referral" || args.outcome === "ask_question" || args.outcome === "ambiguous") {
+  if (args.outcome === "offer_decline" || args.outcome === "referral" || args.outcome === "ask_question" || args.outcome === "ambiguous" || args.outcome === "needs_human") {
     return { type: "record", error: null };
   }
   if (args.suppressed == null) return { type: "retry", error: "suppression_unknown" };
   if (args.stopped || args.suppressed) return { type: "record", error: "eligibility_stop" };
   if (!args.journeyId || !args.hasPromise) return { type: "record", error: "fulfillment_unproven" };
   return { type: "schedule_asset" };
+}
+
+/** The outcome and a rejected draft are stored by the same inbound update. */
+export function inboundInterpretationError(args: {
+  effectError: "eligibility_stop" | "fulfillment_unproven" | null;
+  draftRejected: boolean;
+  draftBody: string | null;
+  reviewedBody: string | null;
+}): "eligibility_stop" | "fulfillment_unproven" | "draft_rejected" | null {
+  if (args.effectError) return args.effectError;
+  if (args.draftRejected || (args.draftBody && !args.reviewedBody)) return "draft_rejected";
+  return null;
 }
 
 export function reviewConversationDraft(value: string | null): string | null {

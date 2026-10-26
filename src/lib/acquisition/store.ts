@@ -19,6 +19,7 @@ import {
   buildConversationInterpreterInput,
   conversationOwnsCampaign,
   decideConversationEffect,
+  inboundInterpretationError,
   inboundPersistencePlan,
   initialInboundStatus,
   nextClaimDecision,
@@ -29,6 +30,7 @@ import {
   runAcquisitionConversationInterpreter,
   type ConversationOutcome,
 } from "@/lib/acquisition/conversation";
+import { inboundIdsBlockedByEmailAnswers, reconcileAcquisitionEmailAnswers } from "@/lib/acquisition/email-manual-answer.server";
 import { outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
 import {
   instantlyBlocklistEnabled,
@@ -899,7 +901,8 @@ function asOutcome(value: unknown): ConversationOutcome | null {
     value === "offer_decline" ||
     value === "unsubscribe" ||
     value === "complaint" ||
-    value === "ambiguous"
+    value === "ambiguous" ||
+    value === "needs_human"
   ) {
     return value;
   }
@@ -956,12 +959,17 @@ async function claimInbound(row: InboundWork, now: Date, increment: boolean): Pr
   return !error && Array.isArray(data) && data.length === 1;
 }
 
-async function finishInbound(id: string, patch: Record<string, unknown>, now: Date): Promise<void> {
-  await supabaseServer.from("acquisition_messages").update({
+async function finishInbound(id: string, patch: Record<string, unknown>, now: Date): Promise<boolean> {
+  const { data, error } = await supabaseServer.from("acquisition_messages").update({
     ...patch,
     claim_until: null,
     updated_at: now.toISOString(),
-  }).eq("id", id).eq("processing_status", "processing");
+  }).eq("id", id).eq("processing_status", "processing").select("id");
+  if (error || !Array.isArray(data) || data.length !== 1) {
+    console.error("[acquisition] inbound effect was not stored", { id, reason: "not_stored" });
+    return false;
+  }
+  return true;
 }
 
 export async function processAcquisitionConversations(now = new Date(), known?: Settings): Promise<{
@@ -1162,20 +1170,32 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
     }
     const reviewedBody = reviewConversationDraft(draftBody);
     const reviewedSubject = reviewConversationSubject(draftSubject, row.subject);
-    await finishInbound(row.id, {
+    const stored = await finishInbound(row.id, {
       processing_status: "interpreted",
-      processing_error: effect.type === "record" && effect.error
-        ? effect.error
-        : draftRejected || (draftBody && !reviewedBody)
-          ? "draft_rejected"
-          : null,
+      processing_error: inboundInterpretationError({
+        effectError: effect.type === "record" ? effect.error : null,
+        draftRejected,
+        draftBody,
+        reviewedBody,
+      }),
       ai_outcome: outcome,
       ai_reason: reason,
       draft_subject: outcome === "accept_offer" || outcome === "ask_question" ? reviewedSubject : null,
       draft_body: outcome === "accept_offer" || outcome === "ask_question" ? reviewedBody : null,
       effect_applied_at: now.toISOString(),
     }, now);
+    if (!stored) {
+      failed += 1;
+      continue;
+    }
     interpreted += 1;
+  }
+  try {
+    await reconcileAcquisitionEmailAnswers(now);
+  } catch (err) {
+    console.error("[acquisition] email manual answers unavailable", {
+      reason: err instanceof Error ? err.message : "email_answers_unavailable",
+    });
   }
   if (sending) {
     const { data: ready } = await supabaseServer
@@ -1186,10 +1206,23 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       .in("ai_outcome", ["accept_offer", "ask_question"])
       .not("draft_body", "is", null)
       .limit(5);
-    for (const row of ready ?? []) {
-      if (typeof row.id !== "string") continue;
-      const result = await deliverAcquisitionThreadReply({ inboundMessageId: row.id });
-      if (result.state === "accepted") sent += 1;
+    const readyIds = (ready ?? []).flatMap((row) => typeof row.id === "string" ? [row.id] : []);
+    let blockedIds = new Set<string>();
+    let holdFailed = false;
+    try {
+      blockedIds = await inboundIdsBlockedByEmailAnswers(readyIds);
+    } catch (err) {
+      holdFailed = true;
+      console.error("[acquisition] email answer hold unreadable", {
+        reason: err instanceof Error ? err.message : "email_answer_hold_unreadable",
+      });
+    }
+    if (!holdFailed) {
+      for (const id of readyIds) {
+        if (blockedIds.has(id)) continue;
+        const result = await deliverAcquisitionThreadReply({ inboundMessageId: id });
+        if (result.state === "accepted") sent += 1;
+      }
     }
   }
   return { skipped: "processed", interpreted, failed, sent };

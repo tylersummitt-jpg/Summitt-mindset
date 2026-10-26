@@ -379,6 +379,11 @@ function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
   return (
     <section className="space-y-3">
       <h2 className="text-lg font-semibold text-gray-900">Current prospect status — all time</h2>
+      <p className="text-sm text-gray-700">
+        <Link href="/admin/distribution/email-answers" className="underline">
+          Email questions waiting for your answer
+        </Link>
+      </p>
       <p className="text-sm text-gray-700">{dashboard.note}</p>
       <p className="text-sm text-gray-700">Automation: {dashboard.automation}.</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
