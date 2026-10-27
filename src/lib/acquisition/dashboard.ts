@@ -152,7 +152,7 @@ export function formatAcquisitionReport(dashboard: AcquisitionDashboard): string
   return [
     "CURRENT PROSPECT STATUS — ALL TIME",
     `Automation: ${dashboard.automation}.`,
-    `Cold prospects: ${c.cold_prospects}`,
+    `People stored: ${c.cold_prospects}`,
     `Cold active: ${c.cold_active}`,
     `Cold no response: ${c.cold_no_response}`,
     `Replies needing review: ${c.reply_needs_review}`,

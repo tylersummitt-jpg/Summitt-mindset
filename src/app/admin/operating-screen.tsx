@@ -21,6 +21,8 @@ import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
 import { EXPERIMENT_NO_AUTOMATIC_WINNER } from "@/lib/operating-experiments";
 import type { GrowthDateRange } from "@/lib/admin-subscriber-growth-pure";
+import { DistributionCommandCenter } from "@/app/admin/distribution-command-center";
+import type { DistributionCommandReport } from "@/lib/acquisition/distribution-command";
 
 const RANGES: Array<{ id: GrowthDateRange; label: string }> = [
   { id: "today", label: "Today" },
@@ -43,15 +45,21 @@ export function OperatingScreen({
   focus,
   snapshot,
   emailRepresentative = null,
+  command = null,
+  selectedCampaignId = null,
 }: {
   focus: "distribution" | "retention";
   snapshot: OperatingSnapshot;
   emailRepresentative?: EmailRepresentativeReport | null;
+  command?: DistributionCommandReport | null;
+  selectedCampaignId?: string | null;
 }) {
-  const href = (range: GrowthDateRange) =>
-    focus === "distribution"
-      ? `/admin/distribution?range=${range}`
-      : `/admin/retention?range=${range}`;
+  const href = (range: GrowthDateRange) => {
+    if (focus !== "distribution") return `/admin/retention?range=${range}`;
+    const params = new URLSearchParams({ range });
+    if (selectedCampaignId) params.set("emailCampaign", selectedCampaignId);
+    return `/admin/distribution?${params.toString()}`;
+  };
 
   return (
     <div className="space-y-8">
@@ -118,7 +126,12 @@ export function OperatingScreen({
       </p>
 
       {focus === "distribution" ? (
-        <DistributionBody snapshot={snapshot} emailRepresentative={emailRepresentative} />
+        <DistributionBody
+          snapshot={snapshot}
+          emailRepresentative={emailRepresentative}
+          command={command}
+          selectedCampaignId={selectedCampaignId}
+        />
       ) : (
         <RetentionBody snapshot={snapshot} />
       )}
@@ -400,7 +413,7 @@ function ColdEmailSection({ dashboard }: { dashboard: AcquisitionDashboard }) {
       <p className="text-sm text-gray-700">Automation: {dashboard.automation}.</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Metric label="Needs Tyler" value={needs} note="Human judgment only. Zero means nothing is waiting." />
-        <Metric label="Cold prospects" value={count(c?.cold_prospects)} />
+        <Metric label="People stored" value={count(c?.cold_prospects)} note="Everyone in the acquisition database. Not people contacted." />
         <Metric label="Cold active" value={count(c?.cold_active)} />
         <Metric label="Cold no response" value={count(c?.cold_no_response)} />
         <Metric label="Replies needing review" value={count(c?.reply_needs_review)} />
@@ -557,13 +570,28 @@ function ExperimentActivitySection({
 function DistributionBody({
   snapshot,
   emailRepresentative,
+  command,
+  selectedCampaignId,
 }: {
   snapshot: OperatingSnapshot;
   emailRepresentative: EmailRepresentativeReport | null;
+  command: DistributionCommandReport | null;
+  selectedCampaignId: string | null;
 }) {
   const d = snapshot.distribution;
   return (
     <>
+      {command ? (
+        <DistributionCommandCenter report={command} range={snapshot.range} selectedCampaignId={selectedCampaignId} />
+      ) : (
+        <p className="text-sm text-gray-800">Cold-email report was not loaded. Do not treat that as zero.</p>
+      )}
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-gray-900">Website and company acquisition</h2>
+        <p className="text-sm text-gray-600">
+          These counts are site visits, checkout, and all Summitt Mindset trials. They are not cold-email results, and they are not added to the cold-email scorecard.
+        </p>
+      </section>
       <section className="grid gap-3 sm:grid-cols-2">
         <Metric label="Unique visitors" value={d.visitors} />
         <Metric label="Start Free Trial clicks" value={d.trialClicks} />
