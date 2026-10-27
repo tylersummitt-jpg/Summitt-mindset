@@ -170,8 +170,7 @@ export function salesEmailMustStop(state: AcquisitionLifecycle): boolean {
     state === "paid_member" ||
     state === "trial_expired" ||
     state === "unsubscribed" ||
-    state === "suppressed" ||
-    state === "not_interested"
+    state === "suppressed"
   );
 }
 

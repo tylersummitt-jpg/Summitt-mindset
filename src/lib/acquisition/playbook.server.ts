@@ -156,14 +156,34 @@ async function earliestPlaybookCreatedAt(campaignId: string): Promise<string | n
 }
 
 export async function journeyPlaybookFollowUp(journeyId: string): Promise<"pinned" | "legacy" | "unknown"> {
+  const obligation = await journeyObligation(journeyId);
+  return obligation.followUp;
+}
+
+export async function journeyObligation(journeyId: string): Promise<{
+  followUp: "pinned" | "legacy" | "unknown";
+  permitted: ("send_asset" | "send_video")[];
+}> {
   const { data, error } = await supabaseServer
     .from("acquisition_journey_playbook_pins")
-    .select("journey_id")
+    .select("playbook_id")
     .eq("journey_id", journeyId)
     .maybeSingle();
-  if (missingTable(error)) return "legacy";
-  if (error) return "unknown";
-  return data?.journey_id ? "pinned" : "legacy";
+  if (missingTable(error)) return { followUp: "legacy", permitted: [] };
+  if (error) return { followUp: "unknown", permitted: [] };
+  if (typeof data?.playbook_id !== "string") return { followUp: "legacy", permitted: [] };
+  const row = await supabaseServer
+    .from("acquisition_campaign_playbooks")
+    .select("permitted_actions")
+    .eq("id", data.playbook_id)
+    .maybeSingle();
+  if (row.error || !row.data) return { followUp: "unknown", permitted: [] };
+  const permitted = Array.isArray(row.data.permitted_actions)
+    ? row.data.permitted_actions.flatMap((item) => (
+      item === "send_asset" || item === "send_video" ? [item] : []
+    ))
+    : [];
+  return { followUp: "pinned", permitted };
 }
 
 export async function pinnedDeliveryVideoId(journeyId: string): Promise<string | null | "unavailable"> {

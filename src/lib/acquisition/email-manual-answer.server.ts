@@ -411,6 +411,17 @@ export async function saveEmailAnswer(args: { requestId: string; approvedBody: s
   return { ok: true };
 }
 
+async function approvedJourney(journeyId: string | null): Promise<ApprovedEmailSnapshot["journey"]> {
+  if (!journeyId) return null;
+  const { data, error } = await supabaseServer
+    .from("acquisition_journeys")
+    .select("lifecycle_state, closed_at")
+    .eq("id", journeyId)
+    .maybeSingle();
+  if (error || !data || typeof data.lifecycle_state !== "string") return "unreadable";
+  return { lifecycle: data.lifecycle_state, closed: data.closed_at != null && data.closed_at !== "" };
+}
+
 async function readApprovedSnapshot(requestId: string): Promise<ApprovedEmailSnapshot> {
   const { data: request, error } = await supabaseServer
     .from("acquisition_email_answers")
@@ -483,6 +494,7 @@ async function readApprovedSnapshot(requestId: string): Promise<ApprovedEmailSna
       suppressed,
       clerkSubscribed,
     },
+    journey: await approvedJourney(asText(request.journey_id)),
     outbound: outbound ? {
       status: typeof outbound.processing_status === "string" ? outbound.processing_status : "",
       providerMessageId: asText(outbound.provider_response_id),

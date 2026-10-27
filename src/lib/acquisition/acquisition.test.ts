@@ -230,6 +230,7 @@ describe("acquisition warm sends", () => {
   }) {
     const sends: PassSendRequest[] = [];
     const effects: string[] = [];
+    const scopes: string[] = [];
     const claimed = overrides.claimed ?? new Set<string>();
     const rows = new Map((overrides.people ?? [person()]).map((row) => [row.id, row]));
     const result = await runAcquisitionPass({
@@ -281,9 +282,10 @@ describe("acquisition warm sends", () => {
       },
       apply: async (effect) => {
         effects.push(effect.kind === "accept" ? `accept:${effect.settle.status}:${effect.settle.schedule ?? "none"}` : `${effect.kind}:${"status" in effect ? effect.status : ""}`);
+        if (effect.kind === "stop") scopes.push(effect.cancelJourney ? "journey" : effect.cancelSiblings ? "person" : "action");
       },
     });
-    return { result, sends, effects, claimed };
+    return { result, sends, effects, claimed, scopes };
   }
 
   it("does not send while automation is off", async () => {
@@ -388,11 +390,16 @@ describe("acquisition warm sends", () => {
   });
 
   it("still stops sales email for trial, paid, and suppression states", async () => {
-    for (const lifecycle of ["trial_started", "paid_member", "trial_expired", "unsubscribed", "suppressed", "not_interested"] as const) {
+    for (const lifecycle of ["trial_started", "paid_member", "trial_expired", "unsubscribed", "suppressed"] as const) {
       expect(salesEmailMustStop(lifecycle)).toBe(true);
       const ran = await pass({ people: [person({ lifecycle })] });
       expect(ran.sends).toHaveLength(0);
+      expect(ran.scopes[0]).toBe("person");
     }
+    expect(salesEmailMustStop("not_interested")).toBe(false);
+    const legacy = await pass({ people: [person({ lifecycle: "not_interested" })] });
+    expect(legacy.sends).toHaveLength(0);
+    expect(legacy.scopes[0]).toBe("action");
   });
 
   it("lets a later journey send after an earlier one finished, and blocks a broken promise", async () => {
@@ -441,10 +448,28 @@ describe("acquisition warm sends", () => {
 
     const declined = await pass({
       people: [person({ lifecycle: "not_interested" })],
-      due: [action({ journeyId: "journey-4", promisedAssets: ["playbook"] })],
+      due: [
+        action({
+          id: "action-a",
+          journeyId: "journey-a",
+          journeyLifecycle: "not_interested",
+          idempotencyKey: "acquisition:person-1:journey-a:send_asset",
+          promisedAssets: ["playbook"],
+        }),
+        action({
+          id: "action-b",
+          journeyId: "journey-b",
+          journeyLifecycle: "asset_requested",
+          journeyClosed: false,
+          idempotencyKey: "acquisition:person-1:journey-b:send_asset",
+          promisedAssets: ["definite_dozen"],
+        }),
+      ],
     });
-    expect(declined.sends).toHaveLength(0);
+    expect(declined.sends).toHaveLength(1);
+    expect(declined.sends[0]?.action.journeyId).toBe("journey-b");
     expect(declined.effects[0]).toContain("canceled");
+    expect(declined.scopes[0]).toBe("journey");
   });
 });
 

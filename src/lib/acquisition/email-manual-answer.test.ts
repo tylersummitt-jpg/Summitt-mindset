@@ -117,6 +117,23 @@ describe("unsupported email questions", () => {
     expect(finished.size).toBe(0);
   });
 
+  it("blocks an answer on a closed journey and still allows another open journey", () => {
+    expect(approvedEmailDecision(snapshot({
+      journey: { lifecycle: "not_interested", closed: true },
+    }), NOW).action).toBe("block_opt_out");
+    expect(approvedEmailDecision(snapshot({
+      journey: { lifecycle: "reply_needs_review", closed: false },
+    }), NOW).action).toBe("send");
+    expect(approvedEmailDecision(snapshot({
+      person: { found: true, lifecycle: "unsubscribed", suppressed: false, clerkSubscribed: false },
+      journey: { lifecycle: "cold_active", closed: false },
+    }), NOW).action).toBe("block_opt_out");
+    expect(approvedEmailDecision(snapshot({ journey: "unreadable" }), NOW)).toMatchObject({
+      action: "refuse",
+      reason: "journey_unreadable",
+    });
+  });
+
   it("repairs a missing request that sits behind requests already stored", () => {
     const covered = ["covered-0", "covered-1", "covered-2", "covered-3", "covered-4"];
     expect(manualAnswersMissingFrom({

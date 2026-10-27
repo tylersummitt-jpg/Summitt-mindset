@@ -35,7 +35,7 @@ import {
 } from "@/lib/acquisition/conversation";
 import { loadInterpreterKnowledge } from "@/lib/acquisition/email-knowledge.server";
 import { choosePlaybookSend, recoverPlaybookAcceptance } from "@/lib/acquisition/playbook";
-import { campaignPlaybookPresence, journeyPlaybookFollowUp, loadResolvedCampaign, pinJourneyPlaybook, pinnedDeliveryVideoId } from "@/lib/acquisition/playbook.server";
+import { campaignPlaybookPresence, journeyObligation, journeyPlaybookFollowUp, loadResolvedCampaign, pinJourneyPlaybook, pinnedDeliveryVideoId } from "@/lib/acquisition/playbook.server";
 import { inboundIdsBlockedByEmailAnswers, reconcileAcquisitionEmailAnswers } from "@/lib/acquisition/email-manual-answer.server";
 import { outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
 import {
@@ -65,11 +65,19 @@ import {
 } from "@/lib/acquisition/dashboard";
 import { instantlyPersonMetadata, normalizeInstantlyWebhook, type InstantlyNormalized } from "@/lib/acquisition/instantly";
 import {
+  journeyCloses,
+  journeyLifecycleWrite,
+  journeyLocalStop,
+  journeyMayClose,
+  signalIsPersonGlobal,
+} from "@/lib/acquisition/journey-lifecycle";
+import {
   ACQUISITION_CLAIM_MS,
   ACQUISITION_RETRY_MS,
   acquisitionTokenHash,
   newAcquisitionToken,
   normalizeAcquisitionEmail,
+  isAcquisitionLifecycle,
   parseAcquisitionAsset,
   reduceLiveSignal,
   salesEmailMustStop,
@@ -273,6 +281,23 @@ async function cancelPending(personId: string): Promise<void> {
     .eq("id", personId);
 }
 
+async function cancelJourneyPending(journeyId: string): Promise<void> {
+  await supabaseServer
+    .from("acquisition_actions")
+    .update({ status: "canceled", claim_until: null, updated_at: new Date().toISOString() })
+    .eq("journey_id", journeyId)
+    .eq("status", "scheduled");
+}
+
+async function cancelLegacyPending(personId: string): Promise<void> {
+  await supabaseServer
+    .from("acquisition_actions")
+    .update({ status: "canceled", claim_until: null, updated_at: new Date().toISOString() })
+    .eq("person_id", personId)
+    .is("journey_id", null)
+    .eq("status", "scheduled");
+}
+
 async function rememberSenderSignal(row: {
   sender_email: string;
   sender_account_id?: string | null;
@@ -328,7 +353,6 @@ async function applySignal(person: PersonRow, signal: AcquisitionSignal, extra: 
     if (
       reduced.state === "unsubscribed" ||
       reduced.state === "suppressed" ||
-      reduced.state === "not_interested" ||
       reduced.state === "trial_started" ||
       reduced.state === "paid_member" ||
       reduced.state === "trial_expired"
@@ -467,13 +491,27 @@ export async function applyInstantlyWebhook(payload: unknown, now = new Date()):
   return applyPersonEvent(normalized, now);
 }
 
-function readJourneyPersistResult(data: unknown): { status: "inserted"; journeyId: string | null } | { status: "duplicate" } | null {
+type JourneyOwnership = "known" | "none" | "ambiguous";
+
+type JourneyPersist =
+  | { status: "inserted"; journeyId: string; created: boolean; ownership: "known" }
+  | { status: "inserted"; journeyId: null; created: false; ownership: "none" | "ambiguous" }
+  | { status: "duplicate" };
+
+function readJourneyPersistResult(data: unknown): JourneyPersist | null {
   if (!data || typeof data !== "object" || Array.isArray(data)) return null;
-  const row = data as { result?: unknown; journey_id?: unknown };
+  const row = data as { result?: unknown; journey_id?: unknown; journey_created?: unknown; ownership?: unknown };
   if (row.result === "duplicate") return { status: "duplicate" };
   if (row.result !== "inserted") return null;
-  if (row.journey_id == null) return { status: "inserted", journeyId: null };
-  if (typeof row.journey_id === "string" && row.journey_id.length > 0) return { status: "inserted", journeyId: row.journey_id };
+  if (row.ownership !== "known" && row.ownership !== "none" && row.ownership !== "ambiguous") return null;
+  const created = row.journey_created === true;
+  if (typeof row.journey_id === "string" && row.journey_id.length > 0) {
+    if (row.ownership !== "known") return null;
+    return { status: "inserted", journeyId: row.journey_id, created, ownership: "known" };
+  }
+  if (row.journey_id == null && row.ownership !== "known") {
+    return { status: "inserted", journeyId: null, created: false, ownership: row.ownership };
+  }
   return null;
 }
 
@@ -485,7 +523,7 @@ async function persistInstantlyPersonEvent(args: {
   campaignId: string | null;
   sender: string | null;
   metadata: Record<string, unknown>;
-}): Promise<{ status: "inserted"; journeyId: string | null } | { status: "duplicate" } | { status: "failed" }> {
+}): Promise<JourneyPersist | { status: "failed" }> {
   const { data, error } = await supabaseServer.rpc("acquisition_persist_instantly_person_event_result", {
     p_person_id: args.personId,
     p_provider_event_id: args.providerEventId,
@@ -502,19 +540,116 @@ async function persistInstantlyPersonEvent(args: {
 async function provenJourneyId(
   personId: string,
   campaignId: string | null,
-  known: string | null,
-  eventStatus: "inserted" | "duplicate",
-): Promise<{ ok: true; journeyId: string | null } | { ok: false }> {
-  if (eventStatus === "inserted") return { ok: true, journeyId: known };
-  if (!campaignId) return { ok: true, journeyId: null };
+): Promise<{ ok: true; journeyId: string | null; ownership: JourneyOwnership } | { ok: false }> {
+  if (!campaignId) return { ok: true, journeyId: null, ownership: "none" };
   const { data, error } = await supabaseServer
     .from("acquisition_journeys")
-    .select("id")
+    .select("id, closed_at")
     .eq("person_id", personId)
     .eq("campaign_id", campaignId);
   if (error || !Array.isArray(data)) return { ok: false };
-  if (data.length !== 1 || typeof data[0]?.id !== "string") return { ok: true, journeyId: null };
-  return { ok: true, journeyId: data[0].id };
+  const rows = data.flatMap((row) => (
+    typeof row.id === "string" ? [{ id: row.id, open: row.closed_at == null }] : []
+  ));
+  const open = rows.filter((row) => row.open);
+  if (open.length === 1) return { ok: true, journeyId: open[0].id, ownership: "known" };
+  if (open.length > 1) return { ok: true, journeyId: null, ownership: "ambiguous" };
+  if (rows.length === 1) return { ok: true, journeyId: rows[0].id, ownership: "known" };
+  return { ok: true, journeyId: null, ownership: rows.length === 0 ? "none" : "ambiguous" };
+}
+
+type OpenJourney = { id: string; lifecycle: AcquisitionLifecycle; closed: boolean };
+
+async function readJourney(journeyId: string): Promise<OpenJourney | null | "unreadable"> {
+  const { data, error } = await supabaseServer
+    .from("acquisition_journeys")
+    .select("id, lifecycle_state, closed_at")
+    .eq("id", journeyId)
+    .maybeSingle();
+  if (error || !data || typeof data.id !== "string") return error ? "unreadable" : null;
+  const lifecycle = String(data.lifecycle_state ?? "");
+  if (!isAcquisitionLifecycle(lifecycle)) return "unreadable";
+  return {
+    id: data.id,
+    lifecycle,
+    closed: data.closed_at != null && data.closed_at !== "",
+  };
+}
+
+async function writeJourneySignal(
+  journeyId: string,
+  signal: AcquisitionSignal,
+  close: boolean,
+  force: boolean,
+): Promise<void> {
+  const current = await readJourney(journeyId);
+  if (!current || current === "unreadable" || current.closed) return;
+  if (close && !journeyMayClose(current.lifecycle, signal, force)) return;
+  const next = journeyLifecycleWrite(current.lifecycle, signal, force);
+  const patch: Record<string, unknown> = {};
+  if (next !== current.lifecycle) patch.lifecycle_state = next;
+  if (close) patch.closed_at = new Date().toISOString();
+  if (Object.keys(patch).length === 0) return;
+  await supabaseServer.from("acquisition_journeys").update(patch).eq("id", journeyId).is("closed_at", null);
+}
+
+async function applyJourneyProgress(journeyId: string, signal: AcquisitionSignal): Promise<void> {
+  const current = await readJourney(journeyId);
+  if (!current || current === "unreadable" || current.closed) return;
+  const close = signal === "campaign_completed" && journeyMayClose(current.lifecycle, signal, false);
+  if (signal === "campaign_completed" && !close) return;
+  await writeJourneySignal(journeyId, signal, close, false);
+  if (close) await cancelJourneyPending(journeyId);
+}
+
+async function applyNotInterested(
+  person: PersonRow,
+  journeyId: string | null,
+  ownership: JourneyOwnership,
+): Promise<void> {
+  if (ownership === "ambiguous") return;
+  if (journeyId && ownership === "known") {
+    const current = await readJourney(journeyId);
+    if (!current || current === "unreadable") return;
+    if (!current.closed && journeyMayClose(current.lifecycle, "not_interested", false)) {
+      await writeJourneySignal(journeyId, "not_interested", true, false);
+    }
+    if (current.closed || journeyMayClose(current.lifecycle, "not_interested", false)) {
+      await cancelJourneyPending(journeyId);
+    }
+    return;
+  }
+  const reduced = reduceLiveSignal(person.lifecycle_state, "not_interested");
+  if (reduced.outcome === "rejected") return;
+  if (reduced.outcome === "advance") await writeState(person, reduced.state);
+  await cancelLegacyPending(person.id);
+}
+
+async function applyNotInterestedForCampaign(person: PersonRow, campaignId: string | null): Promise<boolean> {
+  if (!campaignId) {
+    const { data, error } = await supabaseServer
+      .from("acquisition_journeys")
+      .select("id")
+      .eq("person_id", person.id)
+      .is("closed_at", null);
+    if (error || !Array.isArray(data) || data.length > 0) return false;
+    await applyNotInterested(person, null, "none");
+    return true;
+  }
+  const { data, error } = await supabaseServer
+    .from("acquisition_journeys")
+    .select("id")
+    .eq("person_id", person.id)
+    .eq("campaign_id", campaignId)
+    .is("closed_at", null);
+  if (error || !Array.isArray(data)) return false;
+  if (data.length > 1) return false;
+  if (data.length === 1 && typeof data[0]?.id === "string") {
+    await applyNotInterested(person, data[0].id, "known");
+    return true;
+  }
+  await applyNotInterested(person, null, "none");
+  return true;
 }
 
 async function ensureInboundReply(args: {
@@ -580,25 +715,24 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   const settings = await readAcquisitionSettings();
   let message: "inserted" | "duplicate" | "failed" | "skipped" = "skipped";
   let journeyId = stored.status === "inserted" ? stored.journeyId : null;
+  let ownership: JourneyOwnership = stored.status === "inserted" ? stored.ownership : "none";
   if (event.eventType === "reply_received") {
-    const journey = await provenJourneyId(
-      person.id,
-      event.campaignId,
-      stored.status === "inserted" ? stored.journeyId : null,
-      stored.status,
-    );
-    if (!journey.ok) return { ok: false as const };
-    journeyId = journey.journeyId;
+    if (stored.status === "duplicate") {
+      const journey = await provenJourneyId(person.id, event.campaignId);
+      if (!journey.ok) return { ok: false as const };
+      journeyId = journey.journeyId;
+      ownership = journey.ownership;
+    }
     message = await ensureInboundReply({
       personId: person.id,
       email,
       event,
       journeyId,
-      aiOwns: settings.conversationInterpretation === "pilot" && campaignAutomationOpen(settings.conversationPilotCampaigns, event.campaignId),
+      aiOwns: ownership !== "ambiguous" && settings.conversationInterpretation === "pilot" && campaignAutomationOpen(settings.conversationPilotCampaigns, event.campaignId),
     });
   }
-  if (stored.status === "inserted") {
-    await pinJourneyPlaybook({ event: stored.status, journeyId, campaignId: event.campaignId });
+  if (stored.status === "inserted" && stored.created && stored.journeyId) {
+    await pinJourneyPlaybook({ event: "inserted", journeyId: stored.journeyId, campaignId: event.campaignId });
   }
   const plan = inboundPersistencePlan({ event: stored.status, message });
   if (plan === "retry") return { ok: false as const };
@@ -620,7 +754,14 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
     pilotCampaigns: settings.conversationPilotCampaigns,
     campaignId: event.campaignId,
   });
-  if ((event.signal === "interested" || event.signal === "not_interested") && !labelMayApply) {
+  if (event.signal === "interested" && !labelMayApply) {
+    return { ok: true as const };
+  }
+  if (ownership === "ambiguous" && !signalIsPersonGlobal(event.signal)) {
+    return { ok: true as const };
+  }
+  if (event.signal === "not_interested") {
+    await applyNotInterested(person, ownership === "known" ? journeyId : null, ownership);
     return { ok: true as const };
   }
   const fulfillment = event.signal === "interested"
@@ -635,12 +776,16 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   if (event.closeReason) extra.close_reason = event.closeReason;
   if (!journeyId && fulfillment?.assetToStore) extra.requested_asset = fulfillment.assetToStore;
   if (!journeyId && fulfillment?.offerKeyToStore) extra.offer_key = fulfillment.offerKeyToStore;
-  const updated = await applySignal(person, event.signal, extra);
+  let updated = person;
+  if (journeyId && !signalIsPersonGlobal(event.signal)) {
+    await applyJourneyProgress(journeyId, event.signal);
+  } else {
+    updated = await applySignal(person, event.signal, extra);
+  }
   if (blockReason) {
     const block = await rememberSuppression(email, blockReason);
     if (!block.ok) return { ok: false as const };
   }
-  // Outside the pilot, lead_not_interested remains a global stop. Inside the pilot it does not.
   if (salesEmailMustStop(updated.lifecycle_state)) return { ok: true as const };
   if (settings.conversationReadable && settings.automation !== "unavailable" && !playbookGoverns && event.signal === "interested" && journeyId) {
     const promise = resolveCampaignPromise({
@@ -836,6 +981,14 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
       }
     }
     if (effect.cancelSiblings) await cancelPending(personId);
+    else if (effect.cancelJourney) {
+      const { data: scoped } = await supabaseServer
+        .from("acquisition_actions")
+        .select("journey_id")
+        .eq("id", effect.actionId)
+        .maybeSingle();
+      if (typeof scoped?.journey_id === "string") await cancelJourneyPending(scoped.journey_id);
+    }
     return;
   }
   const { data } = await supabaseServer
@@ -860,16 +1013,39 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
     .eq("status", "claimed");
   const person = await findPersonById(String(data.person_id));
   if (!person || effect.settle.status !== "accepted") return;
-  const updated = await applySignal(person, data.action_type === "send_asset" ? "asset_accepted" : data.action_type === "send_video" ? "video_accepted" : "trial_followup_accepted");
-  const followUp = journeyId ? await journeyPlaybookFollowUp(journeyId) : "legacy";
-  if (followUp === "legacy" && effect.settle.schedule && (journeyId || updated.lifecycle_state !== person.lifecycle_state)) {
-    const hours = effect.settle.schedule === "send_video" ? settings.videoDelayHours : settings.trialFollowupDelayHours;
-    await scheduleAction(
-      updated.id,
-      effect.settle.schedule,
-      new Date(now.getTime() + hours * 60 * 60 * 1000),
-      journeyId ? { journeyId } : undefined,
-    );
+  const signal = data.action_type === "send_asset" ? "asset_accepted" : data.action_type === "send_video" ? "video_accepted" : "trial_followup_accepted";
+  if (journeyId) {
+    const obligation = await journeyObligation(journeyId);
+    const { data: journeyActions, error: actionError } = await supabaseServer
+      .from("acquisition_actions")
+      .select("action_type, status")
+      .eq("journey_id", journeyId);
+    const outstanding = actionError || !Array.isArray(journeyActions)
+      ? null
+      : journeyActions.flatMap((row) => (
+        (row.status === "scheduled" || row.status === "claimed")
+        && (row.action_type === "send_asset" || row.action_type === "send_video" || row.action_type === "send_trial_followup")
+          ? [row.action_type]
+          : []
+      ));
+    const close = outstanding != null && journeyCloses({
+      reason: "fulfillment",
+      followUp: obligation.followUp,
+      justAccepted: data.action_type,
+      outstanding,
+    });
+    await writeJourneySignal(journeyId, signal, close, true);
+    if (close) await cancelJourneyPending(journeyId);
+    else if (obligation.followUp === "legacy" && effect.settle.schedule) {
+      const hours = effect.settle.schedule === "send_video" ? settings.videoDelayHours : settings.trialFollowupDelayHours;
+      await scheduleAction(person.id, effect.settle.schedule, new Date(now.getTime() + hours * 60 * 60 * 1000), { journeyId });
+    }
+  } else {
+    const updated = await applySignal(person, signal);
+    if (effect.settle.schedule && updated.lifecycle_state !== person.lifecycle_state) {
+      const hours = effect.settle.schedule === "send_video" ? settings.videoDelayHours : settings.trialFollowupDelayHours;
+      await scheduleAction(person.id, effect.settle.schedule, new Date(now.getTime() + hours * 60 * 60 * 1000));
+    }
   }
   await insertEvent({
     personId: person.id,
@@ -1053,6 +1229,16 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
         continue;
       }
       const promise = knowledgePromise;
+      let interpretedLifecycle = person.lifecycle_state;
+      if (row.journeyId) {
+        const journey = await readJourney(row.journeyId);
+        if (!journey || journey === "unreadable") {
+          await finishInbound(row.id, { processing_status: "failed", processing_error: "journey_unreadable" }, now);
+          failed += 1;
+          continue;
+        }
+        interpretedLifecycle = journey.lifecycle;
+      }
       const historyQuery = supabaseServer
         .from("acquisition_messages")
         .select("direction, body_text, occurred_at, processing_error")
@@ -1097,7 +1283,7 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
           role: person.role,
           sport: person.sport,
           geography: person.geography,
-          lifecycle: person.lifecycle_state,
+          lifecycle: interpretedLifecycle,
           campaignId: row.campaignId,
           journeyId: row.journeyId,
           offerLabel: campaignContext.source === "playbook" && !campaignContext.sendable ? null : promise?.label ?? null,
@@ -1148,11 +1334,21 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       : campaignContext.promise;
     acceptedResource = recoverPlaybookAcceptance(campaignContext, outcome, acceptedResource, acceptanceMode);
     const playbookSend = choosePlaybookSend(campaignContext, acceptedResource, acceptanceMode);
+    let journeyStopped = false;
+    if (row.journeyId) {
+      const journey = await readJourney(row.journeyId);
+      if (!journey || journey === "unreadable") {
+        await finishInbound(row.id, { processing_status: "failed", processing_error: "journey_unreadable" }, now);
+        failed += 1;
+        continue;
+      }
+      journeyStopped = journeyLocalStop(journey.lifecycle, journey.closed);
+    }
     const effect = decideConversationEffect({
       outcome,
       journeyId: row.journeyId,
       hasPromise: campaignContext.source === "legacy" ? Boolean(promise) : playbookSend !== null,
-      stopped: salesEmailMustStop(person.lifecycle_state),
+      stopped: salesEmailMustStop(person.lifecycle_state) || journeyStopped,
       suppressed: suppressionError ? null : Boolean(suppression?.id),
     });
     if (effect.type === "retry") {
@@ -1179,6 +1375,7 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
         now,
         { journeyId: row.journeyId, promise: scheduledAction === "send_asset" ? promise : null },
       );
+      if (scheduledAction === "send_asset") await writeJourneySignal(row.journeyId, "interested", false, false);
       const key = acquisitionActionIdempotencyKey(person.id, scheduledAction, row.journeyId);
       const { data: action } = await supabaseServer
         .from("acquisition_actions")
@@ -1375,13 +1572,18 @@ export async function deliverAcquisitionThreadReply(args: {
       clerkSubscribed = true;
     }
   }
+  let journeyStopped = false;
+  if (typeof inbound.journey_id === "string") {
+    const journey = await readJourney(inbound.journey_id);
+    journeyStopped = !journey || journey === "unreadable" || journeyLocalStop(journey.lifecycle, journey.closed);
+  }
   const decision = threadReplyAuthorization({
     sending: settings.conversationSending,
     outcome: asOutcome(inbound.ai_outcome),
     draftBody: typeof inbound.draft_body === "string" ? inbound.draft_body : null,
     replyToProviderMessageId: typeof inbound.reply_to_provider_message_id === "string" ? inbound.reply_to_provider_message_id : null,
     senderAccount: typeof inbound.sender_account === "string" ? inbound.sender_account : null,
-    stopped: !person || clerkSubscribed || salesEmailMustStop(person.lifecycle_state),
+    stopped: !person || clerkSubscribed || salesEmailMustStop(person.lifecycle_state) || journeyStopped,
     suppressed: suppressed.error ? null : Boolean(suppressed.data?.id),
     campaignId: typeof inbound.campaign_id === "string" ? inbound.campaign_id : null,
     pilotCampaigns: settings.conversationPilotCampaigns,
@@ -1516,7 +1718,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
   if (journeyIds.length > 0) {
     const { data: journeys, error: journeyError } = await supabaseServer
       .from("acquisition_journeys")
-      .select("id, campaign_id")
+      .select("id, campaign_id, lifecycle_state, closed_at")
       .in("id", journeyIds);
     if (journeyError || !Array.isArray(journeys)) {
       await converse();
@@ -1527,7 +1729,20 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
         ? [[row.id, typeof row.campaign_id === "string" ? row.campaign_id : null] as const]
         : []
     )));
-    autonomousDue = selectAutonomousFulfillment(due, campaignByJourney, settings.conversationPilotCampaigns);
+    const journeyFacts = new Map(journeys.flatMap((row) => {
+      if (typeof row.id !== "string" || !isAcquisitionLifecycle(String(row.lifecycle_state ?? ""))) return [];
+      return [[row.id, {
+        lifecycle: row.lifecycle_state as AcquisitionLifecycle,
+        closed: row.closed_at != null && row.closed_at !== "",
+      }] as const];
+    }));
+    const dueWithJourney = due.map((action) => {
+      if (!action.journeyId) return action;
+      const fact = journeyFacts.get(action.journeyId);
+      if (!fact) return { ...action, journeyKnown: false, journeyLifecycle: null, journeyClosed: false };
+      return { ...action, journeyKnown: true, journeyLifecycle: fact.lifecycle, journeyClosed: fact.closed };
+    });
+    autonomousDue = selectAutonomousFulfillment(dueWithJourney, campaignByJourney, settings.conversationPilotCampaigns);
   } else {
     autonomousDue = [];
   }
@@ -2025,6 +2240,11 @@ export async function applyInstantlyBackfill(proposals: readonly BackfillProposa
       : decision === "suppressed" ? "bounced"
       : null;
     if (!signal) continue;
+    if (signal === "not_interested") {
+      const applied = await applyNotInterestedForCampaign(person, proposal.campaignId);
+      if (applied) written += 1;
+      continue;
+    }
     const extra = proposal.asset ? { requested_asset: proposal.asset } : {};
     const updated = await applySignal(person, signal, extra);
     if (updated.lifecycle_state !== decision) continue;

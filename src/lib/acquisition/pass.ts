@@ -1,4 +1,5 @@
 import { pdfHeaderValid } from "@/lib/acquisition/assets";
+import { journeyLocalStop } from "@/lib/acquisition/journey-lifecycle";
 import {
   actionMatchesState,
   evaluateWarmSend,
@@ -38,6 +39,9 @@ export type PassAction = {
   journeyId: string | null;
   promisedAssets: unknown;
   promisedLabel: string | null;
+  journeyLifecycle?: AcquisitionLifecycle | null;
+  journeyClosed?: boolean;
+  journeyKnown?: boolean;
 };
 
 export type PassSendRequest = {
@@ -58,6 +62,7 @@ export type PassEffect =
       actionId: string;
       status: "canceled" | "failed" | "blocked" | "uncertain" | "suppressed";
       cancelSiblings: boolean;
+      cancelJourney?: boolean;
     };
 
 export function providerKind(outcome: "accepted" | "temporary_failure" | "permanent_failure" | "provider_rejected" | "unknown"): "accepted" | "temporary" | "permanent" | "uncertain" {
@@ -131,6 +136,24 @@ export async function runAcquisitionPass(args: {
         actionId: action.id,
         status: gate === "suppressed" ? "suppressed" : "canceled",
         cancelSiblings: gate !== "state",
+      });
+      continue;
+    }
+    if (action.journeyId && action.journeyKnown === false) {
+      await args.apply({ kind: "release", actionId: action.id });
+      continue;
+    }
+    if (
+      action.journeyId
+      && action.journeyLifecycle
+      && journeyLocalStop(action.journeyLifecycle, action.journeyClosed === true)
+    ) {
+      await args.apply({
+        kind: "stop",
+        actionId: action.id,
+        status: "canceled",
+        cancelSiblings: false,
+        cancelJourney: true,
       });
       continue;
     }

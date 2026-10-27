@@ -185,6 +185,7 @@ export type ApprovedEmailSnapshot = {
     suppressed: boolean | null;
     clerkSubscribed: boolean;
   };
+  journey?: { lifecycle: string; closed: boolean } | "unreadable" | null;
   outbound: OutboundState;
 };
 
@@ -207,6 +208,16 @@ export type ApprovedEmailDeps = {
 
 function knownLifecycle(value: string): value is AcquisitionLifecycle {
   return (ACQUISITION_LIFECYCLE as readonly string[]).includes(value);
+}
+
+export function journeyAnswerBlock(snapshot: ApprovedEmailSnapshot): "ok" | "block" | "unreadable" {
+  if (snapshot.journey === "unreadable") return "unreadable";
+  if (snapshot.request?.journeyId && snapshot.journey && snapshot.journey !== null) {
+    if (snapshot.journey.closed || snapshot.journey.lifecycle === "not_interested") return "block";
+    return "ok";
+  }
+  if (!snapshot.request?.journeyId && snapshot.person.lifecycle === "not_interested") return "block";
+  return "ok";
 }
 
 function token(value: string | null, max: number): value is string {
@@ -254,7 +265,9 @@ export function approvedEmailDecision(snapshot: ApprovedEmailSnapshot, now: Date
   }
   const person = snapshot.person;
   const lifecycle = knownLifecycle(person.lifecycle) ? person.lifecycle : null;
-  if (!person.found || !lifecycle || salesEmailMustStop(lifecycle) || person.clerkSubscribed || person.suppressed) {
+  const journeyBlock = journeyAnswerBlock(snapshot);
+  if (journeyBlock === "unreadable") return { action: "refuse", reason: "journey_unreadable" };
+  if (!person.found || !lifecycle || salesEmailMustStop(lifecycle) || person.clerkSubscribed || person.suppressed || journeyBlock === "block") {
     return { action: "block_opt_out" };
   }
   if (person.suppressed == null) return { action: "refuse", reason: "suppression_unknown" };
@@ -338,7 +351,12 @@ export async function runApprovedEmailAnswer(deps: ApprovedEmailDeps): Promise<A
   if (claimed === "error") return { state: "refused", reason: "claim_failed", providerMessageId: null };
   const snapshot = await deps.read();
   const lifecycleOk = knownLifecycle(snapshot.person.lifecycle) && !salesEmailMustStop(snapshot.person.lifecycle);
-  const stopped = !snapshot.person.found || snapshot.person.suppressed !== false || snapshot.person.clerkSubscribed || !lifecycleOk;
+  const journeyBlock = journeyAnswerBlock(snapshot);
+  if (journeyBlock === "unreadable") {
+    await deps.mark("open", { send_error: "journey_unreadable" });
+    return { state: "refused", reason: "journey_unreadable", providerMessageId: null };
+  }
+  const stopped = !snapshot.person.found || snapshot.person.suppressed !== false || snapshot.person.clerkSubscribed || !lifecycleOk || journeyBlock === "block";
   if (snapshot.outbound || stopped) {
     const follow = approvedEmailDecision({
       ...snapshot,

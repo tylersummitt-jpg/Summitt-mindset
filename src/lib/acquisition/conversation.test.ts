@@ -26,6 +26,7 @@ import {
 } from "@/lib/acquisition/conversation";
 import { ACQUISITION_REPLY_TEXT_CAP, instantlyPersonMetadata, normalizeInstantlyWebhook } from "@/lib/acquisition/instantly";
 import { INSTANTLY_REPLY_URL, outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply } from "@/lib/acquisition/instantly-reply";
+import { journeyLocalStop } from "@/lib/acquisition/journey-lifecycle";
 import { salesEmailMustStop } from "@/lib/acquisition/model";
 import { MEMBERSHIP_PUBLIC_OFFER } from "@/lib/membership-public-offer";
 
@@ -293,7 +294,7 @@ describe("one interpreter", () => {
   });
 
   it("does not schedule for a member, a suppression, or a missing journey", () => {
-    for (const state of ["trial_started", "paid_member", "trial_expired", "unsubscribed", "suppressed", "not_interested"] as const) {
+    for (const state of ["trial_started", "paid_member", "trial_expired", "unsubscribed", "suppressed"] as const) {
       expect(salesEmailMustStop(state)).toBe(true);
       expect(decideConversationEffect({
         outcome: "accept_offer",
@@ -303,6 +304,15 @@ describe("one interpreter", () => {
         suppressed: false,
       }).type).not.toBe("schedule_asset");
     }
+    expect(salesEmailMustStop("not_interested")).toBe(false);
+    expect(journeyLocalStop("not_interested", false)).toBe(true);
+    expect(decideConversationEffect({
+      outcome: "accept_offer",
+      journeyId: "journey-1",
+      hasPromise: true,
+      stopped: journeyLocalStop("not_interested", false),
+      suppressed: false,
+    }).type).not.toBe("schedule_asset");
     expect(decideConversationEffect({
       outcome: "accept_offer",
       journeyId: "journey-1",
