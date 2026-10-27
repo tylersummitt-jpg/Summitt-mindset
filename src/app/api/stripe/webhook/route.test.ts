@@ -132,6 +132,9 @@ vi.mock("@/lib/notify-coach-subscribed", () => ({
 vi.mock("@/lib/notify-member-subscribed", () => ({
   notifyMemberSubscribedInternal: (...args: unknown[]) => notifyMemberMock(...args),
 }));
+vi.mock("@/lib/acquisition/email-acquired-member-notice.server", () => ({
+  maybeNotifyEmailAcquiredMember: vi.fn(async () => "skipped"),
+}));
 
 const reconcileCheckoutMock = vi.fn(async () => "ack" as const);
 vi.mock("@/lib/stripe-first-checkout/reconcile", () => ({

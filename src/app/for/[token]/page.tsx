@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { acquisitionCheckoutPath, acquisitionJourneyTokenShape } from "@/lib/acquisition/email-acquired-member-notice";
 import { PersonalVideoPlayer, PersonalVideoTrialLink } from "@/components/personal-video-engagement";
 import { recordAcquisitionVideoEvent, resolveAcquisitionRecipient } from "@/lib/acquisition/store";
 import { isTylerAdminSession } from "@/lib/auth/require-tyler-admin";
@@ -19,10 +20,14 @@ export const metadata: Metadata = {
 
 export default async function PersonalVideoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ token: string }>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const journeyToken = acquisitionJourneyTokenShape(Array.isArray(sp.aj) ? sp.aj[0] : sp.aj);
   const found = await getPersonalVideoByToken(token).catch(() => undefined);
   if (found === undefined) {
     return (
@@ -67,7 +72,9 @@ export default async function PersonalVideoPage({
   const track = !native && !(await isTylerAdminSession());
   const trialHref = native
     ? marketingAcquisitionHref({ isNativeApp: true, isSignedIn: false })
-    : "/checkout/start";
+    : journeyToken
+      ? acquisitionCheckoutPath(journeyToken)
+      : "/checkout/start";
   const playerSrc = video.status === "ready" ? buildVimeoPlayerEmbedUrl(video.vimeoVideoId) : null;
   if (recipientToken && track && playerSrc) {
     await recordAcquisitionVideoEvent({

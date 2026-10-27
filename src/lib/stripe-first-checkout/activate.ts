@@ -14,6 +14,12 @@ import {
 } from "@/lib/marketing-attribution-pure";
 import { parsePersonalVideoId } from "@/lib/personal-videos/analytics";
 import { trustedRequestCountryFromRequest } from "@/lib/stripe-first-checkout/request-country";
+import {
+  ACQUISITION_JOURNEY_METADATA_KEY,
+  ACQUISITION_JOURNEY_QUERY,
+  acquisitionJourneyTokenShape,
+  parseAcquisitionJourneyId,
+} from "@/lib/acquisition/email-acquired-member-notice";
 import { noteAcquisitionClerk } from "@/lib/acquisition/store";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
@@ -76,9 +82,11 @@ import {
   markSignInRequired,
   type CheckoutBrowserIntent,
 } from "@/lib/stripe-first-checkout/intent-store";
+import { maybeNotifyEmailAcquiredMember } from "@/lib/acquisition/email-acquired-member-notice.server";
 import {
   isOwnerCanaryMetadata,
   notifyConfirmedStripeFirstTrial,
+  stripeFirstMemberNotification,
 } from "@/lib/stripe-first-checkout/member-notify";
 import {
   assessCheckoutSession,
@@ -233,6 +241,10 @@ export async function beginHostedCheckout(args: {
   };
   /** Ready personal video visited in the last 30 days. Omitted from canary checkout. */
   personalVideoId?: string | null;
+  /** Verified journey id. Stored on the Stripe subscription. Not an email match. */
+  acquisitionJourneyId?: string | null;
+  /** Signed token returned on cancel so a retry can be verified again. */
+  acquisitionJourneyToken?: string | null;
 }): Promise<{
   url: string;
   bindingSecret: string;
@@ -273,6 +285,8 @@ export async function beginHostedCheckout(args: {
   const experimentId = canary ? null : args.experimentId;
   const experimentVariant = canary ? null : args.experimentVariant;
   const personalVideoId = publicCheckout ? parsePersonalVideoId(args.personalVideoId) : null;
+  const acquisitionJourneyId = canary ? null : parseAcquisitionJourneyId(args.acquisitionJourneyId);
+  const acquisitionJourneyToken = acquisitionJourneyTokenShape(args.acquisitionJourneyToken);
   const intent = await insertCheckoutIntent({
     bindingHash: binding.hash,
     bindingExpiresAt: new Date(Date.now() + BINDING_MAX_AGE_SECONDS * 1000).toISOString(),
@@ -317,6 +331,9 @@ export async function beginHostedCheckout(args: {
             ? { sourceNormalized: args.attribution.sourceNormalized }
             : {}),
           ...(personalVideoId ? { personalVideoId } : {}),
+          ...(acquisitionJourneyId
+            ? { [ACQUISITION_JOURNEY_METADATA_KEY]: acquisitionJourneyId }
+            : {}),
         },
         subscription_data: {
           trial_period_days: 7,
@@ -333,13 +350,20 @@ export async function beginHostedCheckout(args: {
               ? { experimentId, experimentVariant }
               : {}),
             ...(personalVideoId ? { personalVideoId } : {}),
+            ...(acquisitionJourneyId
+              ? { [ACQUISITION_JOURNEY_METADATA_KEY]: acquisitionJourneyId }
+              : {}),
           },
         },
         success_url: `${origin}${
           publicCheckout ? PUBLIC_CHECKOUT_RETURN_PATH : HOSTED_TEST_RETURN_PATH
         }?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: publicCheckout
-          ? `${origin}/checkout/start?canceled=1${args.plan === "annual" ? "&plan=annual" : ""}`
+          ? `${origin}/checkout/start?canceled=1${args.plan === "annual" ? "&plan=annual" : ""}${
+              acquisitionJourneyToken
+                ? `&${ACQUISITION_JOURNEY_QUERY}=${encodeURIComponent(acquisitionJourneyToken)}`
+                : ""
+            }`
           : `${origin}/checkout/hosted-test?canceled=1`,
       },
       {
@@ -435,6 +459,7 @@ export async function resumeOrReplacePublicCheckout(args: {
   request: Request;
   /** Signed-in checkout must not leave an older anonymous session payable. */
   displaceOpenSession?: boolean;
+  acquisitionJourneyId?: string | null;
 }): Promise<PublicCheckoutResume> {
   if (!args.bindingSecret) return { action: "replace" };
   const intent = await loadIntentByBindingHash(hashCheckoutBinding(args.bindingSecret));
@@ -463,7 +488,10 @@ export async function resumeOrReplacePublicCheckout(args: {
   }
 
   const status = sessionState(session.status);
-  const samePlan = session.metadata?.plan === args.plan;
+  const sameJourney =
+    parseAcquisitionJourneyId(session.metadata?.[ACQUISITION_JOURNEY_METADATA_KEY])
+    === parseAcquisitionJourneyId(args.acquisitionJourneyId);
+  const samePlan = session.metadata?.plan === args.plan && sameJourney;
   const hasUrl = typeof session.url === "string" && session.url.length > 0;
   let action = priorCheckoutAction({
     status,
@@ -733,25 +761,39 @@ export async function activateHostedCheckout(args: {
     if (saved === "mismatch") return { status: "rejected" };
 
     if (saved === "saved" || saved === "already") {
+      const memberNotice = {
+        ownerCanary:
+          isOwnerCanaryMetadata(session.metadata) ||
+          isOwnerCanaryMetadata(proof.subscription.metadata),
+        subscriptionStatus: proof.subscription.status,
+        paused: proof.subscription.pause_collection != null,
+        clerkUserId: intent.clerk_user_id,
+        email: proof.email,
+        name: session.customer_details?.name ?? null,
+        phone: session.customer_details?.phone ?? null,
+        customerId: proof.customerId,
+        subscriptionId: proof.subscriptionId,
+        checkoutSessionId: session.id,
+        plan: resolvePlanFromSubscription(proof.subscription),
+        timestamp: new Date().toISOString(),
+      };
       try {
-        await notifyConfirmedStripeFirstTrial({
-          ownerCanary:
-            isOwnerCanaryMetadata(session.metadata) ||
-            isOwnerCanaryMetadata(proof.subscription.metadata),
-          subscriptionStatus: proof.subscription.status,
-          paused: proof.subscription.pause_collection != null,
-          clerkUserId: intent.clerk_user_id,
-          email: proof.email,
-          name: session.customer_details?.name ?? null,
-          phone: session.customer_details?.phone ?? null,
-          customerId: proof.customerId,
-          subscriptionId: proof.subscriptionId,
-          checkoutSessionId: session.id,
-          plan: resolvePlanFromSubscription(proof.subscription),
-          timestamp: new Date().toISOString(),
-        });
+        await notifyConfirmedStripeFirstTrial(memberNotice);
       } catch (err) {
         console.warn("[stripe-first] member notification failed", err);
+      }
+      if (stripeFirstMemberNotification(memberNotice).send) {
+        try {
+          await maybeNotifyEmailAcquiredMember({
+            subscriptionId: memberNotice.subscriptionId,
+            memberName: memberNotice.name,
+            memberEmail: memberNotice.email,
+            metadata: proof.subscription.metadata,
+            ownerCanary: false,
+          });
+        } catch (err) {
+          console.warn("[stripe-first] outreach history notification failed", err);
+        }
       }
     }
 

@@ -46,6 +46,9 @@ vi.mock("resend", () => ({
 vi.mock("@/lib/acquisition/store", () => ({
   noteAcquisitionTrial: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/acquisition/email-acquired-member-notice.server", () => ({
+  maybeNotifyEmailAcquiredMember: vi.fn(async () => "skipped"),
+}));
 
 vi.mock("@/lib/google-ads/stripe-conversions", () => ({
   maybeEmitGoogleAdsTrial: (...args: unknown[]) => googleTrialMock(...args),

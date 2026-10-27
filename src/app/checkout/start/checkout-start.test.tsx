@@ -53,7 +53,7 @@ describe("/checkout/start hop", () => {
     expect(page).toContain("fail-open");
     expect(page).not.toContain("signUpHrefForCheckoutStart");
     expect(page).toContain("checkoutPlanFromSearchValue");
-    expect(page).toContain("return <CheckoutStartClient plan={plan} />");
+    expect(page).toContain("return <CheckoutStartClient plan={plan} acquisitionJourneyToken={acquisitionJourneyToken} />");
     expect(page).not.toContain("src=coach");
     expect(page).not.toContain("Pat");
     expect(page).not.toContain("$249");

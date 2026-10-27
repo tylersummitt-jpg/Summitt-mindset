@@ -15,6 +15,7 @@ import {
   beginHostedCheckout,
   resumeOrReplacePublicCheckout,
 } from "@/lib/stripe-first-checkout/activate";
+import { verifiedAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice.server";
 import { CHECKOUT_BINDING_COOKIE } from "@/lib/stripe-first-checkout/constants";
 
 export const runtime = "nodejs";
@@ -34,10 +35,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "native_app_checkout_unavailable" }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { plan?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { plan?: unknown; acquisitionJourneyToken?: unknown } | null;
   const plan = body?.plan === "annual" ? "annual" : body?.plan === "monthly" ? "monthly" : null;
   if (!plan) return NextResponse.json({ error: "plan_required" }, { status: 400 });
 
+  const acquisitionJourneyId = await verifiedAcquisitionJourneyId(body?.acquisitionJourneyToken).catch(() => null);
   const { userId } = await auth();
   const jar = await cookies();
   const assignment = parseProudTestAssignment(jar.get(PROUD_TEST_COOKIE)?.value);
@@ -48,6 +50,7 @@ export async function POST(req: Request) {
       plan,
       request: req,
       displaceOpenSession: Boolean(userId),
+      acquisitionJourneyId,
     });
     if (prior.action === "keep") {
       return NextResponse.json(
@@ -87,6 +90,8 @@ export async function POST(req: Request) {
       personalVideoId,
       experimentId: assignment?.experimentId ?? null,
       experimentVariant: assignment?.variant ?? null,
+      acquisitionJourneyId,
+      acquisitionJourneyToken: typeof body?.acquisitionJourneyToken === "string" ? body.acquisitionJourneyToken : null,
       attribution: marketing?.attribution
         ? {
             utmSource: marketing.attribution.utm_source,

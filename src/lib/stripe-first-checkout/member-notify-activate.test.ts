@@ -20,10 +20,18 @@ vi.mock("@/lib/acquisition/store", () => ({
   noteAcquisitionClerk: vi.fn(async () => undefined),
 }));
 
-vi.mock("@/lib/stripe-first-checkout/member-notify", () => ({
-  isOwnerCanaryMetadata: (metadata: { summittCanary?: string } | null | undefined) =>
-    metadata?.summittCanary === "owner",
-  notifyConfirmedStripeFirstTrial: (...args: unknown[]) => notifyMock(...args),
+vi.mock("@/lib/stripe-first-checkout/member-notify", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/stripe-first-checkout/member-notify")>(
+    "@/lib/stripe-first-checkout/member-notify"
+  );
+  return {
+    ...actual,
+    notifyConfirmedStripeFirstTrial: (...args: unknown[]) => notifyMock(...args),
+  };
+});
+vi.mock("@/lib/acquisition/email-acquired-member-notice.server", () => ({
+  maybeNotifyEmailAcquiredMember: vi.fn(async () => "skipped"),
+  verifiedAcquisitionJourneyId: vi.fn(async () => null),
 }));
 
 vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({

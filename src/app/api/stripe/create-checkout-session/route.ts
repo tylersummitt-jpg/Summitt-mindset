@@ -2,6 +2,8 @@
 
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { ACQUISITION_JOURNEY_METADATA_KEY } from "@/lib/acquisition/email-acquired-member-notice";
+import { verifiedAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice.server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { maySetCoachAcquisitionSource } from "@/lib/coach-attribution";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
@@ -812,6 +814,12 @@ export async function POST(req: Request) {
     if (src === "coach") {
       sessionMetadata.summittAcquisition = "coach";
       subscriptionMetadata.summittAcquisition = "coach";
+    } else {
+      const journeyId = await verifiedAcquisitionJourneyId(body?.acquisitionJourneyToken).catch(() => null);
+      if (journeyId) {
+        sessionMetadata[ACQUISITION_JOURNEY_METADATA_KEY] = journeyId;
+        subscriptionMetadata[ACQUISITION_JOURNEY_METADATA_KEY] = journeyId;
+      }
     }
 
     const appUrl = resolveStripeCheckoutReturnOrigin(req);

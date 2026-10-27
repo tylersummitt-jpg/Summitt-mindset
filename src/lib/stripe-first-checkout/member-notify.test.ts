@@ -40,6 +40,9 @@ vi.mock("@/lib/acquisition/store", () => ({
   noteAcquisitionTrial: vi.fn(async () => undefined),
   noteAcquisitionClerk: vi.fn(async () => undefined),
 }));
+vi.mock("@/lib/acquisition/email-acquired-member-notice.server", () => ({
+  maybeNotifyEmailAcquiredMember: vi.fn(async () => "skipped"),
+}));
 
 vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
   maybeEmitMetaStartTrialFromCheckout: vi.fn(async () => undefined),

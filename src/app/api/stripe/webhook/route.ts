@@ -31,6 +31,7 @@ import {
   maybeEmitMetaSubscribeFromInvoicePaid,
   checkFirstPaidInvoiceForSubscription,
 } from "@/lib/meta-capi-stripe-conversions";
+import { maybeNotifyEmailAcquiredMember } from "@/lib/acquisition/email-acquired-member-notice.server";
 import {
   noteAcquisitionClosed,
   noteAcquisitionPaid,
@@ -559,9 +560,9 @@ export async function POST(req: NextRequest) {
         subscriptionId &&
         customerId
       ) {
+        let memberName = "not provided";
+        let memberEmail = "not found";
         try {
-          let memberName = "not provided";
-          let memberEmail = "not found";
           try {
             const clerkUser = await getClerkUser(userId);
             const primaryId = clerkUser.primary_email_address_id;
@@ -605,6 +606,17 @@ export async function POST(req: NextRequest) {
             "[webhook] member subscription notify unexpected:",
             notifyErr
           );
+        }
+        try {
+          await maybeNotifyEmailAcquiredMember({
+            subscriptionId,
+            memberName,
+            memberEmail,
+            metadata: subscription.metadata,
+            ownerCanary: false,
+          });
+        } catch {
+          console.warn("[webhook] outreach history notification isolated failure");
         }
       }
 

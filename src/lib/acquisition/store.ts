@@ -87,6 +87,11 @@ import {
   type AcquisitionLifecycle,
   type AcquisitionSignal,
 } from "@/lib/acquisition/model";
+import {
+  ACQUISITION_JOURNEY_QUERY,
+  acquisitionTrialCheckoutUrl,
+  signAcquisitionJourneyId,
+} from "@/lib/acquisition/email-acquired-member-notice";
 import { runAcquisitionPass, type PassEffect, type PassSendRequest } from "@/lib/acquisition/pass";
 import { classifyResendSend } from "@/lib/challenge-send-outcome";
 import { getClerkUserOrNull } from "@/lib/clerk-rest";
@@ -910,7 +915,10 @@ function warmCopy(request: PassSendRequest): {
     };
   }
   if (request.action.actionType === "send_video" && request.videoToken) {
-    const url = `https://summittmindset.com/for/${request.videoToken}`;
+    const token = signAcquisitionJourneyId(request.action.journeyId ?? "", process.env.CRON_SECRET?.trim() ?? "");
+    const url = token
+      ? `https://summittmindset.com/for/${request.videoToken}?${ACQUISITION_JOURNEY_QUERY}=${encodeURIComponent(token)}`
+      : `https://summittmindset.com/for/${request.videoToken}`;
     const text = `Hi${name},\n\nI recorded a short note for you: ${url}\n\nTyler Summitt\n\nUnsubscribe: ${unsubscribe}`;
     return {
       subject: "A short note from Tyler Summitt",
@@ -919,7 +927,7 @@ function warmCopy(request: PassSendRequest): {
       attachments: [],
     };
   }
-  const url = "https://summittmindset.com/checkout/start";
+  const url = acquisitionTrialCheckoutUrl(request.action.journeyId, process.env.CRON_SECRET?.trim() ?? "");
   const text = `Hi${name},\n\nThe 7-day free trial is here when you want it: ${url}\n\nTyler Summitt\n\nUnsubscribe: ${unsubscribe}`;
   return {
     subject: "Your 7-day free trial",

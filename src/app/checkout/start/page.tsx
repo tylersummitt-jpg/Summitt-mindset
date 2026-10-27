@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
+import { acquisitionJourneyTokenShape } from "@/lib/acquisition/email-acquired-member-notice";
 import { checkoutPlanFromSearchValue } from "@/lib/checkout-plan";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
@@ -36,6 +37,8 @@ export default async function CheckoutStartPage({
 
   const sp = await resolveCheckoutStartSearchParams(searchParams);
   const plan = checkoutPlanFromSearchValue(sp.plan);
+  const rawJourney = Array.isArray(sp.aj) ? sp.aj[0] : sp.aj;
+  const acquisitionJourneyToken = acquisitionJourneyTokenShape(rawJourney);
 
   const user = await currentUser();
   if (user?.id) {
@@ -46,5 +49,5 @@ export default async function CheckoutStartPage({
     }
   }
 
-  return <CheckoutStartClient plan={plan} />;
+  return <CheckoutStartClient plan={plan} acquisitionJourneyToken={acquisitionJourneyToken} />;
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import Stripe from "stripe";
 
+import { maybeNotifyEmailAcquiredMember } from "@/lib/acquisition/email-acquired-member-notice.server";
 import { noteAcquisitionTrial } from "@/lib/acquisition/store";
 import { META_CAPI_STRIPE_FIRST_SOURCE_URL } from "@/lib/meta-capi";
 import { maybeEmitGoogleAdsTrial } from "@/lib/google-ads/stripe-conversions";
@@ -15,6 +16,7 @@ import { confirmStripeTrial, loadIntentById } from "@/lib/stripe-first-checkout/
 import {
   isOwnerCanaryMetadata,
   notifyConfirmedStripeFirstTrial,
+  stripeFirstMemberNotification,
 } from "@/lib/stripe-first-checkout/member-notify";
 import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
@@ -203,7 +205,7 @@ export async function reconcileStripeFirstFromCheckoutSession(
         console.warn("[stripe-first] acquisition trial link isolated failure");
       }
     }
-    const notified = await notifyConfirmedStripeFirstTrial({
+    const memberNotice = {
       ownerCanary,
       subscriptionStatus: proof.subscription.status,
       paused: proof.subscription.pause_collection != null,
@@ -216,7 +218,21 @@ export async function reconcileStripeFirstFromCheckoutSession(
       checkoutSessionId: session.id,
       plan: resolvePlanFromSubscription(proof.subscription),
       timestamp: new Date().toISOString(),
-    });
+    };
+    const notified = await notifyConfirmedStripeFirstTrial(memberNotice);
+    if (stripeFirstMemberNotification(memberNotice).send) {
+      try {
+        await maybeNotifyEmailAcquiredMember({
+          subscriptionId: memberNotice.subscriptionId,
+          memberName: memberNotice.name,
+          memberEmail: memberNotice.email,
+          metadata: proof.subscription.metadata,
+          ownerCanary: false,
+        });
+      } catch (err) {
+        console.warn("[stripe-first] outreach history notification failed", err);
+      }
+    }
     if (notified === "failed") return "retry";
   }
   return hold === "retry" ? "retry" : "ack";

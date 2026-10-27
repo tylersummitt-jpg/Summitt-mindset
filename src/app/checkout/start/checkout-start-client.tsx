@@ -32,8 +32,10 @@ function releaseCheckoutStart(): void {
 
 export default function CheckoutStartClient({
   plan,
+  acquisitionJourneyToken = null,
 }: {
   plan?: string;
+  acquisitionJourneyToken?: string | null;
 }) {
   const checkoutPlan = checkoutPlanFromUnknown(plan);
   const { isLoaded, isSignedIn } = useUser();
@@ -69,7 +71,11 @@ export default function CheckoutStartClient({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify({ plan: checkoutPlan }),
+            body: JSON.stringify(
+              acquisitionJourneyToken
+                ? { plan: checkoutPlan, acquisitionJourneyToken }
+                : { plan: checkoutPlan }
+            ),
             signal: controller.signal,
           }
         );
@@ -80,7 +86,11 @@ export default function CheckoutStartClient({
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
-              body: JSON.stringify({ plan: checkoutPlan }),
+              body: JSON.stringify(
+              acquisitionJourneyToken
+                ? { plan: checkoutPlan, acquisitionJourneyToken }
+                : { plan: checkoutPlan }
+            ),
               signal: controller.signal,
             });
           }
@@ -157,7 +167,7 @@ export default function CheckoutStartClient({
       clearTimeout(timeoutId);
       if (clerkWait !== undefined) window.clearTimeout(clerkWait);
     };
-  }, [checkoutPlan, isLoaded, isSignedIn, router, retryNonce]);
+  }, [acquisitionJourneyToken, checkoutPlan, isLoaded, isSignedIn, router, retryNonce]);
 
   function handleRetry() {
     startedRef.current = false;
