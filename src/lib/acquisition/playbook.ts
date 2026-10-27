@@ -138,6 +138,7 @@ export function playbookReadiness(args: {
 }): PlaybookReadiness {
   const reviewed = reviewPlaybookDraft(args.draft);
   const gaps: string[] = [];
+  gaps.push("Saving this playbook does not authorize automated replies or fulfillment.");
   if (!reviewed.ok) gaps.push(reviewed.error);
   const draft = reviewed.ok ? reviewed.draft : args.draft;
   if (args.status === "paused") gaps.push("This playbook is paused.");

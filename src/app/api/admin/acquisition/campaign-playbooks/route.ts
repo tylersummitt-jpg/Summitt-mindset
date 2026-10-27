@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { readCampaignActivationBoard, releaseScheduledFulfillment, setCampaignAutomation } from "@/lib/acquisition/campaign-activation.server";
 import { listCampaignPlaybooks, saveCampaignPlaybook, setCampaignPlaybookStatus } from "@/lib/acquisition/playbook.server";
 import type { PlaybookDraft, PlaybookFulfillment, PlaybookSendAction } from "@/lib/acquisition/playbook";
 import { isTylerOwnerSession } from "@/lib/auth/require-tyler-admin";
@@ -29,9 +30,9 @@ export async function GET() {
   if (!(await isTylerOwnerSession())) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const result = await listCampaignPlaybooks();
+  const [result, activation] = await Promise.all([listCampaignPlaybooks(), readCampaignActivationBoard()]);
   if (!result.ok) return NextResponse.json(result, { status: 422 });
-  return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ ...result, activation }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(req: Request) {
@@ -41,12 +42,20 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ ok: false, error: "The playbook could not be read." }, { status: 422 });
   const intent = body.intent;
-  const result = intent === "pause" || intent === "resume" || intent === "retire"
-    ? await setCampaignPlaybookStatus({
-        campaignId: typeof body.campaignId === "string" ? body.campaignId : "",
-        status: intent === "resume" ? "current" : intent === "pause" ? "paused" : "retired",
+  const campaignId = typeof body.campaignId === "string" ? body.campaignId : "";
+  const result = intent === "activate" || intent === "pause_automation" || intent === "resume_automation" || intent === "finish"
+    ? await setCampaignAutomation({
+        campaignId,
+        action: intent === "pause_automation" ? "pause" : intent === "finish" ? "finish" : "activate",
       })
-    : await saveCampaignPlaybook(draftFrom(body));
+    : intent === "release"
+      ? await releaseScheduledFulfillment({ actionId: typeof body.actionId === "string" ? body.actionId : "" })
+    : intent === "pause" || intent === "resume" || intent === "retire"
+      ? await setCampaignPlaybookStatus({
+          campaignId,
+          status: intent === "resume" ? "current" : intent === "pause" ? "paused" : "retired",
+        })
+      : await saveCampaignPlaybook(draftFrom(body));
   if (!result.ok) return NextResponse.json(result, { status: 422 });
   return NextResponse.json(result);
 }

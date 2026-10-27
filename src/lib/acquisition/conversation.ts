@@ -8,6 +8,12 @@ import OpenAI from "openai";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 
 import { resourceLabels, type AcquisitionFileKey } from "@/lib/acquisition/assets";
+import {
+  fulfillmentEligible,
+  replyEligible,
+  campaignIsGoverned,
+  type CampaignActivation,
+} from "@/lib/acquisition/campaign-activation";
 import { LEADERSHIP_KIT_CLAIM } from "@/lib/acquisition/email-knowledge";
 import { MEMBERSHIP_PUBLIC_OFFER } from "@/lib/membership-public-offer";
 import { scrubOpenAiRequestErrorForCapture } from "@/lib/openai-request-error-scrub";
@@ -215,40 +221,40 @@ const SCHEMA_RETRY = "Your previous response did not match acquisition_conversat
 
 export function conversationOwnsCampaign(args: {
   interpretation: "off" | "pilot";
-  pilotCampaigns: readonly string[];
+  pilotCampaigns: readonly (string | CampaignActivation)[];
   campaignId: string | null;
 }): boolean {
   if (args.interpretation !== "pilot" || !args.campaignId) return false;
-  return args.pilotCampaigns.includes(args.campaignId);
+  return campaignIsGoverned(args.pilotCampaigns, args.campaignId);
 }
 
-/** Replies and PDF fulfillment both stay inside the interpretation allowlist. */
-export function selectAutonomousThreadReplies<T extends { campaignId: string | null }>(
+/** Replies and PDF fulfillment both require an explicit activation at or before the work. */
+export function selectAutonomousThreadReplies<T extends { campaignId: string | null; receivedAt: string | null }>(
   rows: readonly T[],
-  pilotCampaigns: readonly string[],
+  pilotCampaigns: readonly (string | CampaignActivation)[],
 ): T[] {
-  return rows.filter((row) => conversationOwnsCampaign({
-    interpretation: "pilot",
-    pilotCampaigns,
+  return rows.filter((row) => replyEligible({
+    activations: pilotCampaigns,
     campaignId: row.campaignId,
+    receivedAt: row.receivedAt,
   }));
 }
 
-export function selectAutonomousFulfillment<T extends { journeyId: string | null }>(
+export function selectAutonomousFulfillment<T extends { journeyId: string | null; scheduledAt: string | null }>(
   actions: readonly T[],
   campaignByJourney: ReadonlyMap<string, string | null>,
-  pilotCampaigns: readonly string[],
+  pilotCampaigns: readonly (string | CampaignActivation)[],
 ): T[] {
-  return actions.filter((action) => conversationOwnsCampaign({
-    interpretation: "pilot",
-    pilotCampaigns,
+  return actions.filter((action) => fulfillmentEligible({
+    activations: pilotCampaigns,
     campaignId: action.journeyId ? campaignByJourney.get(action.journeyId) ?? null : null,
+    scheduledAt: action.scheduledAt,
   }));
 }
 
 export function providerInterestSchedulesFulfillment(args: {
   interpretation: "off" | "pilot";
-  pilotCampaigns: readonly string[];
+  pilotCampaigns: readonly (string | CampaignActivation)[];
   campaignId: string | null;
 }): boolean {
   if (args.interpretation !== "pilot") return true;
@@ -259,7 +265,7 @@ export function providerInterestSchedulesFulfillment(args: {
 /** Pilot labels do not change lifecycle. Missing campaign id fails closed. Legacy campaigns still apply. */
 export function providerLabelMayApplyLifecycle(args: {
   interpretation: "off" | "pilot";
-  pilotCampaigns: readonly string[];
+  pilotCampaigns: readonly (string | CampaignActivation)[];
   campaignId: string | null;
 }): boolean {
   return providerInterestSchedulesFulfillment(args);
@@ -422,13 +428,14 @@ export function threadReplyAuthorization(args: {
   stopped: boolean;
   suppressed: boolean | null;
   campaignId: string | null;
-  pilotCampaigns: readonly string[];
+  pilotCampaigns: readonly (string | CampaignActivation)[];
+  receivedAt: string | null;
 }): { send: false; reason: "sending_off" | "outcome" | "missing_draft" | "missing_reply_target" | "missing_account" | "ineligible" | "suppression_unknown" | "campaign" } | { send: true } {
   if (args.sending !== "on") return { send: false, reason: "sending_off" };
-  if (!conversationOwnsCampaign({
-    interpretation: "pilot",
-    pilotCampaigns: args.pilotCampaigns,
+  if (!replyEligible({
+    activations: args.pilotCampaigns,
     campaignId: args.campaignId,
+    receivedAt: args.receivedAt,
   })) return { send: false, reason: "campaign" };
   if (args.outcome !== "accept_offer" && args.outcome !== "ask_question") return { send: false, reason: "outcome" };
   if (!args.draftBody) return { send: false, reason: "missing_draft" };

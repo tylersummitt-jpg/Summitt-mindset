@@ -14,11 +14,11 @@ import {
   type AcquisitionFileKey,
   type AcquisitionOffer,
 } from "@/lib/acquisition/assets";
+import { campaignAutomationOpen, parseCampaignActivations, replyEligible, type CampaignActivation } from "@/lib/acquisition/campaign-activation";
 import {
   bindAcceptanceToOffer,
   buildConversationInterpreterInput,
   conversationCalendar,
-  conversationOwnsCampaign,
   decideConversationEffect,
   inboundInterpretationError,
   inboundPersistencePlan,
@@ -117,7 +117,8 @@ type Settings = {
   offers: Map<string, AcquisitionOffer>;
   conversationInterpretation: "off" | "pilot";
   conversationSending: "off" | "on";
-  conversationPilotCampaigns: string[];
+  conversationPilotCampaigns: CampaignActivation[];
+  conversationReadable: boolean;
   instantlyBlocklist: "off" | "on";
 };
 
@@ -125,16 +126,8 @@ const SETTINGS_COLUMNS_WITHOUT_BLOCKLIST = "automation_status, video_delay_hours
 const SETTINGS_COLUMNS = `${SETTINGS_COLUMNS_WITHOUT_BLOCKLIST}, instantly_blocklist`;
 const LEGACY_SETTINGS_COLUMNS = "automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers";
 
-function parsePilotCampaigns(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  const ids: string[] = [];
-  for (const item of value) {
-    if (typeof item !== "string") continue;
-    const id = item.trim();
-    if (id.length < 1 || id.length > 80 || ids.includes(id)) continue;
-    ids.push(id);
-  }
-  return ids;
+function parsePilotCampaigns(value: unknown): CampaignActivation[] {
+  return parseCampaignActivations(value);
 }
 
 function settingsFromRow(data: Record<string, unknown>, conversationReady: boolean, blocklistReady: boolean): Settings {
@@ -143,6 +136,7 @@ function settingsFromRow(data: Record<string, unknown>, conversationReady: boole
     status === "off" || status === "pilot" || status === "active" || status === "paused" ? status : "unavailable";
   const interpretation = data.conversation_interpretation === "pilot" ? "pilot" : "off";
   const sending = data.conversation_sending === "on" ? "on" : "off";
+  const listReadable = Array.isArray(data.conversation_pilot_campaigns);
   return {
     automation,
     videoDelayHours: typeof data.video_delay_hours === "number" ? data.video_delay_hours : 24,
@@ -151,9 +145,10 @@ function settingsFromRow(data: Record<string, unknown>, conversationReady: boole
     evergreenPersonalVideoId: typeof data.evergreen_personal_video_id === "string" ? data.evergreen_personal_video_id : null,
     campaignAssets: data.campaign_assets && typeof data.campaign_assets === "object" ? data.campaign_assets as Record<string, unknown> : {},
     offers: parseAcquisitionOffers(data.offers),
-    conversationInterpretation: conversationReady ? interpretation : "off",
+    conversationInterpretation: conversationReady && listReadable ? interpretation : "off",
     conversationSending: conversationReady ? sending : "off",
-    conversationPilotCampaigns: conversationReady ? parsePilotCampaigns(data.conversation_pilot_campaigns) : [],
+    conversationPilotCampaigns: conversationReady && listReadable ? parsePilotCampaigns(data.conversation_pilot_campaigns) : [],
+    conversationReadable: conversationReady && listReadable,
     instantlyBlocklist: blocklistReady && instantlyBlocklistEnabled(data.instantly_blocklist) ? "on" : "off",
   };
 }
@@ -169,6 +164,7 @@ const SETTINGS_UNAVAILABLE: Settings = {
   conversationInterpretation: "off",
   conversationSending: "off",
   conversationPilotCampaigns: [],
+  conversationReadable: false,
   instantlyBlocklist: "off",
 };
 
@@ -598,11 +594,7 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
       email,
       event,
       journeyId,
-      aiOwns: conversationOwnsCampaign({
-        interpretation: settings.conversationInterpretation,
-        pilotCampaigns: settings.conversationPilotCampaigns,
-        campaignId: event.campaignId,
-      }),
+      aiOwns: settings.conversationInterpretation === "pilot" && campaignAutomationOpen(settings.conversationPilotCampaigns, event.campaignId),
     });
   }
   if (stored.status === "inserted") {
@@ -650,7 +642,7 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   }
   // Outside the pilot, lead_not_interested remains a global stop. Inside the pilot it does not.
   if (salesEmailMustStop(updated.lifecycle_state)) return { ok: true as const };
-  if (!playbookGoverns && event.signal === "interested" && journeyId) {
+  if (settings.conversationReadable && settings.automation !== "unavailable" && !playbookGoverns && event.signal === "interested" && journeyId) {
     const promise = resolveCampaignPromise({
       campaignValue: event.campaignId ? settings.campaignAssets[event.campaignId] : null,
       offers: settings.offers,
@@ -664,7 +656,7 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   const canSendAsset = Boolean(
     fulfillment?.hasFulfillment || person.requested_asset || person.offer_key
   );
-  if (!playbookGoverns && !journeyId && updated.lifecycle_state === "asset_requested" && canSendAsset) {
+  if (settings.conversationReadable && settings.automation !== "unavailable" && !playbookGoverns && !journeyId && updated.lifecycle_state === "asset_requested" && canSendAsset) {
     await scheduleAction(updated.id, "send_asset", now);
   }
   return { ok: true as const };
@@ -1256,7 +1248,7 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
   if (sending) {
     const { data: ready, error: readyError } = await supabaseServer
       .from("acquisition_messages")
-      .select("id, campaign_id")
+      .select("id, campaign_id, created_at")
       .eq("direction", "inbound")
       .eq("processing_status", "interpreted")
       .in("ai_outcome", ["accept_offer", "ask_question"])
@@ -1264,7 +1256,11 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       .limit(5);
     const readyRows = readyError || !Array.isArray(ready) ? [] : ready.flatMap((row) => (
       typeof row.id === "string"
-        ? [{ id: row.id, campaignId: typeof row.campaign_id === "string" ? row.campaign_id : null }]
+        ? [{
+            id: row.id,
+            campaignId: typeof row.campaign_id === "string" ? row.campaign_id : null,
+            receivedAt: typeof row.created_at === "string" ? row.created_at : null,
+          }]
         : []
     ));
     const readyIds = selectAutonomousThreadReplies(readyRows, settings.conversationPilotCampaigns).map((row) => row.id);
@@ -1297,7 +1293,7 @@ export async function deliverAcquisitionThreadReply(args: {
   if (settings.conversationSending !== "on") return { state: "blocked", reason: "sending_off" };
   const { data: inbound } = await supabaseServer
     .from("acquisition_messages")
-    .select("id, person_id, journey_id, campaign_id, provider_message_id, reply_to_provider_message_id, sender_account, subject, draft_subject, draft_body, lead_email, ai_outcome")
+    .select("id, person_id, journey_id, campaign_id, provider_message_id, reply_to_provider_message_id, sender_account, subject, draft_subject, draft_body, lead_email, ai_outcome, created_at")
     .eq("id", args.inboundMessageId)
     .eq("direction", "inbound")
     .maybeSingle();
@@ -1325,10 +1321,10 @@ export async function deliverAcquisitionThreadReply(args: {
   }
   if (
     plan === "claim_and_send"
-    && !conversationOwnsCampaign({
-      interpretation: "pilot",
-      pilotCampaigns: settings.conversationPilotCampaigns,
+    && !replyEligible({
+      activations: settings.conversationPilotCampaigns,
       campaignId: typeof inbound.campaign_id === "string" ? inbound.campaign_id : null,
+      receivedAt: typeof inbound.created_at === "string" ? inbound.created_at : null,
     })
   ) {
     return { state: "blocked", reason: "campaign" };
@@ -1389,6 +1385,7 @@ export async function deliverAcquisitionThreadReply(args: {
     suppressed: suppressed.error ? null : Boolean(suppressed.data?.id),
     campaignId: typeof inbound.campaign_id === "string" ? inbound.campaign_id : null,
     pilotCampaigns: settings.conversationPilotCampaigns,
+    receivedAt: typeof inbound.created_at === "string" ? inbound.created_at : null,
   });
   if (!decision.send) {
     const processingError = decision.reason === "missing_draft"
@@ -1494,7 +1491,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
   }
   const { data: dueRows } = await supabaseServer
     .from("acquisition_actions")
-    .select("id, person_id, action_type, attempt_count, idempotency_key, journey_id, promised_assets, promised_label")
+    .select("id, person_id, action_type, attempt_count, idempotency_key, journey_id, promised_assets, promised_label, scheduled_at")
     .eq("status", "scheduled")
     .lte("scheduled_at", now.toISOString())
     .order("scheduled_at", { ascending: true })
@@ -1511,6 +1508,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       journeyId: typeof row.journey_id === "string" ? row.journey_id : null,
       promisedAssets: row.promised_assets ?? null,
       promisedLabel: typeof row.promised_label === "string" ? row.promised_label : null,
+      scheduledAt: typeof row.scheduled_at === "string" ? row.scheduled_at : null,
     }];
   });
   const journeyIds = [...new Set(due.flatMap((action) => action.journeyId ? [action.journeyId] : []))];

@@ -442,6 +442,8 @@ describe("lead_interested is not a second authority inside the pilot", () => {
 });
 
 describe("thread reply authorization and send claims", () => {
+  const owner = "856a5ef5-88c6-44c6-b001-a5b020d641f7";
+  const activatedAt = "2026-10-27T12:00:00.000Z";
   const ready = {
     sending: "on" as const,
     outcome: "ask_question" as const,
@@ -450,8 +452,9 @@ describe("thread reply authorization and send claims", () => {
     senderAccount: "outreach@summittmindset.com",
     stopped: false,
     suppressed: false as boolean | null,
-    campaignId: "856a5ef5-88c6-44c6-b001-a5b020d641f7",
-    pilotCampaigns: ["856a5ef5-88c6-44c6-b001-a5b020d641f7"],
+    campaignId: owner,
+    pilotCampaigns: [{ id: owner, activatedAt }],
+    receivedAt: "2026-10-27T12:05:00.000Z",
   };
 
   it("refuses a draft when sending is off, the person is protected, or the thread target is missing", () => {
@@ -465,28 +468,34 @@ describe("thread reply authorization and send claims", () => {
     expect(threadReplyAuthorization({ ...ready, suppressed: null })).toEqual({ send: false, reason: "suppression_unknown" });
     expect(threadReplyAuthorization({ ...ready, campaignId: "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5" })).toEqual({ send: false, reason: "campaign" });
     expect(threadReplyAuthorization({ ...ready, campaignId: null })).toEqual({ send: false, reason: "campaign" });
+    expect(threadReplyAuthorization({ ...ready, receivedAt: "2026-10-27T11:00:00.000Z" })).toEqual({ send: false, reason: "campaign" });
+    expect(threadReplyAuthorization({ ...ready, pilotCampaigns: [owner], receivedAt: "2026-10-27T12:05:00.000Z" })).toEqual({ send: false, reason: "campaign" });
     expect(threadReplyAuthorization(ready)).toEqual({ send: true });
   });
 
-  it("keeps autonomous replies and PDF fulfillment inside the owner campaign allowlist", () => {
-    const pilots = ["856a5ef5-88c6-44c6-b001-a5b020d641f7"];
+  it("keeps autonomous replies and PDF fulfillment inside an explicitly activated campaign", () => {
+    const pilots = [{ id: owner, activatedAt }];
+    const receivedAt = "2026-10-27T12:05:00.000Z";
+    const scheduledAt = "2026-10-27T12:05:00.000Z";
     const replies = selectAutonomousThreadReplies([
-      { id: "owner-question", campaignId: pilots[0] },
-      { id: "prospect-reply", campaignId: "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5" },
-      { id: "unknown-reply", campaignId: "not-allowlisted" },
-      { id: "unscoped", campaignId: null },
+      { id: "owner-question", campaignId: owner, receivedAt },
+      { id: "old-owner-question", campaignId: owner, receivedAt: "2026-10-27T11:00:00.000Z" },
+      { id: "prospect-reply", campaignId: "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5", receivedAt },
+      { id: "unknown-reply", campaignId: "not-allowlisted", receivedAt },
+      { id: "unscoped", campaignId: null, receivedAt },
     ], pilots);
     expect(replies.map((row) => row.id)).toEqual(["owner-question"]);
     const fulfillment = selectAutonomousFulfillment([
-      { id: "owner-pdf", journeyId: "owner-journey" },
-      { id: "playbook-pdf", journeyId: "playbook-journey" },
-      { id: "dozen-a", journeyId: "dozen-a" },
-      { id: "dozen-b", journeyId: "dozen-b" },
-      { id: "unknown-pdf", journeyId: "unknown-journey" },
-      { id: "missing-campaign", journeyId: "missing-journey" },
-      { id: "legacy-pdf", journeyId: null },
+      { id: "owner-pdf", journeyId: "owner-journey", scheduledAt },
+      { id: "old-owner-pdf", journeyId: "owner-journey", scheduledAt: "2026-10-27T11:00:00.000Z" },
+      { id: "playbook-pdf", journeyId: "playbook-journey", scheduledAt },
+      { id: "dozen-a", journeyId: "dozen-a", scheduledAt },
+      { id: "dozen-b", journeyId: "dozen-b", scheduledAt },
+      { id: "unknown-pdf", journeyId: "unknown-journey", scheduledAt },
+      { id: "missing-campaign", journeyId: "missing-journey", scheduledAt },
+      { id: "legacy-pdf", journeyId: null, scheduledAt },
     ], new Map<string, string | null>([
-      ["owner-journey", pilots[0]],
+      ["owner-journey", owner],
       ["playbook-journey", "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5"],
       ["dozen-a", "ab5b139c-0f7e-44f9-b42a-86726fd024a8"],
       ["dozen-b", "80d88a66-78a2-4367-a4ea-6d5a562ebf92"],
@@ -495,9 +504,9 @@ describe("thread reply authorization and send claims", () => {
     ]), pilots);
     expect(fulfillment.map((row) => row.id)).toEqual(["owner-pdf"]);
     expect(selectAutonomousFulfillment(
-      [{ id: "playbook-pdf", journeyId: "playbook-journey" }],
+      [{ id: "playbook-pdf", journeyId: "playbook-journey", scheduledAt }],
       new Map([["playbook-journey", "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5"]]),
-      ["856a5ef5-88c6-44c6-b001-a5b020d641f7", "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5"],
+      [{ id: owner, activatedAt }, { id: "364dad9d-cbb5-4d33-b4d5-0ac083f0ebe5", activatedAt }],
     ).map((row) => row.id)).toEqual(["playbook-pdf"]);
   });
 
