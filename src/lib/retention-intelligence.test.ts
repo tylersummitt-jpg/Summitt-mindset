@@ -630,6 +630,30 @@ describe("monthly and annual separation", () => {
     expect(text).not.toContain("Coaching text delivered");
     expect(text).not.toContain("Replied to coaching");
   });
+
+  it("leaves an unread signal out of the rates and does not invent Victory Room history", () => {
+    const report = buildRetentionIntelligence(
+      input({
+        engagementGaps: ["Coaching texts could not be fully read. They are not shown as zero."],
+        measuredSignals: [{ id: "ask_pat", label: "Ask Pat" }],
+        spells: [spell({ id: "s1", clerkUserId: "user_a", paidStartMs: daysAgo(40) })],
+      })
+    );
+    expect(report.engagement.map((row) => row.label)).toEqual(["Ask Pat"]);
+    expect(report.engagementGaps).toEqual([
+      "Coaching texts could not be fully read. They are not shown as zero.",
+    ]);
+    expect(report.engagementNote).toContain("left out of these percentages");
+    expect(report.engagementNote).toContain("October 28, 2026");
+    expect(report.engagementNote).toContain("not zero use");
+    expect(report.milestones.map((row) => row.label)).toEqual(["D30", "D60", "D90", "D180", "D365"]);
+    expect(report.milestones[0]?.retained).toBe(1);
+    const text = formatRetentionIntelligence(report).join("\n");
+    expect(text).toContain("Coaching texts could not be fully read");
+    expect(text).toContain("October 28, 2026");
+    expect(text).not.toContain("victory_room_visited");
+    expect(text).not.toContain("film_room_played");
+  });
 });
 
 describe("shared admin report", () => {
@@ -679,13 +703,17 @@ describe("retention page boundaries", () => {
     expect(brooke).not.toContain("retention-intelligence");
     expect(brooke).not.toContain("retentionInputs");
     expect(layout).not.toContain("retention-intelligence");
-    expect(server).not.toContain("raw_body");
+    expect(server).toContain("raw_body");
     expect(server).not.toContain("answer_text");
+    expect(server).not.toContain("v2_event");
     expect(server).not.toContain("Evening coaching text");
     expect(server).not.toContain("Replied to coaching");
     expect(server).not.toContain("Coaching text delivered");
-    expect(server).toContain("Any inbound SMS");
-    expect(server).toContain("acceptedSendSignalIds");
+    expect(server).toContain("smsBehaviorFromRows");
+    const behavior = readFileSync(join(root, "src/lib/retention-sms-behavior.ts"), "utf8");
+    expect(behavior).toContain("Any inbound SMS");
+    expect(behavior).toContain("acceptedSendSignalIds");
+    expect(behavior).toContain("attributeMorningEveningReplies");
   });
 });
 

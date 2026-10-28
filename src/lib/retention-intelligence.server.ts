@@ -15,7 +15,6 @@ import {
   partitionRetentionSpells,
   retentionIntervalFromPrice,
   spellFromSubscription,
-  acceptedSendSignalIds,
   unreadableRetentionIntelligence,
   type RetentionAcquisition,
   type RetentionHit,
@@ -23,11 +22,15 @@ import {
   type RetentionInterval,
 } from "@/lib/retention-intelligence";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
+import { smsBehaviorFromRows } from "@/lib/retention-sms-behavior";
 import { supabaseServer } from "@/lib/supabase-server";
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 20;
 const CHUNK = 80;
+const ENGAGEMENT_PAGE_ROWS = 500;
+const ENGAGEMENT_DEFAULT_MAX_PAGES = 4;
+const SMS_HISTORY_MAX_PAGES = 20;
 
 const UNREADABLE = "Stripe subscriptions or paid invoices could not be read.";
 const WITHHELD =
@@ -61,6 +64,7 @@ export async function loadRetentionIntelligence(
         appleRows,
         customerFeedbackCount: 0,
         engagementReadable: false,
+        engagementGaps: [],
         hits: [],
         measuredSignals: [],
         acquisitionReadable: false,
@@ -132,6 +136,7 @@ export async function loadRetentionIntelligence(
       appleRows,
       customerFeedbackCount,
       engagementReadable: engagement.readable,
+      engagementGaps: engagement.gaps,
       hits: engagement.hits,
       measuredSignals: engagement.signals,
       acquisitionReadable: acquisition.readable,
@@ -237,53 +242,54 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   readable: boolean;
   hits: RetentionHit[];
   signals: Array<{ id: string; label: string }>;
+  gaps: string[];
 }> {
   if (clerkIds.length === 0) {
-    return { readable: true, hits: [], signals: [] };
+    return { readable: true, hits: [], signals: [], gaps: [] };
   }
   if (clerkIds.length > CHUNK * 8) {
-    return { readable: false, hits: [], signals: [] };
+    return {
+      readable: false,
+      hits: [],
+      signals: [],
+      gaps: ["Member product history was too large to read. It is not shown as zero."],
+    };
   }
   const hits: RetentionHit[] = [];
   const signals: Array<{ id: string; label: string }> = [];
+  const gaps: string[] = [];
 
   const sends = await readChunked(
     "sms_send_events",
-    "clerk_user_id, day_key, send_slot, message_sid, status",
-    clerkIds
+    "id, clerk_user_id, day_key, send_slot, message_sid, status, metadata, created_at",
+    clerkIds,
+    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "created_at", orderTieBreak: "id" }
   );
-  if (sends.ok) {
-    signals.push(
-      { id: "coaching", label: "Coaching text accepted by the provider" },
-      { id: "morning", label: "Morning coaching text accepted by the provider" }
-    );
-    for (const row of sends.rows) {
-      const clerkUserId = text(row.clerk_user_id);
-      const atMs = dayKeyMs(row.day_key);
-      if (!clerkUserId || atMs == null) continue;
-      const sid = text(row.message_sid);
-      const status = text(row.status);
-      if (!sid || status === "failed" || status === "undelivered") continue;
-      const slot = text(row.send_slot);
-      for (const signal of acceptedSendSignalIds(slot)) {
-        hits.push({ clerkUserId, atMs, signal });
-      }
-    }
-  }
-
-  const replies = await readChunked("sms_inbound_messages", "clerk_user_id, received_at", clerkIds);
-  if (replies.ok) {
-    signals.push({ id: "reply", label: "Any inbound SMS" });
-    for (const row of replies.rows) {
-      const clerkUserId = text(row.clerk_user_id);
-      const atMs = isoMs(row.received_at);
-      if (!clerkUserId || atMs == null) continue;
-      hits.push({ clerkUserId, atMs, signal: "reply" });
-    }
-  }
+  const inbound = await readChunked(
+    "sms_inbound_messages",
+    "clerk_user_id, received_at, raw_body, message_sid",
+    clerkIds,
+    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "received_at", orderTieBreak: "message_sid" }
+  );
+  const weekly = await readChunked(
+    "sms_weekly_send_events",
+    "id, clerk_user_id, message_sid, metadata, created_at, status",
+    clerkIds,
+    { orderColumn: "created_at", orderTieBreak: "id" }
+  );
+  const sms = smsBehaviorFromRows({
+    sends: sends.ok ? sends.rows : null,
+    inbound: inbound.ok ? inbound.rows : null,
+    weekly: weekly.ok ? weekly.rows : null,
+  });
+  hits.push(...sms.hits);
+  signals.push(...sms.signals);
+  gaps.push(...sms.gaps);
 
   const askPat = await readChunked("ask_pat_questions", "clerk_user_id, day_key", clerkIds);
-  if (askPat.ok) {
+  if (!askPat.ok) {
+    gaps.push("Ask Pat could not be fully read. It is not shown as zero.");
+  } else {
     signals.push({ id: "ask_pat", label: "Ask Pat" });
     for (const row of askPat.rows) {
       const clerkUserId = text(row.clerk_user_id);
@@ -294,7 +300,9 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   }
 
   const wins = await readChunked("v2_win", "clerk_user_id, occurred_at, win_kind", clerkIds);
-  if (wins.ok) {
+  if (!wins.ok) {
+    gaps.push("Goal Wins and Proud Moments could not be fully read. They are not shown as zero.");
+  } else {
     signals.push(
       { id: "goal_win", label: "Goal Win" },
       { id: "proud_moment", label: "Proud Moment" }
@@ -315,7 +323,9 @@ async function loadEngagement(clerkIds: string[]): Promise<{
     "clerk_user_id, started_at, completed_at",
     clerkIds
   );
-  if (programs.ok) {
+  if (!programs.ok) {
+    gaps.push("Programs could not be fully read. They are not shown as zero.");
+  } else {
     signals.push({ id: "program", label: "Program started or completed" });
     for (const row of programs.rows) {
       const clerkUserId = text(row.clerk_user_id);
@@ -332,7 +342,9 @@ async function loadEngagement(clerkIds: string[]): Promise<{
     "clerk_user_id, identity_intake_completed_at",
     clerkIds
   );
-  if (profiles.ok) {
+  if (!profiles.ok) {
+    gaps.push("Onboarding completion could not be fully read. It is not shown as zero.");
+  } else {
     signals.push({ id: "onboarding", label: "Onboarding completed" });
     for (const row of profiles.rows) {
       const clerkUserId = text(row.clerk_user_id);
@@ -342,7 +354,7 @@ async function loadEngagement(clerkIds: string[]): Promise<{
     }
   }
 
-  return { readable: signals.length > 0, hits, signals };
+  return { readable: signals.length > 0, hits, signals, gaps };
 }
 
 async function loadAcquisition(clerkIds: string[]): Promise<{
@@ -497,26 +509,31 @@ async function readVisitorEvents(
 async function readChunked(
   table: string,
   columns: string,
-  ids: string[]
+  ids: string[],
+  options?: { maxPages?: number; orderColumn?: string; orderTieBreak?: string }
 ): Promise<{ ok: boolean; rows: Array<Record<string, unknown>> }> {
+  const maxPages = options?.maxPages ?? ENGAGEMENT_DEFAULT_MAX_PAGES;
   const rows: Array<Record<string, unknown>> = [];
   for (const group of chunks(ids, CHUNK)) {
     let from = 0;
-    for (let page = 0; page < 4; page += 1) {
-      const { data, error } = await supabaseServer
-        .from(table)
-        .select(columns)
-        .in("clerk_user_id", group)
-        .range(from, from + 499);
+    for (let page = 0; page < maxPages; page += 1) {
+      let query = supabaseServer.from(table).select(columns).in("clerk_user_id", group);
+      if (options?.orderColumn) {
+        query = query.order(options.orderColumn, { ascending: true });
+      }
+      if (options?.orderTieBreak) {
+        query = query.order(options.orderTieBreak, { ascending: true });
+      }
+      const { data, error } = await query.range(from, from + ENGAGEMENT_PAGE_ROWS - 1);
       if (error) {
         console.warn("[retention] product read failed", { table, reason: error.message });
         return { ok: false, rows: [] };
       }
       const batch = (data ?? []) as unknown as Array<Record<string, unknown>>;
       rows.push(...batch);
-      if (batch.length < 500) break;
-      if (page === 3) return { ok: false, rows: [] };
-      from += 500;
+      if (batch.length < ENGAGEMENT_PAGE_ROWS) break;
+      if (page === maxPages - 1) return { ok: false, rows: [] };
+      from += ENGAGEMENT_PAGE_ROWS;
     }
   }
   return { ok: true, rows };

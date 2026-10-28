@@ -78,6 +78,7 @@ export type RetentionIntelligenceInput = {
   appleRows: number | null;
   customerFeedbackCount: number;
   engagementReadable: boolean;
+  engagementGaps?: string[];
   hits: RetentionHit[];
   measuredSignals: Array<{ id: string; label: string }>;
   acquisitionReadable: boolean;
@@ -163,6 +164,7 @@ export type RetentionIntelligence = {
   engagement: RetentionComparison[];
   trialEngagement: RetentionComparison[];
   engagementNote: string;
+  engagementGaps: string[];
   acquisitionReadable: boolean;
   landingReadable: boolean;
   experimentReadable: boolean;
@@ -180,6 +182,9 @@ export type RetentionIntelligence = {
   recommendedStep: string;
   bridge: string;
 };
+
+const UNMEASURED_HISTORY =
+  "Victory Room visits and Film Room plays are recorded from October 28, 2026. They are not in these comparisons. Earlier time is unmeasured, not zero use. Account deletion removes stored SMS, Ask Pat, wins, and those events for that member. Missing history after deletion is not confirmed inactivity.";
 
 const DEFINITION =
   "Monthly paid retention. Entry is the first confirmed paid Stripe invoice for a Clerk member whose paid subscriptions are all monthly. Trial time is not counted. A member is continuously retained when that monthly membership, or a later monthly subscription with no gap longer than one day, was still open in Stripe at the milestone. Someone who canceled and paid again later is not counted as continuously retained. Members who are not old enough are left out. Annual subscribers are not in these rates. A member with both intervals, or with a missing interval, is unclassified and is not in these rates. Past-due and paused subscriptions can count as surviving even when product access is off. Interval is the current Stripe price interval, not an older price on the same subscription.";
@@ -326,6 +331,7 @@ export function buildRetentionIntelligence(
   const chainsByClerk = chainsByClerkFromSpells(partition.monthly);
   const annual = summarizeAnnualCohort(partition.annual);
   const measuredSignals = input.measuredSignals.filter((signal) => signal.id !== "evening");
+  const engagementGaps = input.engagementGaps ?? [];
 
   const milestones = RETENTION_MILESTONES.map((milestone) =>
     summarizeMilestone(milestone, chainsByClerk, input.nowMs)
@@ -402,9 +408,8 @@ export function buildRetentionIntelligence(
     engagementReadable: input.engagementReadable,
     engagement,
     trialEngagement,
-    engagementNote: input.engagementReadable
-      ? "These percentages are monthly day-30 survival among members with and without the record. They are not the share of members who did the activity. They do not show that a feature caused someone to stay. Quiet coaching texts are not a system failure."
-      : "First-week product use could not be read. Missing use is not treated as inactivity.",
+    engagementNote: engagementNote(input.engagementReadable, engagementGaps),
+    engagementGaps,
     acquisitionReadable: input.acquisitionReadable,
     landingReadable: input.landingReadable,
     experimentReadable: input.experimentReadable,
@@ -477,6 +482,7 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
       : "No customer-written cancellation reason is stored on these ended memberships."
   );
   lines.push(intel.engagementNote);
+  for (const gap of intel.engagementGaps) lines.push(gap);
   if (intel.engagement.length === 0) {
     lines.push("No first-paid-week comparison is available.");
   }
@@ -753,6 +759,17 @@ function buildComparisons(args: {
   });
 }
 
+function engagementNote(readable: boolean, gaps: string[]): string {
+  const base = readable
+    ? "These percentages are monthly day-30 survival among members with and without the record. They are not the share of members who did the activity. They do not show that a feature caused someone to stay. Quiet coaching texts are not a system failure."
+    : "First-week product use could not be read. Missing use is not treated as inactivity.";
+  const gapClause =
+    gaps.length > 0
+      ? " A signal that could not be fully read is left out of these percentages."
+      : "";
+  return `${base}${gapClause} ${UNMEASURED_HISTORY}`;
+}
+
 function paidWeek(chain: Chain): { start: number; end: number } {
   return { start: chain.startMs, end: chain.startMs + 7 * RETENTION_DAY_MS };
 }
@@ -1013,6 +1030,7 @@ function emptyIntelligence(args: {
     engagement: [],
     trialEngagement: [],
     engagementNote: "",
+    engagementGaps: [],
     acquisitionReadable: false,
     landingReadable: false,
     experimentReadable: false,

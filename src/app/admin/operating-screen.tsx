@@ -1188,6 +1188,9 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
 
             <h3 className="font-medium text-gray-900">Monthly experiences and day-30 survival</h3>
             <p>{intel.engagementNote}</p>
+            {intel.engagementGaps.map((gap) => (
+              <p key={gap}>{gap}</p>
+            ))}
             {intel.engagement
               .filter((row) => row.label !== "Evening coaching text")
               .map((row) => (
