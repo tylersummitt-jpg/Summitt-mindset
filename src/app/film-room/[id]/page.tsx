@@ -13,6 +13,7 @@ import {
   signInPathForClient,
 } from "@/lib/native-app/membership-paths";
 import { buildVimeoPlayerEmbedUrl } from "@/lib/vimeo-player-embed";
+import { FilmRoomPlayListener } from "@/components/film-room-play-listener";
 
 function isSubscribedFromMetadata(md: Record<string, unknown>) {
   return (
@@ -68,10 +69,12 @@ export default async function FilmRoomVideoPage({
               <iframe
                 title={iframeTitle}
                 src={playerSrc}
+                data-film-room-player=""
                 className="absolute inset-0 h-full w-full"
                 allow="autoplay; fullscreen; picture-in-picture"
                 allowFullScreen
               />
+              <FilmRoomPlayListener filmId={String(data.id)} />
             </div>
           </div>
         ) : null}

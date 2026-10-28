@@ -17,6 +17,12 @@ import {
 } from "@/components/victory-room-visual";
 import { loadVictorySeasonListForRoom } from "@/lib/v2-victory-season-list";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
+import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
+import { detectSummittMindsetPlatformRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
+import {
+  memberExperiencePlatform,
+  recordMemberExperienceEvent,
+} from "@/lib/member-experience-event";
 import { resolveVictoryCalendarPageState } from "@/lib/v2-victory-calendar";
 import { loadVictoryEvolutionNudge } from "@/lib/v2-victory-evolution-nudge";
 import { getActiveCommitment } from "@/lib/v2-commitment";
@@ -115,6 +121,22 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
     ]);
     calendarMarkers = markers.markers;
     selectedWins = dayWins;
+  }
+
+  if (isSubscribedFromPublicMetadata(md)) {
+    try {
+      const recorded = await recordMemberExperienceEvent({
+        clerkUserId: user.id,
+        metadata: md,
+        eventType: "victory_room_visited",
+        platform: memberExperiencePlatform(await detectSummittMindsetPlatformRequest()),
+      });
+      if (recorded.status === "failed") {
+        console.warn("[member-experience] victory room visit was not recorded");
+      }
+    } catch {
+      console.warn("[member-experience] victory room visit was not recorded");
+    }
   }
 
   return (
