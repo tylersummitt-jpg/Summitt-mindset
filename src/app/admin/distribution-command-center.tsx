@@ -6,9 +6,11 @@ import { useMemo, useState } from "react";
 import {
   actionCount,
   sentActionCount,
+  distributionFactsText,
   showCount,
   showRate,
   sortCampaigns,
+  watchMeasurementNote,
   type CampaignView,
   type DistributionCommandReport,
   type Trust,
@@ -152,9 +154,16 @@ export function DistributionCommandCenter({
               <FunnelRow stage="Final reminders still scheduled" count={showCount(actionCount(report.fulfillment, "send_video_reminder_final", "scheduled"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="Right now" />
               <FunnelRow stage="Final reminders accepted or delivered" count={showCount(sentActionCount(report.fulfillment, "send_video_reminder_final"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "PARTIAL"} when="Right now" />
               <FunnelRow stage="Reminders canceled by a recorded play" count="Unavailable" trust="UNAVAILABLE" when="Reason not stored" />
+              <FunnelRow stage="Prepared video links" count={showCount(report.linksPrepared, "people")} trust={report.linksPrepared == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="This date range" />
               <FunnelRow stage="Video page visits" count={showCount(report.videoVisitPeople, "people")} trust={report.videoVisitPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
+              <FunnelRow stage="Player connected" count={showCount(report.videoPlayerReadyPeople, "people")} trust={report.videoPlayerReadyPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
               <FunnelRow stage="Video plays" count={showCount(report.videoPlayPeople, "people")} trust={report.videoPlayPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
+              <FunnelRow stage="Played 25%" count={showCount(report.videoWatched25People, "people")} trust={report.videoWatched25People == null ? "UNAVAILABLE" : "PARTIAL"} when="Played time, not attention" />
+              <FunnelRow stage="Played 50%" count={showCount(report.videoWatched50People, "people")} trust={report.videoWatched50People == null ? "UNAVAILABLE" : "PARTIAL"} when="Played time, not attention" />
+              <FunnelRow stage="Played 75%" count={showCount(report.videoWatched75People, "people")} trust={report.videoWatched75People == null ? "UNAVAILABLE" : "PARTIAL"} when="Played time, not attention" />
+              <FunnelRow stage="Played 95% or ended" count={showCount(report.videoWatched95People, "people")} trust={report.videoWatched95People == null ? "UNAVAILABLE" : "PARTIAL"} when="Played time or the player ended" />
               <FunnelRow stage="Video trial-button clicks" count={showCount(report.videoCtaPeople, "people")} trust={report.videoCtaPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
+              <FunnelRow stage="Video events with no journey" count={showCount(report.unattributedVideoEvents, "events")} trust={report.unattributedVideoEvents == null ? "UNAVAILABLE" : "PARTIAL"} when="Not placed on a campaign" />
               <FunnelRow stage="Journey-verified trials" count={showCount(report.attributedTrialPeople, "people")} trust={report.attributedTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="This date range" />
               <FunnelRow stage="Journey-verified paid members" count={showCount(report.attributedPaidPeople, "people")} trust={report.attributedPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="This date range" />
               <FunnelRow stage="Email-only trials, not campaign credit" count={showCount(report.emailOnlyTrialPeople, "people")} trust={report.emailOnlyTrialPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
@@ -163,6 +172,7 @@ export function DistributionCommandCenter({
           </table>
         </div>
         <RateList report={report} />
+        <FactsExport report={report} />
       </section>
 
       <section className="space-y-2">
@@ -235,7 +245,14 @@ export function DistributionCommandCenter({
                     <th className="px-3 py-2">Resource requests</th>
                     <th className="px-3 py-2">PDFs delivered now</th>
                     <th className="px-3 py-2">Videos sent now</th>
+                    <th className="px-3 py-2">Links prepared</th>
+                    <th className="px-3 py-2">Video visits</th>
                     <th className="px-3 py-2">Video plays</th>
+                    <th className="px-3 py-2">25%</th>
+                    <th className="px-3 py-2">50%</th>
+                    <th className="px-3 py-2">75%</th>
+                    <th className="px-3 py-2">95% or ended</th>
+                    <th className="px-3 py-2">CTA clicks</th>
                     <th className="px-3 py-2">Verified trials</th>
                     <th className="px-3 py-2">Verified paid</th>
                   </>
@@ -268,7 +285,14 @@ export function DistributionCommandCenter({
                         <td className="px-3 py-2">{showCount(campaign.resourceRequestPeople, "")}</td>
                         <td className="px-3 py-2">{showCount(campaign.deliveredAssets, "")}</td>
                         <td className="px-3 py-2">{showCount(sentPair(campaign.videoAccepted, campaign.videoDelivered), "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.linksPrepared, "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.videoVisitPeople, "")}</td>
                         <td className="px-3 py-2">{showCount(campaign.videoPlayPeople, "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.videoWatched25People, "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.videoWatched50People, "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.videoWatched75People, "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.videoWatched95People, "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.videoCtaPeople, "")}</td>
                         <td className="px-3 py-2">{campaign.attributedTrials}</td>
                         <td className="px-3 py-2">{campaign.attributedPaid}</td>
                       </>
@@ -502,8 +526,9 @@ function CampaignDetail({
       <p>First reminder — scheduled {showCount(campaign.firstReminderScheduled, "actions")}, claimed {showCount(campaign.firstReminderClaimed, "actions")}, accepted {showCount(campaign.firstReminderAccepted, "actions")}, delivered {showCount(campaign.firstReminderDelivered, "actions")}.</p>
       <p>Final reminder — scheduled {showCount(campaign.finalReminderScheduled, "actions")}, claimed {showCount(campaign.finalReminderClaimed, "actions")}, accepted {showCount(campaign.finalReminderAccepted, "actions")}, delivered {showCount(campaign.finalReminderDelivered, "actions")}.</p>
       <p>Reminders currently canceled: {showCount(campaign.remindersCanceled, "actions")}. Canceled by a recorded play: unavailable. The cancellation does not store a reason.</p>
-      <p>Video page visits: {showCount(campaign.videoVisitPeople, "people")}. Plays: {showCount(campaign.videoPlayPeople, "people")}. Trial-button clicks: {showCount(campaign.videoCtaPeople, "people")}. Unavailable means the event did not store this campaign. A visit is not a play, and a play is not a completed watch.</p>
-      <p>Journey-verified trials: {campaign.attributedTrials}. Journey-verified paid members: {campaign.attributedPaid}. An email match is not included.</p>
+      <p>Instantly bounced leads: {showCount(campaign.instantlyBouncedLeads, "leads")}. Instantly unsubscribed leads: {showCount(campaign.instantlyUnsubscribed, "leads")}. Those are Instantly's totals, separate from webhook history.</p>
+      <p>Prepared video links: {showCount(campaign.linksPrepared, "people")}. Visits: {showCount(campaign.videoVisitPeople, "people")}. Player connected: {showCount(campaign.videoPlayerReadyPeople, "people")}. Plays: {showCount(campaign.videoPlayPeople, "people")}. 25% {showCount(campaign.videoWatched25People, "people")}, 50% {showCount(campaign.videoWatched50People, "people")}, 75% {showCount(campaign.videoWatched75People, "people")}, 95% or ended {showCount(campaign.videoWatched95People, "people")}. Trial-button clicks: {showCount(campaign.videoCtaPeople, "people")}. {watchMeasurementNote(campaign)} Counts are verified journeys only. Videos: {campaign.videoIds.length > 0 ? campaign.videoIds.join(", ") : "none stored on these events"}.</p>
+      <p>Journey-verified trials: {campaign.attributedTrials}. Journey-verified paid members: {campaign.attributedPaid}. Video-first journeys among them: {campaign.videoFirstTrials} trials and {campaign.videoFirstPaid} paid members. Earlier journeys on this campaign stay in the first pair. An email match is not included.</p>
       <p>Webhook steps in this range, partial:</p>
       <ul className="list-disc pl-5">
         {campaign.steps.length === 0 ? <li>No recorded step on a send webhook in this range.</li> : campaign.steps.map((step) => (
@@ -513,6 +538,43 @@ function CampaignDetail({
       <p>Instantly steps for this campaign only. {error ?? "Opportunities are Instantly's label."}</p>
       <StepTable rows={steps} empty={error ?? "Instantly did not return steps for this campaign. This is not zero."} />
       <DailyTable title="Instantly daily series for this campaign" rows={(daily ?? []).map((row) => [row.date, showCount(row.sent, "sent"), showCount(row.uniqueReplies, "unique replies")])} empty={error ?? "Instantly did not return a daily series for this campaign. The all-campaign series above is not this campaign."} />
+    </div>
+  );
+}
+
+function FactsExport({ report }: { report: DistributionCommandReport }) {
+  const text = useMemo(() => distributionFactsText(report), [report]);
+  return (
+    <div className="space-y-2">
+      <h3 className="text-base font-semibold text-gray-900">Facts to copy</h3>
+      <p className="text-sm text-gray-600">Counts, identifiers, and definitions for this date range. Copy or download this text for later analysis. It does not rank campaigns.</p>
+      <div className="flex flex-wrap gap-3">
+        <button
+          className="rounded border border-gray-300 bg-white px-3 py-1 text-sm"
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(text);
+          }}
+        >
+          Copy facts
+        </button>
+        <button
+          className="rounded border border-gray-300 bg-white px-3 py-1 text-sm"
+          type="button"
+          onClick={() => {
+            const blob = new Blob([text], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = "distribution-facts.txt";
+            link.click();
+            URL.revokeObjectURL(url);
+          }}
+        >
+          Download facts
+        </button>
+      </div>
+      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded border border-gray-200 bg-white p-3 text-xs text-gray-800">{text}</pre>
     </div>
   );
 }

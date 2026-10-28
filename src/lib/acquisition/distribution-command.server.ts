@@ -135,6 +135,7 @@ export async function loadDistributionCommand(args: {
             sender: typeof row.sender === "string" ? row.sender : null,
             rawInstantlyType,
             step,
+            videoId: typeof metadata.personal_video_id === "string" ? metadata.personal_video_id : null,
           }];
         }),
       };

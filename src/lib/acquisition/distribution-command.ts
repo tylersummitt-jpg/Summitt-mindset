@@ -30,6 +30,7 @@ export type LedgerEvent = {
   sender: string | null;
   rawInstantlyType: string | null;
   step: number | null;
+  videoId?: string | null;
 };
 
 export type LedgerPerson = {
@@ -114,6 +115,9 @@ export type CampaignView = {
   interestedWebhookPeople: number | null;
   attributedTrials: number;
   attributedPaid: number;
+  /** Trials and payments whose journey has a prepared video link. Earlier journeys stay in the totals above. */
+  videoFirstTrials: number;
+  videoFirstPaid: number;
   sequenceFinishedEvents: number | null;
   unknownWebhookEvents: number | null;
   instantlyLeads: number | null;
@@ -142,10 +146,17 @@ export type CampaignView = {
   finalReminderAccepted: number | null;
   finalReminderDelivered: number | null;
   remindersCanceled: number | null;
-  /** Null when a video event in this range has no campaign. That is not zero. */
+  /** Verified person, journey, and campaign. Null only when the ledger could not be read. */
   videoVisitPeople: number | null;
   videoPlayPeople: number | null;
+  videoPlayerReadyPeople: number | null;
+  videoWatched25People: number | null;
+  videoWatched50People: number | null;
+  videoWatched75People: number | null;
+  videoWatched95People: number | null;
   videoCtaPeople: number | null;
+  linksPrepared: number | null;
+  videoIds: string[];
   firstRecordedSend: string | null;
   instantlyCreated: string | null;
   startSource: "instantly_created" | "first_recorded_send" | "unknown";
@@ -208,6 +219,14 @@ export type DistributionCommandReport = {
   videoPlayEvents: number | null;
   videoCtaPeople: number | null;
   videoCtaEvents: number | null;
+  videoPlayerReadyPeople: number | null;
+  videoWatched25People: number | null;
+  videoWatched50People: number | null;
+  videoWatched75People: number | null;
+  videoWatched95People: number | null;
+  /** Video events with a person and no verified journey. Missing playback is not in this count. */
+  unattributedVideoEvents: number | null;
+  linksPrepared: number | null;
   /** Confirmed accept_offer messages. lead_interested is not included. */
   resourceRequestPeople: number | null;
   /** Always null. Cancellation does not store a reason. */
@@ -296,6 +315,13 @@ export function unreadableDistributionCommand(note: string, rangeLabel: string):
     videoPlayEvents: null,
     videoCtaPeople: null,
     videoCtaEvents: null,
+    videoPlayerReadyPeople: null,
+    videoWatched25People: null,
+    videoWatched50People: null,
+    videoWatched75People: null,
+    videoWatched95People: null,
+    unattributedVideoEvents: null,
+    linksPrepared: null,
     resourceRequestPeople: null,
     remindersCanceledByPlay: null,
     rates: emptyRates("The cold-email ledger could not be read."),
@@ -361,11 +387,14 @@ type MutableCampaign = CampaignView & {
   observedPeople: Set<string>;
   trialPeople: Set<string>;
   paidPeople: Set<string>;
+  videoFirstTrialPeople: Set<string>;
+  videoFirstPaidPeople: Set<string>;
   requestPeople: Set<string>;
   mailboxSends: Map<string, number>;
   stepSends: Map<string, { events: number; people: Set<string>; replyPeople: Set<string> }>;
   sendsForAge: Array<{ at: number; personId: string | null; step: number | null }>;
   repliesForAge: Array<{ at: number; personId: string | null }>;
+  videoIdSet: Set<string>;
 };
 
 function blankCampaign(id: string): MutableCampaign {
@@ -389,6 +418,8 @@ function blankCampaign(id: string): MutableCampaign {
     interestedWebhookPeople: 0,
     attributedTrials: 0,
     attributedPaid: 0,
+    videoFirstTrials: 0,
+    videoFirstPaid: 0,
     sequenceFinishedEvents: 0,
     unknownWebhookEvents: 0,
     instantlyLeads: null,
@@ -419,7 +450,15 @@ function blankCampaign(id: string): MutableCampaign {
     remindersCanceled: null,
     videoVisitPeople: null,
     videoPlayPeople: null,
+    videoPlayerReadyPeople: null,
+    videoWatched25People: null,
+    videoWatched50People: null,
+    videoWatched75People: null,
+    videoWatched95People: null,
     videoCtaPeople: null,
+    linksPrepared: null,
+    videoIds: [],
+    videoIdSet: new Set<string>(),
     firstRecordedSend: null,
     instantlyCreated: null,
     startSource: "unknown",
@@ -436,6 +475,8 @@ function blankCampaign(id: string): MutableCampaign {
     observedPeople: new Set(),
     trialPeople: new Set(),
     paidPeople: new Set(),
+    videoFirstTrialPeople: new Set(),
+    videoFirstPaidPeople: new Set(),
     requestPeople: new Set(),
     mailboxSends: new Map(),
     stepSends: new Map(),
@@ -629,8 +670,8 @@ export function buildDistributionCommand(args: {
   let videoVisitEvents = 0;
   let videoPlayEvents = 0;
   let videoCtaEvents = 0;
+  let unattributedVideoEvents = 0;
   let videoPeopleIncomplete = false;
-  let videoCampaignKnown = true;
   const unknownTypes = new Map<string, number>();
   const sendPeople = new Set<string>();
   const observedPeople = new Set<string>();
@@ -645,10 +686,35 @@ export function buildDistributionCommand(args: {
   const videoCtaPeople = new Set<string>();
   const videoVisitsByCampaign = new Map<string, Set<string>>();
   const videoPlaysByCampaign = new Map<string, Set<string>>();
+  const videoReadyByCampaign = new Map<string, Set<string>>();
+  const video25ByCampaign = new Map<string, Set<string>>();
+  const video50ByCampaign = new Map<string, Set<string>>();
+  const video75ByCampaign = new Map<string, Set<string>>();
+  const video95ByCampaign = new Map<string, Set<string>>();
   const videoCtasByCampaign = new Map<string, Set<string>>();
+  const linksByCampaign = new Map<string, Set<string>>();
+  const videoReadyPeople = new Set<string>();
+  const video25People = new Set<string>();
+  const video50People = new Set<string>();
+  const video75People = new Set<string>();
+  const video95People = new Set<string>();
+  const linksPreparedPeople = new Set<string>();
+  const videoJourneyIds = new Set<string>();
   const deliveredAssetPeople = new Map<string, Set<string>>();
   const daily = new Map<string, number>();
   const mailboxCampaigns = new Map<string, { sends: number; campaigns: Set<string> }>();
+
+  const videoBucket = (eventType: string): { people: Set<string>; byCampaign: Map<string, Set<string>> } | null => {
+    if (eventType === "personal_video_visited") return { people: videoVisitPeople, byCampaign: videoVisitsByCampaign };
+    if (eventType === "personal_video_played") return { people: videoPlayPeople, byCampaign: videoPlaysByCampaign };
+    if (eventType === "personal_video_player_ready") return { people: videoReadyPeople, byCampaign: videoReadyByCampaign };
+    if (eventType === "personal_video_watched_25") return { people: video25People, byCampaign: video25ByCampaign };
+    if (eventType === "personal_video_watched_50") return { people: video50People, byCampaign: video50ByCampaign };
+    if (eventType === "personal_video_watched_75") return { people: video75People, byCampaign: video75ByCampaign };
+    if (eventType === "personal_video_watched_95") return { people: video95People, byCampaign: video95ByCampaign };
+    if (eventType === "personal_video_cta_clicked") return { people: videoCtaPeople, byCampaign: videoCtasByCampaign };
+    return null;
+  };
 
   for (const event of args.events) {
     const key = dedupeKey(event);
@@ -657,6 +723,9 @@ export function buildDistributionCommand(args: {
       seen.add(key);
     }
     const kind = classify(event);
+    if (event.provider === "system" && event.eventType === "video_link_prepared" && event.journeyId) {
+      videoJourneyIds.add(event.journeyId);
+    }
     if (!inRange(event.occurredAt, args.startMs, args.endMs)) {
       if (event.campaignId && kind === "send") {
         const campaign = ensure(event.campaignId);
@@ -674,32 +743,33 @@ export function buildDistributionCommand(args: {
       }
       continue;
     }
-    if (event.provider === "personal_video") {
-      const bucket = event.eventType === "personal_video_visited"
-        ? videoVisitPeople
-        : event.eventType === "personal_video_played"
-          ? videoPlayPeople
-          : event.eventType === "personal_video_cta_clicked"
-            ? videoCtaPeople
-            : null;
-      const byCampaign = bucket === videoVisitPeople
-        ? videoVisitsByCampaign
-        : bucket === videoPlayPeople
-          ? videoPlaysByCampaign
-          : bucket === videoCtaPeople
-            ? videoCtasByCampaign
-            : null;
-      if (bucket) {
-        if (event.eventType === "personal_video_visited") videoVisitEvents += 1;
-        if (event.eventType === "personal_video_played") videoPlayEvents += 1;
-        if (event.eventType === "personal_video_cta_clicked") videoCtaEvents += 1;
-        if (event.personId) bucket.add(event.personId);
-        else videoPeopleIncomplete = true;
-        if (!event.campaignId) videoCampaignKnown = false;
-        else if (event.personId && byCampaign) {
-          const people = byCampaign.get(event.campaignId) ?? new Set<string>();
+    if (event.provider === "personal_video" || (event.provider === "system" && event.eventType === "video_link_prepared")) {
+      const verified = Boolean(event.personId && event.campaignId && event.journeyId);
+      if (event.provider === "system") {
+        if (verified && event.personId && event.campaignId) {
+          linksPreparedPeople.add(event.personId);
+          const people = linksByCampaign.get(event.campaignId) ?? new Set<string>();
           people.add(event.personId);
-          byCampaign.set(event.campaignId, people);
+          linksByCampaign.set(event.campaignId, people);
+          if (event.videoId) ensure(event.campaignId).videoIdSet.add(event.videoId);
+        }
+      } else {
+        const bucket = videoBucket(event.eventType);
+        if (bucket) {
+          if (event.eventType === "personal_video_visited") videoVisitEvents += 1;
+          if (event.eventType === "personal_video_played") videoPlayEvents += 1;
+          if (event.eventType === "personal_video_cta_clicked") videoCtaEvents += 1;
+          const people = bucket.people;
+          if (event.personId) people.add(event.personId);
+          else videoPeopleIncomplete = true;
+          if (!verified) {
+            if (event.personId) unattributedVideoEvents += 1;
+          } else if (event.personId && event.campaignId && bucket.byCampaign) {
+            const campaignPeople = bucket.byCampaign.get(event.campaignId) ?? new Set<string>();
+            campaignPeople.add(event.personId);
+            bucket.byCampaign.set(event.campaignId, campaignPeople);
+            if (event.videoId) ensure(event.campaignId).videoIdSet.add(event.videoId);
+          }
         }
       }
     }
@@ -729,11 +799,15 @@ export function buildDistributionCommand(args: {
       if (event.eventType === "trial_started") {
         if (verifiedCampaign) {
           attributedTrialPeople.add(event.personId);
-          ensure(verifiedCampaign).trialPeople.add(event.personId);
+          const campaign = ensure(verifiedCampaign);
+          campaign.trialPeople.add(event.personId);
+          if (event.journeyId && videoJourneyIds.has(event.journeyId)) campaign.videoFirstTrialPeople.add(event.personId);
         } else emailOnlyTrialPeople.add(event.personId);
       } else if (verifiedCampaign) {
         attributedPaidPeople.add(event.personId);
-        ensure(verifiedCampaign).paidPeople.add(event.personId);
+        const campaign = ensure(verifiedCampaign);
+        campaign.paidPeople.add(event.personId);
+        if (event.journeyId && videoJourneyIds.has(event.journeyId)) campaign.videoFirstPaidPeople.add(event.personId);
       } else emailOnlyPaidPeople.add(event.personId);
     }
     if (!event.campaignId) continue;
@@ -854,11 +928,15 @@ export function buildDistributionCommand(args: {
       campaign.remindersCanceled ??= 0;
     }
     campaign.resourceRequestPeople = resourceRequestsIncomplete ? null : campaign.requestPeople.size;
-    if (videoCampaignKnown && !videoPeopleIncomplete) {
-      campaign.videoVisitPeople = videoVisitsByCampaign.get(campaign.id)?.size ?? 0;
-      campaign.videoPlayPeople = videoPlaysByCampaign.get(campaign.id)?.size ?? 0;
-      campaign.videoCtaPeople = videoCtasByCampaign.get(campaign.id)?.size ?? 0;
-    }
+    campaign.videoVisitPeople = videoVisitsByCampaign.get(campaign.id)?.size ?? 0;
+    campaign.videoPlayPeople = videoPlaysByCampaign.get(campaign.id)?.size ?? 0;
+    campaign.videoPlayerReadyPeople = videoReadyByCampaign.get(campaign.id)?.size ?? 0;
+    campaign.videoWatched25People = video25ByCampaign.get(campaign.id)?.size ?? 0;
+    campaign.videoWatched50People = video50ByCampaign.get(campaign.id)?.size ?? 0;
+    campaign.videoWatched75People = video75ByCampaign.get(campaign.id)?.size ?? 0;
+    campaign.videoWatched95People = video95ByCampaign.get(campaign.id)?.size ?? 0;
+    campaign.videoCtaPeople = videoCtasByCampaign.get(campaign.id)?.size ?? 0;
+    campaign.linksPrepared = linksByCampaign.get(campaign.id)?.size ?? 0;
     const profile = profileById.get(campaign.id);
     const analytics = analyticsById.get(campaign.id);
     if (analytics?.campaignName) campaign.name = analytics.campaignName;
@@ -891,6 +969,8 @@ export function buildDistributionCommand(args: {
     campaign.interestedWebhookPeople = campaign.interestPeople.size;
     campaign.attributedTrials = campaign.trialPeople.size;
     campaign.attributedPaid = campaign.paidPeople.size;
+    campaign.videoFirstTrials = campaign.videoFirstTrialPeople.size;
+    campaign.videoFirstPaid = campaign.videoFirstPaidPeople.size;
     campaign.steps = [...campaign.stepSends.entries()]
       .map(([step, value]) => ({
         step,
@@ -989,8 +1069,8 @@ export function buildDistributionCommand(args: {
 
   const reportCampaigns = [...campaigns.values()]
     .map((campaign) => {
-      const { sendPeople: _s, replyPeople: _r, interestPeople: _i, observedPeople: _o, trialPeople: _trial, paidPeople: _paid, requestPeople: _request, mailboxSends: _m, stepSends: _t, sendsForAge: _a, repliesForAge: _p, ...view } = campaign;
-      return view;
+      const { sendPeople: _s, replyPeople: _r, interestPeople: _i, observedPeople: _o, trialPeople: _trial, paidPeople: _paid, videoFirstTrialPeople: _videoTrial, videoFirstPaidPeople: _videoPaid, requestPeople: _request, mailboxSends: _m, stepSends: _t, sendsForAge: _a, repliesForAge: _p, videoIdSet, ...view } = campaign;
+      return { ...view, videoIds: [...videoIdSet].sort() };
     })
     .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
 
@@ -1031,7 +1111,9 @@ export function buildDistributionCommand(args: {
     "A campaign trial or paid count includes only a Stripe event whose campaign was copied from a journey that belongs to that person. An email match without that journey is listed separately and is not campaign attribution. Collected revenue is unavailable. Older events were not backfilled.",
     "Instantly's email totals are not added to webhook totals.",
     "A video visit, a play, and a trial-button click are separate events. A play is the first press of play, not a completed watch.",
-    "A video event does not store a campaign. When any video event in this range lacks one, every campaign video count stays unavailable. That is not zero.",
+    "25%, 50%, 75%, and 95% count the first time Vimeo reported that share of the video as played. Seeking the playhead does not add time. A milestone is not a measure of attention. 95% also includes the player reporting that the video ended.",
+    "A campaign video count includes only an event that stores the person, the journey, and the campaign. Other video events in this range are unattributed and are not placed on a campaign. A missing player report is not a verified zero watch.",
+    "Journey-verified trials and payments include every journey on that campaign. Video-first trials and payments include only journeys that have a prepared video link. Earlier PDF journeys stay in the broader count. Old events are not rewritten.",
     "Reminder cancellation does not store a reason, so a canceled reminder is not counted as canceled by a play.",
     "Confirmed resource requests are accept_offer messages. lead_interested is not a request.",
     "Scheduled and claimed actions are still held. Accepted by Resend is not delivered.",
@@ -1062,6 +1144,13 @@ export function buildDistributionCommand(args: {
     videoPlayEvents,
     videoCtaPeople: videoPeopleIncomplete ? null : videoCtaPeople.size,
     videoCtaEvents,
+    videoPlayerReadyPeople: videoPeopleIncomplete ? null : videoReadyPeople.size,
+    videoWatched25People: videoPeopleIncomplete ? null : video25People.size,
+    videoWatched50People: videoPeopleIncomplete ? null : video50People.size,
+    videoWatched75People: videoPeopleIncomplete ? null : video75People.size,
+    videoWatched95People: videoPeopleIncomplete ? null : video95People.size,
+    unattributedVideoEvents,
+    linksPrepared: linksPreparedPeople.size,
     resourceRequestPeople: resourceRequestsIncomplete ? null : resourceRequestIds.size,
     remindersCanceledByPlay: null,
     rates,
@@ -1175,7 +1264,7 @@ function funnelRates(args: {
       ? "People with a trial-button click in this range, divided by people with a play in this range. A click is not a completed watch."
       : "No recorded play is in this range, so the rate is not calculated. A visit is not a play.";
   }
-  rates.notes.videoToTrial = "A video play does not store the journey, so plays are not divided into trials.";
+  rates.notes.videoToTrial = "Plays are not divided into trials. A trial is counted only when checkout stored a verified journey.";
   const paidOutsideTrials = [...args.paidPeople].some((personId) => !args.trialPeople.has(personId));
   if (!args.allTime || paidOutsideTrials) {
     rates.notes.trialToPaid = "Calculated only for all time, and only when every journey-verified paid member also has a journey-verified trial. A short range can show a payment whose trial happened earlier.";
@@ -1211,4 +1300,72 @@ function completionNote(campaign: CampaignView): string {
     return "Some leads have a preserved sequence-finished webhook. That does not finish the campaign or the experiment.";
   }
   return "Completion is unknown. A pause or an old start date is not a finished experiment.";
+}
+
+export function watchMeasurementNote(campaign: Pick<CampaignView, "videoVisitPeople" | "videoPlayerReadyPeople" | "videoPlayPeople">): string {
+  if (campaign.videoVisitPeople == null || campaign.videoPlayerReadyPeople == null || campaign.videoPlayPeople == null) {
+    return "Watch counts could not be read.";
+  }
+  if (campaign.videoVisitPeople > 0 && campaign.videoPlayerReadyPeople === 0) {
+    return "People opened the page, and the player did not report. That is missing playback data, not a verified zero watch.";
+  }
+  if (campaign.videoPlayerReadyPeople > 0 && campaign.videoPlayPeople === 0) {
+    return "The player connected, and no play was recorded.";
+  }
+  return "A milestone is the first time played time reached that share of the video. It is not a measure of attention, and a play is not a completed watch.";
+}
+
+export function distributionFactsText(report: DistributionCommandReport): string {
+  const lines = [
+    "Summitt Mindset distribution facts",
+    `Range: ${report.rangeLabel}`,
+    "",
+    "Definitions",
+    "Instantly sends, replies, bounces, and unsubscribes are Instantly's own totals. They are not added to webhook history.",
+    "Webhook history starts 22 Oct 2026. Older campaigns can be missing sends.",
+    "lead_interested is not a reply.",
+    "A prepared video link is one recipient journey with a video_url. Preparing a link does not send email.",
+    "A visit is a page open. A play is the first press of play. A play is not a completed watch.",
+    "25%, 50%, 75%, and 95% are the first time Vimeo reported that share of the video as played. Seeking the playhead does not add time. These are not measures of attention. 95% also includes the player reporting that the video ended.",
+    "A campaign count includes only an event that stores the person, the journey, and the campaign.",
+    "Unattributed video events are not placed on a campaign. A missing player report is not a verified zero watch.",
+    "A journey-verified trial or paid member comes from checkout that carried a signed journey for that person. An email match is not included. Revenue is unavailable.",
+    "Nothing here ranks a campaign or explains why someone subscribed.",
+    "",
+    `Unattributed video events: ${report.unattributedVideoEvents ?? "could not be read"}`,
+    `Prepared video links: ${report.linksPrepared ?? "could not be read"}`,
+    "",
+    "Campaigns",
+  ];
+  for (const campaign of report.campaigns) {
+    lines.push(
+      [
+        campaign.name ?? "Name unavailable",
+        campaign.id,
+        `status ${campaign.statusLabel}`,
+        `videos ${campaign.videoIds.length > 0 ? campaign.videoIds.join(" ") : "none stored"}`,
+        `instantly sent ${showCount(campaign.instantlySent, "")}`,
+        `instantly unique replies ${showCount(campaign.instantlyUniqueReplies, "")}`,
+        `webhook reply rate ${showRate(campaign.webhookReplyPeople, campaign.webhookContacted) ?? "not calculated"}`,
+        `instantly bounced leads ${showCount(campaign.instantlyBouncedLeads, "")}`,
+        `instantly unsubscribed leads ${showCount(campaign.instantlyUnsubscribed, "")}`,
+        `links prepared ${showCount(campaign.linksPrepared, "")}`,
+        `visits ${showCount(campaign.videoVisitPeople, "")}`,
+        `player ready ${showCount(campaign.videoPlayerReadyPeople, "")}`,
+        `plays ${showCount(campaign.videoPlayPeople, "")}`,
+        `25% ${showCount(campaign.videoWatched25People, "")}`,
+        `50% ${showCount(campaign.videoWatched50People, "")}`,
+        `75% ${showCount(campaign.videoWatched75People, "")}`,
+        `95% or ended ${showCount(campaign.videoWatched95People, "")}`,
+        `cta ${showCount(campaign.videoCtaPeople, "")}`,
+        `verified trials ${campaign.attributedTrials}`,
+        `verified paid ${campaign.attributedPaid}`,
+        `video-first trials ${campaign.videoFirstTrials}`,
+        `video-first paid ${campaign.videoFirstPaid}`,
+      ].join(" | "),
+    );
+    lines.push(watchMeasurementNote(campaign));
+  }
+  if (report.campaigns.length === 0) lines.push("No campaign is in this read.");
+  return `${lines.join("\n")}\n`;
 }

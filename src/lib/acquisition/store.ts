@@ -43,6 +43,11 @@ import {
   videoReminderCopy,
   videoReminderTimes,
 } from "@/lib/acquisition/video-reminders";
+import {
+  acquisitionVideoEventId,
+  isAcquisitionVideoEventType,
+  type AcquisitionVideoEventType,
+} from "@/lib/acquisition/video-milestones";
 import { inboundIdsBlockedByEmailAnswers, reconcileAcquisitionEmailAnswers } from "@/lib/acquisition/email-manual-answer.server";
 import { outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
 import {
@@ -101,6 +106,7 @@ import {
   acquisitionTrialCheckoutUrl,
   attributionFromVerifiedJourney,
   parseAcquisitionJourneyId,
+  readSignedAcquisitionJourneyId,
   signAcquisitionJourneyId,
 } from "@/lib/acquisition/email-acquired-member-notice";
 import { runAcquisitionPass, type PassEffect, type PassSendRequest } from "@/lib/acquisition/pass";
@@ -889,27 +895,64 @@ async function applyPersonEvent(event: Extract<InstantlyNormalized, { kind: "per
   return { ok: true as const };
 }
 
+export async function acquisitionRecipientToken(
+  personId: string,
+  personalVideoId: string,
+): Promise<string | null | "unavailable"> {
+  return ensureRecipient(personId, personalVideoId);
+}
+
+async function verifiedVideoJourney(args: {
+  personId: string;
+  journeyToken: string | null | undefined;
+}): Promise<{ journeyId: string; campaignId: string } | null> {
+  const secret = process.env.CRON_SECRET?.trim() ?? "";
+  const journeyId = readSignedAcquisitionJourneyId(args.journeyToken, secret);
+  if (!journeyId) return null;
+  const { data, error } = await supabaseServer
+    .from("acquisition_journeys")
+    .select("id, person_id, campaign_id")
+    .eq("id", journeyId)
+    .maybeSingle();
+  if (error || data?.person_id !== args.personId) return null;
+  if (typeof data.campaign_id !== "string" || !data.campaign_id || typeof data.id !== "string") return null;
+  return { journeyId: data.id, campaignId: data.campaign_id };
+}
+
 export async function recordAcquisitionVideoEvent(args: {
   token: string;
-  eventType: "personal_video_visited" | "personal_video_played" | "personal_video_cta_clicked";
+  eventType: AcquisitionVideoEventType;
+  journeyToken?: string | null;
   occurredAt?: string;
 }): Promise<void> {
+  if (!isAcquisitionVideoEventType(args.eventType)) return;
   const { data, error } = await supabaseServer
     .from("acquisition_video_recipients")
     .select("id, person_id, personal_video_id")
     .eq("public_token", args.token)
     .maybeSingle();
   if (error || !data?.person_id || !data.id) return;
+  const personId = String(data.person_id);
+  const verified = await verifiedVideoJourney({ personId, journeyToken: args.journeyToken });
   await insertEvent({
-    personId: String(data.person_id),
+    personId,
     provider: "personal_video",
-    providerEventId: `recipient:${data.id}:${args.eventType}`,
+    providerEventId: acquisitionVideoEventId({
+      recipientId: String(data.id),
+      eventType: args.eventType,
+      journeyId: verified?.journeyId ?? null,
+    }),
     eventType: args.eventType,
     occurredAt: args.occurredAt ?? new Date().toISOString(),
-    metadata: { recipient_id: data.id },
+    campaignId: verified?.campaignId ?? null,
+    journeyId: verified?.journeyId ?? null,
+    metadata: {
+      recipient_id: data.id,
+      ...(typeof data.personal_video_id === "string" ? { personal_video_id: data.personal_video_id } : {}),
+    },
   });
   if (args.eventType === "personal_video_played" && typeof data.personal_video_id === "string") {
-    await cancelRemindersAfterPlay(String(data.person_id), data.personal_video_id);
+    await cancelRemindersAfterPlay(personId, data.personal_video_id);
   }
 }
 
@@ -2025,10 +2068,12 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
         .from("acquisition_events")
         .select("id")
         .eq("provider", "personal_video")
-        .eq("provider_event_id", `recipient:${recipient.data.id}:personal_video_played`)
-        .maybeSingle();
+        .eq("person_id", personId)
+        .eq("event_type", "personal_video_played")
+        .like("provider_event_id", `recipient:${recipient.data.id}:%personal_video_played`)
+        .limit(1);
       if (played.error) return "unknown";
-      return played.data ? "played" : "unplayed";
+      return Array.isArray(played.data) && played.data.length > 0 ? "played" : "unplayed";
     },
     videoToken: async (person, action) => {
       if (action.journeyId) {

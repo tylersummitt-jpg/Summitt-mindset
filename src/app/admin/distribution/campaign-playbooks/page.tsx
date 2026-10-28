@@ -22,7 +22,7 @@ export default async function CampaignPlaybooksPage() {
         Find the campaign by its Instantly name, confirm the audience and offer, then read the checklist before turning on post-reply automation. Instantly sends the cold email. This page does not. Saving a playbook does not send mail.
       </p>
       <CampaignPlaybooksDashboard
-        videos={videos.map((video) => ({ id: video.id, status: video.status, createdAt: video.createdAt }))}
+        videos={videos.map((video) => ({ id: video.id, status: video.status, createdAt: video.createdAt, publicToken: video.publicToken }))}
       />
     </main>
   );

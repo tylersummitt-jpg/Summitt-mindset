@@ -29,6 +29,7 @@ import { isPersonalVideoEventType, parsePersonalVideoId } from "@/lib/personal-v
 import { isPersonalVideoToken } from "@/lib/personal-videos/personal-video";
 import { insertPersonalVideoEvent } from "@/lib/personal-videos/analytics.server";
 import { recordAcquisitionVideoEvent } from "@/lib/acquisition/store";
+import { isAcquisitionVideoEventType } from "@/lib/acquisition/video-milestones";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,25 +56,29 @@ export async function POST(req: NextRequest) {
     if (!body || typeof body !== "object") return collectFailOpenResponse();
     const rec = body as Record<string, unknown>;
     const eventType = rec.event_type;
-    if (!isClientCollectEventType(eventType)) {
+    if (!isClientCollectEventType(eventType) && !isAcquisitionVideoEventType(eventType)) {
       return collectFailOpenResponse();
     }
 
     const cookies = await readMarketingCookiesFromRequest(req);
-    if (isPersonalVideoEventType(eventType)) {
+    if (isPersonalVideoEventType(eventType) || isAcquisitionVideoEventType(eventType)) {
       if (await isTylerAdminSession()) return collectFailOpenResponse();
       const personalVideoId = parsePersonalVideoId(rec.personal_video_id);
-      if (!cookies.visitorId || !personalVideoId) return collectFailOpenResponse();
-      await insertPersonalVideoEvent({
-        eventType,
-        visitorId: cookies.visitorId,
-        personalVideoId,
-        attribution: cookies.attribution,
-      });
-      if (typeof rec.recipient_token === "string" && isPersonalVideoToken(rec.recipient_token)) {
+      const journeyToken = typeof rec.acquisition_journey === "string" ? rec.acquisition_journey : null;
+      if (isPersonalVideoEventType(eventType)) {
+        if (!cookies.visitorId || !personalVideoId) return collectFailOpenResponse();
+        await insertPersonalVideoEvent({
+          eventType,
+          visitorId: cookies.visitorId,
+          personalVideoId,
+          attribution: cookies.attribution,
+        });
+      }
+      if (typeof rec.recipient_token === "string" && isPersonalVideoToken(rec.recipient_token) && isAcquisitionVideoEventType(eventType)) {
         await recordAcquisitionVideoEvent({
           token: rec.recipient_token,
           eventType,
+          journeyToken,
         });
       }
       return collectFailOpenResponse();

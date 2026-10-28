@@ -409,7 +409,8 @@ describe("unified distribution funnel", () => {
     expect(report.videoPlayPeople).toBe(1);
     expect(report.videoPlayEvents).toBe(1);
     expect(report.videoCtaPeople).toBe(0);
-    expect(report.campaigns[0]?.videoPlayPeople).toBeNull();
+    expect(report.unattributedVideoEvents).toBe(2);
+    expect(report.campaigns[0]?.videoPlayPeople).toBe(0);
     expect(report.rates.videoToTrial).toBeNull();
     expect(report.rates.playToCta).toBe("0%");
   });
@@ -424,6 +425,7 @@ describe("unified distribution funnel", () => {
         eventType: "personal_video_played",
         providerEventId: "recipient:1:personal_video_played",
         campaignId: "camp-b",
+        journeyId: "11111111-1111-4111-8111-111111111111",
         sender: null,
         step: null,
       }),
@@ -534,6 +536,93 @@ describe("unified distribution funnel", () => {
     expect(ranged.rates.trialToPaid).toBeNull();
     const allTime = build([trial, paid], [person("p1", "camp-a")], { startMs: null, rangeLabel: "All time" });
     expect(allTime.rates.trialToPaid).toBe("100%");
+  });
+
+  it("counts the same video on two campaigns only where the journey is stored", () => {
+    const report = build([
+      event({
+        personId: "p1",
+        provider: "personal_video",
+        eventType: "personal_video_watched_25",
+        providerEventId: "a-25",
+        campaignId: "camp-a",
+        journeyId: "journey-a",
+        videoId: "video-1",
+        sender: null,
+        step: null,
+      }),
+      event({
+        personId: "p1",
+        provider: "personal_video",
+        eventType: "personal_video_watched_25",
+        providerEventId: "b-25",
+        campaignId: "camp-b",
+        journeyId: "journey-b",
+        videoId: "video-1",
+        sender: null,
+        step: null,
+      }),
+      event({
+        personId: "p1",
+        provider: "system",
+        eventType: "video_link_prepared",
+        providerEventId: "prep-a",
+        campaignId: "camp-a",
+        journeyId: "journey-a",
+        videoId: "video-1",
+        sender: null,
+        step: null,
+      }),
+    ], [person("p1", "camp-a")]);
+    const a = report.campaigns.find((campaign) => campaign.id === "camp-a");
+    const b = report.campaigns.find((campaign) => campaign.id === "camp-b");
+    expect(a?.videoWatched25People).toBe(1);
+    expect(b?.videoWatched25People).toBe(1);
+    expect(a?.linksPrepared).toBe(1);
+    expect(b?.linksPrepared).toBe(0);
+    expect(a?.videoIds).toEqual(["video-1"]);
+    expect(report.videoWatched25People).toBe(1);
+    expect(a?.attributedTrials).toBe(0);
+  });
+
+  it("counts a video-first trial separately from an earlier journey on the same campaign", () => {
+    const report = build([
+      event({
+        personId: "p1",
+        provider: "system",
+        eventType: "video_link_prepared",
+        providerEventId: "prep",
+        campaignId: "camp-a",
+        journeyId: "journey-video",
+        videoId: "video-1",
+        sender: null,
+        step: null,
+      }),
+      event({
+        personId: "p1",
+        provider: "stripe",
+        eventType: "trial_started",
+        providerEventId: "trial-new",
+        campaignId: "camp-a",
+        journeyId: "journey-video",
+        sender: null,
+        step: null,
+      }),
+      event({
+        personId: "p2",
+        provider: "stripe",
+        eventType: "trial_started",
+        providerEventId: "trial-old",
+        campaignId: "camp-a",
+        journeyId: "journey-pdf",
+        sender: null,
+        step: null,
+      }),
+    ], [person("p1", "camp-a"), person("p2", "camp-a")]);
+    const campaign = report.campaigns.find((item) => item.id === "camp-a");
+    expect(campaign?.attributedTrials).toBe(2);
+    expect(campaign?.videoFirstTrials).toBe(1);
+    expect(campaign?.videoFirstPaid).toBe(0);
   });
 });
 

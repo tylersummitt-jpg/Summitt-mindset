@@ -12,6 +12,7 @@ import {
 } from "@/lib/acquisition/campaign-catalog";
 import type { PendingFulfillmentView } from "@/lib/acquisition/campaign-activation";
 import type { PlaybookVersion } from "@/lib/acquisition/playbook";
+import { VideoFirstLeadPanel } from "@/app/admin/distribution/campaign-playbooks/video-first-lead-panel";
 
 const CATALOG = [
   ["definite_dozen", "Pat Summitt Definite Dozen team discussion guide"],
@@ -19,7 +20,7 @@ const CATALOG = [
   ["definite_dozen_ad", "Pat Summitt Definite Dozen athletic director discussion guide"],
 ] as const;
 
-type VideoChoice = { id: string; status: string; createdAt: string };
+type VideoChoice = { id: string; status: string; createdAt: string; publicToken: string };
 type Gates = { automation: string; interpretation: string; sending: string; blocklist: string };
 
 const EMPTY = {
@@ -349,6 +350,10 @@ export default function CampaignPlaybooksDashboard({ videos }: { videos: VideoCh
             <button className="underline" type="button" onClick={() => void automation(selected.id, "finish")}>Finish campaign</button>
           </div>
         </section>
+      ) : null}
+
+      {selected && !copySource ? (
+        <VideoFirstLeadPanel campaignId={selected.id} campaignName={selected.name ?? "this campaign"} videos={videos} />
       ) : null}
 
       {selected || copySource || instantly !== "ready" || truncated ? (

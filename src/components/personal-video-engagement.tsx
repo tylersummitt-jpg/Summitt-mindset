@@ -4,17 +4,25 @@ import Link from "next/link";
 import { useEffect, useRef } from "react";
 
 import type { PersonalVideoEventType } from "@/lib/personal-videos/analytics";
+import {
+  crossedMilestones,
+  playedShare,
+  type AcquisitionVideoEventType,
+} from "@/lib/acquisition/video-milestones";
 
 type VimeoPlayer = {
-  on(event: "play", callback: () => void): void;
-  off(event: "play", callback?: () => void): void;
+  on(event: "play" | "timeupdate" | "ended", callback: () => void): void;
+  off(event: "play" | "timeupdate" | "ended", callback?: () => void): void;
   destroy(): Promise<void>;
+  getPlayed(): Promise<unknown>;
+  getDuration(): Promise<unknown>;
 };
 
 function postPersonalVideoEvent(
-  eventType: PersonalVideoEventType,
+  eventType: PersonalVideoEventType | AcquisitionVideoEventType,
   personalVideoId: string,
-  recipientToken?: string | null
+  recipientToken?: string | null,
+  journeyToken?: string | null,
 ) {
   try {
     void fetch("/api/marketing/collect", {
@@ -26,6 +34,7 @@ function postPersonalVideoEvent(
         event_type: eventType,
         personal_video_id: personalVideoId,
         ...(recipientToken ? { recipient_token: recipientToken } : {}),
+        ...(journeyToken ? { acquisition_journey: journeyToken } : {}),
       }),
     });
   } catch {
@@ -37,11 +46,13 @@ export function PersonalVideoPlayer({
   playerSrc,
   personalVideoId,
   recipientToken = null,
+  journeyToken = null,
   track,
 }: {
   playerSrc: string;
   personalVideoId: string;
   recipientToken?: string | null;
+  journeyToken?: string | null;
   track: boolean;
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -50,8 +61,35 @@ export function PersonalVideoPlayer({
     if (!track) return;
     let cancelled = false;
     let player: VimeoPlayer | null = null;
-    const played = { current: false };
-    postPersonalVideoEvent("personal_video_visited", personalVideoId, recipientToken);
+    let lastReadMs = 0;
+    const fired = new Set<string>();
+    const post = (eventType: PersonalVideoEventType | AcquisitionVideoEventType) => {
+      if (fired.has(eventType)) return;
+      fired.add(eventType);
+      postPersonalVideoEvent(eventType, personalVideoId, recipientToken, journeyToken);
+    };
+    post("personal_video_visited");
+
+    async function readPlayed(force: boolean, ended: boolean) {
+      if (!player) return;
+      const now = Date.now();
+      if (!force && now - lastReadMs < 1000) return;
+      lastReadMs = now;
+      try {
+        const [played, duration] = await Promise.all([player.getPlayed(), player.getDuration()]);
+        if (cancelled) return;
+        for (const eventType of crossedMilestones({
+          playedFraction: playedShare(played, duration),
+          ended,
+          already: fired,
+        })) {
+          post(eventType);
+        }
+      } catch {
+        // A failed read stays missing. It is not recorded as zero watched.
+      }
+    }
+
     void import("@vimeo/player")
       .then((mod) => {
         if (cancelled || !frameRef.current) return;
@@ -62,9 +100,15 @@ export function PersonalVideoPlayer({
         }
         player = instance;
         instance.on("play", () => {
-          if (played.current) return;
-          played.current = true;
-          postPersonalVideoEvent("personal_video_played", personalVideoId, recipientToken);
+          post("personal_video_played");
+        });
+        if (!recipientToken) return;
+        post("personal_video_player_ready");
+        instance.on("timeupdate", () => {
+          void readPlayed(false, false);
+        });
+        instance.on("ended", () => {
+          void readPlayed(true, true);
         });
       })
       .catch(() => {});
@@ -75,12 +119,14 @@ export function PersonalVideoPlayer({
       if (!current) return;
       try {
         current.off("play");
+        current.off("timeupdate");
+        current.off("ended");
       } catch {
         // fail open
       }
       void current.destroy().catch(() => {});
     };
-  }, [personalVideoId, recipientToken, track]);
+  }, [journeyToken, personalVideoId, recipientToken, track]);
 
   return (
     <div className="relative mt-8 aspect-video overflow-hidden rounded-2xl bg-black">
@@ -101,6 +147,7 @@ export function PersonalVideoTrialLink({
   className,
   personalVideoId,
   recipientToken = null,
+  journeyToken = null,
   track,
   children,
 }: {
@@ -108,6 +155,7 @@ export function PersonalVideoTrialLink({
   className: string;
   personalVideoId: string;
   recipientToken?: string | null;
+  journeyToken?: string | null;
   track: boolean;
   children: string;
 }) {
@@ -117,7 +165,7 @@ export function PersonalVideoTrialLink({
       className={className}
       onClick={() => {
         if (!track) return;
-        postPersonalVideoEvent("personal_video_cta_clicked", personalVideoId, recipientToken);
+        postPersonalVideoEvent("personal_video_cta_clicked", personalVideoId, recipientToken, journeyToken);
       }}
     >
       {children}
