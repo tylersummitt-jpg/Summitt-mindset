@@ -10,7 +10,9 @@ import {
   showRate,
   sortCampaigns,
   type CampaignView,
+  type LedgerAction,
   type LedgerEvent,
+  type LedgerMessage,
   type LedgerPerson,
 } from "@/lib/acquisition/distribution-command";
 import { parseCampaignAnalytics, parseOverview, parseSteps, variantLabel } from "@/lib/acquisition/instantly-analytics";
@@ -318,6 +320,220 @@ describe("Instantly analytics parsing", () => {
     expect(called.some((url) => url.includes("/api/v2/campaigns/analytics"))).toBe(true);
     expect(called.some((url) => url.includes("/leads/list"))).toBe(false);
     expect(called.join(" ")).not.toContain("test-key");
+  });
+});
+
+function action(patch: Partial<LedgerAction> & Pick<LedgerAction, "actionType" | "status">): LedgerAction {
+  return {
+    personId: "p1",
+    campaignId: "camp-a",
+    attemptCount: 0,
+    delivered: patch.status === "delivered",
+    claimed: patch.status === "claimed",
+    ...patch,
+  };
+}
+
+function message(patch: Partial<LedgerMessage>): LedgerMessage {
+  return {
+    personId: "p1",
+    direction: "inbound",
+    processingStatus: "interpreted",
+    aiOutcome: "accept_offer",
+    campaignId: "camp-a",
+    occurredAt: "2026-10-26T12:00:00.000Z",
+    ...patch,
+  };
+}
+
+describe("unified distribution funnel", () => {
+  it("keeps one person in two campaigns on each campaign without doubling the person", () => {
+    const report = build([
+      event({ personId: "p1", eventType: "email_sent", campaignId: "camp-a", providerEventId: "a" }),
+      event({ personId: "p1", eventType: "email_sent", campaignId: "camp-b", providerEventId: "b" }),
+      event({ personId: "p1", eventType: "reply_received", campaignId: "camp-a", providerEventId: "r" }),
+    ], [person("p1", "camp-a")], {
+      messages: [
+        message({ campaignId: "camp-a" }),
+        message({ campaignId: "camp-b", personId: "p1" }),
+      ],
+      actions: [
+        action({ campaignId: "camp-a", actionType: "send_asset", status: "delivered" }),
+        action({ campaignId: "camp-b", actionType: "send_asset", status: "accepted", delivered: false }),
+      ],
+    });
+    expect(report.peopleWithWebhookSend).toBe(1);
+    expect(report.resourceRequestPeople).toBe(1);
+    expect(report.webhookSends).toBe(2);
+    const first = report.campaigns.find((campaign) => campaign.id === "camp-a");
+    const second = report.campaigns.find((campaign) => campaign.id === "camp-b");
+    expect(first?.resourceRequestPeople).toBe(1);
+    expect(second?.resourceRequestPeople).toBe(1);
+    expect(first?.deliveredAssets).toBe(1);
+    expect(first?.acceptedAssets).toBe(0);
+    expect(second?.acceptedAssets).toBe(1);
+    expect(second?.deliveredAssets).toBe(0);
+  });
+
+  it("counts a retried video play once and does not treat a visit as a play", () => {
+    const report = build([
+      event({
+        personId: "p1",
+        provider: "personal_video",
+        eventType: "personal_video_visited",
+        providerEventId: "recipient:1:personal_video_visited",
+        campaignId: null,
+        sender: null,
+        step: null,
+      }),
+      event({
+        personId: "p1",
+        provider: "personal_video",
+        eventType: "personal_video_played",
+        providerEventId: "recipient:1:personal_video_played",
+        campaignId: null,
+        sender: null,
+        step: null,
+      }),
+      event({
+        personId: "p1",
+        provider: "personal_video",
+        eventType: "personal_video_played",
+        providerEventId: "recipient:1:personal_video_played",
+        campaignId: null,
+        sender: null,
+        step: null,
+      }),
+    ], [person("p1", "camp-a")]);
+    expect(report.videoVisitPeople).toBe(1);
+    expect(report.videoPlayPeople).toBe(1);
+    expect(report.videoPlayEvents).toBe(1);
+    expect(report.videoCtaPeople).toBe(0);
+    expect(report.campaigns[0]?.videoPlayPeople).toBeNull();
+    expect(report.rates.videoToTrial).toBeNull();
+    expect(report.rates.playToCta).toBe("0%");
+  });
+
+  it("counts a play on the campaign stored on the event and not on the person's other campaign", () => {
+    const report = build([
+      event({ personId: "p1", eventType: "email_sent", campaignId: "camp-a", providerEventId: "a" }),
+      event({ personId: "p1", eventType: "email_sent", campaignId: "camp-b", providerEventId: "b" }),
+      event({
+        personId: "p1",
+        provider: "personal_video",
+        eventType: "personal_video_played",
+        providerEventId: "recipient:1:personal_video_played",
+        campaignId: "camp-b",
+        sender: null,
+        step: null,
+      }),
+    ], [person("p1", "camp-a")]);
+    expect(report.campaigns.find((campaign) => campaign.id === "camp-a")?.videoPlayPeople).toBe(0);
+    expect(report.campaigns.find((campaign) => campaign.id === "camp-b")?.videoPlayPeople).toBe(1);
+    expect(report.campaigns.find((campaign) => campaign.id === "camp-a")?.attributedTrials).toBe(0);
+  });
+
+  it("leaves campaign video counts at zero when no video event was recorded", () => {
+    const report = build([], [person("p1", "camp-a")]);
+    expect(report.videoPlayPeople).toBe(0);
+    expect(report.campaigns[0]?.videoVisitPeople).toBe(0);
+    expect(report.campaigns[0]?.videoPlayPeople).toBe(0);
+    expect(report.campaigns[0]?.videoCtaPeople).toBe(0);
+    expect(report.rates.playToCta).toBeNull();
+  });
+
+  it("separates an accepted PDF from a delivered PDF and keeps a scheduled reminder unsent", () => {
+    const report = build([], [person("p1", "camp-a")], {
+      actions: [
+        action({ actionType: "send_asset", status: "accepted", delivered: false }),
+        action({ personId: "p2", actionType: "send_asset", status: "delivered" }),
+        action({ actionType: "send_video_reminder", status: "scheduled", delivered: false, claimed: false }),
+        action({ actionType: "send_video_reminder_final", status: "canceled", delivered: false, claimed: false }),
+      ],
+    });
+    expect(report.fulfillment?.["send_asset:accepted"]).toBe(1);
+    expect(report.fulfillment?.["send_asset:delivered"]).toBe(1);
+    const campaign = report.campaigns[0];
+    expect(campaign?.acceptedAssets).toBe(1);
+    expect(campaign?.deliveredAssets).toBe(1);
+    expect(campaign?.firstReminderScheduled).toBe(1);
+    expect(campaign?.firstReminderAccepted).toBe(0);
+    expect(campaign?.firstReminderDelivered).toBe(0);
+    expect(campaign?.remindersCanceled).toBe(1);
+    expect(report.remindersCanceledByPlay).toBeNull();
+    expect(report.rates.videoSentToPlay).toBeNull();
+  });
+
+  it("does not credit an email-only trial or a lead_interested label", () => {
+    const report = build([
+      event({ personId: "p1", eventType: "lead_interested", providerEventId: "interest" }),
+      event({
+        personId: "p2",
+        provider: "stripe",
+        eventType: "trial_started",
+        providerEventId: "trial:sub",
+        campaignId: null,
+        journeyId: null,
+        sender: null,
+        step: null,
+      }),
+    ], [person("p1", "camp-a"), person("p2", "camp-a")]);
+    expect(report.resourceRequestPeople).toBe(0);
+    expect(report.interestedWebhookPeople).toBe(1);
+    expect(report.webhookReplyPeople).toBe(0);
+    expect(report.attributedTrialPeople).toBe(0);
+    expect(report.emailOnlyTrialPeople).toBe(1);
+    expect(report.campaigns[0]?.attributedTrials).toBe(0);
+  });
+
+  it("does not mix an older webhook send into the current range or into Instantly's total", () => {
+    const report = build([
+      event({ personId: "p1", eventType: "email_sent", occurredAt: "2026-10-01T12:00:00.000Z", providerEventId: "old" }),
+      event({
+        personId: "p1",
+        provider: "personal_video",
+        eventType: "personal_video_played",
+        occurredAt: "2026-10-01T12:00:00.000Z",
+        providerEventId: "old-play",
+        campaignId: "camp-a",
+        sender: null,
+        step: null,
+      }),
+    ], [person("p1", "camp-a")]);
+    expect(report.webhookSends).toBe(0);
+    expect(report.videoPlayPeople).toBe(0);
+    expect(report.campaigns[0]?.instantlySent).toBeNull();
+    expect(report.campaigns[0]?.webhookSends).toBe(0);
+    expect(report.campaigns[0]?.firstReminderScheduled).toBe(0);
+  });
+
+  it("calculates trial-to-paid only for all time when every paid member also has a trial", () => {
+    const trial = event({
+      personId: "p1",
+      provider: "stripe",
+      eventType: "trial_started",
+      providerEventId: "trial",
+      campaignId: "camp-a",
+      journeyId: "11111111-1111-4111-8111-111111111111",
+      sender: null,
+      step: null,
+    });
+    const paid = event({
+      personId: "p1",
+      provider: "stripe",
+      eventType: "paid_member",
+      providerEventId: "paid",
+      campaignId: "camp-a",
+      journeyId: "11111111-1111-4111-8111-111111111111",
+      sender: null,
+      step: null,
+    });
+    const ranged = build([trial, paid], [person("p1", "camp-a")]);
+    expect(ranged.attributedTrialPeople).toBe(1);
+    expect(ranged.attributedPaidPeople).toBe(1);
+    expect(ranged.rates.trialToPaid).toBeNull();
+    const allTime = build([trial, paid], [person("p1", "camp-a")], { startMs: null, rangeLabel: "All time" });
+    expect(allTime.rates.trialToPaid).toBe("100%");
   });
 });
 

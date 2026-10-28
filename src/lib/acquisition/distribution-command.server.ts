@@ -167,7 +167,7 @@ export async function loadDistributionCommand(args: {
     readPages<LedgerMessage>(async (from, to) => {
       const { data, error } = await supabaseServer
         .from("acquisition_messages")
-        .select("direction, processing_status, ai_outcome, campaign_id, occurred_at")
+        .select("person_id, direction, processing_status, ai_outcome, campaign_id, occurred_at")
         .order("occurred_at", { ascending: true })
         .range(from, to);
       const raw = data ?? [];
@@ -177,6 +177,7 @@ export async function loadDistributionCommand(args: {
         rows: raw.flatMap((row) => {
           if (typeof row.direction !== "string" || typeof row.processing_status !== "string" || typeof row.occurred_at !== "string") return [];
           return [{
+            personId: typeof row.person_id === "string" ? row.person_id : null,
             direction: row.direction,
             processingStatus: row.processing_status,
             aiOutcome: typeof row.ai_outcome === "string" ? row.ai_outcome : null,

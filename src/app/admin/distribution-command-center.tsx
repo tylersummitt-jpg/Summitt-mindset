@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import {
+  actionCount,
+  sentActionCount,
   showCount,
   showRate,
   sortCampaigns,
@@ -92,7 +94,7 @@ export function DistributionCommandCenter({
           </div>
           <div className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800">
             <p className="font-medium text-gray-900">Which campaigns are winning?</p>
-            <p className="mt-1">None are ranked. Journey-verified trial and paid counts are shown, and they are not a ranking.</p>
+            <p className="mt-1">None are ranked. Compare one column at a time. Instantly&apos;s contacted count is not the same source as our webhook replies. Journey-verified trials are not a ranking.</p>
             <TrustMark trust="NOT YET TRUSTWORTHY" />
           </div>
           <div className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800">
@@ -121,13 +123,14 @@ export function DistributionCommandCenter({
 
       <section className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Funnel</h2>
-        <p className="text-sm text-gray-600">Each row names its own denominator. People, events, and actions are not added together.</p>
+        <p className="text-sm text-gray-600">People, events, and actions are not added together. A visit is not a play. A play is the first press of play, not a completed watch. Accepted by the email provider is not delivered.</p>
         <div className="overflow-x-auto rounded border border-gray-200 bg-white">
           <table className="min-w-full text-left text-sm text-gray-800">
             <thead className="border-b border-gray-200 text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-3 py-2">Stage</th>
                 <th className="px-3 py-2">Count</th>
+                <th className="px-3 py-2">When</th>
                 <th className="px-3 py-2">Trust</th>
               </tr>
             </thead>
@@ -137,18 +140,29 @@ export function DistributionCommandCenter({
               <FunnelRow stage="Lead snapshot without a send webhook in range" count={showCount(report.peopleWithSnapshotOnly, "people")} trust="PARTIAL" />
               <FunnelRow stage="Send events in range" count={showCount(report.webhookSends, "events")} trust="PARTIAL" />
               <FunnelRow stage="Reply people in range" count={showCount(report.webhookReplyPeople, "people")} trust="PARTIAL" />
-              <FunnelRow stage="Positive replies" count="Unavailable" trust="NOT YET TRUSTWORTHY" />
-              <FunnelRow stage="PDF accepted, not confirmed delivered" count={showCount(report.fulfillment == null ? null : (report.fulfillment["send_asset:accepted"] ?? 0), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "PARTIAL"} />
-              <FunnelRow stage="PDF delivered" count={showCount(report.fulfillment == null ? null : (report.fulfillment["send_asset:delivered"] ?? 0), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} />
-              <FunnelRow stage="Videos sent" count={showCount(videoActions(report), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} />
-              <FunnelRow stage="Video engagement" count={showCount(report.videoEvents, "events")} trust="TRUSTWORTHY" />
-              <FunnelRow stage="Journey-verified trials" count={showCount(report.attributedTrialPeople, "people")} trust={report.attributedTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} />
-              <FunnelRow stage="Journey-verified paid members" count={showCount(report.attributedPaidPeople, "people")} trust={report.attributedPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} />
-              <FunnelRow stage="Email-only trials, not campaign credit" count={showCount(report.emailOnlyTrialPeople, "people")} trust={report.emailOnlyTrialPeople == null ? "UNAVAILABLE" : "PARTIAL"} />
-              <FunnelRow stage="Collected revenue" count="Unavailable" trust="UNAVAILABLE" />
+              <FunnelRow stage="Positive replies from lead_interested" count="Unavailable" trust="NOT YET TRUSTWORTHY" when="Not a reply" />
+              <FunnelRow stage="Confirmed resource requests" count={showCount(report.resourceRequestPeople, "people")} trust={report.resourceRequestPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
+              <FunnelRow stage="PDFs accepted, not confirmed delivered" count={showCount(actionCount(report.fulfillment, "send_asset", "accepted"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "PARTIAL"} when="Right now" />
+              <FunnelRow stage="PDFs confirmed delivered" count={showCount(actionCount(report.fulfillment, "send_asset", "delivered"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="Right now" />
+              <FunnelRow stage="PDFs still scheduled" count={showCount(actionCount(report.fulfillment, "send_asset", "scheduled"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="Right now" />
+              <FunnelRow stage="PDFs claimed and not sent" count={showCount(actionCount(report.fulfillment, "send_asset", "claimed"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="Right now" />
+              <FunnelRow stage="Personal videos accepted or delivered" count={showCount(sentActionCount(report.fulfillment, "send_video"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "PARTIAL"} when="Right now" />
+              <FunnelRow stage="First reminders still scheduled" count={showCount(actionCount(report.fulfillment, "send_video_reminder", "scheduled"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="Right now" />
+              <FunnelRow stage="First reminders accepted or delivered" count={showCount(sentActionCount(report.fulfillment, "send_video_reminder"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "PARTIAL"} when="Right now" />
+              <FunnelRow stage="Final reminders still scheduled" count={showCount(actionCount(report.fulfillment, "send_video_reminder_final", "scheduled"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="Right now" />
+              <FunnelRow stage="Final reminders accepted or delivered" count={showCount(sentActionCount(report.fulfillment, "send_video_reminder_final"), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "PARTIAL"} when="Right now" />
+              <FunnelRow stage="Reminders canceled by a recorded play" count="Unavailable" trust="UNAVAILABLE" when="Reason not stored" />
+              <FunnelRow stage="Video page visits" count={showCount(report.videoVisitPeople, "people")} trust={report.videoVisitPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
+              <FunnelRow stage="Video plays" count={showCount(report.videoPlayPeople, "people")} trust={report.videoPlayPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
+              <FunnelRow stage="Video trial-button clicks" count={showCount(report.videoCtaPeople, "people")} trust={report.videoCtaPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
+              <FunnelRow stage="Journey-verified trials" count={showCount(report.attributedTrialPeople, "people")} trust={report.attributedTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="This date range" />
+              <FunnelRow stage="Journey-verified paid members" count={showCount(report.attributedPaidPeople, "people")} trust={report.attributedPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="This date range" />
+              <FunnelRow stage="Email-only trials, not campaign credit" count={showCount(report.emailOnlyTrialPeople, "people")} trust={report.emailOnlyTrialPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
+              <FunnelRow stage="Collected revenue" count="Unavailable" trust="UNAVAILABLE" when="Not stored" />
             </tbody>
           </table>
         </div>
+        <RateList report={report} />
       </section>
 
       <section className="space-y-2">
@@ -172,7 +186,7 @@ export function DistributionCommandCenter({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-gray-900">Campaigns</h2>
         <p className="text-sm text-gray-600">
-          {report.campaigns.length} campaigns in this read. Search and status filters stay on this page. Verified trial and paid counts are shown and are not a ranking. Sorting by revenue or positive replies is withheld.
+          {report.campaigns.length} campaigns in this read. Search and status filters stay on this page. Compare one column at a time. Instantly contacted is not added to webhook replies. Verified trial and paid counts are shown and are not a ranking. Video plays stay unavailable on a campaign when the event has no campaign id. That is not zero. Sorting by revenue is withheld.
         </p>
         <div className="flex flex-wrap gap-2">
           <input
@@ -216,8 +230,12 @@ export function DistributionCommandCenter({
                     <th className="px-3 py-2">People stored</th>
                     <th className="px-3 py-2">Webhook contacts</th>
                     <th className="px-3 py-2">Webhook replies</th>
-                    <th className="px-3 py-2">Instantly contacted</th>
-                    <th className="px-3 py-2">Instantly unique replies</th>
+                    <th className="px-3 py-2">Reply rate</th>
+                    <th className="px-3 py-2">Instantly sent</th>
+                    <th className="px-3 py-2">Resource requests</th>
+                    <th className="px-3 py-2">PDFs delivered now</th>
+                    <th className="px-3 py-2">Videos sent now</th>
+                    <th className="px-3 py-2">Video plays</th>
                     <th className="px-3 py-2">Verified trials</th>
                     <th className="px-3 py-2">Verified paid</th>
                   </>
@@ -245,8 +263,12 @@ export function DistributionCommandCenter({
                         <td className="px-3 py-2">{campaign.peopleStored}</td>
                         <td className="px-3 py-2">{showCount(campaign.webhookContacted, "")}</td>
                         <td className="px-3 py-2">{showCount(campaign.webhookReplyPeople, "")}</td>
-                        <td className="px-3 py-2">{showCount(campaign.instantlyContacted, "")}</td>
-                        <td className="px-3 py-2">{showCount(campaign.instantlyUniqueReplies, "")}</td>
+                        <td className="px-3 py-2">{showRate(campaign.webhookReplyPeople, campaign.webhookContacted) ?? "Not calculated"}</td>
+                        <td className="px-3 py-2">{showCount(campaign.instantlySent, "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.resourceRequestPeople, "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.deliveredAssets, "")}</td>
+                        <td className="px-3 py-2">{showCount(sentPair(campaign.videoAccepted, campaign.videoDelivered), "")}</td>
+                        <td className="px-3 py-2">{showCount(campaign.videoPlayPeople, "")}</td>
                         <td className="px-3 py-2">{campaign.attributedTrials}</td>
                         <td className="px-3 py-2">{campaign.attributedPaid}</td>
                       </>
@@ -357,9 +379,9 @@ export function DistributionCommandCenter({
   );
 }
 
-function videoActions(report: DistributionCommandReport): number | null {
-  if (!report.fulfillment) return null;
-  return Object.entries(report.fulfillment).reduce((sum, [key, count]) => (key.startsWith("send_video:") ? sum + count : sum), 0);
+function sentPair(accepted: number | null, delivered: number | null): number | null {
+  if (accepted == null || delivered == null) return null;
+  return accepted + delivered;
 }
 
 function outcomeCount(report: DistributionCommandReport, outcome: string): number | null {
@@ -367,13 +389,36 @@ function outcomeCount(report: DistributionCommandReport, outcome: string): numbe
   return report.messages.outcomes.find((item) => item.outcome === outcome)?.count ?? 0;
 }
 
-function FunnelRow({ stage, count, trust }: { stage: string; count: string; trust: Trust }) {
+function FunnelRow({ stage, count, trust, when = "See the row" }: { stage: string; count: string; trust: Trust; when?: string }) {
   return (
     <tr className="border-b border-gray-100">
       <td className="px-3 py-2">{stage}</td>
       <td className="px-3 py-2">{count}</td>
+      <td className="px-3 py-2">{when}</td>
       <td className="px-3 py-2">{trust}</td>
     </tr>
+  );
+}
+
+function RateList({ report }: { report: DistributionCommandReport }) {
+  const rows = [
+    ["Reply rate", report.rates.reply, report.rates.notes.reply],
+    ["Resource request to delivery", report.rates.resourceToDelivery, report.rates.notes.resourceToDelivery],
+    ["Video sent to play", report.rates.videoSentToPlay, report.rates.notes.videoSentToPlay],
+    ["Play to trial-button click", report.rates.playToCta, report.rates.notes.playToCta],
+    ["Play to trial", report.rates.videoToTrial, report.rates.notes.videoToTrial],
+    ["Trial to paid", report.rates.trialToPaid, report.rates.notes.trialToPaid],
+  ] as const;
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {rows.map(([label, value, note]) => (
+        <div key={label} className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800">
+          <p className="font-medium text-gray-900">{label}</p>
+          <p className="mt-1">{value ?? "Not calculated"}</p>
+          <p className="mt-1 text-xs text-gray-500">{note}</p>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -450,7 +495,15 @@ function CampaignDetail({
       </div>
       <p>{campaign.completionNote}</p>
       <p>Offer: not stored. Open tracking: {campaign.openTracking == null ? "unknown" : campaign.openTracking ? "on, counts withheld" : "off"}. Link tracking: {campaign.linkTracking == null ? "unknown" : campaign.linkTracking ? "on, counts withheld" : "off"}.</p>
-      <p>Scheduled PDFs {showCount(campaign.scheduledAssets, "actions")}. Accepted {showCount(campaign.acceptedAssets, "actions")}. Delivered {showCount(campaign.deliveredAssets, "actions")}.</p>
+      <p>Cold emails sent by Instantly: {showCount(campaign.instantlySent, "emails")}. That number is not added to {showCount(campaign.webhookSends, "webhook sends")}.</p>
+      <p>Webhook reply rate: {showRate(campaign.webhookReplyPeople, campaign.webhookContacted) ?? "Not calculated"}. Confirmed resource requests: {showCount(campaign.resourceRequestPeople, "people")}. lead_interested is not included.</p>
+      <p>PDFs right now — scheduled {showCount(campaign.scheduledAssets, "actions")}, claimed {showCount(campaign.claimedAssets, "actions")}, accepted and not delivered {showCount(campaign.acceptedAssets, "actions")}, delivered {showCount(campaign.deliveredAssets, "actions")}.</p>
+      <p>Personal videos right now — scheduled {showCount(campaign.videoScheduled, "actions")}, claimed {showCount(campaign.videoClaimed, "actions")}, accepted {showCount(campaign.videoAccepted, "actions")}, delivered {showCount(campaign.videoDelivered, "actions")}.</p>
+      <p>First reminder — scheduled {showCount(campaign.firstReminderScheduled, "actions")}, claimed {showCount(campaign.firstReminderClaimed, "actions")}, accepted {showCount(campaign.firstReminderAccepted, "actions")}, delivered {showCount(campaign.firstReminderDelivered, "actions")}.</p>
+      <p>Final reminder — scheduled {showCount(campaign.finalReminderScheduled, "actions")}, claimed {showCount(campaign.finalReminderClaimed, "actions")}, accepted {showCount(campaign.finalReminderAccepted, "actions")}, delivered {showCount(campaign.finalReminderDelivered, "actions")}.</p>
+      <p>Reminders currently canceled: {showCount(campaign.remindersCanceled, "actions")}. Canceled by a recorded play: unavailable. The cancellation does not store a reason.</p>
+      <p>Video page visits: {showCount(campaign.videoVisitPeople, "people")}. Plays: {showCount(campaign.videoPlayPeople, "people")}. Trial-button clicks: {showCount(campaign.videoCtaPeople, "people")}. Unavailable means the event did not store this campaign. A visit is not a play, and a play is not a completed watch.</p>
+      <p>Journey-verified trials: {campaign.attributedTrials}. Journey-verified paid members: {campaign.attributedPaid}. An email match is not included.</p>
       <p>Webhook steps in this range, partial:</p>
       <ul className="list-disc pl-5">
         {campaign.steps.length === 0 ? <li>No recorded step on a send webhook in this range.</li> : campaign.steps.map((step) => (

@@ -53,6 +53,7 @@ export type LedgerAction = {
 };
 
 export type LedgerMessage = {
+  personId: string | null;
   direction: string;
   processingStatus: string;
   aiOutcome: string | null;
@@ -124,8 +125,27 @@ export type CampaignView = {
   instantlyCompletedLeads: number | null;
   instantlyOpportunities: number | null;
   scheduledAssets: number | null;
+  claimedAssets: number | null;
   acceptedAssets: number | null;
   deliveredAssets: number | null;
+  resourceRequestPeople: number | null;
+  videoScheduled: number | null;
+  videoClaimed: number | null;
+  videoAccepted: number | null;
+  videoDelivered: number | null;
+  firstReminderScheduled: number | null;
+  firstReminderClaimed: number | null;
+  firstReminderAccepted: number | null;
+  firstReminderDelivered: number | null;
+  finalReminderScheduled: number | null;
+  finalReminderClaimed: number | null;
+  finalReminderAccepted: number | null;
+  finalReminderDelivered: number | null;
+  remindersCanceled: number | null;
+  /** Null when a video event in this range has no campaign. That is not zero. */
+  videoVisitPeople: number | null;
+  videoPlayPeople: number | null;
+  videoCtaPeople: number | null;
   firstRecordedSend: string | null;
   instantlyCreated: string | null;
   startSource: "instantly_created" | "first_recorded_send" | "unknown";
@@ -150,6 +170,23 @@ export type MailboxView = {
   instantlyUniqueReplies: number | null;
 };
 
+export type FunnelRates = {
+  reply: string | null;
+  resourceToDelivery: string | null;
+  videoSentToPlay: string | null;
+  playToCta: string | null;
+  videoToTrial: null;
+  trialToPaid: string | null;
+  notes: {
+    reply: string;
+    resourceToDelivery: string;
+    videoSentToPlay: string;
+    playToCta: string;
+    videoToTrial: string;
+    trialToPaid: string;
+  };
+};
+
 export type DistributionCommandReport = {
   readable: boolean;
   truncated: boolean;
@@ -165,6 +202,17 @@ export type DistributionCommandReport = {
   sequenceFinishedEvents: number | null;
   unknownWebhookEvents: number | null;
   videoEvents: number | null;
+  videoVisitPeople: number | null;
+  videoVisitEvents: number | null;
+  videoPlayPeople: number | null;
+  videoPlayEvents: number | null;
+  videoCtaPeople: number | null;
+  videoCtaEvents: number | null;
+  /** Confirmed accept_offer messages. lead_interested is not included. */
+  resourceRequestPeople: number | null;
+  /** Always null. Cancellation does not store a reason. */
+  remindersCanceledByPlay: null;
+  rates: FunnelRates;
   attributedTrialPeople: number | null;
   attributedPaidPeople: number | null;
   emailOnlyTrialPeople: number | null;
@@ -242,6 +290,15 @@ export function unreadableDistributionCommand(note: string, rangeLabel: string):
     sequenceFinishedEvents: null,
     unknownWebhookEvents: null,
     videoEvents: null,
+    videoVisitPeople: null,
+    videoVisitEvents: null,
+    videoPlayPeople: null,
+    videoPlayEvents: null,
+    videoCtaPeople: null,
+    videoCtaEvents: null,
+    resourceRequestPeople: null,
+    remindersCanceledByPlay: null,
+    rates: emptyRates("The cold-email ledger could not be read."),
     attributedTrialPeople: null,
     attributedPaidPeople: null,
     emailOnlyTrialPeople: null,
@@ -304,6 +361,7 @@ type MutableCampaign = CampaignView & {
   observedPeople: Set<string>;
   trialPeople: Set<string>;
   paidPeople: Set<string>;
+  requestPeople: Set<string>;
   mailboxSends: Map<string, number>;
   stepSends: Map<string, { events: number; people: Set<string>; replyPeople: Set<string> }>;
   sendsForAge: Array<{ at: number; personId: string | null; step: number | null }>;
@@ -342,8 +400,26 @@ function blankCampaign(id: string): MutableCampaign {
     instantlyCompletedLeads: null,
     instantlyOpportunities: null,
     scheduledAssets: null,
+    claimedAssets: null,
     acceptedAssets: null,
     deliveredAssets: null,
+    resourceRequestPeople: null,
+    videoScheduled: null,
+    videoClaimed: null,
+    videoAccepted: null,
+    videoDelivered: null,
+    firstReminderScheduled: null,
+    firstReminderClaimed: null,
+    firstReminderAccepted: null,
+    firstReminderDelivered: null,
+    finalReminderScheduled: null,
+    finalReminderClaimed: null,
+    finalReminderAccepted: null,
+    finalReminderDelivered: null,
+    remindersCanceled: null,
+    videoVisitPeople: null,
+    videoPlayPeople: null,
+    videoCtaPeople: null,
     firstRecordedSend: null,
     instantlyCreated: null,
     startSource: "unknown",
@@ -360,6 +436,7 @@ function blankCampaign(id: string): MutableCampaign {
     observedPeople: new Set(),
     trialPeople: new Set(),
     paidPeople: new Set(),
+    requestPeople: new Set(),
     mailboxSends: new Map(),
     stepSends: new Map(),
     sendsForAge: [],
@@ -416,6 +493,45 @@ function ageSlice(campaign: MutableCampaign, days: 7 | 14 | 30, nowMs: number): 
   };
 }
 
+function emptyRates(reason: string): FunnelRates {
+  return {
+    reply: null,
+    resourceToDelivery: null,
+    videoSentToPlay: null,
+    playToCta: null,
+    videoToTrial: null,
+    trialToPaid: null,
+    notes: {
+      reply: reason,
+      resourceToDelivery: reason,
+      videoSentToPlay: reason,
+      playToCta: reason,
+      videoToTrial: "A video play does not store the journey, so it is not divided into trials.",
+      trialToPaid: reason,
+    },
+  };
+}
+
+export function actionCount(
+  fulfillment: Record<string, number> | null,
+  actionType: string,
+  status: string,
+): number | null {
+  if (!fulfillment) return null;
+  return fulfillment[`${actionType}:${status}`] ?? 0;
+}
+
+/** Provider-accepted plus confirmed delivered. Scheduled and claimed are not sends. */
+export function sentActionCount(
+  fulfillment: Record<string, number> | null,
+  actionType: string,
+): number | null {
+  const accepted = actionCount(fulfillment, actionType, "accepted");
+  const delivered = actionCount(fulfillment, actionType, "delivered");
+  if (accepted == null || delivered == null) return null;
+  return accepted + delivered;
+}
+
 export function showCount(value: number | null, noun: string): string {
   if (value == null) return "Unavailable";
   if (!noun) return String(value);
@@ -425,6 +541,7 @@ export function showCount(value: number | null, noun: string): string {
     messages: "message",
     actions: "action",
     leads: "lead",
+    emails: "email",
   };
   const label = value === 1 && singular[noun] ? singular[noun] : noun;
   return `${value} ${label}`;
@@ -509,7 +626,11 @@ export function buildDistributionCommand(args: {
   let webhookReplyEvents = 0;
   let sequenceFinishedEvents = 0;
   let unknownWebhookEvents = 0;
-  let videoEvents = 0;
+  let videoVisitEvents = 0;
+  let videoPlayEvents = 0;
+  let videoCtaEvents = 0;
+  let videoPeopleIncomplete = false;
+  let videoCampaignKnown = true;
   const unknownTypes = new Map<string, number>();
   const sendPeople = new Set<string>();
   const observedPeople = new Set<string>();
@@ -519,6 +640,13 @@ export function buildDistributionCommand(args: {
   const attributedPaidPeople = new Set<string>();
   const emailOnlyTrialPeople = new Set<string>();
   const emailOnlyPaidPeople = new Set<string>();
+  const videoVisitPeople = new Set<string>();
+  const videoPlayPeople = new Set<string>();
+  const videoCtaPeople = new Set<string>();
+  const videoVisitsByCampaign = new Map<string, Set<string>>();
+  const videoPlaysByCampaign = new Map<string, Set<string>>();
+  const videoCtasByCampaign = new Map<string, Set<string>>();
+  const deliveredAssetPeople = new Map<string, Set<string>>();
   const daily = new Map<string, number>();
   const mailboxCampaigns = new Map<string, { sends: number; campaigns: Set<string> }>();
 
@@ -546,7 +674,35 @@ export function buildDistributionCommand(args: {
       }
       continue;
     }
-    if (event.provider === "personal_video") videoEvents += 1;
+    if (event.provider === "personal_video") {
+      const bucket = event.eventType === "personal_video_visited"
+        ? videoVisitPeople
+        : event.eventType === "personal_video_played"
+          ? videoPlayPeople
+          : event.eventType === "personal_video_cta_clicked"
+            ? videoCtaPeople
+            : null;
+      const byCampaign = bucket === videoVisitPeople
+        ? videoVisitsByCampaign
+        : bucket === videoPlayPeople
+          ? videoPlaysByCampaign
+          : bucket === videoCtaPeople
+            ? videoCtasByCampaign
+            : null;
+      if (bucket) {
+        if (event.eventType === "personal_video_visited") videoVisitEvents += 1;
+        if (event.eventType === "personal_video_played") videoPlayEvents += 1;
+        if (event.eventType === "personal_video_cta_clicked") videoCtaEvents += 1;
+        if (event.personId) bucket.add(event.personId);
+        else videoPeopleIncomplete = true;
+        if (!event.campaignId) videoCampaignKnown = false;
+        else if (event.personId && byCampaign) {
+          const people = byCampaign.get(event.campaignId) ?? new Set<string>();
+          people.add(event.personId);
+          byCampaign.set(event.campaignId, people);
+        }
+      }
+    }
     if (kind === "unknown") {
       unknownWebhookEvents += 1;
       const type = event.rawInstantlyType || "unrecognized";
@@ -635,14 +791,13 @@ export function buildDistributionCommand(args: {
     for (const action of args.actions) {
       const key = `${action.actionType}:${action.status}`;
       fulfillment![key] = (fulfillment![key] || 0) + 1;
-      if (!action.campaignId || action.actionType !== "send_asset") continue;
-      const campaign = ensure(action.campaignId);
-      campaign.scheduledAssets ??= 0;
-      campaign.acceptedAssets ??= 0;
-      campaign.deliveredAssets ??= 0;
-      if (action.status === "scheduled") campaign.scheduledAssets += 1;
-      if (action.status === "accepted" || action.status === "delivered") campaign.acceptedAssets += 1;
-      if (action.delivered) campaign.deliveredAssets += 1;
+      if (action.campaignId && action.actionType === "send_asset" && action.status === "delivered") {
+        const delivered = deliveredAssetPeople.get(action.personId) ?? new Set<string>();
+        delivered.add(action.campaignId);
+        deliveredAssetPeople.set(action.personId, delivered);
+      }
+      if (!action.campaignId) continue;
+      addCampaignAction(ensure(action.campaignId), action);
     }
   }
 
@@ -651,8 +806,14 @@ export function buildDistributionCommand(args: {
   let interpreted: number | null = args.messages == null ? null : 0;
   let stored: number | null = args.messages == null ? null : 0;
   let outboundSent: number | null = args.messages == null ? null : 0;
+  let resourceRequestsIncomplete = args.messages == null;
   for (const message of args.messages ?? []) {
     if (!inRange(message.occurredAt, args.startMs, args.endMs)) continue;
+    if (message.aiOutcome === "accept_offer") {
+      if (!message.personId) resourceRequestsIncomplete = true;
+      else if (message.campaignId) ensure(message.campaignId).requestPeople.add(message.personId);
+      else resourceRequestsIncomplete = true;
+    }
     if (message.direction === "inbound") {
       inbound = (inbound ?? 0) + 1;
       if (message.processingStatus === "interpreted") interpreted = (interpreted ?? 0) + 1;
@@ -675,8 +836,28 @@ export function buildDistributionCommand(args: {
   for (const campaign of campaigns.values()) {
     if (args.actions) {
       campaign.scheduledAssets ??= 0;
+      campaign.claimedAssets ??= 0;
       campaign.acceptedAssets ??= 0;
       campaign.deliveredAssets ??= 0;
+      campaign.videoScheduled ??= 0;
+      campaign.videoClaimed ??= 0;
+      campaign.videoAccepted ??= 0;
+      campaign.videoDelivered ??= 0;
+      campaign.firstReminderScheduled ??= 0;
+      campaign.firstReminderClaimed ??= 0;
+      campaign.firstReminderAccepted ??= 0;
+      campaign.firstReminderDelivered ??= 0;
+      campaign.finalReminderScheduled ??= 0;
+      campaign.finalReminderClaimed ??= 0;
+      campaign.finalReminderAccepted ??= 0;
+      campaign.finalReminderDelivered ??= 0;
+      campaign.remindersCanceled ??= 0;
+    }
+    campaign.resourceRequestPeople = resourceRequestsIncomplete ? null : campaign.requestPeople.size;
+    if (videoCampaignKnown && !videoPeopleIncomplete) {
+      campaign.videoVisitPeople = videoVisitsByCampaign.get(campaign.id)?.size ?? 0;
+      campaign.videoPlayPeople = videoPlaysByCampaign.get(campaign.id)?.size ?? 0;
+      campaign.videoCtaPeople = videoCtasByCampaign.get(campaign.id)?.size ?? 0;
     }
     const profile = profileById.get(campaign.id);
     const analytics = analyticsById.get(campaign.id);
@@ -767,9 +948,48 @@ export function buildDistributionCommand(args: {
     domainMap.set(mailbox.domain, domain);
   }
 
+  const resourceRequestIds = new Set<string>();
+  if (!resourceRequestsIncomplete) {
+    for (const campaign of campaigns.values()) {
+      for (const personId of campaign.requestPeople) resourceRequestIds.add(personId);
+    }
+  }
+  let requestPairs: number | null = resourceRequestsIncomplete ? null : 0;
+  let deliveredRequestPairs: number | null = !resourceRequestsIncomplete && args.actions && args.startMs == null ? 0 : null;
+  if (requestPairs != null) {
+    for (const campaign of campaigns.values()) {
+      for (const personId of campaign.requestPeople) {
+        requestPairs += 1;
+        if (deliveredRequestPairs != null && deliveredAssetPeople.get(personId)?.has(campaign.id)) {
+          deliveredRequestPairs += 1;
+        }
+      }
+    }
+  }
+  const videoSentPeople = new Set<string>();
+  if (args.actions) {
+    for (const action of args.actions) {
+      if (action.actionType !== "send_video") continue;
+      if (action.status === "accepted" || action.status === "delivered") videoSentPeople.add(action.personId);
+    }
+  }
+  const rates = funnelRates({
+    allTime: args.startMs == null,
+    replyPeople: replyPeople.size,
+    contactedPeople: sendPeople.size,
+    resourceRequests: requestPairs,
+    deliveredRequests: deliveredRequestPairs,
+    actionsReadable: args.actions != null,
+    videoSentPeople: args.actions ? videoSentPeople.size : null,
+    videoPlayPeople: videoPeopleIncomplete ? null : videoPlayPeople.size,
+    videoCtaPeople: videoPeopleIncomplete ? null : videoCtaPeople.size,
+    trialPeople: attributedTrialPeople,
+    paidPeople: attributedPaidPeople,
+  });
+
   const reportCampaigns = [...campaigns.values()]
     .map((campaign) => {
-      const { sendPeople: _s, replyPeople: _r, interestPeople: _i, observedPeople: _o, trialPeople: _trial, paidPeople: _paid, mailboxSends: _m, stepSends: _t, sendsForAge: _a, repliesForAge: _p, ...view } = campaign;
+      const { sendPeople: _s, replyPeople: _r, interestPeople: _i, observedPeople: _o, trialPeople: _trial, paidPeople: _paid, requestPeople: _request, mailboxSends: _m, stepSends: _t, sendsForAge: _a, repliesForAge: _p, ...view } = campaign;
       return view;
     })
     .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
@@ -809,6 +1029,12 @@ export function buildDistributionCommand(args: {
     "Role, sport, offer, list, and cold subject are not complete enough to compare.",
     "A filled geography value is not a verified recipient state.",
     "A campaign trial or paid count includes only a Stripe event whose campaign was copied from a journey that belongs to that person. An email match without that journey is listed separately and is not campaign attribution. Collected revenue is unavailable. Older events were not backfilled.",
+    "Instantly's email totals are not added to webhook totals.",
+    "A video visit, a play, and a trial-button click are separate events. A play is the first press of play, not a completed watch.",
+    "A video event does not store a campaign. When any video event in this range lacks one, every campaign video count stays unavailable. That is not zero.",
+    "Reminder cancellation does not store a reason, so a canceled reminder is not counted as canceled by a play.",
+    "Confirmed resource requests are accept_offer messages. lead_interested is not a request.",
+    "Scheduled and claimed actions are still held. Accepted by Resend is not delivered.",
     "Instantly Completed is the sequence status. It is not this app's automation switch and it is not a finished experiment.",
     sequenceFinishedEvents > 0
       ? `${sequenceFinishedEvents} campaign_completed_for_lead_without_reply events are preserved as sequence evidence. They did not close a journey.`
@@ -818,7 +1044,7 @@ export function buildDistributionCommand(args: {
   return {
     readable: true,
     truncated: false,
-    note: "Cold email is separate from the website funnel below. Date buttons filter webhook activity and the Instantly calendar request. The current PDF outbox and the people-stored count stay all-time.",
+    note: "Cold email is separate from the website funnel below. Date buttons filter webhook activity, video events, confirmed resource requests, and the Instantly calendar request. The current outbox — scheduled, claimed, accepted, and delivered — stays all-time. Instantly totals are not added to webhook totals.",
     rangeLabel: args.rangeLabel,
     peopleStored: args.people.length,
     peopleWithWebhookSend: sendPeople.size,
@@ -829,7 +1055,16 @@ export function buildDistributionCommand(args: {
     interestedWebhookPeople: interestPeople.size,
     sequenceFinishedEvents,
     unknownWebhookEvents,
-    videoEvents,
+    videoEvents: videoVisitEvents + videoPlayEvents + videoCtaEvents,
+    videoVisitPeople: videoPeopleIncomplete ? null : videoVisitPeople.size,
+    videoVisitEvents,
+    videoPlayPeople: videoPeopleIncomplete ? null : videoPlayPeople.size,
+    videoPlayEvents,
+    videoCtaPeople: videoPeopleIncomplete ? null : videoCtaPeople.size,
+    videoCtaEvents,
+    resourceRequestPeople: resourceRequestsIncomplete ? null : resourceRequestIds.size,
+    remindersCanceledByPlay: null,
+    rates,
     attributedTrialPeople: attributedTrialPeople.size,
     attributedPaidPeople: attributedPaidPeople.size,
     emailOnlyTrialPeople: [...emailOnlyTrialPeople].filter((id) => !attributedTrialPeople.has(id)).length,
@@ -863,6 +1098,94 @@ export function buildDistributionCommand(args: {
     nextDecision: "No next campaign is selected. Journey-verified trials and paid members are counted, and revenue is still unmeasured. Instantly's Completed status does not answer it.",
     gaps,
   };
+}
+
+function addCampaignAction(campaign: MutableCampaign, action: LedgerAction): void {
+  const status = action.status;
+  if (action.actionType === "send_asset") {
+    if (status === "scheduled") campaign.scheduledAssets = (campaign.scheduledAssets ?? 0) + 1;
+    if (status === "claimed") campaign.claimedAssets = (campaign.claimedAssets ?? 0) + 1;
+    if (status === "accepted") campaign.acceptedAssets = (campaign.acceptedAssets ?? 0) + 1;
+    if (status === "delivered") campaign.deliveredAssets = (campaign.deliveredAssets ?? 0) + 1;
+    return;
+  }
+  if (action.actionType === "send_video") {
+    if (status === "scheduled") campaign.videoScheduled = (campaign.videoScheduled ?? 0) + 1;
+    if (status === "claimed") campaign.videoClaimed = (campaign.videoClaimed ?? 0) + 1;
+    if (status === "accepted") campaign.videoAccepted = (campaign.videoAccepted ?? 0) + 1;
+    if (status === "delivered") campaign.videoDelivered = (campaign.videoDelivered ?? 0) + 1;
+    return;
+  }
+  if (status === "canceled" && (action.actionType === "send_video_reminder" || action.actionType === "send_video_reminder_final")) {
+    campaign.remindersCanceled = (campaign.remindersCanceled ?? 0) + 1;
+    return;
+  }
+  const scheduled = action.actionType === "send_video_reminder" ? "firstReminderScheduled" : action.actionType === "send_video_reminder_final" ? "finalReminderScheduled" : null;
+  const claimed = action.actionType === "send_video_reminder" ? "firstReminderClaimed" : action.actionType === "send_video_reminder_final" ? "finalReminderClaimed" : null;
+  const accepted = action.actionType === "send_video_reminder" ? "firstReminderAccepted" : action.actionType === "send_video_reminder_final" ? "finalReminderAccepted" : null;
+  const delivered = action.actionType === "send_video_reminder" ? "firstReminderDelivered" : action.actionType === "send_video_reminder_final" ? "finalReminderDelivered" : null;
+  if (!scheduled || !claimed || !accepted || !delivered) return;
+  if (status === "scheduled") campaign[scheduled] = (campaign[scheduled] ?? 0) + 1;
+  if (status === "claimed") campaign[claimed] = (campaign[claimed] ?? 0) + 1;
+  if (status === "accepted") campaign[accepted] = (campaign[accepted] ?? 0) + 1;
+  if (status === "delivered") campaign[delivered] = (campaign[delivered] ?? 0) + 1;
+}
+
+function funnelRates(args: {
+  allTime: boolean;
+  replyPeople: number;
+  contactedPeople: number;
+  resourceRequests: number | null;
+  deliveredRequests: number | null;
+  actionsReadable: boolean;
+  videoSentPeople: number | null;
+  videoPlayPeople: number | null;
+  videoCtaPeople: number | null;
+  trialPeople: Set<string>;
+  paidPeople: Set<string>;
+}): FunnelRates {
+  const rates = emptyRates("");
+  rates.reply = showRate(args.replyPeople, args.contactedPeople);
+  rates.notes.reply = rates.reply
+    ? "Webhook reply people divided by webhook contacts in this same range. Instantly's reply count is not used here."
+    : "No webhook-contact denominator in this range. This is not a 0% reply rate.";
+  if (args.resourceRequests == null || args.deliveredRequests == null) {
+    rates.notes.resourceToDelivery = args.actionsReadable
+      ? "Confirmed requests use this date range. A delivered PDF is the current outbox. The rate is calculated only for all time, and only when every request has a person and a campaign."
+      : "Fulfillment actions could not be read, so delivery is not divided into requests.";
+  } else {
+    rates.resourceToDelivery = showRate(args.deliveredRequests, args.resourceRequests);
+    rates.notes.resourceToDelivery = rates.resourceToDelivery
+      ? "All-time confirmed requests that now have a delivered PDF on that same campaign, divided by those requests. lead_interested is not a request."
+      : "No confirmed resource request is in this read, so the rate is not calculated.";
+  }
+  if (!args.allTime || args.videoSentPeople == null || args.videoPlayPeople == null || args.videoPlayPeople > args.videoSentPeople) {
+    rates.notes.videoSentToPlay = "A play is counted in the date range. A sent video is the current outbox. The rate is calculated only for all time, and only when recorded plays do not exceed sent videos. A play is not a completed watch.";
+  } else {
+    rates.videoSentToPlay = showRate(args.videoPlayPeople, args.videoSentPeople);
+    rates.notes.videoSentToPlay = rates.videoSentToPlay
+      ? "All-time people with a recorded play, divided by people whose video email was accepted or delivered. A visit is not a play. A play is not a completed watch."
+      : "No accepted or delivered personal video is in the outbox, so the rate is not calculated.";
+  }
+  if (args.videoPlayPeople == null || args.videoCtaPeople == null || args.videoCtaPeople > args.videoPlayPeople) {
+    rates.notes.playToCta = "Calculated only when both counts are in this range and trial-button clicks do not exceed recorded plays. A click does not mean the video was watched through.";
+  } else {
+    rates.playToCta = showRate(args.videoCtaPeople, args.videoPlayPeople);
+    rates.notes.playToCta = rates.playToCta
+      ? "People with a trial-button click in this range, divided by people with a play in this range. A click is not a completed watch."
+      : "No recorded play is in this range, so the rate is not calculated. A visit is not a play.";
+  }
+  rates.notes.videoToTrial = "A video play does not store the journey, so plays are not divided into trials.";
+  const paidOutsideTrials = [...args.paidPeople].some((personId) => !args.trialPeople.has(personId));
+  if (!args.allTime || paidOutsideTrials) {
+    rates.notes.trialToPaid = "Calculated only for all time, and only when every journey-verified paid member also has a journey-verified trial. A short range can show a payment whose trial happened earlier.";
+  } else {
+    rates.trialToPaid = showRate(args.paidPeople.size, args.trialPeople.size);
+    rates.notes.trialToPaid = rates.trialToPaid
+      ? "All-time journey-verified paid people divided by journey-verified trial people. An email match is not included."
+      : "No journey-verified trial is in this read, so the rate is not calculated.";
+  }
+  return rates;
 }
 
 function completionNote(campaign: CampaignView): string {

@@ -63,6 +63,10 @@ describe("distribution command center layout", () => {
     expect(text).toContain("UNAVAILABLE");
     expect(text).toContain("NOT YET TRUSTWORTHY");
     expect(text).toContain("None are ranked");
+    expect(text).toContain("Video plays");
+    expect(text).toContain("First reminders still scheduled");
+    expect(text).toContain("Reminders canceled by a recorded play");
+    expect(text).toContain("Not calculated");
     expect(text).toContain("1 person");
     expect(text).toContain("Journey-verified trials");
     expect(text).toContain("Verified trial and paid counts are shown");
