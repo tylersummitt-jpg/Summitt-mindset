@@ -18,6 +18,34 @@ export function isVideoFirstPlaybook(playbook: ColdVideoPlaybook, videoId: strin
     && playbook.permittedActions.length === 0;
 }
 
+/**
+ * The saved campaign can receive a tracked video_url.
+ * Manual fulfillment with no permitted send is the shape already saved on the
+ * ten campaigns. It does not authorize a new playbook version.
+ */
+export function playbookCanReceiveExistingLeads(playbook: ColdVideoPlaybook, videoId: string): boolean {
+  return playbook.personalVideoId?.toLowerCase() === videoId.toLowerCase()
+    && playbook.permittedActions.length === 0
+    && (playbook.fulfillment === "none" || playbook.fulfillment === "manual");
+}
+
+export function openJourneyVideoFacts(
+  playbook: { fulfillment: string; permittedActions: readonly string[]; personalVideoId: string | null } | undefined,
+  preparedVideoId: string | undefined,
+  videoId: string,
+): { videoFirst: boolean; sameVideo: boolean } {
+  const quiet = Boolean(
+    playbook
+    && playbook.permittedActions.length === 0
+    && playbook.personalVideoId
+    && (playbook.fulfillment === "none" || playbook.fulfillment === "manual"),
+  );
+  return {
+    videoFirst: Boolean(preparedVideoId) || quiet,
+    sameVideo: playbook?.personalVideoId?.toLowerCase() === videoId.toLowerCase() || preparedVideoId === videoId,
+  };
+}
+
 export type ProspectLead = {
   email: string;
   firstName: string | null;

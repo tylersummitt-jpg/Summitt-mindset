@@ -9,7 +9,9 @@ import {
   decideLead,
   instantlyLeadCsv,
   isVideoFirstPlaybook,
+  openJourneyVideoFacts,
   parseProspectList,
+  playbookCanReceiveExistingLeads,
   recipientVideoUrl,
   skipReport,
   type ColdVideoPlaybook,
@@ -65,8 +67,55 @@ export async function prepareVideoFirstLeads(args: {
   if (!ready) return { ok: false, error: "The personal video is not ready. Nothing was written." };
   const playbook = await ensureVideoPlaybook(campaignId, videoId);
   if ("error" in playbook) return { ok: false, error: playbook.error };
+  const issued = await issueVideoFirstLinks({
+    campaignId,
+    personalVideoId: videoId,
+    leads: parsed.leads,
+    playbook,
+  });
+  if (!issued.ok) return issued;
+  return {
+    ok: true,
+    campaignName: playbook.name,
+    videoId,
+    prepared: issued.links.length,
+    reused: issued.reused,
+    invalid: parsed.invalid,
+    csv: instantlyLeadCsv(issued.links),
+    skips: issued.skips,
+    skipCsv: skipReport(issued.skips),
+  };
+}
 
-  const emails = parsed.leads.map((lead) => lead.email);
+export async function currentQuietVideoPlaybook(
+  campaignId: string,
+  videoId: string,
+): Promise<{ id: string; name: string } | { error: string }> {
+  const current = await currentPlaybook(campaignId);
+  if (current === "unavailable") return { error: "The playbook could not be read. Nothing was written." };
+  if (!current) return { error: "This campaign has no saved playbook. Nothing was written." };
+  if (!playbookCanReceiveExistingLeads(current, videoId)) {
+    return { error: "Choose the video saved on this campaign's current playbook. Automatic sending has to stay off. Nothing was written." };
+  }
+  return { id: current.id, name: current.name };
+}
+
+export async function issueVideoFirstLinks(args: {
+  campaignId: string;
+  personalVideoId: string;
+  leads: ProspectLead[];
+  playbook: { id: string; name: string };
+}): Promise<
+  | { ok: false; error: string }
+  | { ok: true; links: Array<ProspectLead & { videoUrl: string }>; skips: Array<{ email: string; reason: string }>; reused: number }
+> {
+  const secret = process.env.CRON_SECRET?.trim() ?? "";
+  if (secret.length < 16 || !signAcquisitionJourneyId("00000000-0000-4000-8000-000000000001", secret)) {
+    return { ok: false, error: "Video links cannot be signed right now. Nothing was written." };
+  }
+  const { campaignId, playbook } = args;
+  const videoId = args.personalVideoId;
+  const emails = args.leads.map((lead) => lead.email);
   const people = await peopleByEmail(emails);
   if (!people) return { ok: false, error: "Existing people could not be read. No leads were prepared." };
   const stopped = await stoppedEmails(emails);
@@ -80,7 +129,7 @@ export async function prepareVideoFirstLeads(args: {
   const skips: Array<{ email: string; reason: string }> = [];
   let reused = 0;
 
-  for (const lead of parsed.leads) {
+  for (const lead of args.leads) {
     const person = people.byEmail.get(lead.email) ?? null;
     const facts = factsFor(lead.email, person, stopped, outstanding, history, campaignId);
     const decision = decideLead(facts);
@@ -122,17 +171,7 @@ export async function prepareVideoFirstLeads(args: {
     included.push({ ...lead, videoUrl: recipientVideoUrl(token, journeyToken) });
   }
 
-  return {
-    ok: true,
-    campaignName: playbook.name,
-    videoId,
-    prepared: included.length,
-    reused,
-    invalid: parsed.invalid,
-    csv: instantlyLeadCsv(included),
-    skips,
-    skipCsv: skipReport(skips),
-  };
+  return { ok: true, links: included, skips, reused };
 }
 
 type JourneyRow = {
@@ -284,13 +323,13 @@ async function journeyHistory(personIds: string[], videoId: string): Promise<{ r
   for (const [personId, list] of stored) {
     rows.set(personId, list.map((journey) => {
       const playbook = pins.has(journey.id) ? playbooks.get(pins.get(journey.id)!) : undefined;
-      const videoFirst = prepared.has(journey.id) || Boolean(playbook && playbook.fulfillment === "none" && playbook.permittedActions.length === 0 && playbook.personalVideoId);
+      const videoFacts = openJourneyVideoFacts(playbook, prepared.get(journey.id), videoId);
       return {
         id: journey.id,
         campaignId: journey.campaignId,
         closed: journey.closed,
-        videoFirst,
-        sameVideo: playbook?.personalVideoId === videoId || prepared.get(journey.id) === videoId,
+        videoFirst: videoFacts.videoFirst,
+        sameVideo: videoFacts.sameVideo,
       };
     }));
   }

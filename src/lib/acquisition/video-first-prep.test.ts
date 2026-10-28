@@ -7,7 +7,9 @@ import {
   decideLead,
   instantlyLeadCsv,
   isVideoFirstPlaybook,
+  openJourneyVideoFacts,
   parseProspectList,
+  playbookCanReceiveExistingLeads,
   recipientVideoUrl,
   type LeadFacts,
 } from "@/lib/acquisition/video-first-prep";
@@ -65,6 +67,56 @@ describe("video-first lead preparation", () => {
       offers: new Map(),
     });
     expect(choosePlaybookSend(resolved, "A personal video from Tyler Summitt")).toBeNull();
+    expect(playbookCanReceiveExistingLeads({
+      id: "pb",
+      status: "current",
+      personalVideoId: VIDEO,
+      permittedActions: [],
+      fulfillment: "manual",
+    }, VIDEO)).toBe(true);
+    expect(playbookCanReceiveExistingLeads({
+      id: "pb",
+      status: "current",
+      personalVideoId: VIDEO,
+      permittedActions: ["send_asset"],
+      fulfillment: "catalog",
+    }, VIDEO)).toBe(false);
+    const manual = resolvePinnedOrLegacy({
+      pinned: {
+        id: "pb",
+        campaignId: "camp",
+        version: 2,
+        name: "Coaches",
+        audience: "Head coaches",
+        offerLabel: null,
+        offerKey: null,
+        resources: [],
+        manualResource: "Recipient video link",
+        personalVideoId: VIDEO,
+        permittedActions: [],
+        replyGuidance: null,
+        fulfillment: "manual",
+        status: "current",
+        schedulingOpen: true,
+      },
+      videoReady: true,
+      campaignValue: null,
+      offers: new Map(),
+    });
+    expect(manual.source).toBe("playbook");
+    if (manual.source !== "playbook") return;
+    expect(manual.sendable).toBe(false);
+    expect(choosePlaybookSend(manual, "A personal video from Tyler Summitt")).toBeNull();
+    expect(openJourneyVideoFacts({
+      fulfillment: "manual",
+      permittedActions: [],
+      personalVideoId: VIDEO,
+    }, undefined, VIDEO)).toEqual({ videoFirst: true, sameVideo: true });
+    expect(openJourneyVideoFacts({
+      fulfillment: "catalog",
+      permittedActions: ["send_asset"],
+      personalVideoId: null,
+    }, undefined, VIDEO)).toEqual({ videoFirst: false, sameVideo: false });
   });
 
   it("prepares one row per address and keeps a second campaign on the same person as a separate decision", () => {
