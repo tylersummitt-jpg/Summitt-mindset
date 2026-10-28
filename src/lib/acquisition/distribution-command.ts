@@ -26,6 +26,7 @@ export type LedgerEvent = {
   eventType: string;
   occurredAt: string;
   campaignId: string | null;
+  journeyId?: string | null;
   sender: string | null;
   rawInstantlyType: string | null;
   step: number | null;
@@ -110,6 +111,8 @@ export type CampaignView = {
   webhookReplyPeople: number | null;
   webhookReplyEvents: number | null;
   interestedWebhookPeople: number | null;
+  attributedTrials: number;
+  attributedPaid: number;
   sequenceFinishedEvents: number | null;
   unknownWebhookEvents: number | null;
   instantlyLeads: number | null;
@@ -162,6 +165,10 @@ export type DistributionCommandReport = {
   sequenceFinishedEvents: number | null;
   unknownWebhookEvents: number | null;
   videoEvents: number | null;
+  attributedTrialPeople: number | null;
+  attributedPaidPeople: number | null;
+  emailOnlyTrialPeople: number | null;
+  emailOnlyPaidPeople: number | null;
   unknownWebhookTypes: Array<{ type: string; events: number }>;
   suppressedPeople: number | null;
   sportFilled: number | null;
@@ -235,6 +242,10 @@ export function unreadableDistributionCommand(note: string, rangeLabel: string):
     sequenceFinishedEvents: null,
     unknownWebhookEvents: null,
     videoEvents: null,
+    attributedTrialPeople: null,
+    attributedPaidPeople: null,
+    emailOnlyTrialPeople: null,
+    emailOnlyPaidPeople: null,
     unknownWebhookTypes: [],
     suppressedPeople: null,
     sportFilled: null,
@@ -291,6 +302,8 @@ type MutableCampaign = CampaignView & {
   replyPeople: Set<string>;
   interestPeople: Set<string>;
   observedPeople: Set<string>;
+  trialPeople: Set<string>;
+  paidPeople: Set<string>;
   mailboxSends: Map<string, number>;
   stepSends: Map<string, { events: number; people: Set<string>; replyPeople: Set<string> }>;
   sendsForAge: Array<{ at: number; personId: string | null; step: number | null }>;
@@ -316,6 +329,8 @@ function blankCampaign(id: string): MutableCampaign {
     webhookReplyPeople: 0,
     webhookReplyEvents: 0,
     interestedWebhookPeople: 0,
+    attributedTrials: 0,
+    attributedPaid: 0,
     sequenceFinishedEvents: 0,
     unknownWebhookEvents: 0,
     instantlyLeads: null,
@@ -343,6 +358,8 @@ function blankCampaign(id: string): MutableCampaign {
     replyPeople: new Set(),
     interestPeople: new Set(),
     observedPeople: new Set(),
+    trialPeople: new Set(),
+    paidPeople: new Set(),
     mailboxSends: new Map(),
     stepSends: new Map(),
     sendsForAge: [],
@@ -498,6 +515,10 @@ export function buildDistributionCommand(args: {
   const observedPeople = new Set<string>();
   const replyPeople = new Set<string>();
   const interestPeople = new Set<string>();
+  const attributedTrialPeople = new Set<string>();
+  const attributedPaidPeople = new Set<string>();
+  const emailOnlyTrialPeople = new Set<string>();
+  const emailOnlyPaidPeople = new Set<string>();
   const daily = new Map<string, number>();
   const mailboxCampaigns = new Map<string, { sends: number; campaigns: Set<string> }>();
 
@@ -542,6 +563,22 @@ export function buildDistributionCommand(args: {
       interestPeople.add(event.personId);
     } else if (kind === "sequence_finished") {
       sequenceFinishedEvents += 1;
+    }
+    if (
+      event.personId &&
+      event.provider === "stripe" &&
+      (event.eventType === "trial_started" || event.eventType === "paid_member")
+    ) {
+      const verifiedCampaign = event.campaignId && event.journeyId ? event.campaignId : null;
+      if (event.eventType === "trial_started") {
+        if (verifiedCampaign) {
+          attributedTrialPeople.add(event.personId);
+          ensure(verifiedCampaign).trialPeople.add(event.personId);
+        } else emailOnlyTrialPeople.add(event.personId);
+      } else if (verifiedCampaign) {
+        attributedPaidPeople.add(event.personId);
+        ensure(verifiedCampaign).paidPeople.add(event.personId);
+      } else emailOnlyPaidPeople.add(event.personId);
     }
     if (!event.campaignId) continue;
     const campaign = ensure(event.campaignId);
@@ -671,6 +708,8 @@ export function buildDistributionCommand(args: {
     campaign.webhookContacted = campaign.sendPeople.size;
     campaign.webhookReplyPeople = campaign.replyPeople.size;
     campaign.interestedWebhookPeople = campaign.interestPeople.size;
+    campaign.attributedTrials = campaign.trialPeople.size;
+    campaign.attributedPaid = campaign.paidPeople.size;
     campaign.steps = [...campaign.stepSends.entries()]
       .map(([step, value]) => ({
         step,
@@ -730,7 +769,7 @@ export function buildDistributionCommand(args: {
 
   const reportCampaigns = [...campaigns.values()]
     .map((campaign) => {
-      const { sendPeople: _s, replyPeople: _r, interestPeople: _i, observedPeople: _o, mailboxSends: _m, stepSends: _t, sendsForAge: _a, repliesForAge: _p, ...view } = campaign;
+      const { sendPeople: _s, replyPeople: _r, interestPeople: _i, observedPeople: _o, trialPeople: _trial, paidPeople: _paid, mailboxSends: _m, stepSends: _t, sendsForAge: _a, repliesForAge: _p, ...view } = campaign;
       return view;
     })
     .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
@@ -757,7 +796,7 @@ export function buildDistributionCommand(args: {
   if (unknownWebhookEvents > 0) {
     attention.push(`${unknownWebhookEvents} webhook events have no usable type. They are not replies, bounces, or completions.`);
   }
-  attention.push("No campaign is ready for a next-experiment decision. Trial and revenue attribution is not measured.");
+  attention.push("No campaign is ready for a next-experiment decision. Journey-verified trials and paid members are counted, and revenue is still unmeasured.");
 
   const gaps = [
     "People stored are not Instantly's enrolled-lead count.",
@@ -769,7 +808,7 @@ export function buildDistributionCommand(args: {
     "Open and click counts are withheld. Tracking flags are shown only so a missing open count is not read as zero.",
     "Role, sport, offer, list, and cold subject are not complete enough to compare.",
     "A filled geography value is not a verified recipient state.",
-    "Trial, paid, and revenue are unavailable. A matching email address is not attribution.",
+    "A campaign trial or paid count includes only a Stripe event whose campaign was copied from a journey that belongs to that person. An email match without that journey is listed separately and is not campaign attribution. Collected revenue is unavailable. Older events were not backfilled.",
     "Instantly Completed is the sequence status. It is not this app's automation switch and it is not a finished experiment.",
     sequenceFinishedEvents > 0
       ? `${sequenceFinishedEvents} campaign_completed_for_lead_without_reply events are preserved as sequence evidence. They did not close a journey.`
@@ -791,6 +830,10 @@ export function buildDistributionCommand(args: {
     sequenceFinishedEvents,
     unknownWebhookEvents,
     videoEvents,
+    attributedTrialPeople: attributedTrialPeople.size,
+    attributedPaidPeople: attributedPaidPeople.size,
+    emailOnlyTrialPeople: [...emailOnlyTrialPeople].filter((id) => !attributedTrialPeople.has(id)).length,
+    emailOnlyPaidPeople: [...emailOnlyPaidPeople].filter((id) => !attributedPaidPeople.has(id)).length,
     unknownWebhookTypes: [...unknownTypes.entries()].map(([type, events]) => ({ type, events })).sort((a, b) => b.events - a.events),
     suppressedPeople,
     sportFilled,
@@ -817,7 +860,7 @@ export function buildDistributionCommand(args: {
       .map(([domain, value]) => ({ domain, mailboxes: value.mailboxes, ledgerSends: value.ledgerSends }))
       .sort((a, b) => b.ledgerSends - a.ledgerSends || a.domain.localeCompare(b.domain)),
     attention,
-    nextDecision: "No next campaign is selected. Sequence completion, outstanding replies, fulfillment, and trial attribution are not all known. Instantly's Completed status does not answer it.",
+    nextDecision: "No next campaign is selected. Journey-verified trials and paid members are counted, and revenue is still unmeasured. Instantly's Completed status does not answer it.",
     gaps,
   };
 }
@@ -836,7 +879,7 @@ function completionNote(campaign: CampaignView): string {
     return "Instantly status is Completed, and a PDF is still scheduled. Sequence status and fulfillment are different. This is not a finished experiment.";
   }
   if (instantlyCompleted) {
-    return "Instantly status is Completed. That is not this app's automation switch, and trial attribution is still unmeasured, so the experiment is not finished.";
+    return "Instantly status is Completed. That is not this app's automation switch, and revenue is still unmeasured, so the experiment is not finished.";
   }
   if (leadsDone != null && campaign.instantlyLeads != null && leadsDone < campaign.instantlyLeads) {
     return "Instantly still has leads that have not completed the sequence.";

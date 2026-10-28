@@ -59,6 +59,20 @@ export function journeyIdFromStripeMetadata(
   return parseAcquisitionJourneyId(metadata?.[ACQUISITION_JOURNEY_METADATA_KEY]);
 }
 
+/** Campaign credit exists only when the checkout journey belongs to this person. */
+export function attributionFromVerifiedJourney(args: {
+  requestedJourneyId: string | null;
+  journey: { id: string; personId: string; campaignId: string | null } | null;
+  personId: string;
+}): { journeyId: string; campaignId: string } | null {
+  const requested = parseAcquisitionJourneyId(args.requestedJourneyId);
+  if (!requested || !args.journey || args.journey.id !== requested) return null;
+  if (args.journey.personId !== args.personId) return null;
+  const campaignId = args.journey.campaignId?.trim() ?? "";
+  if (!campaignId) return null;
+  return { journeyId: requested, campaignId };
+}
+
 export type OutreachHistoryDecision = {
   ownerCanary: boolean;
   exactEmailConfirmed: boolean;

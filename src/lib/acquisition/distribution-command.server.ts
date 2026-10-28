@@ -111,7 +111,7 @@ export async function loadDistributionCommand(args: {
     readPages<LedgerEvent>(async (from, to) => {
       const { data, error } = await supabaseServer
         .from("acquisition_events")
-        .select("person_id, provider, provider_event_id, event_type, occurred_at, campaign_id, sender, metadata")
+        .select("person_id, provider, provider_event_id, event_type, occurred_at, campaign_id, journey_id, sender, metadata")
         .order("occurred_at", { ascending: true })
         .order("id", { ascending: true })
         .range(from, to);
@@ -131,6 +131,7 @@ export async function loadDistributionCommand(args: {
             eventType: row.event_type,
             occurredAt: row.occurred_at,
             campaignId: typeof row.campaign_id === "string" ? row.campaign_id : null,
+            journeyId: typeof row.journey_id === "string" ? row.journey_id : null,
             sender: typeof row.sender === "string" ? row.sender : null,
             rawInstantlyType,
             step,

@@ -92,7 +92,7 @@ export function DistributionCommandCenter({
           </div>
           <div className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800">
             <p className="font-medium text-gray-900">Which campaigns are winning?</p>
-            <p className="mt-1">None are ranked. Reply samples are small, and trial attribution is not measured.</p>
+            <p className="mt-1">None are ranked. Journey-verified trial and paid counts are shown, and they are not a ranking.</p>
             <TrustMark trust="NOT YET TRUSTWORTHY" />
           </div>
           <div className="rounded border border-gray-200 bg-white px-4 py-3 text-sm text-gray-800">
@@ -114,7 +114,8 @@ export function DistributionCommandCenter({
           <Card label="Positive replies" value="Unavailable" trust="NOT YET TRUSTWORTHY" note={`${showCount(report.interestedWebhookPeople, "people")} have a lead_interested webhook. That label is not a positive reply.`} />
           <Card label="Instantly unique replies" value={showCount(report.instantly.overview?.replyCountUnique ?? null, "leads")} trust={report.instantly.overview?.replyCountUnique == null ? "UNAVAILABLE" : "PARTIAL"} note={report.instantly.overviewError ?? "Instantly's first reply per lead, excluding automatic replies. Not merged with our webhooks."} />
           <Card label="PDFs confirmed delivered" value={showCount(report.fulfillment == null ? null : report.fulfillment["send_asset:delivered"] ?? 0, "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} note="Current outbox, not the date range. Accepted by Resend is not delivered." />
-          <Card label="Email-attributed trials" value="Unavailable" trust="UNAVAILABLE" note="A trial event does not store the campaign or journey. This is not zero trials." />
+          <Card label="Journey-verified trials" value={showCount(report.attributedTrialPeople, "people")} trust={report.attributedTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} note="Distinct people whose trial event stores the campaign from a journey that belongs to them. An email match is not included." />
+          <Card label="Journey-verified paid members" value={showCount(report.attributedPaidPeople, "people")} trust={report.attributedPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} note="The first paid event for that subscription. A trial that later pays is counted here once, and it stays in the trial count." />
         </div>
       </section>
 
@@ -141,7 +142,10 @@ export function DistributionCommandCenter({
               <FunnelRow stage="PDF delivered" count={showCount(report.fulfillment == null ? null : (report.fulfillment["send_asset:delivered"] ?? 0), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} />
               <FunnelRow stage="Videos sent" count={showCount(videoActions(report), "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} />
               <FunnelRow stage="Video engagement" count={showCount(report.videoEvents, "events")} trust="TRUSTWORTHY" />
-              <FunnelRow stage="Trials, paid members, revenue" count="Unavailable" trust="UNAVAILABLE" />
+              <FunnelRow stage="Journey-verified trials" count={showCount(report.attributedTrialPeople, "people")} trust={report.attributedTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} />
+              <FunnelRow stage="Journey-verified paid members" count={showCount(report.attributedPaidPeople, "people")} trust={report.attributedPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} />
+              <FunnelRow stage="Email-only trials, not campaign credit" count={showCount(report.emailOnlyTrialPeople, "people")} trust={report.emailOnlyTrialPeople == null ? "UNAVAILABLE" : "PARTIAL"} />
+              <FunnelRow stage="Collected revenue" count="Unavailable" trust="UNAVAILABLE" />
             </tbody>
           </table>
         </div>
@@ -168,7 +172,7 @@ export function DistributionCommandCenter({
       <section className="space-y-3">
         <h2 className="text-lg font-semibold text-gray-900">Campaigns</h2>
         <p className="text-sm text-gray-600">
-          {report.campaigns.length} campaigns in this read. Search and status filters stay on this page. Sorting by trials, paid members, revenue, or positive replies is withheld.
+          {report.campaigns.length} campaigns in this read. Search and status filters stay on this page. Verified trial and paid counts are shown and are not a ranking. Sorting by revenue or positive replies is withheld.
         </p>
         <div className="flex flex-wrap gap-2">
           <input
@@ -214,6 +218,8 @@ export function DistributionCommandCenter({
                     <th className="px-3 py-2">Webhook replies</th>
                     <th className="px-3 py-2">Instantly contacted</th>
                     <th className="px-3 py-2">Instantly unique replies</th>
+                    <th className="px-3 py-2">Verified trials</th>
+                    <th className="px-3 py-2">Verified paid</th>
                   </>
                 ) : (
                   <>
@@ -241,6 +247,8 @@ export function DistributionCommandCenter({
                         <td className="px-3 py-2">{showCount(campaign.webhookReplyPeople, "")}</td>
                         <td className="px-3 py-2">{showCount(campaign.instantlyContacted, "")}</td>
                         <td className="px-3 py-2">{showCount(campaign.instantlyUniqueReplies, "")}</td>
+                        <td className="px-3 py-2">{campaign.attributedTrials}</td>
+                        <td className="px-3 py-2">{campaign.attributedPaid}</td>
                       </>
                     ) : (
                       <>
@@ -332,7 +340,9 @@ export function DistributionCommandCenter({
       <section className="space-y-2">
         <h2 className="text-lg font-semibold text-gray-900">Trials, paid members, and the next decision</h2>
         <p className="text-sm text-gray-800">{report.nextDecision}</p>
-        <p className="text-sm text-gray-600">First-touch campaign, converting journey, checkout source, MRR, and collected revenue are unavailable for cold email. Company trial counts stay in the website section below and are not added to these rows.</p>
+        <p className="text-sm text-gray-600">
+          Journey-verified trials in this range: {showCount(report.attributedTrialPeople, "people")}. Journey-verified paid members: {showCount(report.attributedPaidPeople, "people")}. Email-only trials, with no campaign credit: {showCount(report.emailOnlyTrialPeople, "people")}. Email-only paid members: {showCount(report.emailOnlyPaidPeople, "people")}. Collected revenue, MRR, and a first-touch guess are unavailable. Company trial counts stay in the website section below and are not added to these rows.
+        </p>
       </section>
 
       <section className="space-y-2">

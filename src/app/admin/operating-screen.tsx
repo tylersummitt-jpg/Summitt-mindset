@@ -529,8 +529,10 @@ function MetricGrid({ metrics }: { metrics: ExperimentMetric[] }) {
 
 function ExperimentActivitySection({
   snapshot,
+  command,
 }: {
   snapshot: OperatingSnapshot;
+  command: DistributionCommandReport | null;
 }) {
   const activity: ExperimentActivity = snapshot.experimentActivity;
   const eligibility: EligibilityReport = snapshot.eligibility;
@@ -552,6 +554,7 @@ function ExperimentActivitySection({
           metrics={experimentTrialMetrics({
             companyTrialStarts: snapshot.distribution.trialStarts,
             activity,
+            verifiedTrialPeople: command?.attributedTrialPeople ?? null,
           })}
         />
       </section>
@@ -679,7 +682,7 @@ function DistributionBody({
 
       <PersonalVideosSection report={snapshot.personalVideos} />
 
-      <ExperimentActivitySection snapshot={snapshot} />
+      <ExperimentActivitySection snapshot={snapshot} command={command} />
 
       {emailRepresentative ? <EmailRepresentativePanel report={emailRepresentative} /> : null}
 

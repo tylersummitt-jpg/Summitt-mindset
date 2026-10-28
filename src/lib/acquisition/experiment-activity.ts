@@ -46,7 +46,7 @@ export type ExperimentActivity = {
   truncated: boolean;
   note: string;
   counts: ExperimentActivityCounts | null;
-  /** Always unset. A trial row does not prove which campaign or journey preceded it. */
+  /** Unset in this panel. The cold-email command counts a trial only from a verified journey. */
   campaignAttributedTrials: null;
 };
 
@@ -205,8 +205,10 @@ export function experimentHistoryMetrics(activity: ExperimentActivity): Experime
 export function experimentTrialMetrics(args: {
   companyTrialStarts: string;
   activity: ExperimentActivity;
+  verifiedTrialPeople?: number | null;
 }): ExperimentMetric[] {
   const trials = args.activity.counts?.acquisitionTrials;
+  const verified = args.verifiedTrialPeople;
   return [
     {
       label: "All Summitt Mindset trial starts",
@@ -219,9 +221,9 @@ export function experimentTrialMetrics(args: {
       note: "Counted when the acquisition system recorded a Stripe trial link. This may differ from actual trial-start timing and may include test accounts.",
     },
     {
-      label: "Campaign or journey attributed trial starts",
-      value: "Not available",
-      note: "Not proven. A trial event does not record the campaign or journey, and source_campaign is not used.",
+      label: "Journey-verified trial starts",
+      value: typeof verified === "number" ? `${verified} people` : "Counted in the cold-email section",
+      note: "Included only when the trial event stores a journey that belongs to that person. An email match is not campaign credit, and source_campaign is not used.",
     },
   ];
 }

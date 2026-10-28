@@ -246,8 +246,10 @@ describe("distribution experiment activity", () => {
     expect(trials[1]?.label).toBe("Acquisition trial links recorded");
     expect(trials[1]?.value).toBe("1 events, 1 people");
     expect(trials[1]?.note).toBe("Counted when the acquisition system recorded a Stripe trial link. This may differ from actual trial-start timing and may include test accounts.");
-    expect(trials[2]?.value).toBe("Not available");
+    expect(trials[2]?.value).toBe("Counted in the cold-email section");
     expect(trials[2]?.note).toContain("source_campaign is not used");
+    const verified = experimentTrialMetrics({ companyTrialStarts: "10", activity, verifiedTrialPeople: 2 });
+    expect(verified[2]?.value).toBe("2 people");
     const snapshot = emptyUnknownSnapshot();
     snapshot.period = { ...snapshot.period, freeTrialsStarted: 10 };
     const operating = buildOperatingSnapshot({
@@ -289,7 +291,7 @@ describe("distribution experiment activity", () => {
     expect(operating.report).toContain("All Summitt Mindset trial starts: 10");
     expect(operating.report).toContain("Acquisition trial links recorded: 1 events, 1 people");
     expect(operating.report).toContain("Counted when the acquisition system recorded a Stripe trial link.");
-    expect(operating.report).toContain("Campaign or journey attributed trial starts: Not available");
+    expect(operating.report).toContain("Journey-verified trial starts: Counted in the cold-email section");
     expect(operating.report).not.toContain("13");
     expect(operating.report).not.toMatch(/@/);
     const lines = formatExperimentSections({

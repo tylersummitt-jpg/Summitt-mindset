@@ -91,6 +91,8 @@ import {
 import {
   ACQUISITION_JOURNEY_QUERY,
   acquisitionTrialCheckoutUrl,
+  attributionFromVerifiedJourney,
+  parseAcquisitionJourneyId,
   signAcquisitionJourneyId,
 } from "@/lib/acquisition/email-acquired-member-notice";
 import { runAcquisitionPass, type PassEffect, type PassSendRequest } from "@/lib/acquisition/pass";
@@ -259,6 +261,7 @@ async function insertEvent(args: {
   eventType: string;
   occurredAt: string;
   campaignId?: string | null;
+  journeyId?: string | null;
   sender?: string | null;
   metadata?: Record<string, unknown>;
 }): Promise<"stored" | "duplicate" | "failed"> {
@@ -269,6 +272,7 @@ async function insertEvent(args: {
     event_type: args.eventType,
     occurred_at: args.occurredAt,
     campaign_id: args.campaignId ?? null,
+    journey_id: args.journeyId ?? null,
     sender: args.sender ?? null,
     metadata: args.metadata ?? {},
   });
@@ -1951,12 +1955,50 @@ export async function applyAcquisitionResendEvent(event: {
   return block.ok;
 }
 
+async function subscriptionLifecycleEvent(args: {
+  personId: string;
+  eventType: "trial_started" | "paid_member";
+  subscriptionId: string;
+}): Promise<"present" | "absent" | "unreadable"> {
+  const { data, error } = await supabaseServer
+    .from("acquisition_events")
+    .select("id")
+    .eq("person_id", args.personId)
+    .eq("provider", "stripe")
+    .eq("event_type", args.eventType)
+    .contains("metadata", { subscription_id: args.subscriptionId })
+    .limit(1);
+  if (error) return "unreadable";
+  return Array.isArray(data) && data.length > 0 ? "present" : "absent";
+}
+
+async function verifiedCampaignJourney(journeyId: string | null, personId: string) {
+  const requested = parseAcquisitionJourneyId(journeyId);
+  if (!requested) return null;
+  const { data, error } = await supabaseServer
+    .from("acquisition_journeys")
+    .select("id, person_id, campaign_id")
+    .eq("id", requested)
+    .maybeSingle();
+  if (error || !data) return null;
+  return attributionFromVerifiedJourney({
+    requestedJourneyId: requested,
+    journey: {
+      id: typeof data.id === "string" ? data.id : "",
+      personId: typeof data.person_id === "string" ? data.person_id : "",
+      campaignId: typeof data.campaign_id === "string" ? data.campaign_id : null,
+    },
+    personId,
+  });
+}
+
 export async function noteAcquisitionTrial(args: {
   email: string | null;
   clerkUserId: string | null;
   customerId: string | null;
   subscriptionId: string;
   eventId: string;
+  journeyId?: string | null;
 }): Promise<void> {
   const email = normalizeAcquisitionEmail(args.email);
   let person = email ? await findPersonByEmail(email) : null;
@@ -1969,14 +2011,28 @@ export async function noteAcquisitionTrial(args: {
     person = asPerson(data as PersonRow | null);
   }
   if (!person) return;
-  const stored = await insertEvent({
+  const prior = await subscriptionLifecycleEvent({
     personId: person.id,
-    provider: "stripe",
-    providerEventId: `trial:${args.eventId}`,
     eventType: "trial_started",
-    occurredAt: new Date().toISOString(),
-    metadata: { subscription_id: args.subscriptionId },
+    subscriptionId: args.subscriptionId,
   });
+  const verified = prior === "present" ? null : await verifiedCampaignJourney(args.journeyId ?? null, person.id);
+  const stored = prior === "present"
+    ? "duplicate"
+    : await insertEvent({
+      personId: person.id,
+      provider: "stripe",
+      providerEventId: `trial:subscription:${args.subscriptionId}`,
+      eventType: "trial_started",
+      occurredAt: new Date().toISOString(),
+      campaignId: verified?.campaignId ?? null,
+      journeyId: verified?.journeyId ?? null,
+      metadata: {
+        subscription_id: args.subscriptionId,
+        stripe_event_id: args.eventId,
+        ...(verified ? { journey_id: verified.journeyId } : {}),
+      },
+    });
   let blockUnconfirmed = false;
   if (stored !== "failed") {
     const block = await ensureInstantlyBlock({
@@ -2022,6 +2078,7 @@ export async function noteAcquisitionPaid(args: {
   subscriptionId: string;
   eventId: string;
   clerkUserId: string | null;
+  journeyId?: string | null;
 }): Promise<void> {
   const { data } = await supabaseServer
     .from("acquisition_people")
@@ -2030,14 +2087,28 @@ export async function noteAcquisitionPaid(args: {
     .maybeSingle();
   const person = asPerson(data as PersonRow | null);
   if (!person) return;
-  const stored = await insertEvent({
+  const prior = await subscriptionLifecycleEvent({
     personId: person.id,
-    provider: "stripe",
-    providerEventId: `paid:${args.eventId}`,
     eventType: "paid_member",
-    occurredAt: new Date().toISOString(),
-    metadata: { subscription_id: args.subscriptionId },
+    subscriptionId: args.subscriptionId,
   });
+  const verified = prior === "present" ? null : await verifiedCampaignJourney(args.journeyId ?? null, person.id);
+  const stored = prior === "present"
+    ? "duplicate"
+    : await insertEvent({
+      personId: person.id,
+      provider: "stripe",
+      providerEventId: `paid:subscription:${args.subscriptionId}`,
+      eventType: "paid_member",
+      occurredAt: new Date().toISOString(),
+      campaignId: verified?.campaignId ?? null,
+      journeyId: verified?.journeyId ?? null,
+      metadata: {
+        subscription_id: args.subscriptionId,
+        stripe_event_id: args.eventId,
+        ...(verified ? { journey_id: verified.journeyId } : {}),
+      },
+    });
   let blockUnconfirmed = false;
   if (stored !== "failed") {
     const block = await ensureInstantlyBlock({

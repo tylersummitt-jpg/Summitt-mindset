@@ -64,8 +64,8 @@ describe("distribution command center layout", () => {
     expect(text).toContain("NOT YET TRUSTWORTHY");
     expect(text).toContain("None are ranked");
     expect(text).toContain("1 person");
-    expect(text).toContain("Email-attributed trials");
-    expect(text).toContain("Sorting by trials");
+    expect(text).toContain("Journey-verified trials");
+    expect(text).toContain("Verified trial and paid counts are shown");
     expect(text).not.toContain("open_count");
   });
 });
