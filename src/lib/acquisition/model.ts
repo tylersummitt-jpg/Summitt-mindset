@@ -23,8 +23,24 @@ export type AcquisitionLifecycle = (typeof ACQUISITION_LIFECYCLE)[number];
 export const ACQUISITION_ASSETS = ["definite_dozen", "playbook"] as const;
 export type AcquisitionAsset = (typeof ACQUISITION_ASSETS)[number];
 
-export const ACQUISITION_ACTIONS = ["send_asset", "send_video", "send_trial_followup"] as const;
+export const ACQUISITION_ACTIONS = [
+  "send_asset",
+  "send_video",
+  "send_video_reminder",
+  "send_video_reminder_final",
+  "send_trial_followup",
+] as const;
 export type AcquisitionActionType = (typeof ACQUISITION_ACTIONS)[number];
+
+export function isAcquisitionAction(value: string): value is AcquisitionActionType {
+  return (ACQUISITION_ACTIONS as readonly string[]).includes(value);
+}
+
+export function isVideoReminderAction(
+  action: AcquisitionActionType,
+): action is "send_video_reminder" | "send_video_reminder_final" {
+  return action === "send_video_reminder" || action === "send_video_reminder_final";
+}
 
 export type AcquisitionAutomation = "off" | "pilot" | "active" | "paused" | "unavailable";
 
@@ -180,6 +196,7 @@ export function actionMatchesState(
 ): boolean {
   if (action === "send_asset") return state === "asset_requested";
   if (action === "send_video") return state === "asset_sent";
+  if (isVideoReminderAction(action)) return state === "warm_video_sent";
   return state === "warm_video_sent";
 }
 
@@ -227,6 +244,10 @@ export function settleAcceptedSend(
   action: AcquisitionActionType,
   state: AcquisitionLifecycle
 ): ActionSettle {
+  if (isVideoReminderAction(action)) {
+    if (!actionMatchesState(action, state)) return { status: "canceled", state, schedule: null };
+    return { status: "accepted", state, schedule: null };
+  }
   const reduced = reduceLiveSignal(
     state,
     action === "send_asset"

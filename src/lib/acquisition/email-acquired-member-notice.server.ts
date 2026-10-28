@@ -248,7 +248,7 @@ async function loadOutreach(args: {
     .from("acquisition_actions")
     .select("action_type, status, promised_label, scheduled_at, updated_at, delivered_at, journey_id")
     .eq("person_id", args.personId)
-    .in("action_type", ["send_asset", "send_video", "send_trial_followup"]);
+    .in("action_type", ["send_asset", "send_video", "send_video_reminder", "send_video_reminder_final", "send_trial_followup"]);
   let journeys = supabaseServer
     .from("acquisition_journeys")
     .select("id, campaign_id")
@@ -321,7 +321,7 @@ async function loadOutreach(args: {
       const deliveredAt = text(row.delivered_at, 40);
       if (resendResourceCountsAsSent(status, deliveredAt)) acceptedOrDeliveredResources += 1;
       const at = text(row.scheduled_at, 40) ?? text(row.updated_at, 40);
-      if (!at || (row.action_type !== "send_asset" && row.action_type !== "send_video" && row.action_type !== "send_trial_followup")) continue;
+      if (!at || (row.action_type !== "send_asset" && row.action_type !== "send_video" && row.action_type !== "send_video_reminder" && row.action_type !== "send_video_reminder_final" && row.action_type !== "send_trial_followup")) continue;
       rows.push({
         at,
         journeyId: text(row.journey_id, 80),

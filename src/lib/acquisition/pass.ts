@@ -3,6 +3,7 @@ import { journeyLocalStop } from "@/lib/acquisition/journey-lifecycle";
 import {
   actionMatchesState,
   evaluateWarmSend,
+  isVideoReminderAction,
   nextWarmAction,
   salesEmailMustStop,
   settleAcceptedSend,
@@ -13,6 +14,7 @@ import {
   type AcquisitionLifecycle,
   type ActionSettle,
 } from "@/lib/acquisition/model";
+import { deferredTrialAtMs, videoLinkAction } from "@/lib/acquisition/video-reminders";
 
 export type PassPerson = {
   id: string;
@@ -42,6 +44,7 @@ export type PassAction = {
   journeyLifecycle?: AcquisitionLifecycle | null;
   journeyClosed?: boolean;
   journeyKnown?: boolean;
+  finalReminderAtMs?: number | null;
 };
 
 export type PassSendRequest = {
@@ -57,12 +60,14 @@ export type PassEffect =
   | { kind: "accept"; actionId: string; settle: ActionSettle; providerMessageId: string | null }
   | { kind: "retry"; actionId: string }
   | { kind: "release"; actionId: string }
+  | { kind: "defer"; actionId: string; untilMs: number }
   | {
       kind: "stop";
       actionId: string;
       status: "canceled" | "failed" | "blocked" | "uncertain" | "suppressed";
       cancelSiblings: boolean;
       cancelJourney?: boolean;
+      cancelReminders?: boolean;
     };
 
 export function providerKind(outcome: "accepted" | "temporary_failure" | "permanent_failure" | "provider_rejected" | "unknown"): "accepted" | "temporary" | "permanent" | "uncertain" {
@@ -84,6 +89,7 @@ export async function runAcquisitionPass(args: {
   clerkSubscribed: (clerkUserId: string | null) => Promise<boolean | null>;
   assetFiles: (person: PassPerson, action: PassAction) => Promise<{ label: string | null; files: PassAttachment[] } | null>;
   videoToken: (person: PassPerson, action: PassAction) => Promise<string | null | "unavailable">;
+  videoPlay?: (personId: string, publicToken: string) => Promise<"played" | "unplayed" | "unknown">;
   unsubscribeToken: () => string;
   send: (request: PassSendRequest) => Promise<{
     outcome: "accepted" | "temporary_failure" | "permanent_failure" | "provider_rejected" | "unknown";
@@ -161,6 +167,18 @@ export async function runAcquisitionPass(args: {
       await args.apply({ kind: "stop", actionId: action.id, status: "canceled", cancelSiblings: false });
       continue;
     }
+    if (
+      action.actionType === "send_trial_followup"
+      && typeof action.finalReminderAtMs === "number"
+      && Number.isFinite(action.finalReminderAtMs)
+    ) {
+      await args.apply({
+        kind: "defer",
+        actionId: action.id,
+        untilMs: deferredTrialAtMs({ nowMs: args.now.getTime(), finalReminderAtMs: action.finalReminderAtMs }),
+      });
+      continue;
+    }
     const fresh = await args.person(action.personId);
     if (
       !fresh
@@ -183,14 +201,31 @@ export async function runAcquisitionPass(args: {
       await args.apply({ kind: "stop", actionId: action.id, status: "blocked", cancelSiblings: false });
       continue;
     }
-    const videoToken = action.actionType === "send_video" ? await args.videoToken(fresh, action) : null;
+    const videoToken = videoLinkAction(action.actionType) ? await args.videoToken(fresh, action) : null;
     if (videoToken === "unavailable") {
       await args.apply({ kind: "release", actionId: action.id });
       continue;
     }
-    if (action.actionType === "send_video" && !videoToken) {
+    if (videoLinkAction(action.actionType) && !videoToken) {
       await args.apply({ kind: "stop", actionId: action.id, status: "blocked", cancelSiblings: false });
       continue;
+    }
+    if (isVideoReminderAction(action.actionType) && videoToken) {
+      const play = args.videoPlay ? await args.videoPlay(fresh.id, videoToken) : "unknown";
+      if (play === "unknown") {
+        await args.apply({ kind: "release", actionId: action.id });
+        continue;
+      }
+      if (play === "played") {
+        await args.apply({
+          kind: "stop",
+          actionId: action.id,
+          status: "canceled",
+          cancelSiblings: false,
+          cancelReminders: true,
+        });
+        continue;
+      }
     }
     const request: PassSendRequest = {
       action,

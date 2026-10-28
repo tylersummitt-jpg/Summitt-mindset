@@ -37,6 +37,12 @@ import {
 import { loadInterpreterKnowledge } from "@/lib/acquisition/email-knowledge.server";
 import { choosePlaybookSend, recoverPlaybookAcceptance } from "@/lib/acquisition/playbook";
 import { campaignPlaybookPresence, journeyObligation, journeyPlaybookFollowUp, loadResolvedCampaign, pinJourneyPlaybook, pinnedDeliveryVideoId } from "@/lib/acquisition/playbook.server";
+import {
+  DEFAULT_VIDEO_FINAL_REMINDER_HOURS,
+  DEFAULT_VIDEO_REMINDER_HOURS,
+  videoReminderCopy,
+  videoReminderTimes,
+} from "@/lib/acquisition/video-reminders";
 import { inboundIdsBlockedByEmailAnswers, reconcileAcquisitionEmailAnswers } from "@/lib/acquisition/email-manual-answer.server";
 import { outboundSendPlan, postInstantlyThreadReply, reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
 import {
@@ -81,6 +87,8 @@ import {
   isAcquisitionLifecycle,
   parseAcquisitionAsset,
   reduceLiveSignal,
+  isAcquisitionAction,
+  isVideoReminderAction,
   salesEmailMustStop,
   type AcquisitionActionType,
   type AcquisitionAsset,
@@ -127,6 +135,8 @@ type Settings = {
   automation: AcquisitionAutomation;
   videoDelayHours: number;
   trialFollowupDelayHours: number;
+  videoReminderHours: number;
+  videoFinalReminderHours: number;
   dailyCap: number;
   evergreenPersonalVideoId: string | null;
   campaignAssets: Record<string, unknown>;
@@ -152,6 +162,8 @@ function settingsFromRow(data: Record<string, unknown>, conversationReady: boole
     automation,
     videoDelayHours: typeof data.video_delay_hours === "number" ? data.video_delay_hours : 24,
     trialFollowupDelayHours: typeof data.trial_followup_delay_hours === "number" ? data.trial_followup_delay_hours : 72,
+    videoReminderHours: DEFAULT_VIDEO_REMINDER_HOURS,
+    videoFinalReminderHours: DEFAULT_VIDEO_FINAL_REMINDER_HOURS,
     dailyCap: typeof data.daily_send_cap === "number" ? data.daily_send_cap : 25,
     evergreenPersonalVideoId: typeof data.evergreen_personal_video_id === "string" ? data.evergreen_personal_video_id : null,
     campaignAssets: data.campaign_assets && typeof data.campaign_assets === "object" ? data.campaign_assets as Record<string, unknown> : {},
@@ -168,6 +180,8 @@ const SETTINGS_UNAVAILABLE: Settings = {
   automation: "unavailable",
   videoDelayHours: 24,
   trialFollowupDelayHours: 72,
+  videoReminderHours: DEFAULT_VIDEO_REMINDER_HOURS,
+  videoFinalReminderHours: DEFAULT_VIDEO_FINAL_REMINDER_HOURS,
   dailyCap: 25,
   evergreenPersonalVideoId: null,
   campaignAssets: {},
@@ -227,11 +241,29 @@ function closeConversation(settings: Settings): Settings {
   };
 }
 
+async function readReminderHours(): Promise<{ first: number; final: number } | null> {
+  const { data, error } = await supabaseServer
+    .from("acquisition_settings")
+    .select("video_reminder_hours, video_final_reminder_hours")
+    .eq("id", "default")
+    .maybeSingle();
+  if (error || !data) return null;
+  const first = data.video_reminder_hours;
+  const final = data.video_final_reminder_hours;
+  if (typeof first !== "number" || typeof final !== "number") return null;
+  if (!(first > 0) || !(final > first)) return null;
+  return { first, final };
+}
+
 export async function readAcquisitionSettings(): Promise<Settings> {
   const base = await readSettingsBase();
+  const reminders = await readReminderHours();
+  const withReminders = reminders
+    ? { ...base, videoReminderHours: reminders.first, videoFinalReminderHours: reminders.final }
+    : base;
   const stored = await readStoredCampaignActivations();
-  if (!stored.ok || !base.conversationReadable) return closeConversation(base);
-  return { ...base, conversationPilotCampaigns: stored.activations };
+  if (!stored.ok || !base.conversationReadable) return closeConversation(withReminders);
+  return { ...withReminders, conversationPilotCampaigns: stored.activations };
 }
 
 async function findPersonByEmail(email: string): Promise<PersonRow | null> {
@@ -435,6 +467,34 @@ async function scheduleAction(
       updated_at: new Date().toISOString(),
     })
     .eq("id", personId);
+}
+
+async function scheduleVideoReminders(
+  personId: string,
+  journeyId: string | null,
+  now: Date,
+  settings: Settings,
+): Promise<void> {
+  const times = videoReminderTimes({
+    acceptedAtMs: now.getTime(),
+    firstHours: settings.videoReminderHours,
+    finalHours: settings.videoFinalReminderHours,
+  });
+  if (!times) return;
+  const scope = journeyId ? { journeyId } : undefined;
+  await scheduleAction(personId, "send_video_reminder", new Date(times.firstAtMs), scope);
+  await scheduleAction(personId, "send_video_reminder_final", new Date(times.finalAtMs), scope);
+}
+
+async function cancelScheduledReminders(personId: string, journeyId: string | null): Promise<void> {
+  let query = supabaseServer
+    .from("acquisition_actions")
+    .update({ status: "canceled", claim_until: null, updated_at: new Date().toISOString() })
+    .eq("person_id", personId)
+    .eq("status", "scheduled")
+    .in("action_type", ["send_video_reminder", "send_video_reminder_final"]);
+  query = journeyId ? query.eq("journey_id", journeyId) : query.is("journey_id", null);
+  await query;
 }
 
 async function ensurePerson(args: {
@@ -836,7 +896,7 @@ export async function recordAcquisitionVideoEvent(args: {
 }): Promise<void> {
   const { data, error } = await supabaseServer
     .from("acquisition_video_recipients")
-    .select("id, person_id")
+    .select("id, person_id, personal_video_id")
     .eq("public_token", args.token)
     .maybeSingle();
   if (error || !data?.person_id || !data.id) return;
@@ -848,6 +908,39 @@ export async function recordAcquisitionVideoEvent(args: {
     occurredAt: args.occurredAt ?? new Date().toISOString(),
     metadata: { recipient_id: data.id },
   });
+  if (args.eventType === "personal_video_played" && typeof data.personal_video_id === "string") {
+    await cancelRemindersAfterPlay(String(data.person_id), data.personal_video_id);
+  }
+}
+
+async function cancelRemindersAfterPlay(personId: string, personalVideoId: string): Promise<void> {
+  const settings = await readAcquisitionSettings();
+  const { data, error } = await supabaseServer
+    .from("acquisition_actions")
+    .select("id, journey_id")
+    .eq("person_id", personId)
+    .eq("status", "scheduled")
+    .in("action_type", ["send_video_reminder", "send_video_reminder_final"]);
+  if (error || !Array.isArray(data)) return;
+  for (const row of data) {
+    if (typeof row.id !== "string") continue;
+    const journeyId = typeof row.journey_id === "string" ? row.journey_id : null;
+    let matches = false;
+    if (!journeyId) {
+      matches = settings.evergreenPersonalVideoId === personalVideoId;
+    } else {
+      const pinned = await pinnedDeliveryVideoId(journeyId);
+      if (pinned === "unavailable") continue;
+      matches = pinned === personalVideoId || (pinned == null && settings.evergreenPersonalVideoId === personalVideoId);
+    }
+    if (!matches) continue;
+    await supabaseServer
+      .from("acquisition_actions")
+      .update({ status: "canceled", claim_until: null, updated_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .eq("status", "scheduled")
+      .in("action_type", ["send_video_reminder", "send_video_reminder_final"]);
+  }
 }
 
 export async function resolveAcquisitionRecipient(token: string): Promise<{
@@ -931,11 +1024,20 @@ function warmCopy(request: PassSendRequest): {
       })),
     };
   }
-  if (request.action.actionType === "send_video" && request.videoToken) {
+  if ((request.action.actionType === "send_video" || isVideoReminderAction(request.action.actionType)) && request.videoToken) {
     const token = signAcquisitionJourneyId(request.action.journeyId ?? "", process.env.CRON_SECRET?.trim() ?? "");
     const url = token
       ? `https://summittmindset.com/for/${request.videoToken}?${ACQUISITION_JOURNEY_QUERY}=${encodeURIComponent(token)}`
       : `https://summittmindset.com/for/${request.videoToken}`;
+    if (isVideoReminderAction(request.action.actionType)) {
+      const copy = videoReminderCopy({
+        which: request.action.actionType === "send_video_reminder_final" ? "final" : "first",
+        firstName: request.person.firstName,
+        watchUrl: url,
+        unsubscribeUrl: unsubscribe,
+      });
+      return { subject: copy.subject, text: copy.text, html: copy.html, attachments: [] };
+    }
     const text = `Hi${name},\n\nI recorded a short note for you: ${url}\n\nTyler Summitt\n\nUnsubscribe: ${unsubscribe}`;
     return {
       subject: "A short note from Tyler Summitt",
@@ -1013,7 +1115,28 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
         .eq("id", effect.actionId)
         .maybeSingle();
       if (typeof scoped?.journey_id === "string") await cancelJourneyPending(scoped.journey_id);
+    } else if (effect.cancelReminders) {
+      const { data: scoped } = await supabaseServer
+        .from("acquisition_actions")
+        .select("journey_id")
+        .eq("id", effect.actionId)
+        .maybeSingle();
+      const journeyId = typeof scoped?.journey_id === "string" ? scoped.journey_id : null;
+      await cancelScheduledReminders(personId, journeyId);
     }
+    return;
+  }
+  if (effect.kind === "defer") {
+    await supabaseServer
+      .from("acquisition_actions")
+      .update({
+        status: "scheduled",
+        claim_until: null,
+        scheduled_at: new Date(effect.untilMs).toISOString(),
+        updated_at: stamp,
+      })
+      .eq("id", effect.actionId)
+      .eq("status", "claimed");
     return;
   }
   const { data } = await supabaseServer
@@ -1021,9 +1144,10 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
     .select("person_id, action_type, journey_id")
     .eq("id", effect.actionId)
     .maybeSingle();
-  if (!data?.person_id || (data.action_type !== "send_asset" && data.action_type !== "send_video" && data.action_type !== "send_trial_followup")) {
+  if (!data?.person_id || !isAcquisitionAction(data.action_type)) {
     return;
   }
+  const actionType = data.action_type;
   const journeyId = typeof data.journey_id === "string" ? data.journey_id : null;
   await supabaseServer
     .from("acquisition_actions")
@@ -1038,7 +1162,30 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
     .eq("status", "claimed");
   const person = await findPersonById(String(data.person_id));
   if (!person || effect.settle.status !== "accepted") return;
-  const signal = data.action_type === "send_asset" ? "asset_accepted" : data.action_type === "send_video" ? "video_accepted" : "trial_followup_accepted";
+  if (isVideoReminderAction(actionType)) {
+    await insertEvent({
+      personId: person.id,
+      provider: "resend",
+      providerEventId: effect.providerMessageId ?? `accepted:${effect.actionId}`,
+      eventType: "resend_accepted",
+      occurredAt: stamp,
+      metadata: { action: actionType },
+    });
+    return;
+  }
+  if (actionType === "send_video") await scheduleVideoReminders(person.id, journeyId, now, settings);
+  if (actionType === "send_asset" && journeyId) {
+    const delivery = await pinnedDeliveryVideoId(journeyId);
+    if (typeof delivery === "string" && delivery) {
+      await scheduleAction(
+        person.id,
+        "send_video",
+        new Date(now.getTime() + settings.videoDelayHours * 60 * 60 * 1000),
+        { journeyId },
+      );
+    }
+  }
+  const signal = actionType === "send_asset" ? "asset_accepted" : actionType === "send_video" ? "video_accepted" : "trial_followup_accepted";
   if (journeyId) {
     const obligation = await journeyObligation(journeyId);
     const { data: journeyActions, error: actionError } = await supabaseServer
@@ -1049,14 +1196,14 @@ async function applyEffect(effect: PassEffect, settings: Settings, now: Date, to
       ? null
       : journeyActions.flatMap((row) => (
         (row.status === "scheduled" || row.status === "claimed")
-        && (row.action_type === "send_asset" || row.action_type === "send_video" || row.action_type === "send_trial_followup")
+        && isAcquisitionAction(row.action_type)
           ? [row.action_type]
           : []
       ));
     const close = outstanding != null && journeyCloses({
       reason: "fulfillment",
       followUp: obligation.followUp,
-      justAccepted: data.action_type,
+      justAccepted: actionType,
       outstanding,
     });
     await writeJourneySignal(journeyId, signal, close, true);
@@ -1724,7 +1871,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
     .order("scheduled_at", { ascending: true })
     .limit(settings.dailyCap);
   const due = (dueRows ?? []).flatMap((row) => {
-    if (row.action_type !== "send_asset" && row.action_type !== "send_video" && row.action_type !== "send_trial_followup") return [];
+    if (!isAcquisitionAction(String(row.action_type ?? ""))) return [];
     if (typeof row.id !== "string" || typeof row.person_id !== "string" || typeof row.idempotency_key !== "string") return [];
     return [{
       id: row.id,
@@ -1738,8 +1885,31 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       scheduledAt: typeof row.scheduled_at === "string" ? row.scheduled_at : null,
     }];
   });
-  const journeyIds = [...new Set(due.flatMap((action) => action.journeyId ? [action.journeyId] : []))];
-  let autonomousDue = due;
+  const trialJourneyIds = [...new Set(due.flatMap((action) => (
+    action.actionType === "send_trial_followup" && action.journeyId ? [action.journeyId] : []
+  )))];
+  const finalReminderAt = new Map<string, number>();
+  if (trialJourneyIds.length > 0) {
+    const { data: reminders, error: reminderError } = await supabaseServer
+      .from("acquisition_actions")
+      .select("journey_id, scheduled_at")
+      .in("journey_id", trialJourneyIds)
+      .eq("action_type", "send_video_reminder_final")
+      .in("status", ["scheduled", "claimed"]);
+    if (!reminderError && Array.isArray(reminders)) {
+      for (const row of reminders) {
+        const at = typeof row.scheduled_at === "string" ? Date.parse(row.scheduled_at) : Number.NaN;
+        if (typeof row.journey_id === "string" && Number.isFinite(at)) finalReminderAt.set(row.journey_id, at);
+      }
+    }
+  }
+  const dueWithTrialHold = due.map((action) => {
+    if (action.actionType !== "send_trial_followup" || !action.journeyId) return action;
+    const at = finalReminderAt.get(action.journeyId);
+    return at == null ? action : { ...action, finalReminderAtMs: at };
+  });
+  const journeyIds = [...new Set(dueWithTrialHold.flatMap((action) => action.journeyId ? [action.journeyId] : []))];
+  let autonomousDue = dueWithTrialHold;
   if (journeyIds.length > 0) {
     const { data: journeys, error: journeyError } = await supabaseServer
       .from("acquisition_journeys")
@@ -1761,7 +1931,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
         closed: row.closed_at != null && row.closed_at !== "",
       }] as const];
     }));
-    const dueWithJourney = due.map((action) => {
+    const dueWithJourney = dueWithTrialHold.map((action) => {
       if (!action.journeyId) return action;
       const fact = journeyFacts.get(action.journeyId);
       if (!fact) return { ...action, journeyKnown: false, journeyLifecycle: null, journeyClosed: false };
@@ -1841,6 +2011,24 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       const files = await loadBundleFiles(resolved.assets);
       if (!files) return null;
       return { label: resolved.label, files };
+    },
+    videoPlay: async (personId, publicToken) => {
+      const recipient = await supabaseServer
+        .from("acquisition_video_recipients")
+        .select("id, person_id")
+        .eq("public_token", publicToken)
+        .maybeSingle();
+      if (recipient.error || recipient.data?.person_id !== personId || typeof recipient.data?.id !== "string") {
+        return "unknown";
+      }
+      const played = await supabaseServer
+        .from("acquisition_events")
+        .select("id")
+        .eq("provider", "personal_video")
+        .eq("provider_event_id", `recipient:${recipient.data.id}:personal_video_played`)
+        .maybeSingle();
+      if (played.error) return "unknown";
+      return played.data ? "played" : "unplayed";
     },
     videoToken: async (person, action) => {
       if (action.journeyId) {

@@ -161,7 +161,7 @@ export async function readCampaignActivationBoard(): Promise<
   for (const item of actionRows) {
     if (typeof item.id !== "string") continue;
     if (item.status !== "scheduled" && item.status !== "claimed") continue;
-    if (item.action_type !== "send_asset" && item.action_type !== "send_video" && item.action_type !== "send_trial_followup") continue;
+    if (item.action_type !== "send_asset" && item.action_type !== "send_video" && item.action_type !== "send_video_reminder" && item.action_type !== "send_video_reminder_final" && item.action_type !== "send_trial_followup") continue;
     const journeyId = typeof item.journey_id === "string" ? item.journey_id : null;
     const campaignId = journeyId ? campaignByJourney.get(journeyId) ?? null : null;
     const scheduledAt = typeof item.scheduled_at === "string" ? item.scheduled_at : null;
