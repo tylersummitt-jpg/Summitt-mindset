@@ -10,6 +10,7 @@ import {
   parseOverview,
   parseSteps,
   type InstantlyAccountDaily,
+  type InstantlyCampaignProfile,
   type InstantlyDailyPoint,
   type InstantlyStepPoint,
 } from "@/lib/acquisition/instantly-analytics";
@@ -202,6 +203,30 @@ async function readInstantlyAnalyticsUncached(args: {
     accountDailyError,
   };
   return value;
+}
+
+const CATALOG_PAGE_CAP = 10;
+
+/** Campaign id, name, and Instantly status only. Sequences and mailboxes stay in Instantly. */
+export async function listInstantlyCampaignProfiles(args?: {
+  fetchImpl?: InstantlyFetch;
+}): Promise<{
+  credential: "missing" | "present";
+  profiles: InstantlyCampaignProfile[] | null;
+  truncated: boolean;
+  error: string | null;
+}> {
+  const apiKey = process.env.INSTANTLY_API_KEY?.trim() || null;
+  if (!apiKey) return { credential: "missing", profiles: null, truncated: false, error: "missing_api_key" };
+  const fetchImpl = args?.fetchImpl ?? ((url, init) => fetch(url, { ...init, cache: "no-store" }));
+  const listed = await listPages({ url: CAMPAIGNS, apiKey, fetchImpl, pageCap: CATALOG_PAGE_CAP });
+  if (listed.error) return { credential: "present", profiles: null, truncated: listed.truncated, error: listed.error };
+  return {
+    credential: "present",
+    profiles: parseCampaignProfiles(listed.items).profiles,
+    truncated: listed.truncated,
+    error: null,
+  };
 }
 
 export function loadInstantlyForDistribution(args: {

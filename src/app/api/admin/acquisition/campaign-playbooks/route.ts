@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 
-import { readCampaignActivationBoard, releaseScheduledFulfillment, setCampaignAutomation } from "@/lib/acquisition/campaign-activation.server";
-import { listCampaignPlaybooks, saveCampaignPlaybook, setCampaignPlaybookStatus } from "@/lib/acquisition/playbook.server";
+import { readCampaignCatalog } from "@/lib/acquisition/campaign-catalog.server";
+import { releaseScheduledFulfillment, setCampaignAutomation } from "@/lib/acquisition/campaign-activation.server";
+import { saveCampaignPlaybook, setCampaignPlaybookStatus } from "@/lib/acquisition/playbook.server";
 import type { PlaybookDraft, PlaybookFulfillment, PlaybookSendAction } from "@/lib/acquisition/playbook";
 import { isTylerOwnerSession } from "@/lib/auth/require-tyler-admin";
 
@@ -30,9 +31,9 @@ export async function GET() {
   if (!(await isTylerOwnerSession())) {
     return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
-  const [result, activation] = await Promise.all([listCampaignPlaybooks(), readCampaignActivationBoard()]);
+  const result = await readCampaignCatalog();
   if (!result.ok) return NextResponse.json(result, { status: 422 });
-  return NextResponse.json({ ...result, activation }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(req: Request) {

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  activationsFromLegacyList,
   applyCampaignActivation,
   campaignListReadable,
   fulfillmentEligible,
@@ -50,6 +51,8 @@ describe("campaign activation", () => {
     const paused = applyCampaignActivation({ current: both.activations, campaignId: CAMPAIGN_A, action: "pause", now: LATER });
     expect(paused.ok).toBe(true);
     if (!paused.ok) return;
+    expect(paused.activations.find((row) => row.id === CAMPAIGN_A)?.state).toBe("paused");
+    expect(paused.activations.find((row) => row.id === CAMPAIGN_B)?.state).toBe("active");
     expect(paused.activations.find((row) => row.id === CAMPAIGN_B)?.activatedAt).toBe(NOW.toISOString());
     expect(replyEligible({ activations: paused.activations, campaignId: CAMPAIGN_A, receivedAt: "2026-10-27T16:05:00.000Z" })).toBe(false);
     expect(fulfillmentEligible({ activations: paused.activations, campaignId: CAMPAIGN_B, scheduledAt: "2026-10-27T15:05:00.000Z" })).toBe(true);
@@ -88,7 +91,7 @@ describe("campaign activation", () => {
 
   it("keeps a stored campaign id governed but closed until activation", () => {
     const stored = parseCampaignActivations([OWNER]);
-    expect(stored).toEqual([{ id: OWNER, activatedAt: null }]);
+    expect(stored).toEqual([{ id: OWNER, state: "inactive", activatedAt: null, lastActivatedAt: null }]);
     expect(conversationOwnsCampaign({ interpretation: "pilot", pilotCampaigns: stored, campaignId: OWNER })).toBe(true);
     expect(replyEligible({ activations: stored, campaignId: OWNER, receivedAt: "2026-10-27T18:00:00.000Z" })).toBe(false);
     expect(fulfillmentEligible({ activations: stored, campaignId: OWNER, scheduledAt: "2026-10-27T18:00:00.000Z" })).toBe(false);
@@ -101,12 +104,18 @@ describe("campaign activation", () => {
       { id: "7e6e0c3c-3e2a-4bbf-b455-7fc10f7d58eb", journeyId: "playbook-journey", scheduledAt: "2026-10-26T12:00:00.000Z" },
       { id: "24903120-178a-400f-bd43-019cb9ecacad", journeyId: "dozen-a", scheduledAt: "2026-10-26T12:00:00.000Z" },
       { id: "0b629c19-f8d4-4b30-941f-ac8018228e99", journeyId: "dozen-b", scheduledAt: "2026-10-26T12:00:00.000Z" },
+      { id: "4306e289-held", journeyId: "playbook-journey-2", scheduledAt: "2026-10-26T12:00:00.000Z" },
+      { id: "00b17f01-held", journeyId: "dozen-a-2", scheduledAt: "2026-10-26T12:00:00.000Z" },
+      { id: "3c7c2aeb-held", journeyId: "dozen-c", scheduledAt: "2026-10-26T12:00:00.000Z" },
       { id: "owner-new", journeyId: "owner-journey", scheduledAt: "2026-10-27T15:05:00.000Z" },
       { id: "owner-old", journeyId: "owner-journey", scheduledAt: "2026-10-27T14:00:00.000Z" },
     ], new Map<string, string | null>([
       ["playbook-journey", CAMPAIGN_A],
       ["dozen-a", CAMPAIGN_B],
       ["dozen-b", DOZEN_B],
+      ["playbook-journey-2", CAMPAIGN_A],
+      ["dozen-a-2", CAMPAIGN_B],
+      ["dozen-c", "e079d4c5-6f79-420d-b478-4f53c8a57523"],
       ["owner-journey", OWNER],
     ]), activated.activations);
     expect(selected.map((row) => row.id)).toEqual(["owner-new"]);
@@ -167,10 +176,16 @@ describe("campaign activation", () => {
     expect(server).not.toContain("7e6e0c3c-3e2a-4bbf-b455-7fc10f7d58eb");
     expect(playbookServer).not.toContain("conversation_pilot_campaigns");
     expect(playbookServer).not.toContain("setCampaignAutomation");
-    const update = server.slice(server.indexOf("conversation_pilot_campaigns: serialized"), server.indexOf('.eq("id", "default")'));
-    expect(update).not.toContain("automation_status");
-    expect(update).not.toContain("conversation_sending");
-    expect(update).not.toContain("instantly_blocklist");
+    expect(server).not.toContain("conversation_pilot_campaigns");
+    expect(server).toContain("acquisition_campaign_activations");
+    for (const actionId of ["b9a4a51a", "7e6e0c3c", "24903120", "0b629c19", "4306e289", "00b17f01", "3c7c2aeb"]) {
+      expect(server).not.toContain(actionId);
+    }
+    const upsert = server.slice(server.indexOf(".upsert({"), server.indexOf("onConflict"));
+    expect(upsert).not.toContain("automation_status");
+    expect(upsert).not.toContain("conversation_sending");
+    expect(upsert).not.toContain("instantly_blocklist");
+    expect(upsert).not.toContain("conversation_pilot_campaigns");
     const release = server.slice(server.indexOf("export async function releaseScheduledFulfillment"));
     expect(release).toContain("scheduled_at: now");
     expect(release).toContain('.eq("status", "scheduled")');
@@ -182,6 +197,53 @@ describe("campaign activation", () => {
     const sql = readFileSync("supabase/migrations/20261024000000_acquisition_conversation_messages.sql", "utf8");
     expect(sql).toContain("jsonb_typeof(conversation_pilot_campaigns) = 'array'");
     const playbook = readFileSync("src/lib/acquisition/playbook.ts", "utf8");
+    const store = readFileSync("src/lib/acquisition/store.ts", "utf8");
     expect(playbook).toContain('instantlySequenceStop: "unverified"');
+    const migration = readFileSync("supabase/migrations/20261027210000_acquisition_campaign_activations.sql", "utf8");
+    expect(migration).toContain("ON CONFLICT (campaign_id) DO NOTHING");
+    expect(migration).toContain("WHEN parsed.kind = 'string' THEN 'inactive'");
+    expect(migration).toContain("DROP FUNCTION public.acquisition_activation_timestamp");
+    expect(migration).not.toContain("UPDATE public.acquisition_actions");
+    expect(migration).not.toContain("UPDATE public.acquisition_journeys");
+    expect(migration).not.toContain("UPDATE public.acquisition_settings");
+    expect(migration).not.toContain("DELETE FROM");
+    const settingsRead = store.slice(store.indexOf("export async function readAcquisitionSettings"), store.indexOf("async function findPersonByEmail"));
+    expect(settingsRead).toContain("readStoredCampaignActivations");
+    expect(settingsRead).toContain("closeConversation");
+    expect(settingsRead).not.toContain("conversation_pilot_campaigns");
+    expect(store).toContain('settings.automation !== "pilot" && settings.automation !== "active"');
+  });
+
+  it("keeps one thousand activation rows isolated and maps the old list without opening a bare id", () => {
+    const ids = Array.from({ length: 1000 }, (_, index) => `campaign-${String(index).padStart(4, "0")}`);
+    const parsed = parseCampaignActivations(ids);
+    expect(parsed).toHaveLength(1000);
+    expect(parsed.every((row) => row.state === "inactive" && row.activatedAt === null)).toBe(true);
+    const activated = applyCampaignActivation({ current: parsed, campaignId: ids[0], action: "activate", now: NOW });
+    if (!activated.ok) throw new Error(activated.error);
+    expect(activated.activations.filter((row) => row.state === "active").map((row) => row.id)).toEqual([ids[0]]);
+    expect(fulfillmentEligible({
+      activations: activated.activations,
+      campaignId: ids[999],
+      scheduledAt: "2026-10-27T15:05:00.000Z",
+    })).toBe(false);
+    const paused = applyCampaignActivation({ current: activated.activations, campaignId: ids[0], action: "pause", now: LATER });
+    if (!paused.ok) throw new Error(paused.error);
+    expect(fulfillmentEligible({
+      activations: [{ id: ids[0], state: "paused", activatedAt: null, lastActivatedAt: NOW.toISOString() }],
+      campaignId: ids[0],
+      scheduledAt: "2026-10-27T15:05:00.000Z",
+    })).toBe(false);
+    const migrated = activationsFromLegacyList([
+      OWNER,
+      { id: CAMPAIGN_A, activatedAt: NOW.toISOString() },
+      { id: CAMPAIGN_B, activatedAt: null },
+      { id: DOZEN_B, activatedAt: "not-a-time" },
+    ], new Set([CAMPAIGN_B]));
+    expect(migrated.find((row) => row.id === OWNER)?.state).toBe("inactive");
+    expect(migrated.find((row) => row.id === CAMPAIGN_A)?.state).toBe("active");
+    expect(migrated.find((row) => row.id === CAMPAIGN_B)?.state).toBe("finished");
+    expect(migrated.find((row) => row.id === DOZEN_B)?.state).toBe("paused");
+    expect(replyEligible({ activations: migrated, campaignId: DOZEN_B, receivedAt: NOW.toISOString() })).toBe(false);
   });
 });

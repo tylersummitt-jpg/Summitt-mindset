@@ -382,7 +382,7 @@ describe("campaign playbooks", () => {
     expect(server).not.toContain("acquisition_settings");
     expect(server).not.toContain(LEGACY_ACTION);
     const handler = route.slice(route.indexOf("export async function GET"));
-    expect(handler.indexOf("isTylerOwnerSession")).toBeLessThan(handler.indexOf("listCampaignPlaybooks"));
+    expect(handler.indexOf("isTylerOwnerSession")).toBeLessThan(handler.indexOf("readCampaignCatalog"));
     const store = readFileSync("src/lib/acquisition/store.ts", "utf8");
     expect(store).toContain("pinJourneyPlaybook");
     expect(store).toContain("followUp === \"legacy\" && effect.settle.schedule");

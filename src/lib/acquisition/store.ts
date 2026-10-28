@@ -14,7 +14,8 @@ import {
   type AcquisitionFileKey,
   type AcquisitionOffer,
 } from "@/lib/acquisition/assets";
-import { campaignAutomationOpen, parseCampaignActivations, replyEligible, type CampaignActivation } from "@/lib/acquisition/campaign-activation";
+import { campaignAutomationOpen, replyEligible, type CampaignActivation } from "@/lib/acquisition/campaign-activation";
+import { readStoredCampaignActivations } from "@/lib/acquisition/campaign-activation.server";
 import {
   bindAcceptanceToOffer,
   buildConversationInterpreterInput,
@@ -139,17 +140,12 @@ const SETTINGS_COLUMNS_WITHOUT_BLOCKLIST = "automation_status, video_delay_hours
 const SETTINGS_COLUMNS = `${SETTINGS_COLUMNS_WITHOUT_BLOCKLIST}, instantly_blocklist`;
 const LEGACY_SETTINGS_COLUMNS = "automation_status, video_delay_hours, trial_followup_delay_hours, daily_send_cap, evergreen_personal_video_id, campaign_assets, offers";
 
-function parsePilotCampaigns(value: unknown): CampaignActivation[] {
-  return parseCampaignActivations(value);
-}
-
 function settingsFromRow(data: Record<string, unknown>, conversationReady: boolean, blocklistReady: boolean): Settings {
   const status = data.automation_status;
   const automation: AcquisitionAutomation =
     status === "off" || status === "pilot" || status === "active" || status === "paused" ? status : "unavailable";
   const interpretation = data.conversation_interpretation === "pilot" ? "pilot" : "off";
   const sending = data.conversation_sending === "on" ? "on" : "off";
-  const listReadable = Array.isArray(data.conversation_pilot_campaigns);
   return {
     automation,
     videoDelayHours: typeof data.video_delay_hours === "number" ? data.video_delay_hours : 24,
@@ -158,10 +154,10 @@ function settingsFromRow(data: Record<string, unknown>, conversationReady: boole
     evergreenPersonalVideoId: typeof data.evergreen_personal_video_id === "string" ? data.evergreen_personal_video_id : null,
     campaignAssets: data.campaign_assets && typeof data.campaign_assets === "object" ? data.campaign_assets as Record<string, unknown> : {},
     offers: parseAcquisitionOffers(data.offers),
-    conversationInterpretation: conversationReady && listReadable ? interpretation : "off",
+    conversationInterpretation: conversationReady ? interpretation : "off",
     conversationSending: conversationReady ? sending : "off",
-    conversationPilotCampaigns: conversationReady && listReadable ? parsePilotCampaigns(data.conversation_pilot_campaigns) : [],
-    conversationReadable: conversationReady && listReadable,
+    conversationPilotCampaigns: [],
+    conversationReadable: conversationReady,
     instantlyBlocklist: blocklistReady && instantlyBlocklistEnabled(data.instantly_blocklist) ? "on" : "off",
   };
 }
@@ -187,7 +183,7 @@ function asPerson(row: PersonRow | null): PersonRow | null {
   return { ...row, offer_key: offerKey || null, requested_asset: parseAcquisitionAsset(row.requested_asset) };
 }
 
-export async function readAcquisitionSettings(): Promise<Settings> {
+async function readSettingsBase(): Promise<Settings> {
   const first = await supabaseServer
     .from("acquisition_settings")
     .select(SETTINGS_COLUMNS)
@@ -217,6 +213,23 @@ export async function readAcquisitionSettings(): Promise<Settings> {
     if (!legacy.error && legacy.data) return settingsFromRow(legacy.data as Record<string, unknown>, false, false);
   }
   return SETTINGS_UNAVAILABLE;
+}
+
+function closeConversation(settings: Settings): Settings {
+  return {
+    ...settings,
+    conversationInterpretation: "off",
+    conversationSending: "off",
+    conversationPilotCampaigns: [],
+    conversationReadable: false,
+  };
+}
+
+export async function readAcquisitionSettings(): Promise<Settings> {
+  const base = await readSettingsBase();
+  const stored = await readStoredCampaignActivations();
+  if (!stored.ok || !base.conversationReadable) return closeConversation(base);
+  return { ...base, conversationPilotCampaigns: stored.activations };
 }
 
 async function findPersonByEmail(email: string): Promise<PersonRow | null> {

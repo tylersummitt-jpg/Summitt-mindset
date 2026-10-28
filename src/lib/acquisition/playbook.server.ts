@@ -217,6 +217,36 @@ async function knowledgeCount(draft: PlaybookDraft): Promise<number> {
   return count;
 }
 
+export async function listPlaybookHeads(): Promise<
+  { ok: true; playbooks: PlaybookVersion[]; truncated: boolean } | { ok: false; error: string }
+> {
+  const rows: PlaybookVersion[] = [];
+  let truncated = false;
+  for (let page = 0; page < 2; page += 1) {
+    const from = page * 1000;
+    const { data, error } = await supabaseServer
+      .from("acquisition_campaign_playbooks")
+      .select(COLUMNS)
+      .order("campaign_id", { ascending: true })
+      .order("version", { ascending: false })
+      .range(from, from + 999);
+    if (missingTable(error)) return { ok: false, error: "The playbook table is not installed yet." };
+    if (error || !Array.isArray(data)) return { ok: false, error: "Campaign playbooks could not be read." };
+    for (const item of data) {
+      const version = asVersion(item as Record<string, unknown>);
+      if (version) rows.push(version);
+    }
+    if (data.length < 1000) break;
+    if (page === 1) truncated = true;
+  }
+  const latest = new Map<string, PlaybookVersion>();
+  for (const row of rows) {
+    const current = latest.get(row.campaignId);
+    if (!current || row.version > current.version) latest.set(row.campaignId, row);
+  }
+  return { ok: true, playbooks: [...latest.values()], truncated };
+}
+
 export async function listCampaignPlaybooks(): Promise<{ ok: true; playbooks: Array<PlaybookVersion & { readiness: PlaybookReadiness }> } | { ok: false; error: string }> {
   const { data, error } = await supabaseServer
     .from("acquisition_campaign_playbooks")

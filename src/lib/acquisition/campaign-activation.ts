@@ -1,15 +1,26 @@
 /**
  * Per-campaign permission for post-reply automation.
  * A saved playbook does not grant this. A listed campaign stays governed
- * while paused so legacy interest fulfillment does not start again.
+ * while inactive, paused, or finished so legacy interest fulfillment does not start again.
+ * Only state "active" opens the timestamp gate. lastActivatedAt is a record, not a gate.
  */
 
 const CAMPAIGN_ID = /^[A-Za-z0-9_-]{1,80}$/;
 
+export const CAMPAIGN_ACTIVATION_STATES = ["inactive", "active", "paused", "finished"] as const;
+export type CampaignActivationState = (typeof CAMPAIGN_ACTIVATION_STATES)[number];
+
 export type CampaignActivation = {
   id: string;
-  /** Null keeps the campaign governed and stops future automated sends. */
+  /**
+   * Live gate. Set only while state is active.
+   * Null keeps the campaign governed and stops future automated sends.
+   */
   activatedAt: string | null;
+  /** Absent on older in-memory rows. A present non-active state closes the gate. */
+  state?: CampaignActivationState;
+  /** Most recent open window. Never authorizes a send by itself. */
+  lastActivatedAt?: string | null;
 };
 
 export type CampaignAutomationAction = "activate" | "pause" | "finish";
@@ -27,25 +38,51 @@ export function campaignListReadable(value: unknown): boolean {
   return Array.isArray(value);
 }
 
+function timestamp(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+}
+
+function rowFromLegacy(item: unknown): CampaignActivation | null {
+  if (typeof item === "string") {
+    const id = item.trim();
+    if (!CAMPAIGN_ID.test(id)) return null;
+    return { id, state: "inactive", activatedAt: null, lastActivatedAt: null };
+  }
+  if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+  const record = item as Record<string, unknown>;
+  const id = typeof record.id === "string" ? record.id.trim() : "";
+  if (!CAMPAIGN_ID.test(id)) return null;
+  const activatedAt = timestamp(record.activatedAt);
+  if (activatedAt) return { id, state: "active", activatedAt, lastActivatedAt: activatedAt };
+  return { id, state: "paused", activatedAt: null, lastActivatedAt: null };
+}
+
 export function parseCampaignActivations(value: unknown): CampaignActivation[] {
   if (!Array.isArray(value)) return [];
   const rows: CampaignActivation[] = [];
   for (const item of value) {
-    if (typeof item === "string") {
-      const id = item.trim();
-      if (!CAMPAIGN_ID.test(id) || rows.some((row) => row.id === id)) continue;
-      rows.push({ id, activatedAt: null });
-      continue;
-    }
-    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
-    const record = item as Record<string, unknown>;
-    const id = typeof record.id === "string" ? record.id.trim() : "";
-    if (!CAMPAIGN_ID.test(id) || rows.some((row) => row.id === id)) continue;
-    const raw = record.activatedAt;
-    const parsed = typeof raw === "string" ? Date.parse(raw) : Number.NaN;
-    rows.push({ id, activatedAt: Number.isFinite(parsed) ? new Date(parsed).toISOString() : null });
+    const row = rowFromLegacy(item);
+    if (!row || rows.some((existing) => existing.id === row.id)) continue;
+    rows.push(row);
   }
   return rows;
+}
+
+/**
+ * Maps the old JSON registry onto one row per campaign.
+ * A bare id stays inactive. A timestamp stays the live gate.
+ * A null object is paused unless that campaign's latest playbook is retired.
+ */
+export function activationsFromLegacyList(
+  value: unknown,
+  retiredCampaignIds: ReadonlySet<string> = new Set(),
+): CampaignActivation[] {
+  return parseCampaignActivations(value).map((row) => {
+    if (row.state !== "paused" || !retiredCampaignIds.has(row.id)) return row;
+    return { ...row, state: "finished" };
+  });
 }
 
 export function applyCampaignActivation(args: {
@@ -60,8 +97,12 @@ export function applyCampaignActivation(args: {
   const activatedAt = args.action === "activate" && Number.isFinite(args.now.getTime()) ? args.now.toISOString() : null;
   if (args.action === "activate" && !activatedAt) return { ok: false, error: "The activation time could not be recorded." };
   const index = activations.findIndex((row) => row.id === id);
-  if (index === -1) activations.push({ id, activatedAt });
-  else activations[index] = { id, activatedAt };
+  const previous = index === -1 ? undefined : activations[index];
+  const state: CampaignActivationState = args.action === "activate" ? "active" : args.action === "finish" ? "finished" : "paused";
+  const lastActivatedAt = activatedAt ?? previous?.activatedAt ?? previous?.lastActivatedAt ?? null;
+  const next: CampaignActivation = { id, state, activatedAt, lastActivatedAt };
+  if (index === -1) activations.push(next);
+  else activations[index] = next;
   return { ok: true, activations, activatedAt };
 }
 
@@ -72,12 +113,19 @@ function activationFor(
   if (!campaignId) return null;
   for (const item of activations) {
     if (typeof item === "string") {
-      if (item.trim() === campaignId) return { id: campaignId, activatedAt: null };
+      if (item.trim() === campaignId) return { id: campaignId, state: "inactive", activatedAt: null, lastActivatedAt: null };
       continue;
     }
     if (item.id === campaignId) return item;
   }
   return null;
+}
+
+/** The only timestamp that can authorize work. History and non-active states stay closed. */
+export function activationGate(row: CampaignActivation | null): string | null {
+  if (!row) return null;
+  if (row.state != null && row.state !== "active") return null;
+  return row.activatedAt ?? null;
 }
 
 export function campaignIsGoverned(
@@ -91,8 +139,8 @@ export function campaignAutomationOpen(
   activations: readonly (string | CampaignActivation)[],
   campaignId: string | null,
 ): boolean {
-  const row = activationFor(activations, campaignId);
-  return Boolean(row?.activatedAt && Number.isFinite(Date.parse(row.activatedAt)));
+  const gate = activationGate(activationFor(activations, campaignId));
+  return Boolean(gate && Number.isFinite(Date.parse(gate)));
 }
 
 function atOrAfterActivation(when: string | null, activatedAt: string | null): boolean {
@@ -107,8 +155,7 @@ export function replyEligible(args: {
   campaignId: string | null;
   receivedAt: string | null;
 }): boolean {
-  const row = activationFor(args.activations, args.campaignId);
-  return atOrAfterActivation(args.receivedAt, row?.activatedAt ?? null);
+  return atOrAfterActivation(args.receivedAt, activationGate(activationFor(args.activations, args.campaignId)));
 }
 
 export function fulfillmentEligible(args: {
@@ -116,6 +163,5 @@ export function fulfillmentEligible(args: {
   campaignId: string | null;
   scheduledAt: string | null;
 }): boolean {
-  const row = activationFor(args.activations, args.campaignId);
-  return atOrAfterActivation(args.scheduledAt, row?.activatedAt ?? null);
+  return atOrAfterActivation(args.scheduledAt, activationGate(activationFor(args.activations, args.campaignId)));
 }

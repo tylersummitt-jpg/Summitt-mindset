@@ -3,73 +3,152 @@ import "server-only";
 import {
   applyCampaignActivation,
   campaignAutomationOpen,
+  CAMPAIGN_ACTIVATION_STATES,
   fulfillmentEligible,
-  parseCampaignActivations,
   type CampaignActivation,
+  type CampaignActivationState,
   type CampaignAutomationAction,
   type PendingFulfillmentView,
 } from "@/lib/acquisition/campaign-activation";
 import { setCampaignPlaybookStatus } from "@/lib/acquisition/playbook.server";
 import { supabaseServer } from "@/lib/supabase-server";
 
-const CONTROL_COLUMNS = "automation_status, conversation_interpretation, conversation_sending, instantly_blocklist, conversation_pilot_campaigns, updated_at";
+const GATE_COLUMNS = "automation_status, conversation_interpretation, conversation_sending, instantly_blocklist";
+const ACTIVATION_COLUMNS = "campaign_id, state, activated_at, last_activated_at";
+const PAGE = 1000;
+const MAX_PAGES = 5;
 
-type SettingsRow = {
+export type AutomationGates = {
+  automation: string;
+  interpretation: string;
+  sending: string;
+  blocklist: string;
+};
+
+type GateRow = {
   automation_status: string;
   conversation_interpretation: string;
   conversation_sending: string;
   instantly_blocklist: string;
-  conversation_pilot_campaigns: unknown;
-  updated_at: string;
 };
 
-function asSettingsRow(value: unknown): SettingsRow | null {
-  if (!value || typeof value !== "object") return null;
-  const row = value as Record<string, unknown>;
+function missingTable(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST205" || error.code === "42P01") return true;
+  const message = error.message ?? "";
+  return /acquisition_campaign_activations/i.test(message)
+    && /schema cache|does not exist|could not find/i.test(message);
+}
+
+function asState(value: unknown): CampaignActivationState | null {
+  return CAMPAIGN_ACTIVATION_STATES.includes(value as CampaignActivationState)
+    ? value as CampaignActivationState
+    : null;
+}
+
+function asTimestamp(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? new Date(parsed).toISOString() : null;
+}
+
+function fromRow(row: Record<string, unknown>): CampaignActivation | null {
+  const id = typeof row.campaign_id === "string" ? row.campaign_id.trim() : "";
+  const state = asState(row.state);
+  if (!id || !state) return null;
+  const storedGate = asTimestamp(row.activated_at);
+  const lastActivatedAt = asTimestamp(row.last_activated_at);
+  if (state === "active") {
+    if (!storedGate) return null;
+    return { id, state, activatedAt: storedGate, lastActivatedAt: lastActivatedAt ?? storedGate };
+  }
+  return { id, state, activatedAt: null, lastActivatedAt };
+}
+
+export async function readStoredCampaignActivations(): Promise<
+  { ok: true; activations: CampaignActivation[] } | { ok: false; error: string }
+> {
+  const activations: CampaignActivation[] = [];
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const from = page * PAGE;
+    const { data, error } = await supabaseServer
+      .from("acquisition_campaign_activations")
+      .select(ACTIVATION_COLUMNS)
+      .order("campaign_id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (missingTable(error)) {
+      return { ok: false, error: "Campaign activation is not installed yet. Nothing was changed." };
+    }
+    if (error || !Array.isArray(data)) {
+      return { ok: false, error: "Campaign activation could not be read. Nothing was changed." };
+    }
+    for (const item of data) {
+      const row = fromRow(item as Record<string, unknown>);
+      if (!row) return { ok: false, error: "Campaign activation could not be read. Nothing was changed." };
+      activations.push(row);
+    }
+    if (data.length < PAGE) return { ok: true, activations };
+  }
+  return { ok: false, error: "Campaign activation could not be read. Nothing was changed." };
+}
+
+async function readGates(): Promise<GateRow | null> {
+  const { data, error } = await supabaseServer
+    .from("acquisition_settings")
+    .select(GATE_COLUMNS)
+    .eq("id", "default")
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as Record<string, unknown>;
   if (typeof row.automation_status !== "string") return null;
   if (typeof row.conversation_interpretation !== "string") return null;
   if (typeof row.conversation_sending !== "string") return null;
   if (typeof row.instantly_blocklist !== "string") return null;
-  if (typeof row.updated_at !== "string") return null;
-  if (!Array.isArray(row.conversation_pilot_campaigns)) return null;
   return {
     automation_status: row.automation_status,
     conversation_interpretation: row.conversation_interpretation,
     conversation_sending: row.conversation_sending,
     instantly_blocklist: row.instantly_blocklist,
-    conversation_pilot_campaigns: row.conversation_pilot_campaigns,
-    updated_at: row.updated_at,
   };
 }
 
-async function readSettingsRow(): Promise<SettingsRow | null> {
-  const { data, error } = await supabaseServer
-    .from("acquisition_settings")
-    .select(CONTROL_COLUMNS)
-    .eq("id", "default")
-    .maybeSingle();
-  if (error) return null;
-  return asSettingsRow(data);
-}
-
 export async function readCampaignActivationBoard(): Promise<
-  | { ok: true; activations: CampaignActivation[]; pending: PendingFulfillmentView[] }
+  | {
+      ok: true;
+      activations: CampaignActivation[];
+      pending: PendingFulfillmentView[];
+      pendingTruncated: boolean;
+      fulfillmentCounts: Record<string, number>;
+      gates: AutomationGates;
+    }
   | { ok: false; error: string }
 > {
-  const row = await readSettingsRow();
-  if (!row) return { ok: false, error: "Campaign activation could not be read. Nothing was changed." };
-  const activations = parseCampaignActivations(row.conversation_pilot_campaigns);
-  const { data, error } = await supabaseServer
-    .from("acquisition_actions")
-    .select("id, action_type, status, scheduled_at, journey_id")
-    .in("status", ["scheduled", "claimed"])
-    .order("scheduled_at", { ascending: true })
-    .limit(50);
-  if (error || !Array.isArray(data)) return { ok: false, error: "Pending fulfillment could not be read. Nothing was changed." };
-  const journeyIds = [...new Set(data.flatMap((item) => typeof item.journey_id === "string" ? [item.journey_id] : []))];
+  const [stored, gates] = await Promise.all([readStoredCampaignActivations(), readGates()]);
+  if (!stored.ok) return stored;
+  if (!gates) return { ok: false, error: "Campaign activation could not be read. Nothing was changed." };
+  const activations = stored.activations;
+  const pending: PendingFulfillmentView[] = [];
+  const fulfillmentCounts: Record<string, number> = {};
+  let pendingTruncated = false;
+  const actionRows: Array<Record<string, unknown>> = [];
+  for (let page = 0; page < MAX_PAGES; page += 1) {
+    const from = page * PAGE;
+    const { data, error } = await supabaseServer
+      .from("acquisition_actions")
+      .select("id, action_type, status, scheduled_at, journey_id")
+      .in("status", ["scheduled", "claimed"])
+      .order("scheduled_at", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error || !Array.isArray(data)) return { ok: false, error: "Pending fulfillment could not be read. Nothing was changed." };
+    actionRows.push(...data as Array<Record<string, unknown>>);
+    if (data.length < PAGE) break;
+    if (page === MAX_PAGES - 1) pendingTruncated = true;
+  }
+  const journeyIds = [...new Set(actionRows.flatMap((item) => typeof item.journey_id === "string" ? [item.journey_id] : []))];
   const campaignByJourney = new Map<string, string | null>();
-  if (journeyIds.length > 0) {
-    const journeys = await supabaseServer.from("acquisition_journeys").select("id, campaign_id").in("id", journeyIds);
+  for (let index = 0; index < journeyIds.length; index += PAGE) {
+    const slice = journeyIds.slice(index, index + PAGE);
+    const journeys = await supabaseServer.from("acquisition_journeys").select("id, campaign_id").in("id", slice);
     if (journeys.error || !Array.isArray(journeys.data)) {
       return { ok: false, error: "Pending fulfillment could not be read. Nothing was changed." };
     }
@@ -79,14 +158,15 @@ export async function readCampaignActivationBoard(): Promise<
       }
     }
   }
-  const pending: PendingFulfillmentView[] = [];
-  for (const item of data) {
+  for (const item of actionRows) {
     if (typeof item.id !== "string") continue;
     if (item.status !== "scheduled" && item.status !== "claimed") continue;
     if (item.action_type !== "send_asset" && item.action_type !== "send_video" && item.action_type !== "send_trial_followup") continue;
     const journeyId = typeof item.journey_id === "string" ? item.journey_id : null;
     const campaignId = journeyId ? campaignByJourney.get(journeyId) ?? null : null;
     const scheduledAt = typeof item.scheduled_at === "string" ? item.scheduled_at : null;
+    if (campaignId) fulfillmentCounts[campaignId] = (fulfillmentCounts[campaignId] ?? 0) + 1;
+    if (pending.length >= 100) continue;
     pending.push({
       id: item.id,
       campaignId,
@@ -96,7 +176,19 @@ export async function readCampaignActivationBoard(): Promise<
       willSend: item.status === "scheduled" && fulfillmentEligible({ activations, campaignId, scheduledAt }),
     });
   }
-  return { ok: true, activations, pending };
+  return {
+    ok: true,
+    activations,
+    pending,
+    pendingTruncated,
+    fulfillmentCounts,
+    gates: {
+      automation: gates.automation_status,
+      interpretation: gates.conversation_interpretation,
+      sending: gates.conversation_sending,
+      blocklist: gates.instantly_blocklist,
+    },
+  };
 }
 
 export async function setCampaignAutomation(args: {
@@ -109,33 +201,31 @@ export async function setCampaignAutomation(args: {
       return retired;
     }
   }
-  const row = await readSettingsRow();
-  if (!row) return { ok: false, error: "Campaign activation could not be read. Nothing was changed." };
+  const stored = await readStoredCampaignActivations();
+  if (!stored.ok) return stored;
   const next = applyCampaignActivation({
-    current: parseCampaignActivations(row.conversation_pilot_campaigns),
+    current: stored.activations,
     campaignId: args.campaignId,
     action: args.action,
     now: new Date(),
   });
   if (!next.ok) return next;
-  const serialized = next.activations.map((item) => ({ id: item.id, activatedAt: item.activatedAt }));
-  if (JSON.stringify(serialized).length > 1800) return { ok: false, error: "The campaign list is too large." };
+  const row = next.activations.find((item) => item.id === args.campaignId.trim());
+  if (!row?.state) return { ok: false, error: "Campaign activation could not be read. Nothing was changed." };
   const now = new Date().toISOString();
   const { data, error } = await supabaseServer
-    .from("acquisition_settings")
-    .update({
-      conversation_pilot_campaigns: serialized,
+    .from("acquisition_campaign_activations")
+    .upsert({
+      campaign_id: row.id,
+      state: row.state,
+      activated_at: row.activatedAt,
+      last_activated_at: row.lastActivatedAt,
       updated_at: now,
-    })
-    .eq("id", "default")
-    .eq("updated_at", row.updated_at)
-    .eq("automation_status", row.automation_status)
-    .eq("conversation_interpretation", row.conversation_interpretation)
-    .eq("conversation_sending", row.conversation_sending)
-    .eq("instantly_blocklist", row.instantly_blocklist)
-    .select("id");
+    }, { onConflict: "campaign_id" })
+    .select("campaign_id");
+  if (missingTable(error)) return { ok: false, error: "Campaign activation is not installed yet. Nothing was changed." };
   if (error || !Array.isArray(data) || data.length !== 1) {
-    return { ok: false, error: "The campaign list changed. Reload and try again." };
+    return { ok: false, error: "The campaign activation was not saved." };
   }
   return { ok: true, activatedAt: next.activatedAt };
 }
@@ -145,9 +235,8 @@ export async function releaseScheduledFulfillment(args: {
 }): Promise<{ ok: true } | { ok: false; error: string }> {
   const id = args.actionId.trim();
   if (!/^[0-9a-f-]{36}$/i.test(id)) return { ok: false, error: "That fulfillment action was not found." };
-  const row = await readSettingsRow();
-  if (!row) return { ok: false, error: "Campaign activation could not be read. Nothing was changed." };
-  const activations = parseCampaignActivations(row.conversation_pilot_campaigns);
+  const stored = await readStoredCampaignActivations();
+  if (!stored.ok) return stored;
   const { data: action, error } = await supabaseServer
     .from("acquisition_actions")
     .select("id, status, journey_id")
@@ -162,7 +251,7 @@ export async function releaseScheduledFulfillment(args: {
     .eq("id", action.journey_id)
     .maybeSingle();
   const campaignId = !journey.error && typeof journey.data?.campaign_id === "string" ? journey.data.campaign_id : null;
-  if (!campaignAutomationOpen(activations, campaignId)) {
+  if (!campaignAutomationOpen(stored.activations, campaignId)) {
     return { ok: false, error: "Activate that campaign before releasing a scheduled action." };
   }
   const now = new Date().toISOString();
