@@ -360,7 +360,7 @@ function memberWindow(
   return { startMs, endMs: nowMs };
 }
 
-function usageInWindow(
+export function usageInWindow(
   hits: ActivityHit[],
   signal: ActivitySignal,
   startMs: number,

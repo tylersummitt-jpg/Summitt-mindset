@@ -20,6 +20,7 @@ import type { EmailRepresentativeReport } from "@/lib/acquisition/email-represen
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
 import type { MemberActivity } from "@/lib/retention-activity-periods";
+import type { BehaviorRetention } from "@/lib/retention-behavior-retention";
 import { EXPERIMENT_NO_AUTOMATIC_WINNER } from "@/lib/operating-experiments";
 import type { GrowthDateRange } from "@/lib/admin-subscriber-growth-pure";
 import { DistributionCommandCenter } from "@/app/admin/distribution-command-center";
@@ -970,6 +971,80 @@ function MemberActivityBlock({ activity }: { activity: MemberActivity }) {
   );
 }
 
+function BehaviorRetentionBlock({ report }: { report: BehaviorRetention }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="font-medium text-gray-900">{report.population} behavior vs. future retention</h3>
+      {report.notes.map((note) => (
+        <p key={note}>{note}</p>
+      ))}
+      {report.windows.length === 0 ? <p>No mature comparison in this read.</p> : null}
+      {report.windows.map((window) => (
+        <div key={`${report.population}-${window.windowLabel}`} className="space-y-1">
+          <p className="font-medium text-gray-900">
+            {window.windowLabel} activity, then retained at {window.outcomeLabel}
+          </p>
+          {window.leftDuring > 0 ? (
+            <p>
+              Members who ended during this window: {window.leftDuring}. They are not counted as
+              inactive.
+            </p>
+          ) : null}
+          {window.immature > 0 ? (
+            <p>
+              Not old enough for {window.outcomeLabel}: {window.immature}.
+            </p>
+          ) : null}
+          {window.unknownEnd > 0 ? <p>Unknown end time: {window.unknownEnd}.</p> : null}
+          {window.signals.map((signal) => (
+            <p key={signal.signalId}>
+              {signal.label}.{" "}
+              {signal.status === "unavailable"
+                ? `Unavailable. ${signal.reason ?? ""}`
+                : signal.groups
+                    .map(
+                      (group) =>
+                        `${group.label}: ${group.retained} of ${group.eligible} (${group.rate}).${group.small ? " Small sample." : ""}`
+                    )
+                    .join(" ")}
+              {signal.definition ? ` ${signal.definition}` : ""}
+              {signal.warning ? ` ${signal.warning}` : ""}
+            </p>
+          ))}
+        </div>
+      ))}
+      <p className="font-medium text-gray-900">Change across two finished periods of the same length</p>
+      <p>Days 0–7 and Days 8–30 are different lengths, so they are not called a decline.</p>
+      {report.disengagement.length === 0 ? <p>No comparable completed periods in this read.</p> : null}
+      {report.disengagement.map((row) => (
+        <div key={`${report.population}-${row.priorLabel}-${row.signalId}`}>
+          {row.status === "unavailable" ? (
+            <p>
+              {row.priorLabel} to {row.latestLabel}, {row.signalLabel}, then {row.outcomeLabel}.
+              Unavailable. {row.reason}
+            </p>
+          ) : (
+            <>
+              {row.sentence ? <p>{row.sentence}</p> : null}
+              <p>
+                {row.priorLabel} to {row.latestLabel}, {row.signalLabel}. Decreased: {row.decreased.retained}{" "}
+                of {row.decreased.eligible}
+                {row.decreased.eligible > 0 ? ` (${row.decreased.rate})` : ""}. Unchanged:{" "}
+                {row.unchanged.retained} of {row.unchanged.eligible}
+                {row.unchanged.eligible > 0 ? ` (${row.unchanged.rate})` : ""}. Increased:{" "}
+                {row.increased.retained} of {row.increased.eligible}
+                {row.increased.eligible > 0 ? ` (${row.increased.rate})` : ""}.
+                {row.decreased.small || row.unchanged.small || row.increased.small ? " Small sample." : ""}
+                {row.warning ? ` ${row.warning}` : ""}
+              </p>
+            </>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RetentionGroupList({
   title,
   rows,
@@ -1248,6 +1323,8 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
 
             <MemberActivityBlock activity={intel.monthlyActivity} />
             <MemberActivityBlock activity={intel.annualActivity} />
+            <BehaviorRetentionBlock report={intel.monthlyBehavior} />
+            <BehaviorRetentionBlock report={intel.annualBehavior} />
 
             <h3 className="font-medium text-gray-900">Where monthly members come from</h3>
             <p>Day 30, observational. Unknown stays visible. This is not an experiment result.</p>
