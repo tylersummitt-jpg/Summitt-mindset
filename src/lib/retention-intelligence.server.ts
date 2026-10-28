@@ -286,6 +286,28 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   signals.push(...sms.signals);
   gaps.push(...sms.gaps);
 
+  const experienceEvents = await readChunked(
+    "v2_event",
+    "clerk_user_id, event_type, occurred_at, idempotency_key",
+    clerkIds,
+    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "occurred_at", orderTieBreak: "idempotency_key" }
+  );
+  if (!experienceEvents.ok) {
+    gaps.push(
+      "Victory Room and Film Room could not be fully read. They are not shown as zero."
+    );
+  } else {
+    for (const row of experienceEvents.rows) {
+      const clerkUserId = text(row.clerk_user_id);
+      const atMs = isoMs(row.occurred_at);
+      const eventType = text(row.event_type);
+      if (!clerkUserId || atMs == null) continue;
+      if (eventType === "victory_room_visited" || eventType === "film_room_played") {
+        hits.push({ clerkUserId, atMs, signal: eventType });
+      }
+    }
+  }
+
   const askPat = await readChunked("ask_pat_questions", "clerk_user_id, day_key", clerkIds);
   if (!askPat.ok) {
     gaps.push("Ask Pat could not be fully read. It is not shown as zero.");

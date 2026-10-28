@@ -705,7 +705,9 @@ describe("retention page boundaries", () => {
     expect(layout).not.toContain("retention-intelligence");
     expect(server).toContain("raw_body");
     expect(server).not.toContain("answer_text");
-    expect(server).not.toContain("v2_event");
+    expect(server).toContain("v2_event");
+    expect(server).not.toContain('id: "victory_room_visited"');
+    expect(server).not.toContain('id: "film_room_played"');
     expect(server).not.toContain("Evening coaching text");
     expect(server).not.toContain("Replied to coaching");
     expect(server).not.toContain("Coaching text delivered");

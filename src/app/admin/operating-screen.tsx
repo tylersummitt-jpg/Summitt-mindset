@@ -19,6 +19,7 @@ import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { EmailRepresentativeReport } from "@/lib/acquisition/email-representative-metrics";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
+import type { MemberActivity } from "@/lib/retention-activity-periods";
 import { EXPERIMENT_NO_AUTOMATIC_WINNER } from "@/lib/operating-experiments";
 import type { GrowthDateRange } from "@/lib/admin-subscriber-growth-pure";
 import { DistributionCommandCenter } from "@/app/admin/distribution-command-center";
@@ -937,6 +938,38 @@ function LandingPagePerformance({ snapshot }: { snapshot: OperatingSnapshot }) {
   );
 }
 
+function MemberActivityBlock({ activity }: { activity: MemberActivity }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="font-medium text-gray-900">{activity.population} activity over time</h3>
+      {activity.notes.map((note) => (
+        <p key={note}>{note}</p>
+      ))}
+      {activity.periods.length === 0 ? <p>No finished or current period in this read.</p> : null}
+      {activity.periods.map((period) => (
+        <div key={`${activity.population}-${period.label}-${period.status}`} className="space-y-1">
+          <p className="font-medium text-gray-900">
+            {period.label}
+            {period.status === "in_progress" ? " (in progress)" : ""}
+          </p>
+          <p>Members whose subscription ended during this period: {period.endedDuring}</p>
+          {period.cells
+            .filter((cell) => cell.status !== "unavailable" || cell.eligible > 0 || cell.warning)
+            .map((cell) => (
+            <p key={cell.signalId}>
+              {cell.label}.{" "}
+              {cell.status === "unavailable"
+                ? "Unavailable."
+                : `${cell.used} of ${cell.eligible} members. Total ${cell.total}. Average ${cell.average} per eligible member.`}
+              {cell.warning ? ` ${cell.warning}` : ""}
+            </p>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function RetentionGroupList({
   title,
   rows,
@@ -1212,6 +1245,9 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
                 {row.small ? " Small sample." : ""}
               </p>
             ))}
+
+            <MemberActivityBlock activity={intel.monthlyActivity} />
+            <MemberActivityBlock activity={intel.annualActivity} />
 
             <h3 className="font-medium text-gray-900">Where monthly members come from</h3>
             <p>Day 30, observational. Unknown stays visible. This is not an experiment result.</p>

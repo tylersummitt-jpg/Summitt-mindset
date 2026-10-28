@@ -4,6 +4,13 @@
  */
 
 import { contentProductionLabel } from "@/lib/content-production";
+import {
+  buildMemberActivity,
+  emptyMemberActivity,
+  formatMemberActivity,
+  unavailableActivitySignals,
+  type MemberActivity,
+} from "@/lib/retention-activity-periods";
 
 export const RETENTION_DAY_MS = 86_400_000;
 const CONTINUITY_SLACK_MS = RETENTION_DAY_MS;
@@ -165,6 +172,8 @@ export type RetentionIntelligence = {
   trialEngagement: RetentionComparison[];
   engagementNote: string;
   engagementGaps: string[];
+  monthlyActivity: MemberActivity;
+  annualActivity: MemberActivity;
   acquisitionReadable: boolean;
   landingReadable: boolean;
   experimentReadable: boolean;
@@ -410,6 +419,20 @@ export function buildRetentionIntelligence(
     trialEngagement,
     engagementNote: engagementNote(input.engagementReadable, engagementGaps),
     engagementGaps,
+    monthlyActivity: buildMemberActivity({
+      population: "Monthly",
+      nowMs: input.nowMs,
+      memberships: firstMemberships(chainsByClerk),
+      hits: input.hits,
+      unavailableSignalIds: unavailableActivitySignals(engagementGaps, input.engagementReadable),
+    }),
+    annualActivity: buildMemberActivity({
+      population: "Annual",
+      nowMs: input.nowMs,
+      memberships: firstMemberships(chainsByClerkFromSpells(partition.annual)),
+      hits: input.hits,
+      unavailableSignalIds: unavailableActivitySignals(engagementGaps, input.engagementReadable),
+    }),
     acquisitionReadable: input.acquisitionReadable,
     landingReadable: input.landingReadable,
     experimentReadable: input.experimentReadable,
@@ -496,6 +519,8 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
       `${row.window}, ${row.label}: day-30 survival if recorded ${row.usedRate}; day-30 survival if not recorded ${row.unusedRate}.${row.small ? " Small sample." : ""}`
     );
   }
+  lines.push(...formatMemberActivity(intel.monthlyActivity));
+  lines.push(...formatMemberActivity(intel.annualActivity));
   lines.push(
     intel.acquisitionReadable
       ? "Retention by first-touch source is an observation, not an experiment."
@@ -510,6 +535,22 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
   lines.push(intel.appleNote);
   lines.push(intel.recommendedStep);
   return lines;
+}
+
+function firstMemberships(chainsByClerk: Map<string, Chain[]>) {
+  const memberships = [];
+  for (const [clerkUserId, chains] of chainsByClerk) {
+    const first = chains[0];
+    if (!first) continue;
+    memberships.push({
+      clerkUserId,
+      startMs: first.startMs,
+      endMs: first.endMs,
+      endKnown: first.endKnown,
+      open: first.open,
+    });
+  }
+  return memberships;
 }
 
 function chainsByClerkFromSpells(spells: RetentionSpell[]): Map<string, Chain[]> {
@@ -1031,6 +1072,8 @@ function emptyIntelligence(args: {
     trialEngagement: [],
     engagementNote: "",
     engagementGaps: [],
+    monthlyActivity: emptyMemberActivity("Monthly"),
+    annualActivity: emptyMemberActivity("Annual"),
     acquisitionReadable: false,
     landingReadable: false,
     experimentReadable: false,
