@@ -124,9 +124,15 @@ describe("retention intelligence on the admin pages", () => {
     expect(details).not.toBeNull();
     expect(details?.hasAttribute("open")).toBe(false);
     expect(details?.querySelector("summary")?.textContent).toBe("How this works");
-    expect(retention.container.textContent).toContain("Retention over time");
+    expect(retention.container.textContent).toContain("Monthly retention");
+    expect(retention.container.textContent).toContain("Monthly D30");
+    expect(retention.container.textContent).toContain("Annual subscribers");
+    expect(retention.container.textContent).toContain("Unclassified members");
     expect(retention.container.textContent).not.toContain("Subscriber stops — all time");
-    expect(retention.container.textContent).toContain("D30");
+    expect(retention.container.textContent).not.toContain("Evening coaching text");
+    expect(retention.container.textContent).not.toContain("Coaching text delivered");
+    expect(retention.container.textContent).not.toContain("Replied to coaching");
+    expect(retention.container.textContent).not.toContain("did not use");
     expect(retention.container.textContent).toContain("user_private_lookup");
     expect(details?.textContent).not.toContain("five landing pages");
     expect(snapshot.report).toContain("RETENTION INTELLIGENCE");

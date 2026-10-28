@@ -131,6 +131,13 @@ export type RetentionGroup = {
 
 export type RetentionReadStatus = "not_loaded" | "unreadable" | "ready";
 
+export type AnnualCohortCounts = {
+  members: number;
+  continuing: number;
+  ended: number;
+  unknown: number;
+};
+
 export type RetentionIntelligence = {
   status: RetentionReadStatus;
   partial: boolean;
@@ -167,13 +174,17 @@ export type RetentionIntelligence = {
   cohortBuckets: AcquisitionCohortBucket[];
   sourceHiddenSmall: number;
   appleNote: string;
+  annual: AnnualCohortCounts;
+  unclassifiedMembers: number;
   limitations: string[];
   recommendedStep: string;
   bridge: string;
 };
 
 const DEFINITION =
-  "Paid-membership retention. Entry is the first confirmed paid Stripe invoice for a Clerk member. Trial time is not counted. A member is continuously retained when that paid membership, or a plan change with no gap longer than one day, was still entitled at the milestone. Someone who canceled and paid again later is not counted as continuously retained. Members who are not old enough are left out. An annual plan stays active without a new monthly invoice.";
+  "Monthly paid retention. Entry is the first confirmed paid Stripe invoice for a Clerk member whose paid subscriptions are all monthly. Trial time is not counted. A member is continuously retained when that monthly membership, or a later monthly subscription with no gap longer than one day, was still open in Stripe at the milestone. Someone who canceled and paid again later is not counted as continuously retained. Members who are not old enough are left out. Annual subscribers are not in these rates. A member with both intervals, or with a missing interval, is unclassified and is not in these rates. Past-due and paused subscriptions can count as surviving even when product access is off. Interval is the current Stripe price interval, not an older price on the same subscription.";
+
+const EMPTY_ANNUAL: AnnualCohortCounts = { members: 0, continuing: 0, ended: 0, unknown: 0 };
 
 export const RETENTION_NOT_LOADED: RetentionIntelligence = emptyIntelligence({
   status: "not_loaded",
@@ -195,6 +206,54 @@ export function unreadableRetentionIntelligence(reason: string): RetentionIntell
 }
 
 const ENTITLED_WITHOUT_END = new Set(["active", "past_due", "trialing"]);
+
+/** Current Stripe price interval only. Dollar amount is ignored. */
+export function retentionIntervalFromPrice(
+  price:
+    | { recurring?: { interval?: string | null } | null; unit_amount?: number | null }
+    | string
+    | null
+    | undefined
+): RetentionInterval {
+  if (!price || typeof price === "string") return "other";
+  const intervalRaw = price.recurring?.interval;
+  if (intervalRaw === "year") return "year";
+  if (intervalRaw === "month") return "month";
+  return "other";
+}
+
+/**
+ * Provider-accepted send rows. Evening is not a separate comparison:
+ * `evening_checkin` stays inside the generic accepted-send signal.
+ */
+export function acceptedSendSignalIds(slot: string | null): string[] {
+  if (slot === "morning") return ["coaching", "morning"];
+  return ["coaching"];
+}
+
+export function partitionRetentionSpells(spells: RetentionSpell[]): {
+  monthly: RetentionSpell[];
+  annual: RetentionSpell[];
+  unclassifiedMembers: number;
+} {
+  const byClerk = new Map<string, RetentionSpell[]>();
+  for (const spell of spells) {
+    if (!spell.clerkUserId) continue;
+    const list = byClerk.get(spell.clerkUserId) ?? [];
+    list.push(spell);
+    byClerk.set(spell.clerkUserId, list);
+  }
+  const monthly: RetentionSpell[] = [];
+  const annual: RetentionSpell[] = [];
+  let unclassifiedMembers = 0;
+  for (const list of byClerk.values()) {
+    const intervals = new Set(list.map((spell) => spell.interval));
+    if (intervals.size === 1 && intervals.has("month")) monthly.push(...list);
+    else if (intervals.size === 1 && intervals.has("year")) annual.push(...list);
+    else unclassifiedMembers += 1;
+  }
+  return { monthly, annual, unclassifiedMembers };
+}
 
 export function spellFromSubscription(input: {
   id: string;
@@ -263,18 +322,10 @@ export function buildRetentionIntelligence(
   }
 
   const missingClerk = input.spells.filter((spell) => !spell.clerkUserId).length;
-  const byClerk = new Map<string, RetentionSpell[]>();
-  for (const spell of input.spells) {
-    if (!spell.clerkUserId) continue;
-    const list = byClerk.get(spell.clerkUserId) ?? [];
-    list.push(spell);
-    byClerk.set(spell.clerkUserId, list);
-  }
-
-  const chainsByClerk = new Map<string, Chain[]>();
-  for (const [clerkUserId, spells] of byClerk) {
-    chainsByClerk.set(clerkUserId, chainSpells(clerkUserId, spells));
-  }
+  const partition = partitionRetentionSpells(input.spells);
+  const chainsByClerk = chainsByClerkFromSpells(partition.monthly);
+  const annual = summarizeAnnualCohort(partition.annual);
+  const measuredSignals = input.measuredSignals.filter((signal) => signal.id !== "evening");
 
   const milestones = RETENTION_MILESTONES.map((milestone) =>
     summarizeMilestone(milestone, chainsByClerk, input.nowMs)
@@ -292,7 +343,7 @@ export function buildRetentionIntelligence(
     chainsByClerk,
     outcomes,
     hits: input.hits,
-    signals: input.measuredSignals,
+    signals: measuredSignals,
     readable: input.engagementReadable,
     window: "paid",
   });
@@ -300,7 +351,7 @@ export function buildRetentionIntelligence(
     chainsByClerk,
     outcomes,
     hits: input.hits,
-    signals: input.measuredSignals,
+    signals: measuredSignals,
     readable: input.engagementReadable,
     window: "trial",
   });
@@ -318,13 +369,13 @@ export function buildRetentionIntelligence(
   const recommendedStep = input.partial
     ? "Do not quote these retention rates as the whole business. The Stripe read was partial."
     : mature === 0
-      ? "No paid member is old enough for day 30. Keep measuring. That is not an incident."
-      : "Use Retention before changing acquisition. A higher rate in one source is an observation, not proof that the source is better.";
+      ? "No monthly member is old enough for day 30. Keep measuring. That is not an incident."
+      : "Use monthly retention before changing acquisition. A higher rate in one source is an observation, not proof that the source is better.";
   const bridge = input.partial
-    ? `Paid retention in this read is partial. ${d30?.rate ?? "Not available"}. Do not treat it as the whole business. Open Retention for coverage.`
+    ? `Monthly retention in this read is partial. ${d30?.rate ?? "Not available"}. Do not treat it as the whole business. Open Retention for coverage.`
     : mature === 0
-      ? "No paid member is old enough for a 30-day retention rate. Long-term value is not measurable yet. Open Retention for the cohort rules."
-      : `Mature paid retention, day 30: ${d30?.rate ?? "Not available"}. This is continuous paid membership, not trial starts. Source detail is on Retention.`;
+      ? "No monthly member is old enough for a 30-day retention rate. Annual subscribers are counted separately. Open Retention for the cohort rules."
+      : `Monthly retention, day 30: ${d30?.rate ?? "Not available"}. Annual subscribers are not in this rate. Source detail is on Retention.`;
 
   return {
     status: "ready",
@@ -352,7 +403,7 @@ export function buildRetentionIntelligence(
     engagement,
     trialEngagement,
     engagementNote: input.engagementReadable
-      ? "These comparisons are observations. They do not show that a feature caused someone to stay. Quiet coaching texts are not a system failure."
+      ? "These percentages are monthly day-30 survival among members with and without the record. They are not the share of members who did the activity. They do not show that a feature caused someone to stay. Quiet coaching texts are not a system failure."
       : "First-week product use could not be read. Missing use is not treated as inactivity.",
     acquisitionReadable: input.acquisitionReadable,
     landingReadable: input.landingReadable,
@@ -363,10 +414,12 @@ export function buildRetentionIntelligence(
     landings: grouped.landings.rows,
     experiments: grouped.experiments.rows,
     cohortBuckets: input.acquisitionReadable
-      ? cohortBuckets(chainsByClerk, input)
+      ? cohortBuckets(chainsByClerkFromSpells(input.spells), input)
       : [],
     sourceHiddenSmall: grouped.sources.hiddenSmall,
     appleNote: appleNote(input.appleRows),
+    annual,
+    unclassifiedMembers: partition.unclassifiedMembers,
     limitations,
     recommendedStep,
     bridge,
@@ -397,19 +450,25 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
   }
   for (const milestone of intel.milestones) {
     lines.push(
-      `${milestone.label}: ${milestone.rate}. Continuously retained ${milestone.retained}. Ended ${milestone.ended}. Rejoined ${milestone.rejoined}. Unknown ${milestone.unknown}. Not old enough ${milestone.immature}.`
+      `Monthly ${milestone.label}: ${milestone.rate}. Continuously retained ${milestone.retained}. Ended ${milestone.ended}. Rejoined ${milestone.rejoined}. Unknown ${milestone.unknown}. Not old enough ${milestone.immature}.`
     );
   }
   lines.push(
-    `Completed paid periods: ${intel.completedCount}. Average ${intel.averageCompletedDays}. Median ${intel.medianCompletedDays}. Longest completed ${intel.longestCompletedDays}. Longest active ${intel.longestActiveDays}.`
+    `Annual members: ${intel.annual.members}. Continuing ${intel.annual.continuing}. Ended ${intel.annual.ended}. Unknown outcome ${intel.annual.unknown}. Not in the monthly rates. Not a renewal rate.`
   );
   lines.push(
-    `Current paying members in this read: ${intel.activeCount}. Tenure: ${intel.activeByBand
+    `Unclassified members: ${intel.unclassifiedMembers}. Mixed or unknown billing interval. Not in the monthly or annual counts.`
+  );
+  lines.push(
+    `Completed monthly paid periods: ${intel.completedCount}. Average ${intel.averageCompletedDays}. Median ${intel.medianCompletedDays}. Longest completed ${intel.longestCompletedDays}. Longest active ${intel.longestActiveDays}.`
+  );
+  lines.push(
+    `Open monthly memberships in this read: ${intel.activeCount}. Tenure: ${intel.activeByBand
       .map((band) => `${band.label} ${band.count}`)
       .join(", ")}.`
   );
   lines.push(
-    `Ended paid periods: member-requested ${intel.memberRequested}, payment failure ${intel.paymentFailure}, other known ${intel.otherKnown}, unknown reason ${intel.unknownReason}. End time unknown ${intel.endTimeUnknown}.`
+    `Ended monthly periods: member-requested ${intel.memberRequested}, payment failure ${intel.paymentFailure}, other known ${intel.otherKnown}, unknown reason ${intel.unknownReason}. End time unknown ${intel.endTimeUnknown}.`
   );
   lines.push(intel.churnNote);
   lines.push(
@@ -423,12 +482,12 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
   }
   for (const row of intel.engagement) {
     lines.push(
-      `${row.window}, ${row.label}: used ${row.usedRate}; did not use ${row.unusedRate}.${row.small ? " Small sample." : ""}`
+      `${row.window}, ${row.label}: day-30 survival if recorded ${row.usedRate}; day-30 survival if not recorded ${row.unusedRate}.${row.small ? " Small sample." : ""}`
     );
   }
   for (const row of intel.trialEngagement) {
     lines.push(
-      `${row.window}, ${row.label}: used ${row.usedRate}; did not use ${row.unusedRate}.${row.small ? " Small sample." : ""}`
+      `${row.window}, ${row.label}: day-30 survival if recorded ${row.usedRate}; day-30 survival if not recorded ${row.unusedRate}.${row.small ? " Small sample." : ""}`
     );
   }
   lines.push(
@@ -445,6 +504,32 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
   lines.push(intel.appleNote);
   lines.push(intel.recommendedStep);
   return lines;
+}
+
+function chainsByClerkFromSpells(spells: RetentionSpell[]): Map<string, Chain[]> {
+  const byClerk = new Map<string, RetentionSpell[]>();
+  for (const spell of spells) {
+    if (!spell.clerkUserId) continue;
+    const list = byClerk.get(spell.clerkUserId) ?? [];
+    list.push(spell);
+    byClerk.set(spell.clerkUserId, list);
+  }
+  const chainsByClerk = new Map<string, Chain[]>();
+  for (const [clerkUserId, list] of byClerk) {
+    chainsByClerk.set(clerkUserId, chainSpells(clerkUserId, list));
+  }
+  return chainsByClerk;
+}
+
+function summarizeAnnualCohort(spells: RetentionSpell[]): AnnualCohortCounts {
+  const counts = { members: 0, continuing: 0, ended: 0, unknown: 0 };
+  for (const chains of chainsByClerkFromSpells(spells).values()) {
+    counts.members += 1;
+    if (chains.some((chain) => !chain.endKnown)) counts.unknown += 1;
+    else if (chains.some((chain) => chain.open)) counts.continuing += 1;
+    else counts.ended += 1;
+  }
+  return counts;
 }
 
 function chainSpells(clerkUserId: string, spells: RetentionSpell[]): Chain[] {
@@ -822,7 +907,7 @@ function buildLimitations(args: {
   }
   if (args.endTimeUnknown > 0) {
     lines.push(
-      `${args.endTimeUnknown} paid memberships have no reliable end time. Their milestones are Unknown.`
+      `${args.endTimeUnknown} monthly memberships have no reliable end time. Their milestones are Unknown.`
     );
   }
   if (args.missingClerk > 0) {
@@ -830,6 +915,12 @@ function buildLimitations(args: {
       `${args.missingClerk} paid subscriptions have no Clerk user id. They are unknown and were not matched another way.`
     );
   }
+  lines.push(
+    "Monthly rates include only members whose paid subscriptions are all monthly. Annual members and unclassified members are not in those denominators."
+  );
+  lines.push(
+    "Billing interval is the current Stripe price interval. An older interval on the same subscription is not reconstructed. Past-due and paused subscriptions can count as surviving even when access is off."
+  );
   if (!args.input.engagementReadable) {
     lines.push("First-week product use could not be read. That is not counted as inactivity.");
   }
@@ -933,6 +1024,8 @@ function emptyIntelligence(args: {
     cohortBuckets: [],
     sourceHiddenSmall: 0,
     appleNote: args.appleNote ?? "",
+    annual: EMPTY_ANNUAL,
+    unclassifiedMembers: 0,
     limitations: args.limitations,
     recommendedStep: args.recommendedStep,
     bridge: args.bridge,

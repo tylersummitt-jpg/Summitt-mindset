@@ -19,6 +19,8 @@ import {
 import {
   buildRetentionIntelligence,
   formatRetentionIntelligence,
+  acceptedSendSignalIds,
+  retentionIntervalFromPrice,
   RETENTION_DAY_MS,
   spellFromSubscription,
   unreadableRetentionIntelligence,
@@ -157,7 +159,7 @@ describe("paid retention cohorts", () => {
     ).toBeNull();
   });
 
-  it("keeps an annual membership retained without another monthly payment", () => {
+  it("counts an open annual membership outside monthly retention", () => {
     const built = spellFromSubscription({
       id: "s1",
       clerkUserId: "user_annual",
@@ -170,8 +172,10 @@ describe("paid retention cohorts", () => {
       trialStartMs: null,
     });
     const report = buildRetentionIntelligence(input({ spells: built ? [built] : [] }));
-    expect(report.milestones[3]?.retained).toBe(1);
-    expect(report.longestMembers[0]?.plan).toBe("Annual");
+    expect(report.milestones[3]?.retained).toBe(0);
+    expect(report.longestMembers).toEqual([]);
+    expect(report.annual).toEqual({ members: 1, continuing: 1, ended: 0, unknown: 0 });
+    expect(formatRetentionIntelligence(report).join("\n")).toContain("Not a renewal rate");
   });
 
   it("treats paused and past_due memberships as still entitled", () => {
@@ -432,6 +436,8 @@ describe("paid retention cohorts", () => {
     expect(text).not.toContain("user_private_lookup");
     expect(text).not.toContain("@");
     expect(text).toContain("D365");
+    expect(text).toContain("Monthly D30");
+    expect(text).not.toContain("did not use");
   });
 
   it("withholds rates when historic invoices are not reliable", () => {
@@ -444,7 +450,185 @@ describe("paid retention cohorts", () => {
     expect(report.partial).toBe(true);
     expect(report.milestones).toEqual([]);
     expect(report.withheld).toContain("not reliable");
-    expect(formatRetentionIntelligence(report).join("\n")).not.toContain("user_a");
+    const text = formatRetentionIntelligence(report).join("\n");
+    expect(text).not.toContain("user_a");
+    expect(text).not.toContain("Annual members:");
+    expect(text).not.toContain("%");
+  });
+});
+
+describe("monthly and annual separation", () => {
+  it("keeps annual members out of monthly D30, D60, and D90", () => {
+    const report = buildRetentionIntelligence(
+      input({
+        spells: [
+          spell({ id: "month", clerkUserId: "user_month", paidStartMs: daysAgo(100) }),
+          spell({ id: "year", clerkUserId: "user_year", interval: "year", paidStartMs: daysAgo(100) }),
+        ],
+      })
+    );
+    expect(report.milestones[0]?.retained).toBe(1);
+    expect(report.milestones[0]?.rate).toBe("100% (1 of 1)");
+    expect(report.milestones[1]?.retained).toBe(1);
+    expect(report.milestones[2]?.retained).toBe(1);
+    expect(report.annual).toEqual({ members: 1, continuing: 1, ended: 0, unknown: 0 });
+    expect(report.unclassifiedMembers).toBe(0);
+  });
+
+  it("treats legacy and current prices with the same interval as the same group", () => {
+    expect(retentionIntervalFromPrice({ recurring: { interval: "month" }, unit_amount: 1900 })).toBe(
+      "month"
+    );
+    expect(retentionIntervalFromPrice({ recurring: { interval: "month" }, unit_amount: 2900 })).toBe(
+      "month"
+    );
+    expect(retentionIntervalFromPrice({ recurring: { interval: "year" }, unit_amount: 12000 })).toBe(
+      "year"
+    );
+    expect(retentionIntervalFromPrice({ recurring: { interval: "year" }, unit_amount: 24900 })).toBe(
+      "year"
+    );
+    const report = buildRetentionIntelligence(
+      input({
+        spells: [
+          spell({ id: "legacy-month", clerkUserId: "user_legacy_month", paidStartMs: daysAgo(40) }),
+          spell({ id: "current-month", clerkUserId: "user_current_month", paidStartMs: daysAgo(40) }),
+          spell({
+            id: "legacy-year",
+            clerkUserId: "user_legacy_year",
+            interval: "year",
+            paidStartMs: daysAgo(40),
+          }),
+          spell({
+            id: "current-year",
+            clerkUserId: "user_current_year",
+            interval: "year",
+            paidStartMs: daysAgo(40),
+          }),
+        ],
+      })
+    );
+    expect(report.milestones[0]?.retained).toBe(2);
+    expect(report.annual.members).toBe(2);
+  });
+
+  it("classifies mixed and unknown intervals once, outside both rates", () => {
+    const report = buildRetentionIntelligence(
+      input({
+        spells: [
+          spell({ id: "mix-m", clerkUserId: "user_mix", paidStartMs: daysAgo(80) }),
+          spell({
+            id: "mix-y",
+            clerkUserId: "user_mix",
+            interval: "year",
+            paidStartMs: daysAgo(20),
+          }),
+          spell({
+            id: "unknown-interval",
+            clerkUserId: "user_unknown_interval",
+            interval: "other",
+            paidStartMs: daysAgo(80),
+          }),
+          spell({ id: "month", clerkUserId: "user_month", paidStartMs: daysAgo(80) }),
+        ],
+      })
+    );
+    expect(report.unclassifiedMembers).toBe(2);
+    expect(report.milestones[0]?.retained).toBe(1);
+    expect(report.annual.members).toBe(0);
+    expect(report.milestones[0]?.ended).toBe(0);
+  });
+
+  it("counts two monthly subscriptions for one Clerk id as one member", () => {
+    const report = buildRetentionIntelligence(
+      input({
+        spells: [
+          spell({ id: "first", clerkUserId: "user_a", paidStartMs: daysAgo(50) }),
+          spell({ id: "second", clerkUserId: "user_a", paidStartMs: daysAgo(10) }),
+        ],
+      })
+    );
+    const d30 = report.milestones[0];
+    expect((d30?.retained ?? 0) + (d30?.ended ?? 0) + (d30?.rejoined ?? 0) + (d30?.unknown ?? 0) + (d30?.immature ?? 0)).toBe(1);
+    expect(d30?.retained).toBe(1);
+  });
+
+  it("includes a 45-day monthly member in D30 and leaves them out of D60 and D90", () => {
+    const report = buildRetentionIntelligence(
+      input({
+        spells: [spell({ id: "young", clerkUserId: "user_young", paidStartMs: daysAgo(45) })],
+      })
+    );
+    expect(report.milestones[0]?.immature).toBe(0);
+    expect(report.milestones[0]?.retained).toBe(1);
+    expect(report.milestones[1]?.immature).toBe(1);
+    expect(report.milestones[1]?.rate).toBe("Not available");
+    expect(report.milestones[2]?.immature).toBe(1);
+  });
+
+  it("counts continuing, ended, and unknown annual members without calling them churned monthly", () => {
+    const report = buildRetentionIntelligence(
+      input({
+        spells: [
+          spell({ id: "open", clerkUserId: "user_open", interval: "year", paidStartMs: daysAgo(400) }),
+          spell({
+            id: "ended",
+            clerkUserId: "user_ended",
+            interval: "year",
+            paidStartMs: daysAgo(200),
+            endedAtMs: daysAgo(10),
+            open: false,
+          }),
+          spell({
+            id: "unknown",
+            clerkUserId: "user_unknown_end",
+            interval: "year",
+            paidStartMs: daysAgo(100),
+            endKnown: false,
+            open: false,
+            endedAtMs: null,
+          }),
+        ],
+      })
+    );
+    expect(report.annual).toEqual({ members: 3, continuing: 1, ended: 1, unknown: 1 });
+    expect(report.milestones.every((row) => row.retained + row.ended + row.rejoined === 0)).toBe(true);
+  });
+
+  it("does not treat a missing Clerk id as monthly churn or as unclassified", () => {
+    const report = buildRetentionIntelligence(
+      input({
+        spells: [spell({ id: "bare", clerkUserId: null, interval: "year", paidStartMs: daysAgo(80) })],
+      })
+    );
+    expect(report.unclassifiedMembers).toBe(0);
+    expect(report.annual.members).toBe(0);
+    expect(report.milestones[0]?.ended).toBe(0);
+    expect(report.limitations.join(" ")).toContain("no Clerk user id");
+  });
+
+  it("suppresses the evening comparison and describes survival rather than usage", () => {
+    const report = buildRetentionIntelligence(
+      input({
+        measuredSignals: [
+          { id: "evening", label: "Evening coaching text" },
+          { id: "morning", label: "Morning coaching text accepted by the provider" },
+          { id: "reply", label: "Any inbound SMS" },
+        ],
+        spells: [spell({ id: "month", clerkUserId: "user_month", paidStartMs: daysAgo(40) })],
+      })
+    );
+    const labels = [...report.engagement, ...report.trialEngagement].map((row) => row.label);
+    expect(labels).not.toContain("Evening coaching text");
+    expect(labels).toContain("Morning coaching text accepted by the provider");
+    expect(labels).toContain("Any inbound SMS");
+    expect(acceptedSendSignalIds("evening")).toEqual(["coaching"]);
+    expect(acceptedSendSignalIds("evening_checkin")).toEqual(["coaching"]);
+    expect(acceptedSendSignalIds("morning")).toEqual(["coaching", "morning"]);
+    const text = formatRetentionIntelligence(report).join("\n");
+    expect(text).toContain("day-30 survival if recorded");
+    expect(text).not.toContain("Coaching text delivered");
+    expect(text).not.toContain("Replied to coaching");
   });
 });
 
@@ -497,6 +681,11 @@ describe("retention page boundaries", () => {
     expect(layout).not.toContain("retention-intelligence");
     expect(server).not.toContain("raw_body");
     expect(server).not.toContain("answer_text");
+    expect(server).not.toContain("Evening coaching text");
+    expect(server).not.toContain("Replied to coaching");
+    expect(server).not.toContain("Coaching text delivered");
+    expect(server).toContain("Any inbound SMS");
+    expect(server).toContain("acceptedSendSignalIds");
   });
 });
 

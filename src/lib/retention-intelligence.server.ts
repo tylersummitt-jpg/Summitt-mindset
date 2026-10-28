@@ -12,7 +12,10 @@ import { parseContentProduction } from "@/lib/content-production";
 import { earliestQualifyingLandingPath } from "@/lib/landing-page-performance";
 import {
   buildRetentionIntelligence,
+  partitionRetentionSpells,
+  retentionIntervalFromPrice,
   spellFromSubscription,
+  acceptedSendSignalIds,
   unreadableRetentionIntelligence,
   type RetentionAcquisition,
   type RetentionHit,
@@ -77,8 +80,8 @@ export async function loadRetentionIntelligence(
 
     const recognized = new Set(getRecognizedSummittPriceIds());
     const spells = [];
+    const feedbackSpellIds = new Set<string>();
     let activeWithoutPayment = 0;
-    let customerFeedbackCount = 0;
     for (const row of subscriptions.rows) {
       if (!isLikelySummittStripeSubscription(row.growth, recognized)) continue;
       const paidAtMs = paidAtBySubscription.get(row.id) ?? [];
@@ -103,8 +106,13 @@ export async function loadRetentionIntelligence(
         continue;
       }
       spells.push(spell);
-      if (spell.endKnown && !spell.open && row.customerFeedback) customerFeedbackCount += 1;
+      if (spell.endKnown && !spell.open && row.customerFeedback) feedbackSpellIds.add(spell.id);
     }
+
+    const monthlySpellIds = new Set(partitionRetentionSpells(spells).monthly.map((spell) => spell.id));
+    const customerFeedbackCount = spells.filter(
+      (spell) => monthlySpellIds.has(spell.id) && feedbackSpellIds.has(spell.id)
+    ).length;
 
     const clerkIds = [
       ...new Set(spells.map((spell) => spell.clerkUserId).filter((id): id is string => Boolean(id))),
@@ -153,9 +161,7 @@ type ListedSubscription = {
 
 function fromGrowthSubscription(sub: GrowthStripeSubscription): ListedSubscription {
   const price = sub.items?.data?.[0]?.price;
-  const intervalRaw = typeof price === "string" ? null : price?.recurring?.interval;
-  const interval: RetentionInterval =
-    intervalRaw === "year" ? "year" : intervalRaw === "month" ? "month" : "other";
+  const interval = retentionIntervalFromPrice(price);
   const feedback = sub.cancellation_feedback?.trim() ?? "";
   return {
     id: sub.id,
@@ -248,9 +254,8 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   );
   if (sends.ok) {
     signals.push(
-      { id: "coaching", label: "Coaching text delivered" },
-      { id: "morning", label: "Morning coaching text" },
-      { id: "evening", label: "Evening coaching text" }
+      { id: "coaching", label: "Coaching text accepted by the provider" },
+      { id: "morning", label: "Morning coaching text accepted by the provider" }
     );
     for (const row of sends.rows) {
       const clerkUserId = text(row.clerk_user_id);
@@ -259,17 +264,16 @@ async function loadEngagement(clerkIds: string[]): Promise<{
       const sid = text(row.message_sid);
       const status = text(row.status);
       if (!sid || status === "failed" || status === "undelivered") continue;
-      hits.push({ clerkUserId, atMs, signal: "coaching" });
       const slot = text(row.send_slot);
-      if (slot === "morning" || slot === "evening") {
-        hits.push({ clerkUserId, atMs, signal: slot });
+      for (const signal of acceptedSendSignalIds(slot)) {
+        hits.push({ clerkUserId, atMs, signal });
       }
     }
   }
 
   const replies = await readChunked("sms_inbound_messages", "clerk_user_id, received_at", clerkIds);
   if (replies.ok) {
-    signals.push({ id: "reply", label: "Replied to coaching" });
+    signals.push({ id: "reply", label: "Any inbound SMS" });
     for (const row of replies.rows) {
       const clerkUserId = text(row.clerk_user_id);
       const atMs = isoMs(row.received_at);

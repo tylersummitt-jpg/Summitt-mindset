@@ -1094,15 +1094,38 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
           <p>{intel.withheld ?? intel.definition}</p>
         ) : (
           <>
-            <h3 className="font-medium text-gray-900">Retention over time</h3>
-            {intel.milestones.map((milestone) => (
-              <p key={milestone.label}>
-                <span className="font-medium text-gray-900">{milestone.label}: </span>
-                {milestone.rate}. {milestone.coverage}
-              </p>
-            ))}
+            <h3 className="font-medium text-gray-900">Monthly retention</h3>
+            <p>
+              Past-due and paused Stripe subscriptions can count as surviving here even when
+              product access is already off. Annual subscribers are not in these denominators.
+              Members who are not old enough are left out. Unknown is not churn.
+            </p>
+            {intel.milestones
+              .filter((milestone) => milestone.days === 30 || milestone.days === 60 || milestone.days === 90)
+              .map((milestone) => (
+                <p key={milestone.label}>
+                  <span className="font-medium text-gray-900">Monthly {milestone.label}: </span>
+                  {milestone.rate}. {milestone.coverage}
+                </p>
+              ))}
 
-            <h3 className="font-medium text-gray-900">Membership longevity</h3>
+            <h3 className="font-medium text-gray-900">Annual subscribers</h3>
+            <p>
+              Annual members: {intel.annual.members}. Continuing: {intel.annual.continuing}. Ended:{" "}
+              {intel.annual.ended}. Unknown outcome:               {intel.annual.unknown}. These members are not in Monthly D30, D60, or D90. Continuing
+              includes past-due and paused subscriptions. Staying inside a prepaid year is not a
+              renewal. This page does not report an annual renewal rate.
+            </p>
+
+            <h3 className="font-medium text-gray-900">Unclassified</h3>
+            <p>
+              Unclassified members: {intel.unclassifiedMembers}. A member is unclassified when
+              their paid subscriptions are not all monthly or not all annual, or the billing
+              interval is missing. They are counted once and are not in either rate. The current
+              price is not treated as proof of an older interval.
+            </p>
+
+            <h3 className="font-medium text-gray-900">Monthly membership longevity</h3>
             <p>
               Completed paid periods: {intel.completedCount}. Average {intel.averageCompletedDays}.
               Median {intel.medianCompletedDays}. Current active memberships are not included in
@@ -1110,7 +1133,7 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
             </p>
             <p>
               Longest completed {intel.longestCompletedDays}. Longest active {intel.longestActiveDays}.
-              Current paying members: {intel.activeCount}.
+              Open monthly memberships in this read: {intel.activeCount}.
             </p>
             <ul className="space-y-1">
               {intel.activeByBand.map((band) => (
@@ -1142,7 +1165,7 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
               </Link>
             </p>
 
-            <h3 className="font-medium text-gray-900">Why memberships end</h3>
+            <h3 className="font-medium text-gray-900">Why monthly memberships end</h3>
             <p>
               Member-requested {intel.memberRequested}. Payment failure {intel.paymentFailure}.
               Other known {intel.otherKnown}. Unknown reason {intel.unknownReason}. End time
@@ -1160,25 +1183,31 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
               </Link>
             </p>
 
-            <h3 className="font-medium text-gray-900">Member experiences and retention</h3>
+            <h3 className="font-medium text-gray-900">Monthly experiences and day-30 survival</h3>
             <p>{intel.engagementNote}</p>
-            {intel.engagement.map((row) => (
+            {intel.engagement
+              .filter((row) => row.label !== "Evening coaching text")
+              .map((row) => (
               <p key={`paid-${row.label}`}>
-                {row.window}, {row.label}: used {row.usedRate}; did not use {row.unusedRate}.
+                {row.window}, {row.label}. Day 30 survival if recorded: {row.usedRate}. Day 30
+                survival if not recorded: {row.unusedRate}.
                 {row.small ? " Small sample." : ""}
               </p>
             ))}
             {intel.trialEngagement.length > 0 ? (
-              <p className="font-medium text-gray-900">During the free trial, among people who later paid</p>
+              <p className="font-medium text-gray-900">During the free trial, among monthly members who later paid</p>
             ) : null}
-            {intel.trialEngagement.map((row) => (
+            {intel.trialEngagement
+              .filter((row) => row.label !== "Evening coaching text")
+              .map((row) => (
               <p key={`trial-${row.label}`}>
-                {row.label}: used {row.usedRate}; did not use {row.unusedRate}.
+                {row.label}. Day 30 survival if recorded: {row.usedRate}. Day 30 survival if not
+                recorded: {row.unusedRate}.
                 {row.small ? " Small sample." : ""}
               </p>
             ))}
 
-            <h3 className="font-medium text-gray-900">Where long-lasting members come from</h3>
+            <h3 className="font-medium text-gray-900">Where monthly members come from</h3>
             <p>Day 30, observational. Unknown stays visible. This is not an experiment result.</p>
             <RetentionGroupList
               title="First-touch source"
