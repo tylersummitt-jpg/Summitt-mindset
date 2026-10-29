@@ -6,6 +6,7 @@
 import {
   conversionRate,
   formatUnknownableCount,
+  formatStripeOpeningChurn,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   type GrowthDateRange,
@@ -539,8 +540,8 @@ function buildLimitations(args: {
     "Apple revenue is not included. Stripe revenue is the existing Stripe total and is gross of refunds.",
     notes.appleCancelRequestedNote,
     notes.stripeChurnOnly
-      ? "Paid subscriber churn is the existing Stripe churn rate. Apple churn is not in that rate."
-      : "Paid subscriber churn uses the existing calculator.",
+      ? "Stripe opening-subscriber churn counts only people who were already paid at the start of the selected range and whose paid membership ended during that range. Apple memberships are not in that rate. It is not the Day 30, Day 60, or Day 90 retention rate."
+      : "Stripe opening-subscriber churn uses the existing calculator.",
     ...args.retentionIntelligence.limitations,
   ].filter((line): line is string => Boolean(line));
   if (notes.sourceTrackingUnavailable) {
@@ -715,7 +716,7 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     `Cancelled during trial: ${snapshot.retention.cancelledDuringTrial}`,
     `Finished trial without paying: ${snapshot.retention.finishedTrialWithoutPaid}`,
     `Paid memberships ended: ${snapshot.retention.paidMembershipsEnded}`,
-    `Paid subscriber churn: ${snapshot.retention.churn}`,
+    `Stripe opening-subscriber churn: ${snapshot.retention.churn}`,
     `Stripe past due now: ${snapshot.retention.pastDueNow}`,
     `Stripe payment failures in range: ${snapshot.retention.paymentFailedInRange}`,
     `Free week running now: ${snapshot.retention.freeWeekNow}`,
@@ -882,7 +883,7 @@ export function buildOperatingSnapshot(args: {
       cancelledDuringTrial: countText(period.cancelledDuringTrial),
       finishedTrialWithoutPaid: countText(period.finishedTrialWithoutPaid),
       paidMembershipsEnded: countText(period.paidFullyEnded),
-      churn: percentText(period.paidChurnRate),
+      churn: formatStripeOpeningChurn(period.paidChurnEnded, period.paidChurnOpening),
       pastDueNow: countText(now.paymentFailed),
       paymentFailedInRange: countText(period.paymentFailed),
       freeWeekNow: countText(args.growth.currentFreeTrials.onFreeWeekNow),

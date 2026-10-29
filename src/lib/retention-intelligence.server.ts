@@ -348,14 +348,17 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   if (!programs.ok) {
     gaps.push("Programs could not be fully read. They are not shown as zero.");
   } else {
-    signals.push({ id: "program", label: "Program started or completed" });
+    signals.push(
+      { id: "program_start", label: "Program starts" },
+      { id: "program_complete", label: "Program completions" }
+    );
     for (const row of programs.rows) {
       const clerkUserId = text(row.clerk_user_id);
       const started = isoMs(row.started_at);
       const completed = isoMs(row.completed_at);
       if (!clerkUserId) continue;
-      if (started != null) hits.push({ clerkUserId, atMs: started, signal: "program" });
-      if (completed != null) hits.push({ clerkUserId, atMs: completed, signal: "program" });
+      if (started != null) hits.push({ clerkUserId, atMs: started, signal: "program_start" });
+      if (completed != null) hits.push({ clerkUserId, atMs: completed, signal: "program_complete" });
     }
   }
 

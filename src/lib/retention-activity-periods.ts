@@ -48,7 +48,8 @@ export const ACTIVITY_SIGNALS: ActivitySignal[] = [
     unit: "days",
     trackedFromMs: V2_EVENT_TRACKING_START_MS,
   },
-  { id: "program", label: "Program starts and completions", unit: "events", trackedFromMs: null },
+  { id: "program_start", label: "Program starts", unit: "events", trackedFromMs: null },
+  { id: "program_complete", label: "Program completions", unit: "events", trackedFromMs: null },
 ];
 
 export type ActivityCell = {
@@ -107,7 +108,10 @@ export function unavailableActivitySignals(gaps: string[], engagementReadable: b
       ids.add("goal_win");
       ids.add("proud_moment");
     }
-    if (gap.startsWith("Programs could not")) ids.add("program");
+    if (gap.startsWith("Programs could not")) {
+      ids.add("program_start");
+      ids.add("program_complete");
+    }
     if (gap.startsWith("Victory Room and Film Room could not")) {
       ids.add("victory_room_visited");
       ids.add("film_room_played");

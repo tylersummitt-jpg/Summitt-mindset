@@ -1011,15 +1011,15 @@ export function formatLatestTrialSignedUp(unixSeconds: number): string {
   }).format(new Date(unixSeconds * 1000));
 }
 
-export function stripeChurnRate(args: {
+export function stripeOpeningChurn(args: {
   subs: GrowthStripeSubscription[];
   periodStartUnix: number | null;
   periodEndUnix: number;
   paidInvoiceSubIds: ReadonlySet<string>;
-}): MetricNumber {
-  if (args.periodStartUnix == null) return null;
+}): { rate: MetricNumber; ended: number | null; opening: number | null } {
+  if (args.periodStartUnix == null) return { rate: null, ended: null, opening: null };
   const opening = new Set<string>();
-  const ended = new Set<string>();
+  const endedInRange = new Set<string>();
   for (const sub of args.subs) {
     const paidInvoice = args.paidInvoiceSubIds.has(sub.id);
     const identity = stripeSubscriberIdentity(sub);
@@ -1028,11 +1028,29 @@ export function stripeChurnRate(args: {
     }
     const end = paidTerminalEndUnix(sub, paidInvoice);
     if (end != null && end >= args.periodStartUnix && end < args.periodEndUnix) {
-      ended.add(identity);
+      endedInRange.add(identity);
     }
   }
-  if (opening.size === 0) return null;
-  return ended.size / opening.size;
+  let ended = 0;
+  for (const identity of endedInRange) {
+    if (opening.has(identity)) ended += 1;
+  }
+  if (opening.size === 0) return { rate: null, ended: 0, opening: 0 };
+  return { rate: ended / opening.size, ended, opening: opening.size };
+}
+
+export function stripeChurnRate(args: {
+  subs: GrowthStripeSubscription[];
+  periodStartUnix: number | null;
+  periodEndUnix: number;
+  paidInvoiceSubIds: ReadonlySet<string>;
+}): MetricNumber {
+  return stripeOpeningChurn(args).rate;
+}
+
+export function formatStripeOpeningChurn(ended: number | null, opening: number | null): string {
+  if (opening == null || opening <= 0 || ended == null) return UNKNOWN_METRIC;
+  return `${formatUnknownablePercent(ended / opening)} (${ended} of ${opening})`;
 }
 
 export function reactivatedIdentityCount(args: {
@@ -1785,6 +1803,8 @@ export type GrowthDashboardSnapshot = {
   period: {
     trialToPaidRate: MetricNumber;
     paidChurnRate: MetricNumber;
+    paidChurnEnded: number | null;
+    paidChurnOpening: number | null;
     costPerPaid: MetricNumber;
     costPerTrial: MetricNumber;
     paidAdTrialsStarted: MetricNumber;
@@ -1881,6 +1901,8 @@ export function emptyUnknownPeriod(): GrowthDashboardSnapshot["period"] {
   return {
     trialToPaidRate: null,
     paidChurnRate: null,
+    paidChurnEnded: null,
+    paidChurnOpening: null,
     costPerPaid: null,
     costPerTrial: null,
     paidAdTrialsStarted: null,
@@ -2111,13 +2133,13 @@ export function computeGrowthSnapshot(input: {
   const periodEndUnix = Math.floor(input.endMs / 1000);
 
   const churn = paymentsOk
-    ? stripeChurnRate({
+    ? stripeOpeningChurn({
         subs: summitSubs,
         periodStartUnix,
         periodEndUnix,
         paidInvoiceSubIds,
       })
-    : null;
+    : { rate: null, ended: null, opening: null };
 
   const reactivated = paymentsOk
     ? reactivatedIdentityCount({
@@ -2164,7 +2186,9 @@ export function computeGrowthSnapshot(input: {
       conversionRate(converted.length, matureTrials.length),
       paymentsOk
     ),
-    paidChurnRate: churn,
+    paidChurnRate: churn.rate,
+    paidChurnEnded: churn.ended,
+    paidChurnOpening: churn.opening,
     costPerPaid: blendedCostPerPaidCents(
       input.advertisingSpend ?? null,
       attributedNewPaid

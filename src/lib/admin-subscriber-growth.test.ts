@@ -38,6 +38,7 @@ import {
   formatRecentActivityWhen,
   formatSignedNet,
   formatUnknownableCount,
+  formatStripeOpeningChurn,
   formatUnknownablePercent,
   formatUnknownableUsdFromCents,
   growthPeriodUtcMs,
@@ -660,8 +661,70 @@ describe("paid churn and reactivation", () => {
       ],
     });
     expect(result.period.paidChurnRate).toBeCloseTo(0.5);
+    expect(result.period.paidChurnEnded).toBe(1);
+    expect(result.period.paidChurnOpening).toBe(2);
+    expect(formatStripeOpeningChurn(result.period.paidChurnEnded, result.period.paidChurnOpening)).toBe(
+      "50.0% (1 of 2)"
+    );
     expect(result.period.cancelledDuringTrial).toBe(1);
     expect(result.notes.stripeChurnOnly).toBe(true);
+  });
+
+  it("does not count an end unless that person was paid at the start of the range", () => {
+    const periodStartUnix = NOW_UNIX - 7 * 86_400;
+    const result = snapshot({
+      startMs: periodStartUnix * 1000,
+      stripeSubs: [
+        stripeSub({
+          id: "opened_and_ended",
+          status: "canceled",
+          start_date: periodStartUnix - 30 * 86_400,
+          created: periodStartUnix - 30 * 86_400,
+          canceled_at: periodStartUnix + 86_400,
+          ended_at: periodStartUnix + 86_400,
+        }),
+        stripeSub({
+          id: "started_inside",
+          status: "canceled",
+          start_date: periodStartUnix + 86_400,
+          created: periodStartUnix + 86_400,
+          canceled_at: periodStartUnix + 2 * 86_400,
+          ended_at: periodStartUnix + 2 * 86_400,
+        }),
+        stripeSub({
+          id: "still_paid",
+          status: "active",
+          start_date: periodStartUnix - 10 * 86_400,
+          created: periodStartUnix - 10 * 86_400,
+        }),
+      ],
+    });
+    expect(result.period.paidChurnEnded).toBe(1);
+    expect(result.period.paidChurnOpening).toBe(2);
+    expect(result.period.paidChurnRate).toBeCloseTo(0.5);
+    expect(result.period.paidFullyEnded).toBe(2);
+  });
+
+  it("leaves opening-subscriber churn unavailable when nobody was paid at the range start", () => {
+    const periodStartUnix = NOW_UNIX - 7 * 86_400;
+    const result = snapshot({
+      startMs: periodStartUnix * 1000,
+      stripeSubs: [
+        stripeSub({
+          id: "started_inside",
+          status: "canceled",
+          start_date: periodStartUnix + 86_400,
+          created: periodStartUnix + 86_400,
+          canceled_at: periodStartUnix + 2 * 86_400,
+          ended_at: periodStartUnix + 2 * 86_400,
+        }),
+      ],
+    });
+    expect(result.period.paidChurnOpening).toBe(0);
+    expect(result.period.paidChurnRate).toBeNull();
+    expect(formatStripeOpeningChurn(result.period.paidChurnEnded, result.period.paidChurnOpening)).toBe(
+      "—"
+    );
   });
 
   it("does not treat pause as churn", () => {

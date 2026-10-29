@@ -1120,7 +1120,7 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
           value={r.finishedTrialWithoutPaid}
         />
         <Metric label="Paid memberships ended" value={r.paidMembershipsEnded} />
-        <Metric label="Paid subscriber churn" value={r.churn} />
+        <Metric label="Stripe opening-subscriber churn" value={r.churn} />
         <Metric label="Stripe past due now" value={r.pastDueNow} />
         <Metric label="Payment failures in this range" value={r.paymentFailedInRange} />
         <Metric label="Free week running now" value={r.freeWeekNow} />

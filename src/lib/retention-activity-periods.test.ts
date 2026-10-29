@@ -238,4 +238,87 @@ describe("subscription-age activity", () => {
     expect(withVisit.engagement).toEqual(without.engagement);
     expect(withVisit.monthlyActivity.periods.some((period) => period.label === "Days 0–7")).toBe(true);
   });
+
+  it("counts program starts and completions as separate events", () => {
+    const report = buildMemberActivity({
+      population: "Monthly",
+      nowMs: NOW,
+      memberships: [member()],
+      hits: [
+        { clerkUserId: "user_a", atMs: START + DAY, signal: "program_start" },
+        { clerkUserId: "user_a", atMs: START + 2 * DAY, signal: "program_start" },
+        { clerkUserId: "user_a", atMs: START + 3 * DAY, signal: "program_complete" },
+      ],
+      unavailableSignalIds: [],
+    });
+    const first = report.periods.find((period) => period.label === "Days 0–7" && period.status === "finished");
+    const starts = first?.cells.find((cell) => cell.signalId === "program_start");
+    const completions = first?.cells.find((cell) => cell.signalId === "program_complete");
+    expect(starts).toMatchObject({ label: "Program starts", used: 1, eligible: 1, total: 2 });
+    expect(completions).toMatchObject({ label: "Program completions", used: 1, eligible: 1, total: 1 });
+    expect(first?.cells.some((cell) => cell.label.includes("starts and completions"))).toBe(false);
+    const withPrograms = buildRetentionIntelligence({
+      nowMs: NOW,
+      partial: false,
+      partialReason: null,
+      withheld: null,
+      spells: [
+        {
+          id: "s1",
+          clerkUserId: "user_a",
+          paidStartMs: START,
+          endedAtMs: null,
+          endKnown: true,
+          open: true,
+          interval: "month",
+          cancellationReason: null,
+          trialStartMs: null,
+        },
+      ],
+      activeWithoutPayment: 0,
+      appleRows: 0,
+      customerFeedbackCount: 0,
+      engagementReadable: true,
+      hits: [
+        { clerkUserId: "user_a", atMs: START + DAY, signal: "program_start" },
+        { clerkUserId: "user_a", atMs: START + 3 * DAY, signal: "program_complete" },
+      ],
+      measuredSignals: [],
+      acquisitionReadable: false,
+      landingReadable: false,
+      experimentReadable: false,
+      acquisition: [],
+    });
+    const plain = buildRetentionIntelligence({
+      nowMs: NOW,
+      partial: false,
+      partialReason: null,
+      withheld: null,
+      spells: [
+        {
+          id: "s1",
+          clerkUserId: "user_a",
+          paidStartMs: START,
+          endedAtMs: null,
+          endKnown: true,
+          open: true,
+          interval: "month",
+          cancellationReason: null,
+          trialStartMs: null,
+        },
+      ],
+      activeWithoutPayment: 0,
+      appleRows: 0,
+      customerFeedbackCount: 0,
+      engagementReadable: true,
+      hits: [],
+      measuredSignals: [],
+      acquisitionReadable: false,
+      landingReadable: false,
+      experimentReadable: false,
+      acquisition: [],
+    });
+    expect(withPrograms.milestones).toEqual(plain.milestones);
+    expect(withPrograms.annual).toEqual(plain.annual);
+  });
 });

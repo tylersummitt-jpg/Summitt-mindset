@@ -510,7 +510,7 @@ export function formatCompleteRetentionFacts(
     `Cancelled during trial: ${context.cancelledDuringTrial}`,
     `Finished trial without paying: ${context.finishedTrialWithoutPaid}`,
     `Paid memberships ended: ${context.paidMembershipsEnded}`,
-    `Paid subscriber churn: ${context.churn}`,
+    `Stripe opening-subscriber churn: ${context.churn}`,
     `Stripe past due now: ${context.pastDueNow}`,
     `Stripe payment failures in range: ${context.paymentFailedInRange}`,
     `Free week running now: ${context.freeWeekNow}`,
