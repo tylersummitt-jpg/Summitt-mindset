@@ -7,6 +7,7 @@ import {
   instantlyDeliveryStop,
   instantlyLeadListBody,
   readInstantlyLead,
+  videoUrlNeedsWrite,
   writeAndVerifyVideoUrl,
   type InstantlyLeadView,
 } from "@/lib/acquisition/instantly-existing-leads";
@@ -122,7 +123,7 @@ export async function prepareExistingInstantlyLeads(args: {
   for (const lead of eligible) {
     const videoUrl = linkByEmail.get(lead.email);
     if (!videoUrl) continue;
-    if (lead.instantly.videoUrl === videoUrl) {
+    if (!videoUrlNeedsWrite(lead.instantly.videoUrl, videoUrl)) {
       completed += 1;
       continue;
     }

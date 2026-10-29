@@ -5,6 +5,8 @@ import type { PlaybookFulfillment, PlaybookSendAction, PlaybookStatus } from "@/
 import { acquisitionRecipientToken } from "@/lib/acquisition/store";
 import { isAcquisitionLifecycle, type AcquisitionLifecycle } from "@/lib/acquisition/model";
 import { signAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice";
+import { membershipMapOrUnverified } from "@/lib/acquisition/audience-clearance";
+import { liveMembershipByEmail } from "@/lib/acquisition/audience-membership.server";
 import {
   decideLead,
   instantlyLeadCsv,
@@ -16,7 +18,9 @@ import {
   skipReport,
   type ColdVideoPlaybook,
   type LeadFacts,
+  type MembershipClearance,
   type ProspectLead,
+  type VerificationClearance,
 } from "@/lib/acquisition/video-first-prep";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -38,6 +42,7 @@ type PersonHit = {
   id: string;
   lifecycle: AcquisitionLifecycle;
   stripeSubscriptionId: string | null;
+  clerkUserId: string | null;
 };
 
 const CHUNK = 100;
@@ -105,15 +110,19 @@ export async function issueVideoFirstLinks(args: {
   personalVideoId: string;
   leads: ProspectLead[];
   playbook: { id: string; name: string };
+  sourceCampaignId?: string | null;
+  membershipByEmail?: ReadonlyMap<string, MembershipClearance>;
+  verificationByEmail?: ReadonlyMap<string, VerificationClearance>;
 }): Promise<
   | { ok: false; error: string }
-  | { ok: true; links: Array<ProspectLead & { videoUrl: string }>; skips: Array<{ email: string; reason: string }>; reused: number }
+  | { ok: true; links: Array<ProspectLead & { videoUrl: string }>; skips: Array<{ email: string; reason: string; kind?: "excluded" | "unverified" }>; reused: number }
 > {
   const secret = process.env.CRON_SECRET?.trim() ?? "";
   if (secret.length < 16 || !signAcquisitionJourneyId("00000000-0000-4000-8000-000000000001", secret)) {
     return { ok: false, error: "Video links cannot be signed right now. Nothing was written." };
   }
   const { campaignId, playbook } = args;
+  const sourceCampaignId = args.sourceCampaignId?.trim() || null;
   const videoId = args.personalVideoId;
   const emails = args.leads.map((lead) => lead.email);
   const people = await peopleByEmail(emails);
@@ -125,16 +134,33 @@ export async function issueVideoFirstLinks(args: {
   const outstanding = await peopleWithOutstandingFulfillment(people.ids);
   if (!outstanding) return { ok: false, error: "Scheduled fulfillment could not be read. Nothing was released." };
 
+  const membershipByEmail = args.membershipByEmail ?? membershipMapOrUnverified(
+    emails,
+    await liveMembershipByEmail(
+      emails.map((email) => {
+        const person = people.byEmail.get(email);
+        return {
+          email,
+          clerkUserId: person?.clerkUserId ?? null,
+          stripeSubscriptionId: person?.stripeSubscriptionId ?? null,
+        };
+      }),
+    ),
+  );
+
   const included: Array<ProspectLead & { videoUrl: string }> = [];
-  const skips: Array<{ email: string; reason: string }> = [];
+  const skips: Array<{ email: string; reason: string; kind?: "excluded" | "unverified" }> = [];
   let reused = 0;
 
   for (const lead of args.leads) {
     const person = people.byEmail.get(lead.email) ?? null;
-    const facts = factsFor(lead.email, person, stopped, outstanding, history, campaignId);
+    const facts = factsFor(lead.email, person, stopped, outstanding, history, campaignId, sourceCampaignId, {
+      membership: membershipByEmail.get(lead.email) ?? "unverified",
+      verification: args.verificationByEmail?.get(lead.email) ?? "verified",
+    });
     const decision = decideLead(facts);
     if (decision.outcome === "skip") {
-      skips.push({ email: lead.email, reason: decision.reason });
+      skips.push({ email: lead.email, reason: decision.reason, kind: decision.kind });
       continue;
     }
     if (decision.outcome === "boundary") {
@@ -189,6 +215,8 @@ function factsFor(
   outstanding: Set<string>,
   history: { rows: Map<string, JourneyRow[]> },
   campaignId: string,
+  sourceCampaignId: string | null,
+  clearance: { membership: MembershipClearance; verification: VerificationClearance },
 ): LeadFacts {
   const rows = person ? history.rows.get(person.id) ?? [] : [];
   const openHere = rows.filter((journey) => !journey.closed && journey.campaignId === campaignId);
@@ -202,12 +230,26 @@ function factsFor(
           ambiguous: false,
         }
       : null;
+  const migrating = Boolean(sourceCampaignId && sourceCampaignId !== campaignId);
+  const sourceOpen = migrating
+    ? rows.filter((journey) => !journey.closed && journey.campaignId === sourceCampaignId && journey.videoFirst)
+    : [];
   return {
     lifecycle: person?.lifecycle ?? null,
     stripeSubscriptionId: person?.stripeSubscriptionId ?? null,
     suppressed: stopped.has(email),
     outstandingFulfillment: person ? outstanding.has(person.id) : false,
-    openVideoElsewhere: rows.some((journey) => !journey.closed && journey.campaignId !== campaignId && journey.videoFirst),
+    openVideoElsewhere: rows.some((journey) =>
+      !journey.closed
+      && journey.campaignId !== campaignId
+      && (!migrating || journey.campaignId !== sourceCampaignId)
+      && journey.videoFirst),
+    openVideoOnSource: sourceOpen.length === 1
+      ? { journeyId: sourceOpen[0]!.id, sameVideo: sourceOpen[0]!.sameVideo }
+      : null,
+    sourceAmbiguous: migrating && sourceOpen.length > 1,
+    membership: clearance.membership,
+    verification: clearance.verification,
     openOnThisCampaign,
   };
 }
@@ -256,7 +298,7 @@ async function peopleByEmail(emails: string[]): Promise<{ byEmail: Map<string, P
   for (const chunk of chunks(emails, CHUNK)) {
     const { data, error } = await supabaseServer
       .from("acquisition_people")
-      .select("id, email_normalized, lifecycle_state, stripe_subscription_id")
+      .select("id, email_normalized, lifecycle_state, stripe_subscription_id, clerk_user_id")
       .in("email_normalized", chunk);
     if (error) return null;
     for (const row of data ?? []) {
@@ -265,6 +307,7 @@ async function peopleByEmail(emails: string[]): Promise<{ byEmail: Map<string, P
         id: row.id,
         lifecycle: row.lifecycle_state,
         stripeSubscriptionId: typeof row.stripe_subscription_id === "string" ? row.stripe_subscription_id : null,
+        clerkUserId: typeof row.clerk_user_id === "string" ? row.clerk_user_id : null,
       });
     }
   }

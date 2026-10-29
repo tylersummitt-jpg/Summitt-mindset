@@ -23,6 +23,10 @@ function facts(patch: Partial<LeadFacts> = {}): LeadFacts {
     suppressed: false,
     outstandingFulfillment: false,
     openVideoElsewhere: false,
+    openVideoOnSource: null,
+    sourceAmbiguous: false,
+    membership: "clear",
+    verification: "verified",
     openOnThisCampaign: null,
     ...patch,
   };
@@ -140,6 +144,17 @@ describe("video-first lead preparation", () => {
     expect(decideLead(facts({ lifecycle: "not_interested" }))).toEqual({ outcome: "create" });
     expect(decideLead(facts({ suppressed: true })).outcome).toBe("skip");
     expect(decideLead(facts({ outstandingFulfillment: true })).reason).toMatch(/scheduled or claimed/);
+    expect(decideLead(facts({ verification: "unverified" })).kind).toBe("unverified");
+    expect(decideLead(facts({ verification: "exclude" })).kind).toBe("excluded");
+    expect(decideLead(facts({ membership: "member" })).kind).toBe("excluded");
+    expect(decideLead(facts({ membership: "unverified" })).kind).toBe("unverified");
+    expect(decideLead(facts({
+      openVideoOnSource: { journeyId: "source-j", sameVideo: true },
+    }))).toEqual({ outcome: "boundary", previousJourneyId: "source-j" });
+    expect(decideLead(facts({
+      openVideoElsewhere: true,
+      openVideoOnSource: { journeyId: "source-j", sameVideo: true },
+    })).outcome).toBe("skip");
     const csv = instantlyLeadCsv([{ email: "one@school.edu", firstName: "Pat", lastName: null, videoUrl: recipientVideoUrl("tok", "signed") }]);
     expect(csv).toContain("video_url");
     expect(csv).toContain("https://summittmindset.com/for/tok?aj=signed");

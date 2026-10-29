@@ -2,11 +2,14 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { decideLead, type LeadFacts } from "@/lib/acquisition/video-first-prep";
 import {
   instantlyDeliveryStop,
   instantlyLeadListBody,
+  instantlyRefusal,
   instantlyRetryWaitMs,
   readInstantlyLead,
+  videoUrlNeedsWrite,
   videoUrlPatchBody,
   videoUrlUpdateVerified,
   writeAndVerifyVideoUrl,
@@ -108,6 +111,94 @@ describe("existing Instantly lead updates", () => {
       reason: "An existing personalization field changed during the video_url update.",
       halt: true,
     });
+  });
+
+  it("reports a sanitized status for a refused update, a bad payload, a missing lead, and a stuck rate limit", async () => {
+    expect(instantlyRefusal(403, {
+      error: "Forbidden",
+      message: "Missing scope leads:update for coach@school.edu bearer abcdefghijklmnopqrstuvwxyz0123456789",
+    })).toBe("Instantly returned 403. Forbidden. Missing scope leads:update for [email] bearer [redacted]");
+    expect(videoUrlNeedsWrite(null, "https://summittmindset.com/for/tok?aj=1")).toBe(true);
+    expect(videoUrlNeedsWrite("https://summittmindset.com/for/tok?aj=1", "https://summittmindset.com/for/tok?aj=1")).toBe(false);
+
+    const refused = await writeAndVerifyVideoUrl({
+      leadId: LEAD,
+      expectedUrl: "https://summittmindset.com/for/tok?aj=1",
+      before: { firstName: "Pat" },
+      apiKey: "test-key",
+      fetchImpl: (async () => response(403, { error: "Forbidden", message: "Missing scope leads:update" })) as typeof fetch,
+      sleep: async () => {},
+    });
+    expect(refused).toEqual({
+      ok: false,
+      reason: "Instantly returned 403. Forbidden. Missing scope leads:update",
+      halt: true,
+    });
+
+    const invalid = await writeAndVerifyVideoUrl({
+      leadId: LEAD,
+      expectedUrl: "https://summittmindset.com/for/tok?aj=1",
+      before: {},
+      apiKey: "test-key",
+      fetchImpl: (async () => response(400, { error: "Bad Request", message: "custom_variables is invalid" })) as typeof fetch,
+      sleep: async () => {},
+    });
+    expect(invalid).toEqual({
+      ok: false,
+      reason: "Instantly returned 400. Bad Request. custom_variables is invalid",
+      halt: false,
+    });
+
+    const missing = await writeAndVerifyVideoUrl({
+      leadId: LEAD,
+      expectedUrl: "https://summittmindset.com/for/tok?aj=1",
+      before: {},
+      apiKey: "test-key",
+      fetchImpl: (async () => response(404, { error: "Not Found", message: "Resource not found" })) as typeof fetch,
+      sleep: async () => {},
+    });
+    expect(missing).toEqual({ ok: false, reason: "Instantly returned 404. Not Found. Resource not found", halt: false });
+
+    let limited = 0;
+    const exhausted = await writeAndVerifyVideoUrl({
+      leadId: LEAD,
+      expectedUrl: "https://summittmindset.com/for/tok?aj=1",
+      before: {},
+      apiKey: "test-key",
+      fetchImpl: (async () => {
+        limited += 1;
+        return response(429, { error: "Too Many Requests", message: "Rate limit exceeded" });
+      }) as typeof fetch,
+      sleep: async () => {},
+    });
+    expect(limited).toBe(5);
+    expect(exhausted).toEqual({
+      ok: false,
+      reason: "Instantly returned 429. Too Many Requests. Rate limit exceeded",
+      halt: false,
+    });
+  });
+
+  it("retries a prepared journey on the same link and leaves a lead alone once that link is stored", () => {
+    const facts: LeadFacts = {
+      lifecycle: "asset_sent",
+      stripeSubscriptionId: null,
+      suppressed: false,
+      outstandingFulfillment: false,
+      openVideoElsewhere: false,
+      openVideoOnSource: null,
+      sourceAmbiguous: false,
+      membership: "clear",
+      verification: "verified",
+      openOnThisCampaign: { journeyId: "journey-197", videoFirst: true, sameVideo: true, ambiguous: false },
+    };
+    expect(decideLead(facts)).toEqual({ outcome: "reuse", journeyId: "journey-197" });
+    const server = readFileSync(new URL("./instantly-existing-leads.server.ts", import.meta.url), "utf8");
+    const issuer = readFileSync(new URL("./video-first-leads.server.ts", import.meta.url), "utf8");
+    expect(server).toContain("videoUrlNeedsWrite");
+    expect(server).toContain("issueVideoFirstLinks");
+    expect(issuer).toContain("outcome === \"reuse\"");
+    expect(issuer).toContain("23505");
   });
 
   it("stops the batch when Instantly refuses the key and does not activate, delete, or send", () => {

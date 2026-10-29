@@ -130,6 +130,38 @@ export async function countClerkUsers(): Promise<number> {
 }
 
 const CLERK_USERS_BY_IDS_MAX = 100;
+const CLERK_USERS_BY_EMAIL_MAX = 10;
+
+/**
+ * Clerk Backend GET /v1/users filtered by email_address.
+ * Used for cold-audience membership clearance when acquisition has no clerk_user_id.
+ */
+export async function listClerkUsersByEmail(
+  email: string
+): Promise<ClerkUserResponse[]> {
+  const trimmed = email.trim().toLowerCase();
+  if (!trimmed.includes("@")) return [];
+  const key = getClerkSecretKey();
+  const url = new URL("https://api.clerk.com/v1/users");
+  url.searchParams.set("limit", String(CLERK_USERS_BY_EMAIL_MAX));
+  url.searchParams.append("email_address", trimmed);
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${key}` },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to list Clerk users by email: ${text}`);
+  }
+
+  return (await res.json()) as ClerkUserListResponse;
+}
+
+export function clerkUserSummittSubscribed(user: ClerkUserResponse | null | undefined): boolean {
+  return user?.public_metadata?.summittSubscribed === true;
+}
 
 /**
  * One Clerk Backend GET /v1/users filtered by user_id.

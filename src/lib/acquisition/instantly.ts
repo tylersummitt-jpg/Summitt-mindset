@@ -240,3 +240,35 @@ export function instantlyLeadStatusLabel(value: unknown): string | null {
   if (typeof value !== "number" || !Number.isInteger(value)) return null;
   return INSTANTLY_LEAD_STATUS[value] ?? null;
 }
+
+/**
+ * Instantly lead verification_status from the v2 lead schema.
+ * Verified is the only value that clears the address for import.
+ */
+export const INSTANTLY_VERIFICATION: Record<
+  number,
+  "not_verified" | "verified" | "invalid" | "risky" | "catch_all" | "job_change" | "pending" | "pending_job"
+> = {
+  0: "not_verified",
+  1: "verified",
+  [-1]: "invalid",
+  [-2]: "risky",
+  [-3]: "catch_all",
+  [-4]: "job_change",
+  11: "pending",
+  12: "pending_job",
+};
+
+export function instantlyVerificationLabel(value: unknown): string | null {
+  if (typeof value !== "number" || !Number.isInteger(value)) return null;
+  return INSTANTLY_VERIFICATION[value] ?? null;
+}
+
+export function instantlyVerificationClearance(
+  value: unknown,
+): "verified" | "exclude" | "unverified" {
+  const label = instantlyVerificationLabel(value);
+  if (label === "verified") return "verified";
+  if (label === "invalid" || label === "risky" || label === "catch_all" || label === "job_change") return "exclude";
+  return "unverified";
+}

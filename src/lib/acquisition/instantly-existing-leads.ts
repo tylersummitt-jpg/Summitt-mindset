@@ -1,5 +1,5 @@
 import { normalizeAcquisitionEmail } from "@/lib/acquisition/model";
-import { instantlyLeadStatusLabel } from "@/lib/acquisition/instantly";
+import { instantlyLeadStatusLabel, instantlyVerificationClearance } from "@/lib/acquisition/instantly";
 
 /** One Campaign Playbooks request handles this many leads, then the page asks for the next cursor. */
 export const EXISTING_INSTANTLY_BATCH = 20;
@@ -15,6 +15,8 @@ export type InstantlyLeadView = {
   lastName: string | null;
   campaignId: string | null;
   status: number | null;
+  verificationStatus: number | null;
+  verification: "verified" | "exclude" | "unverified";
   payload: Record<string, unknown>;
   videoUrl: string | null;
   missingFirst: boolean;
@@ -57,6 +59,9 @@ export function readInstantlyLead(row: unknown): InstantlyLeadView | null {
   const firstName = cleanName(record.first_name) ?? cleanName(payload.firstName) ?? cleanName(payload.first_name);
   const lastName = cleanName(record.last_name) ?? cleanName(payload.lastName) ?? cleanName(payload.last_name);
   const videoUrl = typeof payload.video_url === "string" && payload.video_url.trim() ? payload.video_url.trim() : null;
+  const verificationStatus = typeof record.verification_status === "number" && Number.isInteger(record.verification_status)
+    ? record.verification_status
+    : null;
   return {
     id,
     email,
@@ -64,6 +69,8 @@ export function readInstantlyLead(row: unknown): InstantlyLeadView | null {
     lastName,
     campaignId: typeof record.campaign === "string" && record.campaign.trim() ? record.campaign.trim() : null,
     status: typeof record.status === "number" && Number.isInteger(record.status) ? record.status : null,
+    verificationStatus,
+    verification: instantlyVerificationClearance(verificationStatus),
     payload,
     videoUrl,
     missingFirst: firstName == null,
@@ -114,6 +121,36 @@ export function instantlyStatusRetries(status: number): boolean {
   return status === 429 || status >= 500;
 }
 
+/** Same stored link means a retry must not write the lead again. */
+export function videoUrlNeedsWrite(current: string | null, expected: string): boolean {
+  return current !== expected;
+}
+
+export function instantlyRefusal(status: number, body: unknown): string {
+  const detail = sanitizeInstantlyMessage(instantlyErrorText(body));
+  const reason = detail ? `Instantly returned ${status}. ${detail}` : `Instantly returned ${status}.`;
+  return reason.slice(0, 240);
+}
+
+function instantlyErrorText(body: unknown): string | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const record = body as { error?: unknown; message?: unknown };
+  const parts = [record.error, record.message].filter((part): part is string => typeof part === "string" && part.trim().length > 0);
+  return parts.length > 0 ? parts.map((part) => part.trim()).join(". ") : null;
+}
+
+function sanitizeInstantlyMessage(value: string | null): string | null {
+  if (!value) return null;
+  const cleaned = value
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/https?:\/\/\S+/gi, "[link]")
+    .replace(/bearer\s+\S+/gi, "bearer [redacted]")
+    .replace(/[A-Za-z0-9_+/=-]{40,}/g, "[redacted]")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned ? cleaned.slice(0, 160) : null;
+}
+
 export async function writeAndVerifyVideoUrl(args: {
   leadId: string;
   expectedUrl: string;
@@ -143,15 +180,19 @@ export async function writeAndVerifyVideoUrl(args: {
     if (instantlyStatusRetries(response.status)) {
       const wait = instantlyRetryWaitMs(attempt);
       attempt += 1;
-      if (wait == null) return { ok: false, reason: "Instantly stayed unavailable after retries.", halt: false };
+      if (wait == null) {
+        return { ok: false, reason: instantlyRefusal(response.status, await response.json().catch(() => null)), halt: false };
+      }
       await args.sleep(wait);
       continue;
     }
     if (response.status === 401 || response.status === 403) {
-      return { ok: false, reason: "Instantly refused the update.", halt: true };
+      const reason = instantlyRefusal(response.status, await response.json().catch(() => null));
+      console.error("[acquisition] Instantly lead update refused", reason);
+      return { ok: false, reason, halt: true };
     }
     if (response.status !== 200) {
-      return { ok: false, reason: `Instantly returned ${response.status} for this lead.`, halt: false };
+      return { ok: false, reason: instantlyRefusal(response.status, await response.json().catch(() => null)), halt: false };
     }
     const patched = await response.json().catch(() => null);
     const direct = videoUrlUpdateVerified({ before: args.before, after: patched, expectedUrl: args.expectedUrl });
@@ -190,9 +231,13 @@ async function readLeadPayload(
       continue;
     }
     if (response.status === 401 || response.status === 403) {
-      return { ok: false, reason: "Instantly refused the lead reread.", halt: true };
+      const reason = instantlyRefusal(response.status, await response.json().catch(() => null));
+      console.error("[acquisition] Instantly lead reread refused", reason);
+      return { ok: false, reason, halt: true };
     }
-    if (response.status !== 200) return { ok: false, reason: "The updated lead could not be reread.", halt: false };
+    if (response.status !== 200) {
+      return { ok: false, reason: instantlyRefusal(response.status, await response.json().catch(() => null)), halt: false };
+    }
     return { ok: true, body: await response.json().catch(() => null) };
   }
 }

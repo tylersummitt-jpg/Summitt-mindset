@@ -115,6 +115,9 @@ function splitCsvLine(line: string): string[] {
   return cells;
 }
 
+export type MembershipClearance = "member" | "clear" | "unverified";
+export type VerificationClearance = "verified" | "exclude" | "unverified";
+
 export type LeadFacts = {
   lifecycle: AcquisitionLifecycle | null;
   stripeSubscriptionId: string | null;
@@ -124,6 +127,17 @@ export type LeadFacts = {
   outstandingFulfillment: boolean;
   /** An open video-first journey already exists on a different campaign. */
   openVideoElsewhere: boolean;
+  /**
+   * Open video-first journey on the Instantly source campaign when that source
+   * is being migrated onto a different launch campaign.
+   */
+  openVideoOnSource: { journeyId: string; sameVideo: boolean } | null;
+  /** More than one open video-first journey on the source campaign. */
+  sourceAmbiguous: boolean;
+  /** Live Clerk/Stripe membership. Omit only for older callers that already checked lifecycle. */
+  membership: MembershipClearance;
+  /** Instantly verification. Paste-list callers pass verified after format checks. */
+  verification: VerificationClearance;
   openOnThisCampaign: {
     journeyId: string;
     videoFirst: boolean;
@@ -137,35 +151,61 @@ export type LeadDecision =
   | { outcome: "reuse"; journeyId: string }
   /** Close the older open journey, then open a video-first journey. The old row stays. */
   | { outcome: "boundary"; previousJourneyId: string }
-  | { outcome: "skip"; reason: string };
+  | { outcome: "skip"; reason: string; kind?: "excluded" | "unverified" };
 
 const STOPPED = "This person is opted out, suppressed, bounced, in a trial, or a paid member.";
+const MEMBER = "This person has a live trial or paid membership.";
+const MEMBER_UNVERIFIED = "Live membership could not be confirmed. They were left unverified.";
+const VERIFY_EXCLUDE = "Instantly marked this address invalid, risky, catch-all, or a job change.";
+const VERIFY_UNVERIFIED = "Instantly has not verified this address. They were left unverified.";
 
 function memberStop(state: AcquisitionLifecycle | null): boolean {
   return state === "unsubscribed" || state === "suppressed" || state === "trial_started" || state === "paid_member";
 }
 
 export function decideLead(facts: LeadFacts): LeadDecision {
-  if (facts.suppressed || facts.stripeSubscriptionId || memberStop(facts.lifecycle)) {
-    return { outcome: "skip", reason: STOPPED };
+  if (facts.verification === "exclude") {
+    return { outcome: "skip", reason: VERIFY_EXCLUDE, kind: "excluded" };
+  }
+  if (facts.verification === "unverified") {
+    return { outcome: "skip", reason: VERIFY_UNVERIFIED, kind: "unverified" };
+  }
+  if (facts.suppressed || memberStop(facts.lifecycle)) {
+    return { outcome: "skip", reason: STOPPED, kind: "excluded" };
+  }
+  if (facts.membership === "member" || facts.stripeSubscriptionId) {
+    return { outcome: "skip", reason: facts.stripeSubscriptionId ? STOPPED : MEMBER, kind: "excluded" };
+  }
+  if (facts.membership === "unverified") {
+    return { outcome: "skip", reason: MEMBER_UNVERIFIED, kind: "unverified" };
   }
   if (facts.outstandingFulfillment) {
-    return { outcome: "skip", reason: "This person still has a scheduled or claimed fulfillment action. It was left in place, and they were not added to the video file." };
+    return {
+      outcome: "skip",
+      kind: "excluded",
+      reason: "This person still has a scheduled or claimed fulfillment action. It was left in place, and they were not added to the video file.",
+    };
   }
   if (facts.openVideoElsewhere) {
-    return { outcome: "skip", reason: "This person already has an open video link on another campaign." };
+    return { outcome: "skip", reason: "This person already has an open video link on another campaign.", kind: "excluded" };
+  }
+  if (facts.sourceAmbiguous) {
+    return { outcome: "skip", reason: "This person has more than one open video link on the source campaign. Nothing was added.", kind: "excluded" };
   }
   if (facts.openOnThisCampaign?.ambiguous) {
-    return { outcome: "skip", reason: "This person has more than one open journey on this campaign. Nothing was added." };
+    return { outcome: "skip", reason: "This person has more than one open journey on this campaign. Nothing was added.", kind: "excluded" };
   }
   if (facts.openOnThisCampaign?.videoFirst && !facts.openOnThisCampaign.sameVideo) {
-    return { outcome: "skip", reason: "This person already has a video link for a different recording on this campaign." };
+    return { outcome: "skip", reason: "This person already has a video link for a different recording on this campaign.", kind: "excluded" };
   }
   if (facts.openOnThisCampaign?.videoFirst && facts.openOnThisCampaign.sameVideo) {
     return { outcome: "reuse", journeyId: facts.openOnThisCampaign.journeyId };
   }
   if (facts.openOnThisCampaign) {
     return { outcome: "boundary", previousJourneyId: facts.openOnThisCampaign.journeyId };
+  }
+  if (facts.openVideoOnSource) {
+    return { outcome: "boundary", previousJourneyId: facts.openVideoOnSource.journeyId };
   }
   return { outcome: "create" };
 }

@@ -353,7 +353,14 @@ export default function CampaignPlaybooksDashboard({ videos }: { videos: VideoCh
       ) : null}
 
       {selected && !copySource ? (
-        <VideoFirstLeadPanel campaignId={selected.id} campaignName={selected.name ?? "this campaign"} videos={videos} />
+        <VideoFirstLeadPanel
+          campaignId={selected.id}
+          campaignName={selected.name ?? "this campaign"}
+          videos={videos}
+          sourceOptions={campaigns
+            .filter((campaign) => campaign.id)
+            .map((campaign) => ({ id: campaign.id, name: campaign.name ?? campaign.id }))}
+        />
       ) : null}
 
       {selected || copySource || instantly !== "ready" || truncated ? (
