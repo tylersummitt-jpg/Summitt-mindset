@@ -18,6 +18,7 @@ import {
 } from "@/lib/admin-subscriber-growth-pure";
 import {
   buildRetentionIntelligence,
+  formatCompleteRetentionFacts,
   formatRetentionIntelligence,
   acceptedSendSignalIds,
   retentionIntervalFromPrice,
@@ -438,6 +439,53 @@ describe("paid retention cohorts", () => {
     expect(text).toContain("D365");
     expect(text).toContain("Monthly D30");
     expect(text).not.toContain("did not use");
+  });
+
+  it("copies monthly and annual facts without private member text", () => {
+    const before = buildRetentionIntelligence(
+      input({
+        engagementGaps: ["Victory Room and Film Room could not be fully read. They are not shown as zero."],
+        spells: [
+          spell({ id: "m", clerkUserId: "user_monthly_private", paidStartMs: daysAgo(100) }),
+          spell({
+            id: "y",
+            clerkUserId: "user_annual_private",
+            paidStartMs: daysAgo(100),
+            interval: "year",
+          }),
+        ],
+      })
+    );
+    const milestones = before.milestones.map((milestone) => ({ ...milestone }));
+    const facts = formatCompleteRetentionFacts(before, {
+      asOfLabel: "Oct 28, 2026, 7:00 PM ET",
+      rangeLabel: "Last 7 days",
+      payingMembers: "Not available",
+      trialsConverted: "Not available",
+      cancelledDuringTrial: "Not available",
+      finishedTrialWithoutPaid: "Not available",
+      paidMembershipsEnded: "Not available",
+      churn: "Not available",
+      pastDueNow: "Not available",
+      paymentFailedInRange: "Not available",
+      freeWeekNow: "Not available",
+      stripeRevenue: "Not available",
+    });
+    expect(before.milestones).toEqual(milestones);
+    expect(facts).toContain("Monthly D30");
+    expect(facts).toContain("Annual members:");
+    expect(facts).toContain("MONTHLY ACTIVITY OVER TIME");
+    expect(facts).toContain("ANNUAL ACTIVITY OVER TIME");
+    expect(facts).toContain("MONTHLY BEHAVIOR VS. FUTURE RETENTION");
+    expect(facts).toContain("ANNUAL BEHAVIOR VS. FUTURE RETENTION");
+    expect(facts).toContain("Current paying members: Not available");
+    expect(facts).toContain("Unavailable");
+    expect(facts).toContain("not zero");
+    expect(facts).toContain(" of ");
+    expect(facts).not.toContain("user_monthly_private");
+    expect(facts).not.toContain("user_annual_private");
+    expect(facts).not.toContain("raw_body");
+    expect(facts).not.toContain("@");
   });
 
   it("withholds rates when historic invoices are not reliable", () => {

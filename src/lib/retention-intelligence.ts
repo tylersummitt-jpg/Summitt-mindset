@@ -477,6 +477,49 @@ export function buildRetentionIntelligence(
   };
 }
 
+export type RetentionFactsContext = {
+  asOfLabel: string;
+  rangeLabel: string;
+  payingMembers: string;
+  trialsConverted: string;
+  cancelledDuringTrial: string;
+  finishedTrialWithoutPaid: string;
+  paidMembershipsEnded: string;
+  churn: string;
+  pastDueNow: string;
+  paymentFailedInRange: string;
+  freeWeekNow: string;
+  stripeRevenue: string;
+};
+
+export function formatCompleteRetentionFacts(
+  intel: RetentionIntelligence,
+  context: RetentionFactsContext
+): string {
+  return [
+    "COMPLETE RETENTION FACTS",
+    `Report time: ${context.asOfLabel}`,
+    `Date range: ${context.rangeLabel}. That range applies only to the current-count lines below. Milestones, activity, and later retention use the full paid history.`,
+    "Monthly members and annual members are separate. They are not added together.",
+    "Missing data stays unavailable or unknown. It is not written as zero.",
+    "",
+    "CURRENT PAID COUNTS",
+    "These are the counts already shown at the top of Retention. They are not the milestone denominators.",
+    `Current paying members: ${context.payingMembers}`,
+    `Trials that converted to paid: ${context.trialsConverted}`,
+    `Cancelled during trial: ${context.cancelledDuringTrial}`,
+    `Finished trial without paying: ${context.finishedTrialWithoutPaid}`,
+    `Paid memberships ended: ${context.paidMembershipsEnded}`,
+    `Paid subscriber churn: ${context.churn}`,
+    `Stripe past due now: ${context.pastDueNow}`,
+    `Stripe payment failures in range: ${context.paymentFailedInRange}`,
+    `Free week running now: ${context.freeWeekNow}`,
+    `Stripe revenue: ${context.stripeRevenue}. Apple revenue is not in this number.`,
+    "",
+    ...formatRetentionIntelligence(intel),
+  ].join("\n");
+}
+
 export function formatRetentionIntelligence(intel: RetentionIntelligence): string[] {
   if (intel.status === "not_loaded") {
     return [
@@ -499,10 +542,13 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
     lines.push(intel.appleNote);
     return lines;
   }
+  lines.push("SUBSCRIPTION RETENTION");
+  lines.push("Monthly survival is separate from annual membership. Unknown is not churn. Not old enough is not churn.");
   for (const milestone of intel.milestones) {
     lines.push(
       `Monthly ${milestone.label}: ${milestone.rate}. Continuously retained ${milestone.retained}. Ended ${milestone.ended}. Rejoined ${milestone.rejoined}. Unknown ${milestone.unknown}. Not old enough ${milestone.immature}.`
     );
+    lines.push(`Monthly ${milestone.label} coverage: ${milestone.coverage}`);
   }
   lines.push(
     `Annual members: ${intel.annual.members}. Continuing ${intel.annual.continuing}. Ended ${intel.annual.ended}. Unknown outcome ${intel.annual.unknown}. Not in the monthly rates. Not a renewal rate.`
@@ -527,6 +573,13 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
       ? `Stripe stored a feedback value on ${intel.customerFeedbackCount} ended memberships. Those words are not copied here.`
       : "No customer-written cancellation reason is stored on these ended memberships."
   );
+  lines.push("MEMBER ACTIVITY OVER TIME");
+  lines.push(...formatMemberActivity(intel.monthlyActivity));
+  lines.push(...formatMemberActivity(intel.annualActivity));
+  lines.push("BEHAVIOR VERSUS FUTURE RETENTION");
+  lines.push(...formatBehaviorRetention(intel.monthlyBehavior));
+  lines.push(...formatBehaviorRetention(intel.annualBehavior));
+  lines.push("EARLIER DAY-30 COMPARISONS");
   lines.push(intel.engagementNote);
   for (const gap of intel.engagementGaps) lines.push(gap);
   if (intel.engagement.length === 0) {
@@ -542,24 +595,33 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
       `${row.window}, ${row.label}: day-30 survival if recorded ${row.usedRate}; day-30 survival if not recorded ${row.unusedRate}.${row.small ? " Small sample." : ""}`
     );
   }
-  lines.push(...formatMemberActivity(intel.monthlyActivity));
-  lines.push(...formatMemberActivity(intel.annualActivity));
-  lines.push(...formatBehaviorRetention(intel.monthlyBehavior));
-  lines.push(...formatBehaviorRetention(intel.annualBehavior));
+  lines.push("ACQUISITION OBSERVATIONS");
   lines.push(
     intel.acquisitionReadable
       ? "Retention by first-touch source is an observation, not an experiment."
       : "Acquisition source could not be joined. Unknown is not filled in."
   );
-  for (const row of intel.sources) {
-    const mature = row.retained + row.ended + row.rejoined;
-    lines.push(
-      `Source ${row.label}: ${row.rate}. Unknown history ${row.unknown}. Not old enough ${row.immature}.${mature > 0 && mature < 15 ? " Small sample." : ""}`
-    );
+  lines.push(...groupFactLines("Source", intel.sources, intel.acquisitionReadable ? "No source rows in this read." : "Acquisition source could not be joined."));
+  if (intel.sourceHiddenSmall > 0) {
+    lines.push(`${intel.sourceHiddenSmall} smaller source groups are not listed.`);
   }
+  lines.push(...groupFactLines("Campaign", intel.campaigns, intel.acquisitionReadable ? "No campaign rows in this read." : "Campaigns could not be joined."));
+  lines.push(...groupFactLines("Content", intel.content, intel.acquisitionReadable ? "No content rows in this read." : "Content could not be joined."));
+  lines.push(...groupFactLines("Landing page", intel.landings, intel.landingReadable ? "No landing-page rows in this read." : "Landing page could not be joined."));
+  lines.push(...groupFactLines("Controlled experiment", intel.experiments, intel.experimentReadable ? "No experiment rows in this read." : "Experiment exposure could not be joined."));
+  lines.push("KNOWN MEASUREMENT GAPS");
+  for (const limitation of intel.limitations) lines.push(limitation);
   lines.push(intel.appleNote);
   lines.push(intel.recommendedStep);
   return lines;
+}
+
+function groupFactLines(title: string, rows: RetentionGroup[], empty: string): string[] {
+  if (rows.length === 0) return [`${title}: ${empty}`];
+  return rows.map((row) => {
+    const mature = row.retained + row.ended + row.rejoined;
+    return `${title} ${row.label}: ${row.rate}. Continuously retained ${row.retained}. Ended ${row.ended}. Rejoined ${row.rejoined}. Unknown history ${row.unknown}. Not old enough ${row.immature}.${mature > 0 && mature < 15 ? " Small sample." : ""}`;
+  });
 }
 
 function firstMemberships(chainsByClerk: Map<string, Chain[]>) {

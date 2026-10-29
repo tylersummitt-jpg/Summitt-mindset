@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 
-export function CopyBusinessReportButton({ report }: { report: string }) {
+export function CopyBusinessReportButton({
+  report,
+  label = "Copy Business Report",
+}: {
+  report: string;
+  label?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -15,7 +21,7 @@ export function CopyBusinessReportButton({ report }: { report: string }) {
         });
       }}
     >
-      {copied ? "Copied" : "Copy Business Report"}
+      {copied ? "Copied" : label}
     </button>
   );
 }

@@ -18,6 +18,7 @@ import { NonmemberRecoveryPanel } from "@/app/admin/nonmember-recovery-panel";
 import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { EmailRepresentativeReport } from "@/lib/acquisition/email-representative-metrics";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
+import { formatCompleteRetentionFacts } from "@/lib/retention-intelligence";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
 import type { MemberActivity } from "@/lib/retention-activity-periods";
 import type { BehaviorRetention } from "@/lib/retention-behavior-retention";
@@ -1084,8 +1085,28 @@ function RetentionGroupList({
 function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
   const r = snapshot.retention;
   const intel = snapshot.retentionIntelligence;
+  const factsReport = formatCompleteRetentionFacts(intel, {
+    asOfLabel: snapshot.asOfLabel,
+    rangeLabel: snapshot.rangeLabel,
+    payingMembers: r.payingMembers,
+    trialsConverted: r.trialsConverted,
+    cancelledDuringTrial: r.cancelledDuringTrial,
+    finishedTrialWithoutPaid: r.finishedTrialWithoutPaid,
+    paidMembershipsEnded: r.paidMembershipsEnded,
+    churn: r.churn,
+    pastDueNow: r.pastDueNow,
+    paymentFailedInRange: r.paymentFailedInRange,
+    freeWeekNow: r.freeWeekNow,
+    stripeRevenue: r.stripeRevenue,
+  });
   return (
     <>
+      <div className="flex flex-wrap items-center gap-3">
+        <CopyBusinessReportButton report={factsReport} label="Copy Complete Facts Report" />
+        <p className="text-sm text-gray-600">
+          Copies the retention facts already on this page. It does not calculate a second report.
+        </p>
+      </div>
       <section className="grid gap-3 sm:grid-cols-2">
         <Metric
           label="Current paying members"
