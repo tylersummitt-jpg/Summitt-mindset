@@ -11,6 +11,7 @@ import { getEffectiveCoachingAsk } from "@/lib/v2-adaptive-contract";
 import { getPendingResolutionOrNull } from "@/lib/v2-guided-resolution";
 import { getActiveCommitment } from "@/lib/v2-commitment";
 import { isUserFullyOnV2AccountabilityPath } from "@/lib/v2-cutover-gates";
+import { MemberSurfaceVisit } from "@/components/member-surface-visit";
 
 export default async function DashboardPage() {
   const user = await currentUser();
@@ -24,6 +25,7 @@ export default async function DashboardPage() {
   if (!fullyOnV2) {
     return (
       <main className="mx-auto max-w-lg px-6 py-16 text-center sm:py-24">
+        <MemberSurfaceVisit surface="dashboard" />
         <h1 className="text-2xl font-semibold text-gray-900">Set your commitment</h1>
         <p className="mt-4 text-sm leading-relaxed text-gray-600">
           To start your updated accountability system, Pat needs one clear commitment to coach you around.
@@ -71,6 +73,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-8 pb-10 md:py-10 md:pb-10">
+      <MemberSurfaceVisit surface="dashboard" />
       <header className="mb-2">
         <h1 className="text-2xl font-semibold tracking-tight text-gray-900">Daily OS</h1>
         <p className="mt-2 text-sm leading-relaxed text-[var(--muted)]">

@@ -19,6 +19,7 @@ import { supabaseProgressDb } from "@/lib/learning/mini-program-progress-db";
 import { learningProgramEntryPath } from "@/lib/learning/program-paths";
 import { requireProgramsMemberId } from "@/lib/learning/programs-session";
 import { programCardAction, programCardState } from "@/lib/learning/step-access";
+import { MemberSurfaceVisit } from "@/components/member-surface-visit";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function ProgramsPage() {
 
   return (
     <ProgramsShell>
+      <MemberSurfaceVisit surface="programs" />
       <header>
         <h1 className={programsCatalogTitle}>Programs</h1>
         <div className={`mt-4 ${programsAccentRule}`} aria-hidden="true" />

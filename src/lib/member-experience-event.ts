@@ -4,10 +4,16 @@ import { supabaseServer } from "@/lib/supabase-server";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
 import type { SummittMindsetPlatform } from "@/lib/native-app/platform";
+import { isMemberSurface, type MemberSurface } from "@/lib/member-surface";
 
 export const MEMBER_EXPERIENCE_SOURCE = "member_experience" as const;
 
-export type MemberExperienceEventType = "victory_room_visited" | "film_room_played";
+export type MemberExperienceEventType =
+  | "victory_room_visited"
+  | "film_room_played"
+  | "member_surface_visited";
+
+export type { MemberSurface };
 
 export type MemberExperiencePlatform = "web" | "ios" | "android";
 
@@ -57,10 +63,15 @@ export function memberExperienceIdempotencyKey(args: {
   clerkUserId: string;
   localDay: string;
   filmId?: string;
+  platform?: MemberExperiencePlatform;
+  surface?: MemberSurface;
 }): string {
   const member = encodeURIComponent(args.clerkUserId.trim());
   if (args.eventType === "film_room_played") {
     return `film_room_played:${member}:${args.localDay}:${encodeURIComponent((args.filmId ?? "").trim())}`;
+  }
+  if (args.eventType === "member_surface_visited") {
+    return `member_surface_visited:${member}:${args.localDay}:${args.surface}:${args.platform}`;
   }
   return `victory_room_visited:${member}:${args.localDay}`;
 }
@@ -71,6 +82,7 @@ export async function recordMemberExperienceEvent(args: {
   eventType: MemberExperienceEventType;
   platform: MemberExperiencePlatform;
   filmId?: string;
+  surface?: MemberSurface;
   now?: Date;
 }): Promise<MemberExperienceWriteResult> {
   if (!validClerkId(args.clerkUserId) || !isSubscribedFromPublicMetadata(args.metadata)) {
@@ -86,24 +98,32 @@ export async function recordMemberExperienceEvent(args: {
   if (args.eventType === "film_room_played" && !validFilmId(args.filmId ?? "")) {
     return { status: "rejected" };
   }
+  if (args.eventType === "member_surface_visited" && !isMemberSurface(args.surface)) {
+    return { status: "rejected" };
+  }
 
   const filmId = args.filmId?.trim();
   const occurredAt = now.toISOString();
+  const payload =
+    args.eventType === "film_room_played"
+      ? { platform: args.platform, filmId }
+      : args.eventType === "member_surface_visited"
+        ? { platform: args.platform, surface: args.surface }
+        : { platform: args.platform };
   const { error } = await supabaseServer.from("v2_event").insert({
     idempotency_key: memberExperienceIdempotencyKey({
       eventType: args.eventType,
       clerkUserId: args.clerkUserId,
       localDay,
       filmId,
+      platform: args.platform,
+      surface: args.surface,
     }),
     clerk_user_id: args.clerkUserId.trim(),
     event_type: args.eventType,
     source: MEMBER_EXPERIENCE_SOURCE,
     occurred_at: occurredAt,
-    payload_json:
-      args.eventType === "film_room_played"
-        ? { platform: args.platform, filmId }
-        : { platform: args.platform },
+    payload_json: payload,
   });
 
   if (!error) return { status: "recorded" };

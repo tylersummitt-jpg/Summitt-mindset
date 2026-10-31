@@ -169,6 +169,88 @@ describe("member experience events", () => {
     ).resolves.toEqual({ status: "failed" });
   });
 
+  it("records one surface visit per member, local day, surface, and platform", async () => {
+    const first = await recordMemberExperienceEvent({
+      clerkUserId: "user_real",
+      metadata: MEMBER,
+      eventType: "member_surface_visited",
+      surface: "dashboard",
+      platform: "web",
+      now: NOW,
+    });
+    insertMock.mockResolvedValueOnce({ error: { code: "23505" } });
+    const repeat = await recordMemberExperienceEvent({
+      clerkUserId: "user_real",
+      metadata: MEMBER,
+      eventType: "member_surface_visited",
+      surface: "dashboard",
+      platform: "web",
+      now: NOW,
+    });
+    await recordMemberExperienceEvent({
+      clerkUserId: "user_real",
+      metadata: MEMBER,
+      eventType: "member_surface_visited",
+      surface: "dashboard",
+      platform: "ios",
+      now: NOW,
+    });
+    await recordMemberExperienceEvent({
+      clerkUserId: "user_real",
+      metadata: MEMBER,
+      eventType: "member_surface_visited",
+      surface: "film_room",
+      platform: "web",
+      now: NOW,
+    });
+    const day = getDateKeyInTimezone(NOW, "America/New_York");
+    const webKey = memberExperienceIdempotencyKey({
+      eventType: "member_surface_visited",
+      clerkUserId: "user_real",
+      localDay: day,
+      surface: "dashboard",
+      platform: "web",
+    });
+    expect(first).toEqual({ status: "recorded" });
+    expect(repeat).toEqual({ status: "duplicate" });
+    expect(insertMock.mock.calls[0][0].idempotency_key).toBe(webKey);
+    expect(insertMock.mock.calls[1][0].idempotency_key).toBe(webKey);
+    expect(insertMock.mock.calls[2][0].idempotency_key).toBe(
+      `member_surface_visited:${encodeURIComponent("user_real")}:${day}:dashboard:ios`
+    );
+    expect(insertMock.mock.calls[3][0].idempotency_key).toBe(
+      `member_surface_visited:${encodeURIComponent("user_real")}:${day}:film_room:web`
+    );
+    expect(insertMock.mock.calls[0][0].payload_json).toEqual({
+      platform: "web",
+      surface: "dashboard",
+    });
+    expect(Object.keys(insertMock.mock.calls[0][0].payload_json).sort()).toEqual([
+      "platform",
+      "surface",
+    ]);
+    expect(webKey).not.toBe(
+      memberExperienceIdempotencyKey({
+        eventType: "victory_room_visited",
+        clerkUserId: "user_real",
+        localDay: day,
+      })
+    );
+  });
+
+  it("rejects a surface visit without an allowlisted surface", async () => {
+    await expect(
+      recordMemberExperienceEvent({
+        clerkUserId: "user_real",
+        metadata: MEMBER,
+        eventType: "member_surface_visited",
+        platform: "web",
+        now: NOW,
+      })
+    ).resolves.toEqual({ status: "rejected" });
+    expect(insertMock).not.toHaveBeenCalled();
+  });
+
   it("maps a browser to web and keeps a native shell token", () => {
     expect(memberExperiencePlatform("none")).toBe("web");
     expect(memberExperiencePlatform("ios")).toBe("ios");

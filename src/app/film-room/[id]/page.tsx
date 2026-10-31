@@ -14,6 +14,7 @@ import {
 } from "@/lib/native-app/membership-paths";
 import { buildVimeoPlayerEmbedUrl } from "@/lib/vimeo-player-embed";
 import { FilmRoomPlayListener } from "@/components/film-room-play-listener";
+import { MemberSurfaceVisit } from "@/components/member-surface-visit";
 
 function isSubscribedFromMetadata(md: Record<string, unknown>) {
   return (
@@ -61,6 +62,7 @@ export default async function FilmRoomVideoPage({
   return (
     <main className={utPageCanvas}>
       <div className={utPageInnerFilm}>
+        <MemberSurfaceVisit surface="film_room" />
         <h1 className={`mt-4 mb-6 ${utPageTitle}`}>{data.title}</h1>
 
         {playerSrc ? (
