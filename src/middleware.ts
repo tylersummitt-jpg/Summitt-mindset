@@ -123,9 +123,16 @@ const isPublicRoute = createRouteMatcher([
   // APP-041F2: middleware pass-through only (exact path). Route still owns
   // auth().userId → 401 JSON; not an unauthenticated mutation allow.
   "/api/account/delete",
+
+  // Exact Supabase health probe. The route owns 200/503. No session, no cookies.
+  "/api/health/supabase",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
+  if (req.nextUrl.pathname === "/api/health/supabase") {
+    return NextResponse.next();
+  }
+
   const shouldSetCoachAttributionCookie =
     isCoachAttributionEnabled() && isCoachAttributionPath(req.nextUrl.pathname);
 
