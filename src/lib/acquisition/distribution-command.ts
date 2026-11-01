@@ -1111,7 +1111,7 @@ export function buildDistributionCommand(args: {
     "A campaign trial or paid count includes only a Stripe event whose campaign was copied from a journey that belongs to that person. An email match without that journey is listed separately and is not campaign attribution. Collected revenue is unavailable. Older events were not backfilled.",
     "Instantly's email totals are not added to webhook totals.",
     "A video visit, a play, and a trial-button click are separate events. A play is the first press of play, not a completed watch.",
-    "25%, 50%, 75%, and 95% count the first time Vimeo reported that share of the video as played. Seeking the playhead does not add time. A milestone is not a measure of attention. 95% also includes the player reporting that the video ended.",
+    "25%, 50%, 75%, and 95% count the first time observed playback progress reached that share of the video. Vimeo played ranges are preferred when available; otherwise forward timeupdate progress is used. Seeking ahead does not add watched time. A milestone is observed playback progress, not attention. 95% also includes the player reporting that the video ended.",
     "A campaign video count includes only an event that stores the person, the journey, and the campaign. Other video events in this range are unattributed and are not placed on a campaign. A missing player report is not a verified zero watch.",
     "Journey-verified trials and payments include every journey on that campaign. Video-first trials and payments include only journeys that have a prepared video link. Earlier PDF journeys stay in the broader count. Old events are not rewritten.",
     "Reminder cancellation does not store a reason, so a canceled reminder is not counted as canceled by a play.",
@@ -1312,7 +1312,7 @@ export function watchMeasurementNote(campaign: Pick<CampaignView, "videoVisitPeo
   if (campaign.videoPlayerReadyPeople > 0 && campaign.videoPlayPeople === 0) {
     return "The player connected, and no play was recorded.";
   }
-  return "A milestone is the first time played time reached that share of the video. It is not a measure of attention, and a play is not a completed watch.";
+  return "A milestone is the first time observed playback progress reached that share of the video. It is not a measure of attention, and a play is not a completed watch.";
 }
 
 export function distributionFactsText(report: DistributionCommandReport): string {
@@ -1326,7 +1326,7 @@ export function distributionFactsText(report: DistributionCommandReport): string
     "lead_interested is not a reply.",
     "A prepared video link is one recipient journey with a video_url. Preparing a link does not send email.",
     "A visit is a page open. A play is the first press of play. A play is not a completed watch.",
-    "25%, 50%, 75%, and 95% are the first time Vimeo reported that share of the video as played. Seeking the playhead does not add time. These are not measures of attention. 95% also includes the player reporting that the video ended.",
+    "25%, 50%, 75%, and 95% are the first time observed playback progress reached that share of the video. Seeking ahead does not add watched time. These are not measures of attention. 95% also includes the player reporting that the video ended.",
     "A campaign count includes only an event that stores the person, the journey, and the campaign.",
     "Unattributed video events are not placed on a campaign. A missing player report is not a verified zero watch.",
     "A journey-verified trial or paid member comes from checkout that carried a signed journey for that person. An email match is not included. Revenue is unavailable.",

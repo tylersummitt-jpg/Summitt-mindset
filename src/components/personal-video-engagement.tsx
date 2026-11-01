@@ -5,14 +5,24 @@ import { useEffect, useRef } from "react";
 
 import type { PersonalVideoEventType } from "@/lib/personal-videos/analytics";
 import {
+  accumulateForwardPlayback,
+  accumulatedShare,
   crossedMilestones,
-  playedShare,
+  emptyPlaybackProgress,
+  preferredPlayedShare,
   type AcquisitionVideoEventType,
+  type PlaybackProgress,
 } from "@/lib/acquisition/video-milestones";
 
+type VimeoTimeEvent = {
+  seconds?: unknown;
+  duration?: unknown;
+  percent?: unknown;
+};
+
 type VimeoPlayer = {
-  on(event: "play" | "timeupdate" | "ended", callback: () => void): void;
-  off(event: "play" | "timeupdate" | "ended", callback?: () => void): void;
+  on(event: "play" | "timeupdate" | "ended", callback: (data?: VimeoTimeEvent) => void): void;
+  off(event: "play" | "timeupdate" | "ended", callback?: (data?: VimeoTimeEvent) => void): void;
   destroy(): Promise<void>;
   getPlayed(): Promise<unknown>;
   getDuration(): Promise<unknown>;
@@ -61,7 +71,9 @@ export function PersonalVideoPlayer({
     if (!track) return;
     let cancelled = false;
     let player: VimeoPlayer | null = null;
-    let lastReadMs = 0;
+    let lastPlayedReadMs = 0;
+    let progress: PlaybackProgress = emptyPlaybackProgress();
+    let lastDuration: number | null = null;
     const fired = new Set<string>();
     const post = (eventType: PersonalVideoEventType | AcquisitionVideoEventType) => {
       if (fired.has(eventType)) return;
@@ -70,24 +82,47 @@ export function PersonalVideoPlayer({
     };
     post("personal_video_visited");
 
-    async function readPlayed(force: boolean, ended: boolean) {
-      if (!player) return;
-      const now = Date.now();
-      if (!force && now - lastReadMs < 1000) return;
-      lastReadMs = now;
-      try {
-        const [played, duration] = await Promise.all([player.getPlayed(), player.getDuration()]);
-        if (cancelled) return;
-        for (const eventType of crossedMilestones({
-          playedFraction: playedShare(played, duration),
-          ended,
-          already: fired,
-        })) {
-          post(eventType);
-        }
-      } catch {
-        // A failed read stays missing. It is not recorded as zero watched.
+    function emitMilestones(playedFraction: number | null, ended: boolean) {
+      for (const eventType of crossedMilestones({ playedFraction, ended, already: fired })) {
+        post(eventType);
       }
+    }
+
+    async function onTimeUpdate(data: VimeoTimeEvent | undefined, ended: boolean) {
+      if (data && (typeof data.duration === "number" || typeof data.duration === "string")) {
+        const duration = Number(data.duration);
+        if (Number.isFinite(duration) && duration > 0) lastDuration = duration;
+      }
+      if (data) {
+        progress = accumulateForwardPlayback({
+          progress,
+          seconds: data.seconds,
+          duration: data.duration ?? lastDuration,
+        });
+      }
+
+      let share: number | null = null;
+      const now = Date.now();
+      const shouldReadPlayed = Boolean(player) && (ended || now - lastPlayedReadMs >= 1000);
+      if (shouldReadPlayed && player) {
+        lastPlayedReadMs = now;
+        try {
+          const [played, duration] = await Promise.all([player.getPlayed(), player.getDuration()]);
+          if (!cancelled) {
+            if (typeof duration === "number" && Number.isFinite(duration) && duration > 0) {
+              lastDuration = duration;
+            }
+            share = preferredPlayedShare(played, duration);
+          }
+        } catch {
+          // Prefer timeupdate accumulation when played ranges cannot be read.
+        }
+      }
+      if (cancelled) return;
+      if (share == null) {
+        share = accumulatedShare(progress, data?.duration ?? lastDuration);
+      }
+      emitMilestones(share, ended);
     }
 
     void import("@vimeo/player")
@@ -104,11 +139,11 @@ export function PersonalVideoPlayer({
         });
         if (!recipientToken) return;
         post("personal_video_player_ready");
-        instance.on("timeupdate", () => {
-          void readPlayed(false, false);
+        instance.on("timeupdate", (data) => {
+          void onTimeUpdate(data, false);
         });
-        instance.on("ended", () => {
-          void readPlayed(true, true);
+        instance.on("ended", (data) => {
+          void onTimeUpdate(data, true);
         });
       })
       .catch(() => {});
