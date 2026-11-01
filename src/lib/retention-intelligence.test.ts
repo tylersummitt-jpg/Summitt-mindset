@@ -460,6 +460,8 @@ describe("paid retention cohorts", () => {
     const facts = formatCompleteRetentionFacts(before, {
       asOfLabel: "Oct 28, 2026, 7:00 PM ET",
       rangeLabel: "Last 7 days",
+      cohortCalculatedAt: "Nov 1, 2026, 6:00 AM ET",
+      generationNote: null,
       payingMembers: "Not available",
       trialsConverted: "Not available",
       cancelledDuringTrial: "Not available",
@@ -478,6 +480,9 @@ describe("paid retention cohorts", () => {
     expect(facts).toContain("ANNUAL ACTIVITY OVER TIME");
     expect(facts).toContain("MONTHLY BEHAVIOR VS. FUTURE RETENTION");
     expect(facts).toContain("ANNUAL BEHAVIOR VS. FUTURE RETENTION");
+    expect(facts).toContain("Current counts observed at: Oct 28, 2026, 7:00 PM ET");
+    expect(facts).toContain("Retention cohorts calculated at: Nov 1, 2026, 6:00 AM ET");
+    expect(facts).not.toContain("Report time:");
     expect(facts).toContain("Current paying members: Not available");
     expect(facts).toContain("Unavailable");
     expect(facts).toContain("not zero");
@@ -739,6 +744,35 @@ describe("shared admin report", () => {
     });
     expect(snapshot.actions.map((action) => action.id)).toContain("retention-unreadable");
     expect(snapshot.report).not.toContain("user_private");
+  });
+
+  it("keeps live date-range counts separate from the saved cohort clock", () => {
+    const intel = buildRetentionIntelligence(input({ spells: [] }));
+    const week = buildOperatingSnapshot({
+      growth: growthFixture(),
+      challengeAttention: 0,
+      deletions: null,
+      deletionsAvailable: true,
+      retentionIntelligence: intel,
+      retentionCohortCalculatedAt: "Nov 1, 2026, 6:00 AM ET",
+    });
+    const today = buildOperatingSnapshot({
+      growth: { ...growthFixture(), range: "today", asOfNowLabel: "Nov 1, 2026, 9:00 AM" },
+      challengeAttention: 0,
+      deletions: null,
+      deletionsAvailable: true,
+      retentionIntelligence: intel,
+      retentionCohortCalculatedAt: "Nov 1, 2026, 6:00 AM ET",
+    });
+    expect(week.rangeLabel).toBe("Last 7 days");
+    expect(today.rangeLabel).toBe("Today");
+    expect(week.retentionIntelligence).toBe(intel);
+    expect(today.retentionIntelligence).toBe(intel);
+    expect(week.report).toContain("Range: Last 7 days");
+    expect(today.report).toContain("Range: Today");
+    expect(week.report).toContain("Retention cohorts calculated at: Nov 1, 2026, 6:00 AM ET");
+    expect(today.report).toContain("Retention cohorts calculated at: Nov 1, 2026, 6:00 AM ET");
+    expect(week.retention.payingMembers).toBe(today.retention.payingMembers);
   });
 });
 

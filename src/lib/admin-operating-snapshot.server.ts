@@ -20,8 +20,9 @@ import {
   ensureProudTestExperiment,
   loadLandingExperimentReports,
 } from "@/lib/landing-experiment.server";
-import { loadRetentionIntelligence } from "@/lib/retention-intelligence.server";
+import { readSavedRetentionReport } from "@/lib/retention-report.server";
 import {
+  RETENTION_NOT_LOADED,
   unreadableRetentionIntelligence,
   type RetentionIntelligence,
 } from "@/lib/retention-intelligence";
@@ -146,18 +147,21 @@ export async function loadOperatingSnapshot(args: {
     ];
   }
 
-  let retentionIntelligence: RetentionIntelligence = unreadableRetentionIntelligence(
-    "Stripe subscriptions or paid invoices could not be read."
-  );
+  let retentionIntelligence: RetentionIntelligence = RETENTION_NOT_LOADED;
+  let retentionCohortCalculatedAt: string | null = null;
+  let retentionGenerationNote: string | null = null;
   try {
-    retentionIntelligence = await loadRetentionIntelligence(
-      args.now ?? new Date(),
-      growth.retentionSubscriptions ?? null
-    );
+    const saved = await readSavedRetentionReport(args.now?.getTime());
+    retentionIntelligence = saved.intelligence;
+    retentionCohortCalculatedAt = saved.cohortCalculatedAt;
+    retentionGenerationNote = saved.generationNote;
   } catch (err) {
-    console.warn("[operating] retention intelligence failed", {
-      reason: err instanceof Error ? err.message : "retention_intelligence_failed",
+    console.warn("[operating] retention report read failed", {
+      reason: err instanceof Error ? err.message : "retention_report_read_failed",
     });
+    retentionIntelligence = unreadableRetentionIntelligence(
+      "The saved retention report could not be read. Do not treat that as zero."
+    );
   }
 
   let recoveryAutomation: RecoveryAttention = emptyRecoveryAttention();
@@ -230,6 +234,8 @@ export async function loadOperatingSnapshot(args: {
     landingPages,
     landingExperiments,
     retentionIntelligence,
+    retentionCohortCalculatedAt,
+    retentionGenerationNote,
     recoveryAutomation,
     personalVideos,
     acquisition,

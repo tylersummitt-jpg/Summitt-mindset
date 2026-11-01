@@ -1,4 +1,4 @@
-import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
+import { requireTylerAdmin, isTylerOwnerSession } from "@/lib/auth/require-tyler-admin";
 import { loadOperatingSnapshot } from "@/lib/admin-operating-snapshot.server";
 
 import { OperatingScreen } from "../operating-screen";
@@ -11,7 +11,8 @@ export default async function AdminRetentionPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   await requireTylerAdmin();
+  const canGenerateReport = await isTylerOwnerSession();
   const resolved = searchParams ? await searchParams : {};
   const snapshot = await loadOperatingSnapshot({ searchParams: resolved });
-  return <OperatingScreen focus="retention" snapshot={snapshot} />;
+  return <OperatingScreen focus="retention" snapshot={snapshot} canGenerateReport={canGenerateReport} />;
 }

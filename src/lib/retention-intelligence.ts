@@ -480,6 +480,8 @@ export function buildRetentionIntelligence(
 export type RetentionFactsContext = {
   asOfLabel: string;
   rangeLabel: string;
+  cohortCalculatedAt: string | null;
+  generationNote: string | null;
   payingMembers: string;
   trialsConverted: string;
   cancelledDuringTrial: string;
@@ -496,10 +498,16 @@ export function formatCompleteRetentionFacts(
   intel: RetentionIntelligence,
   context: RetentionFactsContext
 ): string {
-  return [
+  const cohortClock = context.cohortCalculatedAt ?? "Not calculated.";
+  const clocks = [
     "COMPLETE RETENTION FACTS",
-    `Report time: ${context.asOfLabel}`,
+    `Current counts observed at: ${context.asOfLabel}`,
     `Date range: ${context.rangeLabel}. That range applies only to the current-count lines below. Milestones, activity, and later retention use the full paid history.`,
+    `Retention cohorts calculated at: ${cohortClock}`,
+  ];
+  if (context.generationNote) clocks.push(context.generationNote);
+  return [
+    ...clocks,
     "Monthly members and annual members are separate. They are not added together.",
     "Missing data stays unavailable or unknown. It is not written as zero.",
     "",

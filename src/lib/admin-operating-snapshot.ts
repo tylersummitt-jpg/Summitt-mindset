@@ -181,6 +181,8 @@ export type OperatingSnapshot = {
   landingPages: LandingPagePerformance;
   landingExperiments: ProudTestReport[];
   retentionIntelligence: RetentionIntelligence;
+  retentionCohortCalculatedAt: string | null;
+  retentionGenerationNote: string | null;
   distributionIntelligence: DistributionIntelligence;
   personalVideos: PersonalVideoDistribution;
   acquisition: AcquisitionDashboard;
@@ -721,6 +723,8 @@ export function formatOperatingReport(snapshot: Omit<OperatingSnapshot, "report"
     `Stripe payment failures in range: ${snapshot.retention.paymentFailedInRange}`,
     `Free week running now: ${snapshot.retention.freeWeekNow}`,
     `Stripe revenue: ${snapshot.retention.stripeRevenue}`,
+    `Retention cohorts calculated at: ${snapshot.retentionCohortCalculatedAt ?? "Not calculated."}`,
+    snapshot.retentionGenerationNote ?? "",
     "",
     ...formatRetentionIntelligence(snapshot.retentionIntelligence),
     "",
@@ -816,6 +820,8 @@ export function buildOperatingSnapshot(args: {
   landingPages?: LandingPagePerformance;
   landingExperiments?: ProudTestReport[];
   retentionIntelligence?: RetentionIntelligence;
+  retentionCohortCalculatedAt?: string | null;
+  retentionGenerationNote?: string | null;
   recoveryAutomation?: RecoveryAttention;
   personalVideos?: PersonalVideoDistribution;
   acquisition?: AcquisitionDashboard;
@@ -834,6 +840,8 @@ export function buildOperatingSnapshot(args: {
   const landingPages = args.landingPages ?? EMPTY_LANDING_PERFORMANCE;
   const landingExperiments = args.landingExperiments ?? [EMPTY_PROUD_TEST_REPORT];
   const retentionIntelligence = args.retentionIntelligence ?? RETENTION_NOT_LOADED;
+  const retentionCohortCalculatedAt = args.retentionCohortCalculatedAt ?? null;
+  const retentionGenerationNote = args.retentionGenerationNote ?? null;
   const distributionIntelligence = buildDistributionIntelligence({
     trackingReadable: !args.growth.snapshot.notes.sourceTrackingUnavailable,
     spendReadable: args.growth.adSpendQueryComplete,
@@ -905,6 +913,8 @@ export function buildOperatingSnapshot(args: {
     landingPages,
     landingExperiments,
     retentionIntelligence,
+    retentionCohortCalculatedAt,
+    retentionGenerationNote,
     distributionIntelligence,
     personalVideos:
       args.personalVideos ??

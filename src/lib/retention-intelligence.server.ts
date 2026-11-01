@@ -26,8 +26,9 @@ import { smsBehaviorFromRows } from "@/lib/retention-sms-behavior";
 import { supabaseServer } from "@/lib/supabase-server";
 
 const PAGE_SIZE = 100;
-const MAX_PAGES = 20;
+const MAX_PAGES = 100;
 const CHUNK = 80;
+const ENGAGEMENT_MEMBER_CEILING = 4000;
 const ENGAGEMENT_PAGE_ROWS = 500;
 const ENGAGEMENT_DEFAULT_MAX_PAGES = 4;
 const SMS_HISTORY_MAX_PAGES = 20;
@@ -38,7 +39,8 @@ const WITHHELD =
 
 export async function loadRetentionIntelligence(
   now: Date,
-  preloaded: { complete: boolean; subs: GrowthStripeSubscription[] } | null
+  preloaded: { complete: boolean; subs: GrowthStripeSubscription[] } | null,
+  deadlineMs?: number
 ): Promise<RetentionIntelligence> {
   if (!preloaded || (!preloaded.complete && preloaded.subs.length === 0)) {
     return unreadableRetentionIntelligence(UNREADABLE);
@@ -51,7 +53,7 @@ export async function loadRetentionIntelligence(
       rows: preloaded.subs.map(fromGrowthSubscription),
       complete: preloaded.complete,
     };
-    const invoices = await listPaidInvoices(stripe);
+    const invoices = await listPaidInvoices(stripe, deadlineMs);
     const appleRows = await countAppleRows();
     if (!invoices.complete) {
       const withheld = buildRetentionIntelligence({
@@ -121,8 +123,11 @@ export async function loadRetentionIntelligence(
     const clerkIds = [
       ...new Set(spells.map((spell) => spell.clerkUserId).filter((id): id is string => Boolean(id))),
     ];
-    const engagement = await loadEngagement(clerkIds);
-    const acquisition = await loadAcquisition(clerkIds);
+    const engagement = await loadEngagement(clerkIds, deadlineMs);
+    const acquisition =
+      deadlineMs != null && Date.now() >= deadlineMs
+        ? { readable: false, landingReadable: false, experimentReadable: false, rows: [] as RetentionAcquisition[] }
+        : await loadAcquisition(clerkIds, deadlineMs);
 
     return buildRetentionIntelligence({
       nowMs: now.getTime(),
@@ -182,11 +187,13 @@ function fromGrowthSubscription(sub: GrowthStripeSubscription): ListedSubscripti
 }
 
 async function listPaidInvoices(
-  stripe: Stripe
+  stripe: Stripe,
+  deadlineMs?: number
 ): Promise<{ rows: Array<{ subscriptionId: string; paidAtMs: number }>; complete: boolean }> {
   const rows: Array<{ subscriptionId: string; paidAtMs: number }> = [];
   let startingAfter: string | undefined;
   for (let page = 0; page < MAX_PAGES; page += 1) {
+    if (deadlineMs != null && Date.now() >= deadlineMs) return { rows, complete: false };
     const res = await stripe.invoices.list({
       status: "paid",
       limit: PAGE_SIZE,
@@ -238,7 +245,7 @@ async function countAppleRows(): Promise<number | null> {
   return count;
 }
 
-async function loadEngagement(clerkIds: string[]): Promise<{
+async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<{
   readable: boolean;
   hits: RetentionHit[];
   signals: Array<{ id: string; label: string }>;
@@ -247,7 +254,7 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   if (clerkIds.length === 0) {
     return { readable: true, hits: [], signals: [], gaps: [] };
   }
-  if (clerkIds.length > CHUNK * 8) {
+  if (clerkIds.length > ENGAGEMENT_MEMBER_CEILING) {
     return {
       readable: false,
       hits: [],
@@ -263,19 +270,19 @@ async function loadEngagement(clerkIds: string[]): Promise<{
     "sms_send_events",
     "id, clerk_user_id, day_key, send_slot, message_sid, status, metadata, created_at",
     clerkIds,
-    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "created_at", orderTieBreak: "id" }
+    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "created_at", orderTieBreak: "id", deadlineMs }
   );
   const inbound = await readChunked(
     "sms_inbound_messages",
     "clerk_user_id, received_at, raw_body, message_sid",
     clerkIds,
-    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "received_at", orderTieBreak: "message_sid" }
+    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "received_at", orderTieBreak: "message_sid", deadlineMs }
   );
   const weekly = await readChunked(
     "sms_weekly_send_events",
     "id, clerk_user_id, message_sid, metadata, created_at, status",
     clerkIds,
-    { orderColumn: "created_at", orderTieBreak: "id" }
+    { orderColumn: "created_at", orderTieBreak: "id", deadlineMs }
   );
   const sms = smsBehaviorFromRows({
     sends: sends.ok ? sends.rows : null,
@@ -290,7 +297,7 @@ async function loadEngagement(clerkIds: string[]): Promise<{
     "v2_event",
     "clerk_user_id, event_type, occurred_at, idempotency_key",
     clerkIds,
-    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "occurred_at", orderTieBreak: "idempotency_key" }
+    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "occurred_at", orderTieBreak: "idempotency_key", deadlineMs }
   );
   if (!experienceEvents.ok) {
     gaps.push(
@@ -308,7 +315,7 @@ async function loadEngagement(clerkIds: string[]): Promise<{
     }
   }
 
-  const askPat = await readChunked("ask_pat_questions", "clerk_user_id, day_key", clerkIds);
+  const askPat = await readChunked("ask_pat_questions", "clerk_user_id, day_key", clerkIds, { deadlineMs });
   if (!askPat.ok) {
     gaps.push("Ask Pat could not be fully read. It is not shown as zero.");
   } else {
@@ -321,7 +328,7 @@ async function loadEngagement(clerkIds: string[]): Promise<{
     }
   }
 
-  const wins = await readChunked("v2_win", "clerk_user_id, occurred_at, win_kind", clerkIds);
+  const wins = await readChunked("v2_win", "clerk_user_id, occurred_at, win_kind", clerkIds, { deadlineMs });
   if (!wins.ok) {
     gaps.push("Goal Wins and Proud Moments could not be fully read. They are not shown as zero.");
   } else {
@@ -343,7 +350,8 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   const programs = await readChunked(
     "learning_mini_program_progress",
     "clerk_user_id, started_at, completed_at",
-    clerkIds
+    clerkIds,
+    { deadlineMs }
   );
   if (!programs.ok) {
     gaps.push("Programs could not be fully read. They are not shown as zero.");
@@ -365,7 +373,8 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   const profiles = await readChunked(
     "user_profiles",
     "clerk_user_id, identity_intake_completed_at",
-    clerkIds
+    clerkIds,
+    { deadlineMs }
   );
   if (!profiles.ok) {
     gaps.push("Onboarding completion could not be fully read. It is not shown as zero.");
@@ -382,7 +391,10 @@ async function loadEngagement(clerkIds: string[]): Promise<{
   return { readable: signals.length > 0, hits, signals, gaps };
 }
 
-async function loadAcquisition(clerkIds: string[]): Promise<{
+async function loadAcquisition(
+  clerkIds: string[],
+  deadlineMs?: number
+): Promise<{
   readable: boolean;
   landingReadable: boolean;
   experimentReadable: boolean;
@@ -394,7 +406,8 @@ async function loadAcquisition(clerkIds: string[]): Promise<{
   const attribution = await readChunked(
     "marketing_attribution",
     "clerk_user_id, visitor_id, source_normalized, is_paid_acquisition, source_detail, referrer_host, utm_source, utm_campaign, utm_content",
-    clerkIds
+    clerkIds,
+    { deadlineMs }
   );
   if (!attribution.ok) {
     return { readable: false, landingReadable: false, experimentReadable: false, rows: [] };
@@ -427,7 +440,7 @@ async function loadAcquisition(clerkIds: string[]): Promise<{
   });
 
   const visitorIds = [...new Set([...visitorByClerk.values()].filter((id): id is string => Boolean(id)))];
-  const events = await readVisitorEvents(visitorIds);
+  const events = await readVisitorEvents(visitorIds, deadlineMs);
   if (!events.ok) {
     return { readable: true, landingReadable: false, experimentReadable: false, rows };
   }
@@ -503,13 +516,15 @@ function experimentLabel(visits: Array<Record<string, unknown>>): string {
 }
 
 async function readVisitorEvents(
-  visitorIds: string[]
+  visitorIds: string[],
+  deadlineMs?: number
 ): Promise<{ ok: boolean; rows: Array<Record<string, unknown>> }> {
   if (visitorIds.length === 0) return { ok: true, rows: [] };
   const rows: Array<Record<string, unknown>> = [];
   for (const group of chunks(visitorIds, CHUNK)) {
     let from = 0;
     for (let page = 0; page < 4; page += 1) {
+      if (deadlineMs != null && Date.now() >= deadlineMs) return { ok: false, rows: [] };
       const { data, error } = await supabaseServer
         .from("marketing_events")
         .select("visitor_id, path, occurred_at, metadata")
@@ -535,13 +550,14 @@ async function readChunked(
   table: string,
   columns: string,
   ids: string[],
-  options?: { maxPages?: number; orderColumn?: string; orderTieBreak?: string }
+  options?: { maxPages?: number; orderColumn?: string; orderTieBreak?: string; deadlineMs?: number }
 ): Promise<{ ok: boolean; rows: Array<Record<string, unknown>> }> {
   const maxPages = options?.maxPages ?? ENGAGEMENT_DEFAULT_MAX_PAGES;
   const rows: Array<Record<string, unknown>> = [];
   for (const group of chunks(ids, CHUNK)) {
     let from = 0;
     for (let page = 0; page < maxPages; page += 1) {
+      if (options?.deadlineMs != null && Date.now() >= options.deadlineMs) return { ok: false, rows: [] };
       let query = supabaseServer.from(table).select(columns).in("clerk_user_id", group);
       if (options?.orderColumn) {
         query = query.order(options.orderColumn, { ascending: true });

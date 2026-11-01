@@ -18,6 +18,7 @@ import {
 import {
   buildRetentionIntelligence,
   RETENTION_DAY_MS,
+  RETENTION_NOT_LOADED,
   type RetentionIntelligenceInput,
   type RetentionSpell,
 } from "@/lib/retention-intelligence";
@@ -38,6 +39,10 @@ vi.mock("next/link", () => ({
     href: string;
     children: React.ReactNode;
   }) => React.createElement("a", { href, ...rest }, children),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: () => undefined }),
 }));
 
 const NOW = Date.parse("2026-10-10T12:00:00.000Z");
@@ -119,12 +124,16 @@ describe("retention intelligence on the admin pages", () => {
       deletionsAvailable: true,
       retentionIntelligence: intel,
     });
-    const retention = render(<OperatingScreen focus="retention" snapshot={snapshot} />);
+    const retention = render(
+      <OperatingScreen focus="retention" snapshot={snapshot} canGenerateReport />
+    );
     const details = retention.container.querySelector("details");
     expect(details).not.toBeNull();
     expect(details?.hasAttribute("open")).toBe(false);
     expect(details?.querySelector("summary")?.textContent).toBe("How this works");
-    expect(retention.container.textContent).toContain("Monthly retention");
+    expect(retention.container.textContent).toContain("Copy Complete Facts Report");
+    expect(retention.container.textContent).toContain("Generate Report");
+    expect(retention.container.textContent).toContain("Retention cohorts have not been calculated.");
     expect(retention.container.textContent).toContain("Monthly D30");
     expect(retention.container.textContent).toContain("Annual subscribers");
     expect(retention.container.textContent).toContain("Unclassified members");
@@ -134,6 +143,14 @@ describe("retention intelligence on the admin pages", () => {
     expect(retention.container.textContent).not.toContain("Replied to coaching");
     expect(retention.container.textContent).not.toContain("did not use");
     expect(retention.container.textContent).toContain("user_private_lookup");
+    expect(details?.textContent).toContain(
+      "Cohort calculations are updated when Tyler clicks Generate Report."
+    );
+    expect(details?.textContent).toContain(
+      "shows the last successfully generated results until another report completes."
+    );
+    expect(details?.textContent).not.toContain("when it loads");
+    expect(details?.textContent).toContain("An annual membership stays active until it ends.");
     expect(details?.textContent).not.toContain("five landing pages");
     expect(snapshot.report).toContain("RETENTION INTELLIGENCE");
     expect(snapshot.report).not.toContain("user_private_lookup");
@@ -143,10 +160,43 @@ describe("retention intelligence on the admin pages", () => {
     const distribution = render(<OperatingScreen focus="distribution" snapshot={snapshot} />);
     expect(screen.getByText("Connection to retention")).toBeTruthy();
     expect(distribution.container.textContent).toContain("Open Retention");
+    expect(distribution.container.textContent).not.toContain("Generate Report");
+    expect(distribution.container.textContent).toContain(
+      "Retention cohorts have not been calculated. They are not shown as zero."
+    );
     expect(distribution.container.textContent).toContain("Subscriber stops — all time");
     expect(distribution.container.textContent).toContain("Not a confirmed Instantly block.");
     expect(distribution.container.textContent).toContain("Native Instantly blocking");
     expect(distribution.container.textContent).not.toContain("user_private_lookup");
     expect(distribution.container.querySelector("summary")?.textContent).toBe("How this works");
+  });
+
+  it("shows live counts and hides cohort numbers before a report exists", () => {
+    const data = growth();
+    data.snapshot = {
+      ...data.snapshot,
+      asOfNow: { ...data.snapshot.asOfNow, activePaid: 2500 },
+    };
+    const snapshot = buildOperatingSnapshot({
+      growth: data,
+      challengeAttention: 0,
+      deletions: null,
+      deletionsAvailable: true,
+      retentionIntelligence: RETENTION_NOT_LOADED,
+    });
+    const view = render(<OperatingScreen focus="retention" snapshot={snapshot} canGenerateReport />);
+    const text = view.container.textContent ?? "";
+    expect(text).toContain("Current paying members");
+    expect(text).toContain("2500");
+    expect(text).toContain("Last 7 days");
+    expect(text).toContain("Retention cohorts have not been calculated.");
+    expect(text).toContain("Paid membership cohorts were not calculated in this snapshot.");
+    expect(text).not.toContain("Annual members:");
+    expect(text).not.toContain("Unclassified members:");
+    expect(text).not.toContain("Completed paid periods:");
+    expect(text).not.toContain("Member-requested 0");
+    expect(text).not.toContain("Monthly D30");
+    expect(text).not.toContain("Monthly retention");
+    view.unmount();
   });
 });

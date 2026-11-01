@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { CopyBusinessReportButton } from "@/app/admin/copy-business-report-button";
+import { GenerateRetentionReportButton } from "@/app/admin/generate-retention-report-button";
 import { EmailRepresentativePanel } from "@/app/admin/email-representative-panel";
 import { DistributionIntelligencePanel } from "@/app/admin/distribution-intelligence-panel";
 import type { PersonalVideoDistribution } from "@/lib/personal-videos/analytics";
@@ -50,12 +51,14 @@ export function OperatingScreen({
   emailRepresentative = null,
   command = null,
   selectedCampaignId = null,
+  canGenerateReport = false,
 }: {
   focus: "distribution" | "retention";
   snapshot: OperatingSnapshot;
   emailRepresentative?: EmailRepresentativeReport | null;
   command?: DistributionCommandReport | null;
   selectedCampaignId?: string | null;
+  canGenerateReport?: boolean;
 }) {
   const href = (range: GrowthDateRange) => {
     if (focus !== "distribution") return `/admin/retention?range=${range}`;
@@ -136,7 +139,7 @@ export function OperatingScreen({
           selectedCampaignId={selectedCampaignId}
         />
       ) : (
-        <RetentionBody snapshot={snapshot} />
+        <RetentionBody snapshot={snapshot} canGenerateReport={canGenerateReport} />
       )}
 
       <section className="space-y-3">
@@ -699,6 +702,11 @@ function DistributionBody({
         <h2 className="text-lg font-semibold text-gray-900">Connection to retention</h2>
         <p className="text-sm text-gray-700">{snapshot.retentionIntelligence.bridge}</p>
         <p className="text-sm text-gray-700">
+          {snapshot.retentionCohortCalculatedAt
+            ? `Retention cohorts were calculated at ${snapshot.retentionCohortCalculatedAt}. They do not follow the date range.`
+            : "Retention cohorts have not been calculated. They are not shown as zero."}
+        </p>
+        <p className="text-sm text-gray-700">
           <Link href="/admin/retention" className="text-gray-800 underline">
             Open Retention
           </Link>{" "}
@@ -1082,12 +1090,20 @@ function RetentionGroupList({
   );
 }
 
-function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
+function RetentionBody({
+  snapshot,
+  canGenerateReport,
+}: {
+  snapshot: OperatingSnapshot;
+  canGenerateReport: boolean;
+}) {
   const r = snapshot.retention;
   const intel = snapshot.retentionIntelligence;
   const factsReport = formatCompleteRetentionFacts(intel, {
     asOfLabel: snapshot.asOfLabel,
     rangeLabel: snapshot.rangeLabel,
+    cohortCalculatedAt: snapshot.retentionCohortCalculatedAt,
+    generationNote: snapshot.retentionGenerationNote,
     payingMembers: r.payingMembers,
     trialsConverted: r.trialsConverted,
     cancelledDuringTrial: r.cancelledDuringTrial,
@@ -1099,14 +1115,22 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
     freeWeekNow: r.freeWeekNow,
     stripeRevenue: r.stripeRevenue,
   });
+  const generating = snapshot.retentionGenerationNote?.startsWith("Generation is in progress.") === true;
   return (
     <>
       <div className="flex flex-wrap items-center gap-3">
+        {canGenerateReport ? <GenerateRetentionReportButton busy={generating} /> : null}
         <CopyBusinessReportButton report={factsReport} label="Copy Complete Facts Report" />
         <p className="text-sm text-gray-600">
           Copies the retention facts already on this page. It does not calculate a second report.
         </p>
       </div>
+      <p className="text-sm text-gray-600">
+        {snapshot.retentionCohortCalculatedAt
+          ? `Retention cohorts calculated at ${snapshot.retentionCohortCalculatedAt}. Current counts above follow the selected date range.`
+          : "Retention cohorts have not been calculated. Current counts above follow the selected date range."}
+        {snapshot.retentionGenerationNote ? ` ${snapshot.retentionGenerationNote}` : ""}
+      </p>
       <section className="grid gap-3 sm:grid-cols-2">
         <Metric
           label="Current paying members"
@@ -1207,7 +1231,8 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
               A paid subscription with no Clerk id is Unknown. Unknown is not churn.
             </p>
             <p>
-              The page calculates this from existing billing and product records when it loads.
+              Cohort calculations are updated when Tyler clicks Generate Report. This page
+              shows the last successfully generated results until another report completes.
               Tyler reads it and decides what to change. This page does not cancel, contact,
               or start a test.
             </p>
@@ -1222,7 +1247,7 @@ function RetentionBody({ snapshot }: { snapshot: OperatingSnapshot }) {
         {intel.partial ? (
           <p className="text-gray-900">Partial read. Do not quote this as the whole business.</p>
         ) : null}
-        {intel.status === "unreadable" || intel.withheld ? (
+        {intel.status !== "ready" || intel.withheld ? (
           <p>{intel.withheld ?? intel.definition}</p>
         ) : (
           <>

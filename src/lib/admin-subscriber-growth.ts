@@ -153,11 +153,13 @@ function mapStripeSubscription(
 }
 
 async function listStripeSubscriptions(
-  stripe: Stripe
+  stripe: Stripe,
+  deadlineMs?: number
 ): Promise<{ subs: GrowthStripeSubscription[]; complete: boolean }> {
   const subs: GrowthStripeSubscription[] = [];
   let startingAfter: string | undefined;
   for (let page = 0; page < STRIPE_MAX_PAGES; page += 1) {
+    if (deadlineMs != null && Date.now() >= deadlineMs) return { subs, complete: false };
     const res = await stripe.subscriptions.list({
       status: "all",
       limit: STRIPE_PAGE_SIZE,
@@ -172,6 +174,15 @@ async function listStripeSubscriptions(
     if (!startingAfter) return { subs, complete: false };
   }
   return { subs, complete: false };
+}
+
+export async function loadRetentionSubscriptionInputs(deadlineMs?: number): Promise<{
+  complete: boolean;
+  subs: GrowthStripeSubscription[];
+} | null> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return null;
+  return listStripeSubscriptions(new Stripe(key), deadlineMs);
 }
 
 function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
