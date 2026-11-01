@@ -799,6 +799,89 @@ describe("retention page boundaries", () => {
     expect(behavior).toContain("acceptedSendSignalIds");
     expect(behavior).toContain("attributeMorningEveningReplies");
   });
+
+  it("adds achievement facts without changing existing retention figures", () => {
+    const start = daysAgo(100);
+    const spells = [
+      spell({ id: "m", clerkUserId: "user_month", paidStartMs: start }),
+      spell({ id: "y", clerkUserId: "user_year", interval: "year", paidStartMs: start }),
+    ];
+    const hits = [
+      { clerkUserId: "user_month", atMs: start + RETENTION_DAY_MS, signal: "goal_win" },
+      { clerkUserId: "user_year", atMs: start + RETENTION_DAY_MS, signal: "proud_moment" },
+    ];
+    const before = buildRetentionIntelligence(input({ spells, hits, achievementFacts: null }));
+    const after = buildRetentionIntelligence(
+      input({
+        spells,
+        hits,
+        achievementFacts: [
+          { clerkUserId: "user_month", atMs: start + RETENTION_DAY_MS, kind: "goal_win", milestone: false },
+          { clerkUserId: "user_year", atMs: start + RETENTION_DAY_MS, kind: "proud_moment", milestone: false },
+        ],
+      })
+    );
+    expect(after.milestones).toEqual(before.milestones);
+    expect(after.annual).toEqual(before.annual);
+    expect(after.monthlyActivity).toEqual(before.monthlyActivity);
+    expect(after.annualActivity).toEqual(before.annualActivity);
+    expect(after.monthlyBehavior).toEqual(before.monthlyBehavior);
+    expect(after.annualBehavior).toEqual(before.annualBehavior);
+    expect(after.engagement).toEqual(before.engagement);
+    expect(after.trialEngagement).toEqual(before.trialEngagement);
+    const monthlyGoal = after.monthlyActivity.periods
+      .find((period) => period.label === "Days 0–7" && period.status === "finished")
+      ?.cells.find((cell) => cell.signalId === "goal_win");
+    expect(monthlyGoal?.total).toBe(1);
+    expect(after.monthlyAchievement.groups.find((group) => group.id === "goal_only")?.members).toBe(1);
+    expect(after.monthlyAchievement.groups.find((group) => group.id === "proud_only")?.members).toBe(0);
+    expect(after.annualAchievement.groups.find((group) => group.id === "proud_only")?.members).toBe(1);
+    expect(after.annualAchievement.groups.find((group) => group.id === "goal_only")?.members).toBe(0);
+    const hidden = buildRetentionIntelligence(input({ spells, hits, achievementFacts: [] }));
+    expect(hidden.monthlyActivity).toEqual(after.monthlyActivity);
+    expect(hidden.monthlyAchievement.groups.find((group) => group.id === "neither")?.members).toBe(1);
+    const facts = formatCompleteRetentionFacts(after, {
+      asOfLabel: "Oct 10, 2026, 8:00 AM ET",
+      rangeLabel: "Last 7 days",
+      cohortCalculatedAt: "Oct 10, 2026, 7:00 AM ET",
+      generationNote: null,
+      payingMembers: "2",
+      trialsConverted: "0",
+      cancelledDuringTrial: "0",
+      finishedTrialWithoutPaid: "0",
+      paidMembershipsEnded: "0",
+      churn: "0",
+      pastDueNow: "0",
+      paymentFailedInRange: "0",
+      freeWeekNow: "0",
+      stripeRevenue: "$0.00",
+    });
+    expect(facts).toContain("RECORDED WINS IN THE FIRST 30 PAID DAYS");
+    expect(facts).toContain("do not show that a win caused someone to stay");
+    expect(facts).toContain("hidden wins and onboarding milestones");
+    expect(facts).not.toContain("user_month");
+    expect(facts).not.toContain("user_year");
+    expect(JSON.stringify(after.monthlyAchievement)).not.toContain("clerkUserId");
+    expect(JSON.stringify(after.monthlyAchievement)).not.toContain("idempotency");
+    expect(JSON.stringify(after.annualAchievement)).not.toContain("user_year");
+    const withheld = formatRetentionIntelligence(
+      buildRetentionIntelligence(input({ withheld: "Paid invoices stopped.", partial: true }))
+    ).join("\n");
+    expect(withheld).not.toContain("RECORDED WINS IN THE FIRST 30 PAID DAYS");
+  });
+
+  it("does not raise the win read cap or select story text", () => {
+    const server = readFileSync(join(process.cwd(), "src/lib/retention-intelligence.server.ts"), "utf8");
+    const winRead = server.slice(server.indexOf('"v2_win"'), server.indexOf('"v2_win"') + 500);
+    expect(winRead).toContain("status, idempotency_key");
+    expect(winRead).not.toContain("maxPages");
+    expect(winRead).not.toContain("display_body");
+    expect(winRead).not.toContain("action_fact");
+    expect(winRead).not.toContain("supporting_quote");
+    expect(server).toContain("hits.push({ clerkUserId, atMs, signal: kind })");
+    expect(server).toContain("const ENGAGEMENT_MEMBER_CEILING = 4000");
+    expect(server).toContain("const ENGAGEMENT_DEFAULT_MAX_PAGES = 4");
+  });
 });
 
 function growthFixture(): SubscriberGrowthDashboardData {

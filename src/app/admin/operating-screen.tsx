@@ -22,7 +22,12 @@ import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { formatCompleteRetentionFacts } from "@/lib/retention-intelligence";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
 import type { MemberActivity } from "@/lib/retention-activity-periods";
-import type { BehaviorRetention } from "@/lib/retention-behavior-retention";
+import {
+  achievementNotInReport,
+  formatAchievementRetention,
+  type AchievementRetention,
+  type BehaviorRetention,
+} from "@/lib/retention-behavior-retention";
 import { EXPERIMENT_NO_AUTOMATIC_WINNER } from "@/lib/operating-experiments";
 import type { GrowthDateRange } from "@/lib/admin-subscriber-growth-pure";
 import { DistributionCommandCenter } from "@/app/admin/distribution-command-center";
@@ -980,6 +985,17 @@ function MemberActivityBlock({ activity }: { activity: MemberActivity }) {
   );
 }
 
+function AchievementRetentionBlock({ report }: { report: AchievementRetention }) {
+  const lines = formatAchievementRetention(report);
+  return (
+    <div className="space-y-2">
+      {lines.map((line, index) => (
+        <p key={`${report.population}-${index}`}>{line}</p>
+      ))}
+    </div>
+  );
+}
+
 function BehaviorRetentionBlock({ report }: { report: BehaviorRetention }) {
   return (
     <div className="space-y-2">
@@ -1371,6 +1387,13 @@ function RetentionBody({
             <MemberActivityBlock activity={intel.annualActivity} />
             <BehaviorRetentionBlock report={intel.monthlyBehavior} />
             <BehaviorRetentionBlock report={intel.annualBehavior} />
+            <h3 className="font-medium text-gray-900">Recorded wins in the first 30 paid days</h3>
+            <AchievementRetentionBlock
+              report={intel.monthlyAchievement ?? achievementNotInReport("Monthly")}
+            />
+            <AchievementRetentionBlock
+              report={intel.annualAchievement ?? achievementNotInReport("Annual")}
+            />
 
             <h3 className="font-medium text-gray-900">Where monthly members come from</h3>
             <p>Day 30, observational. Unknown stays visible. This is not an experiment result.</p>

@@ -16,6 +16,7 @@ import {
 import {
   buildRetentionIntelligence,
   formatCompleteRetentionFacts,
+  formatRetentionIntelligence,
   type RetentionIntelligenceInput,
 } from "@/lib/retention-intelligence";
 import {
@@ -125,6 +126,27 @@ describe("retention report publication", () => {
     );
     expect(saved.cohortCalculatedAt).toContain("2026");
     expect(saved.generationNote).toBeNull();
+
+    const { monthlyAchievement: _monthly, annualAchievement: _annual, ...previous } = ready;
+    const older = interpretRetentionReportRead({
+      error: null,
+      nowMs: NOW,
+      row: {
+        report: previous,
+        calculated_at: "2026-11-01T15:00:00.000Z",
+        schema_version: 1,
+        state: "idle",
+        started_at: null,
+        error: null,
+      },
+    });
+    expect(older.intelligence.monthlyAchievement.status).toBe("not_in_report");
+    expect(older.intelligence.annualAchievement.status).toBe("not_in_report");
+    const olderFacts = formatRetentionIntelligence(older.intelligence).join("\n");
+    expect(olderFacts).toContain("before the first-30-day achievement comparison");
+    expect(olderFacts).toContain("That is not zero.");
+    expect(olderFacts).not.toContain("Active Goal Wins");
+    expect(older.intelligence.milestones).toEqual(ready.milestones);
 
     const missing = interpretRetentionReportRead({
       error: { code: "PGRST205", message: "retention_report" },

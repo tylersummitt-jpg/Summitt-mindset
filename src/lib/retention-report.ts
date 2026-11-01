@@ -1,3 +1,4 @@
+import { achievementNotInReport } from "@/lib/retention-behavior-retention";
 import {
   RETENTION_NOT_LOADED,
   unreadableRetentionIntelligence,
@@ -134,9 +135,18 @@ export function interpretRetentionReportRead(args: {
   }
 
   return {
-    intelligence: stored ?? RETENTION_NOT_LOADED,
+    intelligence: stored ? withAchievementSections(stored) : RETENTION_NOT_LOADED,
     cohortCalculatedAt: stored ? formatRetentionCohortTime(args.row.calculated_at) : null,
     generationNote: note,
+  };
+}
+
+function withAchievementSections(intel: RetentionIntelligence): RetentionIntelligence {
+  if (intel.monthlyAchievement && intel.annualAchievement) return intel;
+  return {
+    ...intel,
+    monthlyAchievement: intel.monthlyAchievement ?? achievementNotInReport("Monthly"),
+    annualAchievement: intel.annualAchievement ?? achievementNotInReport("Annual"),
   };
 }
 

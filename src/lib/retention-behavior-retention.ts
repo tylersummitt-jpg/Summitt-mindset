@@ -630,3 +630,307 @@ function behaviorGroup(label: string, retainedFlags: boolean[]): BehaviorGroup {
 function emptyGroup(label: string): BehaviorGroup {
   return { label, retained: 0, eligible: 0, rate: "Not available", small: false };
 }
+
+/** First paid days 0 through 30. Day 31 is outside this comparison. */
+const ACHIEVEMENT_WINDOW_END_DAY = 31;
+const ACHIEVEMENT_HORIZON_DAYS = [60, 90, 180, 365, 730, 1095] as const;
+export const ONBOARDING_WIN_KEY_PREFIX = "win_v1:onboarding:";
+
+export type AchievementFact = {
+  clerkUserId: string;
+  atMs: number;
+  kind: "goal_win" | "proud_moment";
+  milestone: boolean;
+};
+
+export type AchievementHorizon = {
+  day: number;
+  retained: number;
+  ended: number;
+  rejoined: number;
+  unknown: number;
+  immature: number;
+  rate: string;
+  small: boolean;
+};
+
+export type AchievementGroup = {
+  id: "neither" | "goal_only" | "proud_only" | "both";
+  label: string;
+  members: number;
+  horizons: AchievementHorizon[];
+};
+
+export type AchievementRetention = {
+  population: "Monthly" | "Annual";
+  status: "ready" | "unavailable" | "not_in_report";
+  reason: string | null;
+  notes: string[];
+  goalWins: number | null;
+  goalWinMembers: number | null;
+  proudMoments: number | null;
+  proudMomentMembers: number | null;
+  onboardingMilestones: number | null;
+  leftDuring: number | null;
+  notFinished: number | null;
+  unknownEnd: number | null;
+  compared: number | null;
+  groups: AchievementGroup[];
+};
+
+const ACHIEVEMENT_GROUPS: Array<Pick<AchievementGroup, "id" | "label">> = [
+  { id: "neither", label: "Neither" },
+  { id: "goal_only", label: "Goal Wins only" },
+  { id: "proud_only", label: "Proud Moments only" },
+  { id: "both", label: "Both" },
+];
+
+export function classifyActiveAchievement(row: {
+  clerkUserId: string | null;
+  atMs: number | null;
+  winKind: string | null;
+  status: string | null;
+  idempotencyKey: string | null;
+}): AchievementFact | null {
+  if (row.status !== "active") return null;
+  if (!row.clerkUserId || row.atMs == null) return null;
+  if (row.winKind !== "goal_win" && row.winKind !== "proud_moment") return null;
+  return {
+    clerkUserId: row.clerkUserId,
+    atMs: row.atMs,
+    kind: row.winKind,
+    milestone:
+      row.winKind === "proud_moment" &&
+      (row.idempotencyKey ?? "").startsWith(ONBOARDING_WIN_KEY_PREFIX),
+  };
+}
+
+export function emptyAchievementRetention(population: "Monthly" | "Annual"): AchievementRetention {
+  return {
+    population,
+    status: "unavailable",
+    reason: null,
+    notes: [],
+    goalWins: null,
+    goalWinMembers: null,
+    proudMoments: null,
+    proudMomentMembers: null,
+    onboardingMilestones: null,
+    leftDuring: null,
+    notFinished: null,
+    unknownEnd: null,
+    compared: null,
+    groups: [],
+  };
+}
+
+export function achievementNotInReport(population: "Monthly" | "Annual"): AchievementRetention {
+  return {
+    ...emptyAchievementRetention(population),
+    status: "not_in_report",
+    reason:
+      "This saved report was generated before the first-30-day achievement comparison. That is not zero.",
+  };
+}
+
+export function buildAchievementRetention(args: {
+  population: "Monthly" | "Annual";
+  nowMs: number;
+  memberships: BehaviorMembership[];
+  facts: AchievementFact[] | null;
+}): AchievementRetention {
+  if (args.facts == null) {
+    return {
+      ...emptyAchievementRetention(args.population),
+      reason: "This read did not finish. Missing rows are not zero.",
+    };
+  }
+  const factsByMember = new Map<string, AchievementFact[]>();
+  for (const fact of args.facts) {
+    const list = factsByMember.get(fact.clerkUserId) ?? [];
+    list.push(fact);
+    factsByMember.set(fact.clerkUserId, list);
+  }
+  let goalWins = 0;
+  let proudMoments = 0;
+  let onboardingMilestones = 0;
+  let leftDuring = 0;
+  let notFinished = 0;
+  let unknownEnd = 0;
+  const goalWinMembers = new Set<string>();
+  const proudMomentMembers = new Set<string>();
+  const grouped = new Map<AchievementGroup["id"], Array<{ membership: BehaviorMembership }>>(
+    ACHIEVEMENT_GROUPS.map((group) => [group.id, []])
+  );
+  for (const membership of args.memberships) {
+    const counts = achievementsInFirst30Days(
+      factsByMember.get(membership.clerkUserId) ?? [],
+      membership
+    );
+    goalWins += counts.goalWins;
+    proudMoments += counts.proudMoments;
+    onboardingMilestones += counts.milestones;
+    if (counts.goalWins > 0) goalWinMembers.add(membership.clerkUserId);
+    if (counts.proudMoments > 0) proudMomentMembers.add(membership.clerkUserId);
+    const place = first30Place(membership, args.nowMs);
+    if (place === "left") leftDuring += 1;
+    else if (place === "not_finished") notFinished += 1;
+    else if (place === "unknown") unknownEnd += 1;
+    else if (place === "eligible") {
+      const id = groupId(counts.goalWins > 0, counts.proudMoments > 0);
+      grouped.get(id)?.push({ membership });
+    }
+  }
+  const groups = ACHIEVEMENT_GROUPS.map((group) => {
+    const members = grouped.get(group.id) ?? [];
+    return {
+      id: group.id,
+      label: group.label,
+      members: members.length,
+      horizons: ACHIEVEMENT_HORIZON_DAYS.map((day) =>
+        summarizeHorizon(
+          day,
+          members.map((row) => subscriptionOutcome(row.membership, args.nowMs, day))
+        )
+      ),
+    };
+  });
+  return {
+    population: args.population,
+    status: "ready",
+    reason: null,
+    notes: achievementNotes(args.population),
+    goalWins,
+    goalWinMembers: goalWinMembers.size,
+    proudMoments,
+    proudMomentMembers: proudMomentMembers.size,
+    onboardingMilestones,
+    leftDuring,
+    notFinished,
+    unknownEnd,
+    compared: groups.reduce((sum, group) => sum + group.members, 0),
+    groups,
+  };
+}
+
+export function formatAchievementRetention(report: AchievementRetention): string[] {
+  const lines = [`${report.population.toUpperCase()} ACHIEVEMENT AND LATER RETENTION`];
+  if (report.status === "not_in_report") {
+    lines.push(report.reason ?? "This comparison is not in the saved report. That is not zero.");
+    return lines;
+  }
+  if (report.status === "unavailable") {
+    lines.push(report.reason ?? "Unavailable. Missing rows are not zero.");
+    return lines;
+  }
+  for (const note of report.notes) lines.push(note);
+  lines.push(
+    `Active Goal Wins in the first 30 paid days: ${report.goalWins}. Distinct members: ${report.goalWinMembers}.`
+  );
+  lines.push(
+    `Active Proud Moments in the first 30 paid days, excluding automatic onboarding milestones: ${report.proudMoments}. Distinct members: ${report.proudMomentMembers}.`
+  );
+  lines.push(
+    `Automatic onboarding milestones in the first 30 paid days: ${report.onboardingMilestones}. Not included in Proud Moments or in the groups.`
+  );
+  lines.push(
+    `Members who ended during the first 30 paid days: ${report.leftDuring}. They are not in the groups below.`
+  );
+  lines.push(
+    `Members who have not finished the first 30 paid days: ${report.notFinished}. They are not in the groups below.`
+  );
+  lines.push(`Unknown end time: ${report.unknownEnd}. They are not in the groups below.`);
+  lines.push(`Members in the comparison: ${report.compared}.`);
+  for (const group of report.groups) {
+    lines.push(`${group.label}. ${group.members} members.`);
+    if (group.members === 0) continue;
+    for (const horizon of group.horizons) {
+      const small = horizon.small ? " Small sample." : "";
+      lines.push(
+        `${group.label}. Day ${horizon.day}: continuously retained ${horizon.rate}. Ended ${horizon.ended}. Rejoined ${horizon.rejoined}. Unknown ${horizon.unknown}. Not old enough ${horizon.immature}.${small}`
+      );
+    }
+  }
+  return lines;
+}
+
+function achievementNotes(population: "Monthly" | "Annual"): string[] {
+  return [
+    population === "Monthly"
+      ? "Monthly members only. Annual members are in the section below."
+      : "Annual members only. These counts are not in the monthly section above.",
+    "The window is the first 30 paid days, from the first paid start through day 30. A win at or after the membership end is left out.",
+    "Groups include only members still subscribed at the end of day 30. A member who ended during those days is counted separately and is not called Neither.",
+    "A member who has not finished day 30 is not in a group. A member who has not reached a later day is left out of that day's rate and is not counted as ended.",
+    "Active rows only. A Goal Win is a recorded win, including a daily accountability confirmation. It is not proof a major goal was completed. Proud Moments leave out automatic onboarding milestones.",
+    "The activity section above can include hidden wins and onboarding milestones. This section does not.",
+    "Neither means no active Goal Win and no active non-milestone Proud Moment in this window in the loaded read. It is not proof the member had no achievement. Time before wins were stored is unavailable, not zero.",
+    "These counts are associations. They do not show that a win caused someone to stay.",
+    "This comparison uses the first 30 paid days only. The recorded wins and their dates remain available for a later question. This section does not replace them.",
+  ];
+}
+
+function achievementsInFirst30Days(
+  facts: AchievementFact[],
+  membership: BehaviorMembership
+): { goalWins: number; proudMoments: number; milestones: number } {
+  const startMs = membership.startMs;
+  const endMs = membership.startMs + ACHIEVEMENT_WINDOW_END_DAY * DAY_MS;
+  let goalWins = 0;
+  let proudMoments = 0;
+  let milestones = 0;
+  for (const fact of facts) {
+    if (fact.atMs < startMs || fact.atMs >= endMs) continue;
+    if (!membership.open && membership.endMs != null && fact.atMs >= membership.endMs) continue;
+    if (fact.milestone) milestones += 1;
+    else if (fact.kind === "goal_win") goalWins += 1;
+    else proudMoments += 1;
+  }
+  return { goalWins, proudMoments, milestones };
+}
+
+function first30Place(
+  membership: BehaviorMembership,
+  nowMs: number
+): "ignore" | "left" | "unknown" | "not_finished" | "eligible" {
+  const startMs = membership.startMs;
+  const periodEndMs = membership.startMs + ACHIEVEMENT_WINDOW_END_DAY * DAY_MS;
+  if (nowMs < startMs) return "ignore";
+  if (!membership.endKnown) return nowMs >= periodEndMs ? "unknown" : "not_finished";
+  if (
+    !membership.open &&
+    membership.endMs != null &&
+    membership.endMs <= nowMs &&
+    membership.endMs >= startMs &&
+    membership.endMs < periodEndMs
+  ) {
+    return "left";
+  }
+  if (nowMs < periodEndMs) return "not_finished";
+  if (membership.open || (membership.endMs != null && membership.endMs >= periodEndMs)) {
+    return "eligible";
+  }
+  return "ignore";
+}
+
+function groupId(goal: boolean, proud: boolean): AchievementGroup["id"] {
+  if (goal && proud) return "both";
+  if (goal) return "goal_only";
+  if (proud) return "proud_only";
+  return "neither";
+}
+
+function summarizeHorizon(
+  day: number,
+  outcomes: Array<ReturnType<typeof subscriptionOutcome>>
+): AchievementHorizon {
+  const counts = { retained: 0, ended: 0, rejoined: 0, unknown: 0, immature: 0 };
+  for (const outcome of outcomes) counts[outcome] += 1;
+  const mature = counts.retained + counts.ended + counts.rejoined;
+  return {
+    day,
+    ...counts,
+    rate: mature > 0 ? `${Math.round((100 * counts.retained) / mature)}% (${counts.retained} of ${mature})` : "Not available",
+    small: mature > 0 && mature < SMALL_SAMPLE,
+  };
+}

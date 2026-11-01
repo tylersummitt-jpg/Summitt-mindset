@@ -12,9 +12,15 @@ import {
   type MemberActivity,
 } from "@/lib/retention-activity-periods";
 import {
+  achievementNotInReport,
+  buildAchievementRetention,
   buildBehaviorRetention,
+  emptyAchievementRetention,
   emptyBehaviorRetention,
+  formatAchievementRetention,
   formatBehaviorRetention,
+  type AchievementFact,
+  type AchievementRetention,
   type BehaviorMembership,
   type BehaviorRetention,
 } from "@/lib/retention-behavior-retention";
@@ -94,6 +100,8 @@ export type RetentionIntelligenceInput = {
   engagementReadable: boolean;
   engagementGaps?: string[];
   hits: RetentionHit[];
+  /** Null when the win read did not finish. Omitted means the same thing. */
+  achievementFacts?: AchievementFact[] | null;
   measuredSignals: Array<{ id: string; label: string }>;
   acquisitionReadable: boolean;
   landingReadable: boolean;
@@ -183,6 +191,8 @@ export type RetentionIntelligence = {
   annualActivity: MemberActivity;
   monthlyBehavior: BehaviorRetention;
   annualBehavior: BehaviorRetention;
+  monthlyAchievement: AchievementRetention;
+  annualAchievement: AchievementRetention;
   acquisitionReadable: boolean;
   landingReadable: boolean;
   experimentReadable: boolean;
@@ -456,6 +466,18 @@ export function buildRetentionIntelligence(
       hits: input.hits,
       unavailableSignalIds: unavailableActivitySignals(engagementGaps, input.engagementReadable),
     }),
+    monthlyAchievement: buildAchievementRetention({
+      population: "Monthly",
+      nowMs: input.nowMs,
+      memberships: behaviorMemberships(chainsByClerk),
+      facts: input.achievementFacts ?? null,
+    }),
+    annualAchievement: buildAchievementRetention({
+      population: "Annual",
+      nowMs: input.nowMs,
+      memberships: behaviorMemberships(chainsByClerkFromSpells(partition.annual)),
+      facts: input.achievementFacts ?? null,
+    }),
     acquisitionReadable: input.acquisitionReadable,
     landingReadable: input.landingReadable,
     experimentReadable: input.experimentReadable,
@@ -587,6 +609,9 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
   lines.push("BEHAVIOR VERSUS FUTURE RETENTION");
   lines.push(...formatBehaviorRetention(intel.monthlyBehavior));
   lines.push(...formatBehaviorRetention(intel.annualBehavior));
+  lines.push("RECORDED WINS IN THE FIRST 30 PAID DAYS");
+  lines.push(...formatAchievementRetention(intel.monthlyAchievement ?? achievementNotInReport("Monthly")));
+  lines.push(...formatAchievementRetention(intel.annualAchievement ?? achievementNotInReport("Annual")));
   lines.push("EARLIER DAY-30 COMPARISONS");
   lines.push(intel.engagementNote);
   for (const gap of intel.engagementGaps) lines.push(gap);
@@ -1188,6 +1213,8 @@ function emptyIntelligence(args: {
     annualActivity: emptyMemberActivity("Annual"),
     monthlyBehavior: emptyBehaviorRetention("Monthly"),
     annualBehavior: emptyBehaviorRetention("Annual"),
+    monthlyAchievement: emptyAchievementRetention("Monthly"),
+    annualAchievement: emptyAchievementRetention("Annual"),
     acquisitionReadable: false,
     landingReadable: false,
     experimentReadable: false,

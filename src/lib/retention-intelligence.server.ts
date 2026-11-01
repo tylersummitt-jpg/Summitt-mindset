@@ -22,6 +22,10 @@ import {
   type RetentionInterval,
 } from "@/lib/retention-intelligence";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
+import {
+  classifyActiveAchievement,
+  type AchievementFact,
+} from "@/lib/retention-behavior-retention";
 import { smsBehaviorFromRows } from "@/lib/retention-sms-behavior";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -143,6 +147,7 @@ export async function loadRetentionIntelligence(
       engagementReadable: engagement.readable,
       engagementGaps: engagement.gaps,
       hits: engagement.hits,
+      achievementFacts: engagement.achievementFacts,
       measuredSignals: engagement.signals,
       acquisitionReadable: acquisition.readable,
       landingReadable: acquisition.landingReadable,
@@ -248,16 +253,18 @@ async function countAppleRows(): Promise<number | null> {
 async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<{
   readable: boolean;
   hits: RetentionHit[];
+  achievementFacts: AchievementFact[] | null;
   signals: Array<{ id: string; label: string }>;
   gaps: string[];
 }> {
   if (clerkIds.length === 0) {
-    return { readable: true, hits: [], signals: [], gaps: [] };
+    return { readable: true, hits: [], achievementFacts: [], signals: [], gaps: [] };
   }
   if (clerkIds.length > ENGAGEMENT_MEMBER_CEILING) {
     return {
       readable: false,
       hits: [],
+      achievementFacts: null,
       signals: [],
       gaps: ["Member product history was too large to read. It is not shown as zero."],
     };
@@ -328,10 +335,17 @@ async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<
     }
   }
 
-  const wins = await readChunked("v2_win", "clerk_user_id, occurred_at, win_kind", clerkIds, { deadlineMs });
+  const wins = await readChunked(
+    "v2_win",
+    "clerk_user_id, occurred_at, win_kind, status, idempotency_key",
+    clerkIds,
+    { deadlineMs }
+  );
+  let achievementFacts: AchievementFact[] | null = null;
   if (!wins.ok) {
     gaps.push("Goal Wins and Proud Moments could not be fully read. They are not shown as zero.");
   } else {
+    achievementFacts = [];
     signals.push(
       { id: "goal_win", label: "Goal Win" },
       { id: "proud_moment", label: "Proud Moment" }
@@ -344,6 +358,14 @@ async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<
       if (kind === "goal_win" || kind === "proud_moment") {
         hits.push({ clerkUserId, atMs, signal: kind });
       }
+      const fact = classifyActiveAchievement({
+        clerkUserId,
+        atMs,
+        winKind: kind,
+        status: text(row.status),
+        idempotencyKey: text(row.idempotency_key),
+      });
+      if (fact) achievementFacts.push(fact);
     }
   }
 
@@ -388,7 +410,7 @@ async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<
     }
   }
 
-  return { readable: signals.length > 0, hits, signals, gaps };
+  return { readable: signals.length > 0, hits, achievementFacts, signals, gaps };
 }
 
 async function loadAcquisition(

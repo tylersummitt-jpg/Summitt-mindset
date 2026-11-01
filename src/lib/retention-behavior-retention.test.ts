@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildBehaviorRetention, behaviorOutcomeDay } from "@/lib/retention-behavior-retention";
+import {
+  buildAchievementRetention,
+  buildBehaviorRetention,
+  behaviorOutcomeDay,
+  classifyActiveAchievement,
+  formatAchievementRetention,
+  type AchievementFact,
+} from "@/lib/retention-behavior-retention";
 import { activityPeriod } from "@/lib/retention-activity-periods";
 import { buildRetentionIntelligence, type RetentionSpell } from "@/lib/retention-intelligence";
 
@@ -323,5 +330,180 @@ describe("behavior vs future retention", () => {
     expect(signalRow(withVisit.monthlyBehavior, "Days 0–7", "victory_room_visited")?.status).toBe(
       "unavailable"
     );
+  });
+});
+
+function fact(patch: Partial<AchievementFact> & Pick<AchievementFact, "clerkUserId" | "kind">): AchievementFact {
+  return {
+    atMs: START + DAY,
+    milestone: false,
+    ...patch,
+  };
+}
+
+function achievementGroup(
+  report: ReturnType<typeof buildAchievementRetention>,
+  id: "neither" | "goal_only" | "proud_only" | "both"
+) {
+  return report.groups.find((group) => group.id === id);
+}
+
+describe("first 30 paid days achievement retention", () => {
+  it("classifies active wins and leaves hidden, milestones, and accountability keys distinct", () => {
+    expect(
+      classifyActiveAchievement({
+        clerkUserId: "user_hidden",
+        atMs: START,
+        winKind: "goal_win",
+        status: "hidden",
+        idempotencyKey: "win_v1:acc_yes:SMhidden",
+      })
+    ).toBeNull();
+    expect(
+      classifyActiveAchievement({
+        clerkUserId: "user_yes",
+        atMs: START,
+        winKind: "goal_win",
+        status: "active",
+        idempotencyKey: "win_v1:acc_yes:SMyes",
+      })
+    ).toEqual({
+      clerkUserId: "user_yes",
+      atMs: START,
+      kind: "goal_win",
+      milestone: false,
+    });
+    expect(
+      classifyActiveAchievement({
+        clerkUserId: "user_join",
+        atMs: START,
+        winKind: "proud_moment",
+        status: "active",
+        idempotencyKey: "win_v1:onboarding:user_join:joined",
+      })?.milestone
+    ).toBe(true);
+    expect(
+      classifyActiveAchievement({
+        clerkUserId: "user_life",
+        atMs: START,
+        winKind: "proud_moment",
+        status: "active",
+        idempotencyKey: "win_v1:life:SM1",
+      })?.milestone
+    ).toBe(false);
+  });
+
+  it("keeps the four groups exclusive and keeps a cancellation out of Neither", () => {
+    const report = buildAchievementRetention({
+      population: "Monthly",
+      nowMs: START + 100 * DAY,
+      memberships: [
+        member({ clerkUserId: "neither" }),
+        member({ clerkUserId: "goal" }),
+        member({ clerkUserId: "proud" }),
+        member({ clerkUserId: "both" }),
+        member({ clerkUserId: "left", open: false, endMs: START + 10 * DAY }),
+        member({ clerkUserId: "milestone_only" }),
+      ],
+      facts: [
+        fact({ clerkUserId: "goal", kind: "goal_win" }),
+        fact({ clerkUserId: "goal", kind: "goal_win", atMs: START + 2 * DAY }),
+        fact({ clerkUserId: "proud", kind: "proud_moment" }),
+        fact({ clerkUserId: "both", kind: "goal_win" }),
+        fact({ clerkUserId: "both", kind: "proud_moment" }),
+        fact({ clerkUserId: "left", kind: "goal_win", atMs: START + 2 * DAY }),
+        fact({
+          clerkUserId: "milestone_only",
+          kind: "proud_moment",
+          milestone: true,
+        }),
+        fact({ clerkUserId: "goal", kind: "goal_win", atMs: START + 31 * DAY }),
+      ],
+    });
+    expect(achievementGroup(report, "neither")?.members).toBe(2);
+    expect(achievementGroup(report, "goal_only")?.members).toBe(1);
+    expect(achievementGroup(report, "proud_only")?.members).toBe(1);
+    expect(achievementGroup(report, "both")?.members).toBe(1);
+    expect(report.compared).toBe(5);
+    expect(report.leftDuring).toBe(1);
+    expect(report.goalWins).toBe(4);
+    expect(report.goalWinMembers).toBe(3);
+    expect(report.proudMoments).toBe(2);
+    expect(report.proudMomentMembers).toBe(2);
+    expect(report.onboardingMilestones).toBe(1);
+    const goalHorizon = achievementGroup(report, "goal_only")?.horizons.find((row) => row.day === 90);
+    expect(goalHorizon).toMatchObject({ retained: 1, ended: 0, rejoined: 0, immature: 0 });
+    expect(goalHorizon?.small).toBe(true);
+    const text = formatAchievementRetention(report).join("\n");
+    expect(text).toContain("not called Neither");
+    expect(text).toContain("not proof a major goal was completed");
+    expect(text).toContain("do not show that a win caused someone to stay");
+    expect(text).toContain("hidden wins and onboarding milestones");
+    expect(text).not.toContain("user_");
+    expect(text).not.toContain("win_v1:");
+  });
+
+  it("counts day 30 and excludes day 31, an unfinished window, an unknown end, and a later rejoin", () => {
+    const unfinished = buildAchievementRetention({
+      population: "Monthly",
+      nowMs: START + 10 * DAY,
+      memberships: [member()],
+      facts: [fact({ clerkUserId: "user_a", kind: "goal_win", atMs: START + 2 * DAY })],
+    });
+    expect(unfinished.notFinished).toBe(1);
+    expect(unfinished.compared).toBe(0);
+    expect(unfinished.goalWins).toBe(1);
+    expect(achievementGroup(unfinished, "goal_only")?.members).toBe(0);
+
+    const edges = buildAchievementRetention({
+      population: "Monthly",
+      nowMs: START + 100 * DAY,
+      memberships: [member({ clerkUserId: "edge" })],
+      facts: [
+        fact({ clerkUserId: "edge", kind: "goal_win", atMs: START + 30 * DAY }),
+        fact({ clerkUserId: "edge", kind: "goal_win", atMs: START + 31 * DAY }),
+      ],
+    });
+    expect(edges.goalWins).toBe(1);
+    expect(achievementGroup(edges, "goal_only")?.members).toBe(1);
+
+    const unknown = buildAchievementRetention({
+      population: "Monthly",
+      nowMs: START + 40 * DAY,
+      memberships: [member({ endKnown: false, open: false })],
+      facts: [],
+    });
+    expect(unknown.unknownEnd).toBe(1);
+    expect(unknown.compared).toBe(0);
+    expect(achievementGroup(unknown, "neither")?.members).toBe(0);
+
+    const rejoined = buildAchievementRetention({
+      population: "Annual",
+      nowMs: START + 100 * DAY,
+      memberships: [member({ open: false, endMs: START + 40 * DAY, hasLater: true })],
+      facts: [],
+    });
+    const day60 = achievementGroup(rejoined, "neither")?.horizons.find((row) => row.day === 60);
+    const day365 = achievementGroup(rejoined, "neither")?.horizons.find((row) => row.day === 365);
+    expect(day60).toMatchObject({ retained: 0, ended: 0, rejoined: 1, immature: 0, rate: "0% (0 of 1)" });
+    expect(day365).toMatchObject({ immature: 1, retained: 0, ended: 0, rejoined: 0, rate: "Not available" });
+    const rejoinedText = formatAchievementRetention(rejoined).join("\n");
+    expect(rejoinedText).toContain("Day 365: continuously retained Not available.");
+    expect(rejoinedText).not.toContain("Day 365: continuously retained 0%");
+  });
+
+  it("withholds the section when the win read did not finish", () => {
+    const report = buildAchievementRetention({
+      population: "Monthly",
+      nowMs: START + 100 * DAY,
+      memberships: [member()],
+      facts: null,
+    });
+    expect(report.status).toBe("unavailable");
+    expect(report.goalWins).toBeNull();
+    const text = formatAchievementRetention(report).join("\n");
+    expect(text).toContain("not zero");
+    expect(text).not.toContain("Neither");
+    expect(text).not.toContain("Active Goal Wins");
   });
 });
