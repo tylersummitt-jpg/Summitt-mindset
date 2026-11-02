@@ -26,6 +26,14 @@ import {
   classifyActiveAchievement,
   type AchievementFact,
 } from "@/lib/retention-behavior-retention";
+import {
+  activityRowFromEvent,
+  timingRowFromEvent,
+  ENGAGEMENT_EVENT_TYPES,
+  TIMING_EVENT_TYPES,
+  type MobileActivityRow,
+  type MobileTimingRow,
+} from "@/lib/mobile-measurement";
 import { smsBehaviorFromRows } from "@/lib/retention-sms-behavior";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -147,6 +155,8 @@ export async function loadRetentionIntelligence(
       engagementReadable: engagement.readable,
       engagementGaps: engagement.gaps,
       hits: engagement.hits,
+      mobileActivity: engagement.mobileActivity,
+      mobileTiming: engagement.mobileTiming,
       achievementFacts: engagement.achievementFacts,
       measuredSignals: engagement.signals,
       acquisitionReadable: acquisition.readable,
@@ -253,17 +263,29 @@ async function countAppleRows(): Promise<number | null> {
 async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<{
   readable: boolean;
   hits: RetentionHit[];
+  mobileActivity: MobileActivityRow[] | null;
+  mobileTiming: MobileTimingRow[] | null;
   achievementFacts: AchievementFact[] | null;
   signals: Array<{ id: string; label: string }>;
   gaps: string[];
 }> {
   if (clerkIds.length === 0) {
-    return { readable: true, hits: [], achievementFacts: [], signals: [], gaps: [] };
+    return {
+      readable: true,
+      hits: [],
+      mobileActivity: [],
+      mobileTiming: [],
+      achievementFacts: [],
+      signals: [],
+      gaps: [],
+    };
   }
   if (clerkIds.length > ENGAGEMENT_MEMBER_CEILING) {
     return {
       readable: false,
       hits: [],
+      mobileActivity: null,
+      mobileTiming: null,
       achievementFacts: null,
       signals: [],
       gaps: ["Member product history was too large to read. It is not shown as zero."],
@@ -302,15 +324,23 @@ async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<
 
   const experienceEvents = await readChunked(
     "v2_event",
-    "clerk_user_id, event_type, occurred_at, idempotency_key",
+    "clerk_user_id, event_type, occurred_at, idempotency_key, payload_json",
     clerkIds,
-    { maxPages: SMS_HISTORY_MAX_PAGES, orderColumn: "occurred_at", orderTieBreak: "idempotency_key", deadlineMs }
+    {
+      maxPages: SMS_HISTORY_MAX_PAGES,
+      orderColumn: "occurred_at",
+      orderTieBreak: "idempotency_key",
+      eventTypes: [...ENGAGEMENT_EVENT_TYPES],
+      deadlineMs,
+    }
   );
+  let mobileActivity: MobileActivityRow[] | null = null;
   if (!experienceEvents.ok) {
     gaps.push(
       "Victory Room and Film Room could not be fully read. They are not shown as zero."
     );
   } else {
+    mobileActivity = [];
     for (const row of experienceEvents.rows) {
       const clerkUserId = text(row.clerk_user_id);
       const atMs = isoMs(row.occurred_at);
@@ -319,6 +349,40 @@ async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<
       if (eventType === "victory_room_visited" || eventType === "film_room_played") {
         hits.push({ clerkUserId, atMs, signal: eventType });
       }
+      const activity = activityRowFromEvent({
+        clerkUserId,
+        atMs,
+        eventType,
+        payload: row.payload_json,
+      });
+      if (activity) mobileActivity.push(activity);
+    }
+  }
+  const timingEvents = await readChunked(
+    "v2_event",
+    "clerk_user_id, event_type, occurred_at, idempotency_key, payload_json",
+    clerkIds,
+    {
+      maxPages: SMS_HISTORY_MAX_PAGES,
+      orderColumn: "occurred_at",
+      orderTieBreak: "idempotency_key",
+      eventTypes: [...TIMING_EVENT_TYPES],
+      deadlineMs,
+    }
+  );
+  let mobileTiming: MobileTimingRow[] | null = null;
+  if (!timingEvents.ok) {
+    gaps.push("Startup and screen timing could not be fully read. They are not shown as zero.");
+  } else {
+    mobileTiming = [];
+    for (const row of timingEvents.rows) {
+      const timing = timingRowFromEvent({
+        clerkUserId: text(row.clerk_user_id),
+        atMs: isoMs(row.occurred_at),
+        eventType: text(row.event_type),
+        payload: row.payload_json,
+      });
+      if (timing) mobileTiming.push(timing);
     }
   }
 
@@ -410,7 +474,7 @@ async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<
     }
   }
 
-  return { readable: signals.length > 0, hits, achievementFacts, signals, gaps };
+  return { readable: signals.length > 0, hits, mobileActivity, mobileTiming, achievementFacts, signals, gaps };
 }
 
 async function loadAcquisition(
@@ -572,7 +636,13 @@ async function readChunked(
   table: string,
   columns: string,
   ids: string[],
-  options?: { maxPages?: number; orderColumn?: string; orderTieBreak?: string; deadlineMs?: number }
+  options?: {
+    maxPages?: number;
+    orderColumn?: string;
+    orderTieBreak?: string;
+    eventTypes?: string[];
+    deadlineMs?: number;
+  }
 ): Promise<{ ok: boolean; rows: Array<Record<string, unknown>> }> {
   const maxPages = options?.maxPages ?? ENGAGEMENT_DEFAULT_MAX_PAGES;
   const rows: Array<Record<string, unknown>> = [];
@@ -581,6 +651,9 @@ async function readChunked(
     for (let page = 0; page < maxPages; page += 1) {
       if (options?.deadlineMs != null && Date.now() >= options.deadlineMs) return { ok: false, rows: [] };
       let query = supabaseServer.from(table).select(columns).in("clerk_user_id", group);
+      if (options?.eventTypes && options.eventTypes.length > 0) {
+        query = query.in("event_type", options.eventTypes);
+      }
       if (options?.orderColumn) {
         query = query.order(options.orderColumn, { ascending: true });
       }

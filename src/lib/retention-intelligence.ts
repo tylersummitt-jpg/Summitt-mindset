@@ -12,6 +12,14 @@ import {
   type MemberActivity,
 } from "@/lib/retention-activity-periods";
 import {
+  buildMobilePopulationFacts,
+  formatMobilePopulation,
+  mobileFactsNotInReport,
+  type MobileActivityRow,
+  type MobilePopulationFacts,
+  type MobileTimingRow,
+} from "@/lib/mobile-measurement";
+import {
   achievementNotInReport,
   buildAchievementRetention,
   buildBehaviorRetention,
@@ -103,6 +111,9 @@ export type RetentionIntelligenceInput = {
   /** Null when the win read did not finish. Omitted means the same thing. */
   achievementFacts?: AchievementFact[] | null;
   measuredSignals: Array<{ id: string; label: string }>;
+  /** Undefined: this read did not ask. Null: the read failed. */
+  mobileActivity?: MobileActivityRow[] | null;
+  mobileTiming?: MobileTimingRow[] | null;
   acquisitionReadable: boolean;
   landingReadable: boolean;
   experimentReadable: boolean;
@@ -193,6 +204,8 @@ export type RetentionIntelligence = {
   annualBehavior: BehaviorRetention;
   monthlyAchievement: AchievementRetention;
   annualAchievement: AchievementRetention;
+  monthlyMobile: MobilePopulationFacts;
+  annualMobile: MobilePopulationFacts;
   acquisitionReadable: boolean;
   landingReadable: boolean;
   experimentReadable: boolean;
@@ -478,6 +491,20 @@ export function buildRetentionIntelligence(
       memberships: behaviorMemberships(chainsByClerkFromSpells(partition.annual)),
       facts: input.achievementFacts ?? null,
     }),
+    monthlyMobile: buildMobilePopulationFacts({
+      population: "Monthly",
+      nowMs: input.nowMs,
+      spells: partition.monthly,
+      activity: input.mobileActivity,
+      timing: input.mobileTiming,
+    }),
+    annualMobile: buildMobilePopulationFacts({
+      population: "Annual",
+      nowMs: input.nowMs,
+      spells: partition.annual,
+      activity: input.mobileActivity,
+      timing: input.mobileTiming,
+    }),
     acquisitionReadable: input.acquisitionReadable,
     landingReadable: input.landingReadable,
     experimentReadable: input.experimentReadable,
@@ -612,6 +639,9 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
   lines.push("RECORDED WINS IN THE FIRST 30 PAID DAYS");
   lines.push(...formatAchievementRetention(intel.monthlyAchievement ?? achievementNotInReport("Monthly")));
   lines.push(...formatAchievementRetention(intel.annualAchievement ?? achievementNotInReport("Annual")));
+  lines.push("MOBILE APP FACTS");
+  lines.push(...formatMobilePopulation(intel.monthlyMobile ?? mobileFactsNotInReport("Monthly")));
+  lines.push(...formatMobilePopulation(intel.annualMobile ?? mobileFactsNotInReport("Annual")));
   lines.push("EARLIER DAY-30 COMPARISONS");
   lines.push(intel.engagementNote);
   for (const gap of intel.engagementGaps) lines.push(gap);
@@ -1215,6 +1245,8 @@ function emptyIntelligence(args: {
     annualBehavior: emptyBehaviorRetention("Annual"),
     monthlyAchievement: emptyAchievementRetention("Monthly"),
     annualAchievement: emptyAchievementRetention("Annual"),
+    monthlyMobile: mobileFactsNotInReport("Monthly"),
+    annualMobile: mobileFactsNotInReport("Annual"),
     acquisitionReadable: false,
     landingReadable: false,
     experimentReadable: false,

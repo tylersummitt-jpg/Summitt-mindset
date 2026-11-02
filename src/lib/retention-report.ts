@@ -1,3 +1,4 @@
+import { mobileFactsNotInReport } from "@/lib/mobile-measurement";
 import { achievementNotInReport } from "@/lib/retention-behavior-retention";
 import {
   RETENTION_NOT_LOADED,
@@ -135,19 +136,26 @@ export function interpretRetentionReportRead(args: {
   }
 
   return {
-    intelligence: stored ? withAchievementSections(stored) : RETENTION_NOT_LOADED,
+    intelligence: stored ? withStoredSections(stored) : RETENTION_NOT_LOADED,
     cohortCalculatedAt: stored ? formatRetentionCohortTime(args.row.calculated_at) : null,
     generationNote: note,
   };
 }
 
-function withAchievementSections(intel: RetentionIntelligence): RetentionIntelligence {
-  if (intel.monthlyAchievement && intel.annualAchievement) return intel;
-  return {
-    ...intel,
-    monthlyAchievement: intel.monthlyAchievement ?? achievementNotInReport("Monthly"),
-    annualAchievement: intel.annualAchievement ?? achievementNotInReport("Annual"),
-  };
+function withStoredSections(intel: RetentionIntelligence): RetentionIntelligence {
+  const monthlyAchievement = intel.monthlyAchievement ?? achievementNotInReport("Monthly");
+  const annualAchievement = intel.annualAchievement ?? achievementNotInReport("Annual");
+  const monthlyMobile = intel.monthlyMobile ?? mobileFactsNotInReport("Monthly");
+  const annualMobile = intel.annualMobile ?? mobileFactsNotInReport("Annual");
+  if (
+    monthlyAchievement === intel.monthlyAchievement &&
+    annualAchievement === intel.annualAchievement &&
+    monthlyMobile === intel.monthlyMobile &&
+    annualMobile === intel.annualMobile
+  ) {
+    return intel;
+  }
+  return { ...intel, monthlyAchievement, annualAchievement, monthlyMobile, annualMobile };
 }
 
 function generationNote(row: RetentionReportRow, nowMs: number): string | null {

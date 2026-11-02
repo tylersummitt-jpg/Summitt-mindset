@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import AppEmailCodeSignIn from "@/components/app-sign-in/AppEmailCodeSignIn";
+import { InteractiveAuthMarker } from "@/components/mobile-measurement-client";
 import { APP_POST_AUTH_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
 
 export const metadata: Metadata = {
@@ -28,6 +29,7 @@ export default async function AppSignInPage() {
 
   return (
     <main className="min-h-[70vh] w-full overflow-x-hidden bg-[var(--bg)]">
+      <InteractiveAuthMarker />
       <AppEmailCodeSignIn />
     </main>
   );

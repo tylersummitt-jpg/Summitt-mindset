@@ -148,6 +148,25 @@ describe("retention report publication", () => {
     expect(olderFacts).not.toContain("Active Goal Wins");
     expect(older.intelligence.milestones).toEqual(ready.milestones);
 
+    const { monthlyMobile: _monthMobile, annualMobile: _yearMobile, ...beforeMobile } = ready;
+    const previousMobile = interpretRetentionReportRead({
+      error: null,
+      nowMs: NOW,
+      row: {
+        report: beforeMobile,
+        calculated_at: "2026-11-01T15:00:00.000Z",
+        schema_version: 1,
+        state: "idle",
+        started_at: null,
+        error: null,
+      },
+    });
+    expect(previousMobile.intelligence.monthlyMobile.engagementStatus).toBe("not_in_report");
+    expect(previousMobile.intelligence.milestones).toEqual(ready.milestones);
+    expect(formatRetentionIntelligence(previousMobile.intelligence).join("\n")).toContain(
+      "Mobile facts were not part of this saved report"
+    );
+
     const missing = interpretRetentionReportRead({
       error: { code: "PGRST205", message: "retention_report" },
       row: null,

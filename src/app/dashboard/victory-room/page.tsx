@@ -1,6 +1,10 @@
 import { currentUser } from "@clerk/nextjs/server";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import {
+  AcknowledgeLaunchWithoutVictoryRoom,
+  UsableScreenMarker,
+} from "@/components/mobile-measurement-client";
 import { VictoryCalendarSection } from "@/components/VictoryCalendarSection";
 import { VictoryRecentProofSection } from "@/components/VictoryRecentProofSection";
 import { VictoryRoomTopCard } from "@/components/VictoryRoomTopCard";
@@ -145,6 +149,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
       <main className={vrPageInner}>
         {!view.hasActiveV2Commitment ? (
           <section className={`${vrSectionCard} border-amber-500/30`}>
+            <AcknowledgeLaunchWithoutVictoryRoom />
             <h2 className="font-serif text-xl font-semibold text-stone-50">Not quite ready</h2>
             <p className="mt-3 text-sm leading-relaxed text-stone-300">
               Victory Room reads your <strong className="font-semibold text-stone-100">active commitment</strong>{" "}
@@ -169,6 +174,7 @@ export default async function VictoryRoomPage({ searchParams }: PageProps) {
               </section>
             ) : null}
 
+            <UsableScreenMarker surface="victory_room" startup />
             <header className="mb-5 sm:mb-6">
               <h1 className={vrSectionTitle}>Victory Room</h1>
               <p className={vrSectionSubtitle}>

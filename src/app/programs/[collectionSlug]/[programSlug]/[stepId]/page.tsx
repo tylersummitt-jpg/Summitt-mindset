@@ -18,6 +18,7 @@ import { requireProgramsMemberId } from "@/lib/learning/programs-session";
 import { listReflectionAnswers } from "@/lib/learning/reflection-answers";
 import { supabaseReflectionDb } from "@/lib/learning/reflection-answers-db";
 import { decideStepView, orderedSteps } from "@/lib/learning/step-access";
+import { DismissMeasuredNavigation, UsableScreenMarker } from "@/components/mobile-measurement-client";
 import { MemberSurfaceVisit } from "@/components/member-surface-visit";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ export default async function LearningStepPage({
     return (
       <ProgramsShell>
         <MemberSurfaceVisit surface="programs" />
+        <DismissMeasuredNavigation surface="programs" />
         <p className={utErrorPanel} role="alert">
           {loaded.message}
         </p>
@@ -57,6 +59,7 @@ export default async function LearningStepPage({
       return (
         <ProgramsShell>
           <MemberSurfaceVisit surface="programs" />
+        <DismissMeasuredNavigation surface="programs" />
           <p className={utErrorPanel} role="alert">
             {repaired.message}
           </p>
@@ -82,6 +85,7 @@ export default async function LearningStepPage({
       return (
         <ProgramsShell>
           <MemberSurfaceVisit surface="programs" />
+        <DismissMeasuredNavigation surface="programs" />
           <p className={utErrorPanel} role="alert">
             {created.message}
           </p>
@@ -108,6 +112,7 @@ export default async function LearningStepPage({
     return (
       <ProgramsShell>
         <MemberSurfaceVisit surface="programs" />
+        <DismissMeasuredNavigation surface="programs" />
         <p className={utErrorPanel} role="alert">
           {reflections.message}
         </p>
@@ -122,6 +127,7 @@ export default async function LearningStepPage({
   return (
     <ProgramsShell>
       <MemberSurfaceVisit surface="programs" />
+        <UsableScreenMarker surface="programs" />
       <StepExperience
         key={step.id}
         miniProgramId={program.id}

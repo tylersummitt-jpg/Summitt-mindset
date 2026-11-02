@@ -10,6 +10,7 @@ import { supabaseProgressDb } from "@/lib/learning/mini-program-progress-db";
 import { learningStepPath, resolveLearningRoute } from "@/lib/learning/program-paths";
 import { requireProgramsMemberId } from "@/lib/learning/programs-session";
 import { entryStepId } from "@/lib/learning/step-access";
+import { DismissMeasuredNavigation } from "@/components/mobile-measurement-client";
 import { MemberSurfaceVisit } from "@/components/member-surface-visit";
 
 export const dynamic = "force-dynamic";
@@ -32,6 +33,7 @@ export default async function ProgramEntryPage({
   if (!loaded.ok) {
     return (
       <ProgramsShell>
+        <DismissMeasuredNavigation surface="programs" />
         <p className={utErrorPanel} role="alert">
           {loaded.message}
         </p>
@@ -46,6 +48,7 @@ export default async function ProgramEntryPage({
       return (
         <ProgramsShell>
           <MemberSurfaceVisit surface="programs" />
+          <DismissMeasuredNavigation surface="programs" />
           <p className={utErrorPanel} role="alert">
             {repaired.message}
           </p>

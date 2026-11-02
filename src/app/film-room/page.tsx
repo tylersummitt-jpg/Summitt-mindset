@@ -13,6 +13,7 @@ import {
   utWatchLink,
 } from "@/components/utility-page-visual";
 import { supabaseServer } from "@/lib/supabase-server";
+import { DismissMeasuredNavigation, UsableScreenMarker } from "@/components/mobile-measurement-client";
 import { MemberSurfaceVisit } from "@/components/member-surface-visit";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
@@ -83,6 +84,7 @@ export default async function FilmRoomPage() {
       <main className={utPageCanvas}>
         <div className={utPageInnerFilm}>
           <MemberSurfaceVisit surface="film_room" />
+          <DismissMeasuredNavigation surface="film_room" />
           <h1 className={utPageTitle}>Film Room</h1>
           <p className="mt-4 text-sm text-red-300">Error loading videos.</p>
         </div>
@@ -135,6 +137,7 @@ export default async function FilmRoomPage() {
     <main className={utPageCanvas}>
       <div className={utPageInnerFilm}>
       <MemberSurfaceVisit surface="film_room" />
+      <UsableScreenMarker surface="film_room" />
       <header className="mb-12">
         <h1 className={utPageTitle}>Film Room</h1>
         <p className={`mt-2 max-w-2xl ${utBody}`}>Optional film study. Never required.</p>

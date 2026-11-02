@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import AskPatClient from "./ask-pat-client";
+import { UsableScreenMarker } from "@/components/mobile-measurement-client";
 import { MemberSurfaceVisit } from "@/components/member-surface-visit";
 import { isNativeSummittMindsetAppRequest, detectSummittMindsetPlatformRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { signInPathForClient } from "@/lib/native-app/membership-paths";
@@ -20,6 +21,7 @@ export default async function AskPatPage() {
   return (
     <>
       <MemberSurfaceVisit surface="ask_pat" />
+      <UsableScreenMarker surface="ask_pat" />
       <AskPatClient
         isSubscribed={isSubscribed}
         isNativeSummittMindsetApp={isNativeApp}
