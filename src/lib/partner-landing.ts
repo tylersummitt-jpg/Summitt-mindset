@@ -24,6 +24,8 @@ export type PartnerLanding = {
   path: PartnerLandingPath;
   key: PartnerKey;
   name: string;
+  headlineAccent: string;
+  logoSrc: string;
   videoHeading: string;
   /** Numeric Vimeo id. The page embeds only through buildVimeoPlayerEmbedUrl. */
   vimeoVideoId: string;
@@ -34,6 +36,8 @@ export const PARTNER_LANDINGS: readonly PartnerLanding[] = [
     path: "/orange-mountain-designs",
     key: "orange-mountain-designs",
     name: "Orange Mountain Designs",
+    headlineAccent: "Orange Mountain Designs Family",
+    logoSrc: "/brand/OMD.jpg",
     videoHeading:
       "Personal Video from Tyler Summitt to the Orange Mountain Designs Family",
     vimeoVideoId: "1243381661",
@@ -42,6 +46,8 @@ export const PARTNER_LANDINGS: readonly PartnerLanding[] = [
     path: "/lady-vol-boost-her-club",
     key: "lady-vol-boost-her-club",
     name: "Lady Vol Boost Her Club",
+    headlineAccent: "Lady Vol Boost Her Club Family",
+    logoSrc: "/brand/LVBHC.jpg",
     videoHeading:
       "Personal Video from Tyler Summitt to the Lady Vol Boost Her Club Family",
     vimeoVideoId: "1243381662",

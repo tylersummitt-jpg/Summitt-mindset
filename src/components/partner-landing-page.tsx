@@ -25,7 +25,7 @@ export function PartnerLandingPage({
   const checkoutHref = checkoutReady ? partnerCheckoutHref(partner.key, channel) : null;
   const playerSrc = buildVimeoPlayerEmbedUrl(partner.vimeoVideoId);
   const offer =
-    `Get daily coaching texts from Coach Pat for just $179/year, plus a FREE signed book — an exclusive thank-you for the ${partner.name} family.`;
+    "Get a FREE signed book plus daily coaching texts from Coach Pat for just $179/year.";
 
   return (
     <div>
@@ -33,14 +33,19 @@ export function PartnerLandingPage({
         <div className="grid w-full min-w-0 md:grid-cols-2 md:items-stretch">
           <div className="relative z-10 flex min-w-0 items-center px-4 pb-6 pt-8 sm:px-6 sm:pt-10 md:py-12 md:pl-[max(1.5rem,calc((100vw-72rem)/2+2.5rem))] md:pr-10 lg:py-14 lg:pr-14">
             <div className="flex w-full max-w-xl min-w-0 flex-col gap-5 break-words">
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-[var(--brand)]">
-                {partner.name}
-              </p>
+              <Image
+                src={partner.logoSrc}
+                alt={partner.name}
+                width={640}
+                height={480}
+                priority
+                className="h-20 w-auto max-w-[11rem] rounded-2xl bg-white object-contain shadow-md shadow-black/30 sm:h-24 sm:max-w-[13rem]"
+              />
               <div>
                 <h1 className="max-w-xl text-[1.65rem] font-black leading-[1.15] tracking-tight text-white drop-shadow-sm min-[390px]:text-[1.85rem] sm:text-4xl md:text-5xl md:leading-[1.05]">
-                  <span className="block">Reach Your Goals.</span>
+                  <span className="block">50% Off for the</span>
                   <span className="mt-1 block text-[var(--brand)] md:mt-1.5">
-                    Remember the Journey.
+                    {partner.headlineAccent}
                   </span>
                 </h1>
                 <p className="mt-3 max-w-xl text-lg font-medium leading-relaxed text-white/90 drop-shadow-sm md:mt-4 md:text-xl">

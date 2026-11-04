@@ -16,7 +16,9 @@ import {
 } from "@/lib/partner-landing";
 
 vi.mock("next/image", () => ({
-  default: (props: { alt?: string }) => <img alt={props.alt ?? ""} />,
+  default: (props: { alt?: string; src?: string }) => (
+    <img alt={props.alt ?? ""} src={props.src ?? ""} />
+  ),
 }));
 
 const root = process.cwd();
@@ -36,15 +38,17 @@ describe("partner landing pages", () => {
         <PartnerLandingPage partner={partner} channel="unknown" checkoutReady={false} />
       );
       expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-        "Reach Your Goals."
+        "50% Off for the"
       );
       expect(screen.getByRole("heading", { level: 1 }).textContent).toContain(
-        "Remember the Journey."
+        partner.headlineAccent
       );
-      expect(screen.getByText(partner.name)).toBeTruthy();
+      expect(screen.getByRole("img", { name: partner.name }).getAttribute("src")).toBe(
+        partner.logoSrc
+      );
       expect(
         screen.getByText(
-          `Get daily coaching texts from Coach Pat for just $179/year, plus a FREE signed book — an exclusive thank-you for the ${partner.name} family.`
+          "Get a FREE signed book plus daily coaching texts from Coach Pat for just $179/year."
         )
       ).toBeTruthy();
       expect(screen.getByRole("heading", { name: partner.videoHeading })).toBeTruthy();
