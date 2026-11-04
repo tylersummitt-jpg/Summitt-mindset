@@ -15,6 +15,8 @@ import {
   type SummittMembershipClass,
 } from "@/lib/summitt-subscription-membership";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
+import { loadValidatedPartnerAnnualPrice } from "@/lib/partner-annual-price.server";
+import { parsePartnerChannel, parsePartnerKey } from "@/lib/partner-landing";
 import {
   ACCOUNT_DELETION_IN_PROGRESS_BODY,
   assertEntitlementMutationAllowedForAccountDeletion,
@@ -59,7 +61,7 @@ if (!stripeSecretKey) {
 
 const stripe = stripeSecretKey ? new Stripe(stripeSecretKey) : null;
 
-type Plan = "monthly" | "annual";
+type Plan = "monthly" | "annual" | "partner_annual";
 
 const ALLOWED_SRC = new Set(["coach"]);
 
@@ -73,12 +75,13 @@ function isTruthySubscribed(raw: unknown): boolean {
  */
 function isSummittProductSubscription(sub: Stripe.Subscription): boolean {
   const plan = sub.metadata?.plan;
-  if (plan === "monthly" || plan === "annual") return true;
+  if (plan === "monthly" || plan === "annual" || plan === "partner_annual") return true;
   const priceId = sub.items.data[0]?.price?.id;
   if (typeof priceId !== "string") return false;
   const recognized = getRecognizedSummittPriceIds({
     monthly: monthlyPriceId,
     annual: annualPriceId,
+    partnerAnnual: process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL,
     legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
   });
   return recognized.has(priceId);
@@ -451,8 +454,14 @@ export async function POST(req: Request) {
     const src =
       typeof rawSrc === "string" && ALLOWED_SRC.has(rawSrc) ? rawSrc : null;
 
-    if (plan !== "monthly" && plan !== "annual") {
+    if (plan !== "monthly" && plan !== "annual" && plan !== "partner_annual") {
       return new NextResponse("Missing or invalid plan", { status: 400 });
+    }
+    const partnerKey = plan === "partner_annual" ? parsePartnerKey(body?.partner) : null;
+    const partnerChannel =
+      plan === "partner_annual" ? parsePartnerChannel(body?.partnerChannel) : "unknown";
+    if (plan === "partner_annual" && !partnerKey) {
+      return new NextResponse("Missing or invalid partner", { status: 400 });
     }
 
     let publicMetadata = await getClerkPublicMetadata(userId);
@@ -476,7 +485,21 @@ export async function POST(req: Request) {
       }
     }
 
-    const priceId = plan === "annual" ? annualPriceId : monthlyPriceId;
+    let priceId: string | undefined;
+    if (plan === "partner_annual") {
+      const validated = await loadValidatedPartnerAnnualPrice({ fresh: true });
+      if (!validated.ok) {
+        console.error("[stripe/create-checkout-session] partner price rejected", {
+          reason: validated.reason,
+        });
+        return NextResponse.json({ error: "partner_price_unavailable" }, { status: 503 });
+      }
+      priceId = validated.priceId;
+    } else if (plan === "annual") {
+      priceId = annualPriceId;
+    } else {
+      priceId = monthlyPriceId;
+    }
 
     if (!priceId) {
       return new NextResponse(
@@ -714,6 +737,7 @@ export async function POST(req: Request) {
     const recognizedPriceIds = getRecognizedSummittPriceIds({
       monthly: monthlyPriceId,
       annual: annualPriceId,
+      partnerAnnual: process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL,
       legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
     });
 
@@ -765,6 +789,8 @@ export async function POST(req: Request) {
       channel,
       expectedPriceId: priceId,
       recognizedPriceIds,
+      partner: partnerKey,
+      partnerChannel,
     };
     const pendingDecision = decidePendingCheckoutAction(openSessions, pendingArgs);
     if (pendingDecision.kind === "conflict") {
@@ -793,6 +819,8 @@ export async function POST(req: Request) {
           plan,
           channel,
           expectedPriceId: priceId,
+          partner: partnerKey,
+          partnerChannel,
         })
       ) {
         const reuseUrl = reusable.url;
@@ -821,13 +849,19 @@ export async function POST(req: Request) {
         subscriptionMetadata[ACQUISITION_JOURNEY_METADATA_KEY] = journeyId;
       }
     }
+    if (plan === "partner_annual" && partnerKey) {
+      sessionMetadata.partner = partnerKey;
+      sessionMetadata.partner_channel = partnerChannel;
+      subscriptionMetadata.partner = partnerKey;
+      subscriptionMetadata.partner_channel = partnerChannel;
+    }
 
     const appUrl = resolveStripeCheckoutReturnOrigin(req);
     const createParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       client_reference_id: userId,
       line_items: [{ price: priceId, quantity: 1 }],
-      allow_promotion_codes: true,
+      allow_promotion_codes: plan === "partner_annual" ? false : true,
       customer: resolvedCustomerId,
       metadata: sessionMetadata,
       subscription_data: {
@@ -857,6 +891,13 @@ export async function POST(req: Request) {
               "**$0 due today.** 7 days free, then $249/year. Cancel anytime. After checkout, you'll set up Coach Pat.",
           },
         };
+      } else if (plan === "partner_annual") {
+        createParams.custom_text = {
+          submit: {
+            message:
+              "**$0 due today.** 7 days free, then $179/year. Cancel anytime. After checkout, you'll set up Coach Pat.",
+          },
+        };
       }
     }
 
@@ -864,6 +905,8 @@ export async function POST(req: Request) {
       userId,
       plan,
       channel,
+      partner: partnerKey,
+      partnerChannel,
     });
 
     let session: Stripe.Checkout.Session;

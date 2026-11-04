@@ -25,6 +25,8 @@ export function parseStripePriceIdList(
 export type RecognizedPriceIdSources = {
   monthly?: string | null;
   annual?: string | null;
+  /** STRIPE_PRICE_ID_PARTNER_ANNUAL. Omitted sources do not read the env. */
+  partnerAnnual?: string | null;
   /** Raw STRIPE_LEGACY_PRICE_IDS value (comma-separated). */
   legacyCsv?: string | null;
 };
@@ -37,11 +39,12 @@ export function getRecognizedSummittPriceIds(
   sources: RecognizedPriceIdSources = {
     monthly: process.env.STRIPE_PRICE_ID_MONTHLY,
     annual: process.env.STRIPE_PRICE_ID_ANNUAL,
+    partnerAnnual: process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL,
     legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
   }
 ): Set<string> {
   const ids = new Set<string>();
-  for (const raw of [sources.monthly, sources.annual]) {
+  for (const raw of [sources.monthly, sources.annual, sources.partnerAnnual]) {
     if (typeof raw !== "string") continue;
     const id = raw.trim();
     if (id) ids.add(id);

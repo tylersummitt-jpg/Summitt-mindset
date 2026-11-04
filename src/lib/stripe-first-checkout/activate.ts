@@ -22,6 +22,9 @@ import {
 } from "@/lib/acquisition/email-acquired-member-notice";
 import { noteAcquisitionClerk } from "@/lib/acquisition/store";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
+import { publicCheckoutOfferMatches } from "@/lib/partner-annual-checkout";
+import { loadValidatedPartnerAnnualPrice } from "@/lib/partner-annual-price.server";
+import { parsePartnerChannel, parsePartnerKey } from "@/lib/partner-landing";
 import { resolveStripeCheckoutReturnOrigin } from "@/lib/stripe-checkout-return-origin";
 import {
   BINDING_MAX_AGE_SECONDS,
@@ -217,7 +220,10 @@ function priceIdForPlan(plan: "monthly" | "annual"): string | null {
   return priceId || null;
 }
 
-function submitMessage(plan: "monthly" | "annual"): string {
+function submitMessage(plan: "monthly" | "annual" | "partner_annual"): string {
+  if (plan === "partner_annual") {
+    return "**$0 due today.** 7 days free, then $179/year. Cancel anytime. After checkout, you'll set up Coach Pat.";
+  }
   if (plan === "annual") {
     return "**$0 due today.** 7 days free, then $249/year. Cancel anytime. After checkout, you'll set up Coach Pat.";
   }
@@ -226,12 +232,14 @@ function submitMessage(plan: "monthly" | "annual"): string {
 
 export async function beginHostedCheckout(args: {
   request: Request;
-  plan: "monthly" | "annual";
+  plan: "monthly" | "annual" | "partner_annual";
   visitorCookie: string | null;
   experimentId: string | null;
   experimentVariant: "control" | "challenger" | null;
   /** Public signup. Does not use the owner-canary switch. */
   publicCheckout?: boolean;
+  partner?: string | null;
+  partnerChannel?: "email" | "social" | "unknown" | null;
   attribution?: {
     utmSource: string | null;
     utmMedium: string | null;
@@ -262,6 +270,7 @@ export async function beginHostedCheckout(args: {
     if (serverLivemode == null) throw new Error("hosted_credentials_required");
     livemode = serverLivemode;
   } else {
+    if (args.plan === "partner_annual") throw new Error("hosted_checkout_refused");
     const mode = assertHostedCredentials();
     canary = mode === "canary";
     livemode = canary;
@@ -276,7 +285,22 @@ export async function beginHostedCheckout(args: {
       throw new Error(liveIntentExists ? "canary_already_used" : "hosted_checkout_refused");
     }
   }
-  const priceId = priceIdForPlan(args.plan);
+  const partnerKey = args.plan === "partner_annual" ? parsePartnerKey(args.partner) : null;
+  if (args.plan === "partner_annual" && !partnerKey) throw new Error("missing_partner");
+  const partnerChannel =
+    args.plan === "partner_annual" ? parsePartnerChannel(args.partnerChannel) : null;
+  let priceId: string | null;
+  if (args.plan === "partner_annual") {
+    const validated = await loadValidatedPartnerAnnualPrice({ fresh: true });
+    if (!validated.ok) {
+      console.error("[partner-annual] price rejected", { reason: validated.reason });
+      priceId = null;
+    } else {
+      priceId = validated.priceId;
+    }
+  } else {
+    priceId = priceIdForPlan(args.plan);
+  }
   if (!priceId) throw new Error("missing_price");
 
   const binding = newCheckoutBinding();
@@ -310,7 +334,7 @@ export async function beginHostedCheckout(args: {
       {
         mode: "subscription",
         line_items: [{ price: priceId, quantity: 1 }],
-        allow_promotion_codes: true,
+        allow_promotion_codes: args.plan === "partner_annual" ? false : true,
         custom_text: { submit: { message: submitMessage(args.plan) } },
         metadata: {
           [INTENT_METADATA_KEY]: intent.id,
@@ -334,6 +358,9 @@ export async function beginHostedCheckout(args: {
           ...(acquisitionJourneyId
             ? { [ACQUISITION_JOURNEY_METADATA_KEY]: acquisitionJourneyId }
             : {}),
+          ...(partnerKey
+            ? { partner: partnerKey, partner_channel: partnerChannel ?? "unknown" }
+            : {}),
         },
         subscription_data: {
           trial_period_days: 7,
@@ -353,13 +380,22 @@ export async function beginHostedCheckout(args: {
             ...(acquisitionJourneyId
               ? { [ACQUISITION_JOURNEY_METADATA_KEY]: acquisitionJourneyId }
               : {}),
+            ...(partnerKey
+              ? { partner: partnerKey, partner_channel: partnerChannel ?? "unknown" }
+              : {}),
           },
         },
         success_url: `${origin}${
           publicCheckout ? PUBLIC_CHECKOUT_RETURN_PATH : HOSTED_TEST_RETURN_PATH
         }?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: publicCheckout
-          ? `${origin}/checkout/start?canceled=1${args.plan === "annual" ? "&plan=annual" : ""}${
+          ? `${origin}/checkout/start?canceled=1${
+              args.plan === "annual"
+                ? "&plan=annual"
+                : args.plan === "partner_annual" && partnerKey
+                  ? `&plan=partner_annual&partner=${encodeURIComponent(partnerKey)}&channel=${encodeURIComponent(partnerChannel ?? "unknown")}`
+                  : ""
+            }${
               acquisitionJourneyToken
                 ? `&${ACQUISITION_JOURNEY_QUERY}=${encodeURIComponent(acquisitionJourneyToken)}`
                 : ""
@@ -455,7 +491,9 @@ export type PublicCheckoutResume =
  */
 export async function resumeOrReplacePublicCheckout(args: {
   bindingSecret: string | undefined;
-  plan: "monthly" | "annual";
+  plan: "monthly" | "annual" | "partner_annual";
+  partner?: string | null;
+  partnerChannel?: "email" | "social" | "unknown" | null;
   request: Request;
   /** Signed-in checkout must not leave an older anonymous session payable. */
   displaceOpenSession?: boolean;
@@ -488,10 +526,16 @@ export async function resumeOrReplacePublicCheckout(args: {
   }
 
   const status = sessionState(session.status);
-  const sameJourney =
-    parseAcquisitionJourneyId(session.metadata?.[ACQUISITION_JOURNEY_METADATA_KEY])
-    === parseAcquisitionJourneyId(args.acquisitionJourneyId);
-  const samePlan = session.metadata?.plan === args.plan && sameJourney;
+  const samePlan = publicCheckoutOfferMatches({
+    sessionPlan: session.metadata?.plan,
+    sessionPartner: session.metadata?.partner,
+    sessionChannel: session.metadata?.partner_channel,
+    sessionJourney: parseAcquisitionJourneyId(session.metadata?.[ACQUISITION_JOURNEY_METADATA_KEY]),
+    plan: args.plan,
+    partner: args.partner ?? null,
+    channel: args.partnerChannel ?? "unknown",
+    journey: parseAcquisitionJourneyId(args.acquisitionJourneyId),
+  });
   const hasUrl = typeof session.url === "string" && session.url.length > 0;
   let action = priorCheckoutAction({
     status,
@@ -706,7 +750,7 @@ async function provisionNewCustomer(
     clerkUserId,
     customerId: proof.customerId,
     subscriptionId: proof.subscriptionId,
-    plan: plan === "monthly" || plan === "annual" ? plan : null,
+    plan: plan === "monthly" || plan === "annual" || plan === "partner_annual" ? plan : null,
     markReservedCheckoutEmail: true,
   });
   try {

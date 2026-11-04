@@ -8,6 +8,7 @@ import {
   checkoutPlanFromUnknown,
   checkoutStartForceRedirectUrl,
   isAnnualCheckoutPlan,
+  isPartnerAnnualCheckoutPlan,
   signInHrefForCheckoutStart,
   signUpHrefForCheckoutStart,
 } from "@/lib/checkout-plan";
@@ -21,11 +22,14 @@ function readSrc(rel: string): string {
 describe("consumer checkout plan helper", () => {
   it("only literal annual opts in; everything else is monthly", () => {
     expect(isAnnualCheckoutPlan("annual")).toBe(true);
+    expect(isPartnerAnnualCheckoutPlan("partner_annual")).toBe(true);
+    expect(isPartnerAnnualCheckoutPlan("annual")).toBe(false);
     expect(isAnnualCheckoutPlan("monthly")).toBe(false);
     expect(isAnnualCheckoutPlan("yearly")).toBe(false);
     expect(isAnnualCheckoutPlan("ANNUAL")).toBe(false);
     expect(isAnnualCheckoutPlan("")).toBe(false);
     expect(isAnnualCheckoutPlan(null)).toBe(false);
+    expect(checkoutPlanFromUnknown("partner_annual")).toBe("monthly");
     expect(checkoutPlanFromUnknown(undefined)).toBe("monthly");
     expect(checkoutPlanFromSearchValue("annual")).toBe("annual");
     expect(checkoutPlanFromSearchValue(["annual"])).toBe("annual");

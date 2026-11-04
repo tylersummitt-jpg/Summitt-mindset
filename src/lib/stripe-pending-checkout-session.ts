@@ -4,7 +4,7 @@
  */
 
 export type CheckoutChannel = "web" | "coach";
-export type CheckoutPlan = "monthly" | "annual";
+export type CheckoutPlan = "monthly" | "annual" | "partner_annual";
 
 export type PendingCheckoutSessionLike = {
   id?: string | null;
@@ -61,8 +61,12 @@ export function checkoutIdempotencyKeyV2(args: {
   userId: string;
   plan: CheckoutPlan;
   channel: CheckoutChannel;
+  partner?: string | null;
+  partnerChannel?: string | null;
 }): string {
-  return `checkout-subscription-v2:${args.userId}:${args.plan}:${args.channel}`;
+  const base = `checkout-subscription-v2:${args.userId}:${args.plan}:${args.channel}`;
+  if (args.plan !== "partner_annual") return base;
+  return `${base}:${args.partner ?? "unknown"}:${args.partnerChannel ?? "unknown"}`;
 }
 
 export function sessionCheckoutChannel(
@@ -110,7 +114,7 @@ function metadataPlan(
   session: PendingCheckoutSessionLike
 ): CheckoutPlan | null {
   const plan = session.metadata?.plan;
-  if (plan === "monthly" || plan === "annual") return plan;
+  if (plan === "monthly" || plan === "annual" || plan === "partner_annual") return plan;
   return null;
 }
 
@@ -154,6 +158,17 @@ export function isOwnedOpenSummittCheckoutSession(
   return plan != null || recognizedPrice || coach;
 }
 
+function partnerOfferMatches(
+  session: PendingCheckoutSessionLike,
+  args: { plan: CheckoutPlan; partner?: string | null; partnerChannel?: string | null }
+): boolean {
+  if (args.plan !== "partner_annual") return true;
+  return (
+    session.metadata?.partner === args.partner &&
+    (session.metadata?.partner_channel || "unknown") === (args.partnerChannel || "unknown")
+  );
+}
+
 function isCompatibleOpenCheckoutShape(
   session: PendingCheckoutSessionLike,
   args: {
@@ -161,6 +176,8 @@ function isCompatibleOpenCheckoutShape(
     plan: CheckoutPlan;
     channel: CheckoutChannel;
     expectedPriceId: string;
+    partner?: string | null;
+    partnerChannel?: string | null;
   }
 ): boolean {
   if (session.status !== "open") return false;
@@ -168,6 +185,7 @@ function isCompatibleOpenCheckoutShape(
   if (!clerkIdentityMatchesCheckoutSession(session, args.userId)) return false;
   if (metadataPlan(session) !== args.plan) return false;
   if (sessionCheckoutChannel(session) !== args.channel) return false;
+  if (!partnerOfferMatches(session, args)) return false;
   return hasExactExpectedMembershipPrice(session, args.expectedPriceId);
 }
 
@@ -178,6 +196,8 @@ export function isReusableOpenCheckoutSession(
     plan: CheckoutPlan;
     channel: CheckoutChannel;
     expectedPriceId: string;
+    partner?: string | null;
+    partnerChannel?: string | null;
   }
 ): boolean {
   if (!isUsableOpenCheckoutUrl(session)) return false;
@@ -198,6 +218,8 @@ export function decidePendingCheckoutAction(
     channel: CheckoutChannel;
     expectedPriceId: string;
     recognizedPriceIds: Set<string>;
+    partner?: string | null;
+    partnerChannel?: string | null;
   }
 ): PendingCheckoutDecision {
   if (sessions.some(checkoutSessionIdentityDisagrees)) {
@@ -217,6 +239,8 @@ export function decidePendingCheckoutAction(
       plan: args.plan,
       channel: args.channel,
       expectedPriceId: args.expectedPriceId,
+      partner: args.partner,
+      partnerChannel: args.partnerChannel,
     })
   );
   const incompatible = owned.filter(
@@ -226,6 +250,8 @@ export function decidePendingCheckoutAction(
         plan: args.plan,
         channel: args.channel,
         expectedPriceId: args.expectedPriceId,
+        partner: args.partner,
+        partnerChannel: args.partnerChannel,
       })
   );
 

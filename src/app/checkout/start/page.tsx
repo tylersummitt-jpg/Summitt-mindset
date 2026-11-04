@@ -3,7 +3,8 @@ export const dynamic = "force-dynamic";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { acquisitionJourneyTokenShape } from "@/lib/acquisition/email-acquired-member-notice";
-import { checkoutPlanFromSearchValue } from "@/lib/checkout-plan";
+import { checkoutPlanFromSearchValue, isPartnerAnnualCheckoutPlan } from "@/lib/checkout-plan";
+import { parsePartnerChannel, parsePartnerKey } from "@/lib/partner-landing";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
@@ -36,7 +37,18 @@ export default async function CheckoutStartPage({
   }
 
   const sp = await resolveCheckoutStartSearchParams(searchParams);
-  const plan = checkoutPlanFromSearchValue(sp.plan);
+  const rawPlan = Array.isArray(sp.plan) ? sp.plan[0] : sp.plan;
+  const plan = isPartnerAnnualCheckoutPlan(rawPlan)
+    ? "partner_annual"
+    : checkoutPlanFromSearchValue(rawPlan);
+  const partnerKey =
+    plan === "partner_annual"
+      ? parsePartnerKey(Array.isArray(sp.partner) ? sp.partner[0] : sp.partner)
+      : null;
+  const partnerChannel =
+    plan === "partner_annual"
+      ? parsePartnerChannel(Array.isArray(sp.channel) ? sp.channel[0] : sp.channel)
+      : "unknown";
   const rawJourney = Array.isArray(sp.aj) ? sp.aj[0] : sp.aj;
   const acquisitionJourneyToken = acquisitionJourneyTokenShape(rawJourney);
 
@@ -49,5 +61,5 @@ export default async function CheckoutStartPage({
     }
   }
 
-  return <CheckoutStartClient plan={plan} acquisitionJourneyToken={acquisitionJourneyToken} />;
+  return <CheckoutStartClient plan={plan} acquisitionJourneyToken={acquisitionJourneyToken} partnerKey={partnerKey} partnerChannel={partnerChannel} />;
 }

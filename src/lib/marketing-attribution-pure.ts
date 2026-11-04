@@ -11,6 +11,7 @@ import {
 import { EXPERIMENT_CTA_SURFACES } from "@/lib/landing-experiment-telemetry";
 import { isLandingExperimentEntryPath } from "@/lib/landing-experiment-shared";
 import { sanitizeMetaFbclid } from "@/lib/meta-capi-web-identifier-validation";
+import { isPartnerLandingPath } from "@/lib/partner-landing";
 
 export const SM_VISITOR_COOKIE = "sm_visitor";
 export const SM_ACQ_COOKIE = "sm_acq";
@@ -231,6 +232,7 @@ export function isMarketingPageViewPath(pathname: string): boolean {
   if (path.startsWith("/pat-summitt")) return true;
   if (path === "/challenge" || path.startsWith("/challenge/")) return true;
   if ((AUDIENCE_LANDING_PATHS as readonly string[]).includes(path)) return true;
+  if (isPartnerLandingPath(path)) return true;
   return false;
 }
 

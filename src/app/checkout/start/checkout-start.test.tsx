@@ -53,7 +53,11 @@ describe("/checkout/start hop", () => {
     expect(page).toContain("fail-open");
     expect(page).not.toContain("signUpHrefForCheckoutStart");
     expect(page).toContain("checkoutPlanFromSearchValue");
-    expect(page).toContain("return <CheckoutStartClient plan={plan} acquisitionJourneyToken={acquisitionJourneyToken} />");
+    expect(page.indexOf("isPartnerAnnualCheckoutPlan(rawPlan)")).toBeLessThan(
+      page.indexOf("checkoutPlanFromSearchValue(rawPlan)")
+    );
+    expect(page).toContain("partnerKey={partnerKey}");
+    expect(page).toContain("partnerChannel={partnerChannel}");
     expect(page).not.toContain("src=coach");
     expect(page).not.toContain("Pat");
     expect(page).not.toContain("$249");
@@ -91,6 +95,39 @@ describe("/checkout/start hop", () => {
     expect(replace).not.toHaveBeenCalled();
     await waitFor(() => {
       expect(assign).toHaveBeenCalledWith("https://checkout.stripe.test/public");
+    });
+  });
+
+  it("posts partner_annual with the partner and does not rewrite it to monthly", async () => {
+    userState = { isLoaded: true, isSignedIn: false };
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: "https://checkout.stripe.test/partner" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign },
+    });
+    render(
+      <CheckoutStartClient
+        plan="partner_annual"
+        partnerKey="orange-mountain-designs"
+        partnerChannel="email"
+      />
+    );
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/checkout/stripe-first/start",
+        expect.objectContaining({
+          body: JSON.stringify({
+            plan: "partner_annual",
+            partner: "orange-mountain-designs",
+            partnerChannel: "email",
+          }),
+        })
+      );
     });
   });
 

@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useIsNativeSummittMindsetApp } from "@/components/native-app/NativeAppProvider";
 import { APP_SIGN_IN_PATH } from "@/lib/app-sign-in/app-sign-in-constants";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
+import { isPartnerLandingPath } from "@/lib/partner-landing";
 
 /**
  * ======================================================
@@ -77,7 +78,7 @@ export function Navbar() {
     return null;
   }
 
-  if (pathname?.startsWith("/for/")) {
+  if (isPartnerLandingPath(pathname) || pathname?.startsWith("/for/")) {
     return (
       <header className="border-b border-[var(--border)] bg-[var(--surface)]">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">

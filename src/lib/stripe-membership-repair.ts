@@ -112,7 +112,7 @@ function isMissingStripeResource(error: unknown): boolean {
 
 function isSummittProductSubscription(sub: RepairSubscription): boolean {
   const plan = sub.metadata?.plan;
-  if (plan === "monthly" || plan === "annual") return true;
+  if (plan === "monthly" || plan === "annual" || plan === "partner_annual") return true;
   const priceId = sub.items?.data?.[0]?.price?.id;
   if (typeof priceId !== "string" || priceId.trim().length === 0) return false;
   return getRecognizedSummittPriceIds().has(priceId.trim());

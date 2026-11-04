@@ -691,6 +691,7 @@ export async function cancelStripeSubscriptionsForDeletion(
           getRecognizedSummittPriceIds({
             monthly: process.env.STRIPE_PRICE_ID_MONTHLY,
             annual: process.env.STRIPE_PRICE_ID_ANNUAL,
+            partnerAnnual: process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL,
             legacyCsv: process.env.STRIPE_LEGACY_PRICE_IDS,
           });
       } catch (e) {

@@ -75,6 +75,7 @@ vi.mock("@/lib/account-deletion/deletion-guards", () => ({
 }));
 
 const retrieveMock = vi.fn();
+const priceRetrieveMock = vi.fn();
 const listSubsMock = vi.fn();
 const listCustomersMock = vi.fn();
 const createCustomerMock = vi.fn();
@@ -104,6 +105,9 @@ vi.mock("stripe", () => {
         retrieve: (...args: unknown[]) => retrieveCheckoutSessionMock(...args),
         update: (...args: unknown[]) => updateCheckoutSessionMock(...args),
       },
+    };
+    prices = {
+      retrieve: (...args: unknown[]) => priceRetrieveMock(...args),
     };
   }
   return { default: StripeMock };
@@ -178,6 +182,7 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     process.env.STRIPE_PRICE_ID_ANNUAL = "price_1TtRdEHP6uKt4BBo0Ex8Xw8a";
     process.env.STRIPE_LEGACY_PRICE_IDS =
       "price_1SzRiNHP6uKt4BBok7FrpmQY,price_1SZY92HP6uKt4BBo9gP2ZMXb";
+    delete process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL;
     process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
 
     authMock.mockResolvedValue({ userId: "user_1" });
@@ -528,6 +533,132 @@ describe("POST /api/stripe/create-checkout-session duplicate protection", () => 
     expect(createSessionMock.mock.calls[0][0].subscription_data.trial_period_days).toBe(
       7
     );
+  });
+
+  it("partner_annual selects the validated $179 price and keeps partner metadata", async () => {
+    process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL = "price_partner_179";
+    priceRetrieveMock.mockImplementation(async (id: string) => {
+      if (id === "price_partner_179") {
+        return {
+          id,
+          active: true,
+          currency: "usd",
+          unit_amount: 17900,
+          livemode: false,
+          product: "prod_membership",
+          recurring: { interval: "year", interval_count: 1 },
+        };
+      }
+      if (id === process.env.STRIPE_PRICE_ID_MONTHLY) {
+        return {
+          id,
+          active: true,
+          currency: "usd",
+          unit_amount: 2900,
+          livemode: false,
+          product: "prod_membership",
+          recurring: { interval: "month", interval_count: 1 },
+        };
+      }
+      return null;
+    });
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({ data: [] });
+    const { POST } = await import("./route");
+    const res = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({
+          plan: "partner_annual",
+          partner: "lady-vol-boost-her-club",
+          partnerChannel: "social",
+        }),
+      })
+    );
+    expect(res.status).toBe(200);
+    const created = createSessionMock.mock.calls[0][0] as {
+      line_items: { price: string }[];
+      allow_promotion_codes: boolean;
+      metadata: { plan: string; partner: string; partner_channel: string };
+      subscription_data: {
+        trial_period_days: number;
+        metadata: { plan: string; partner: string; partner_channel: string };
+      };
+      custom_text: { submit: { message: string } };
+    };
+    expect(created.line_items[0]?.price).toBe("price_partner_179");
+    expect(created.line_items[0]?.price).not.toBe(process.env.STRIPE_PRICE_ID_MONTHLY);
+    expect(created.line_items[0]?.price).not.toBe(process.env.STRIPE_PRICE_ID_ANNUAL);
+    expect(created.allow_promotion_codes).toBe(false);
+    expect(created.subscription_data.trial_period_days).toBe(7);
+    expect(created.metadata.partner).toBe("lady-vol-boost-her-club");
+    expect(created.metadata.partner_channel).toBe("social");
+    expect(created.subscription_data.metadata.partner).toBe("lady-vol-boost-her-club");
+    expect(created.subscription_data.metadata.plan).toBe("partner_annual");
+    expect(created.custom_text.submit.message).toContain("$179/year");
+    expect(createSessionMock.mock.calls[0][1]).toEqual({
+      idempotencyKey:
+        "checkout-subscription-v2:user_1:partner_annual:web:lady-vol-boost-her-club:social",
+    });
+  });
+
+  it("rejects a partner checkout when the Price is missing or the wrong amount", async () => {
+    getClerkPublicMetadataMock.mockResolvedValue({
+      stripeCustomerId: "cus_1",
+      summittSubscribed: false,
+    });
+    listSubsMock.mockResolvedValue({ data: [] });
+    const { POST } = await import("./route");
+    const missing = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({
+          plan: "partner_annual",
+          partner: "orange-mountain-designs",
+          partnerChannel: "email",
+        }),
+      })
+    );
+    expect(missing.status).toBe(503);
+    expect(createSessionMock).not.toHaveBeenCalled();
+
+    process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL = "price_partner_179";
+    priceRetrieveMock.mockImplementation(async (id: string) => {
+      if (id === "price_partner_179") {
+        return {
+          id,
+          active: true,
+          currency: "usd",
+          unit_amount: 24900,
+          livemode: false,
+          product: "prod_membership",
+          recurring: { interval: "year", interval_count: 1 },
+        };
+      }
+      return {
+        id,
+        active: true,
+        currency: "usd",
+        unit_amount: 2900,
+        livemode: false,
+        product: "prod_membership",
+        recurring: { interval: "month", interval_count: 1 },
+      };
+    });
+    const wrong = await POST(
+      new Request("http://localhost/api/stripe/create-checkout-session", {
+        method: "POST",
+        body: JSON.stringify({
+          plan: "partner_annual",
+          partner: "orange-mountain-designs",
+        }),
+      })
+    );
+    expect(wrong.status).toBe(503);
+    expect(createSessionMock).not.toHaveBeenCalled();
   });
 
   it("annual plan maps to STRIPE_PRICE_ID_ANNUAL only", async () => {
@@ -1599,6 +1730,7 @@ describe("POST /api/stripe/create-checkout-session trusted return origin", () =>
     process.env.STRIPE_PRICE_ID_ANNUAL = "price_1TtRdEHP6uKt4BBo0Ex8Xw8a";
     process.env.STRIPE_LEGACY_PRICE_IDS =
       "price_1SzRiNHP6uKt4BBok7FrpmQY,price_1SZY92HP6uKt4BBo9gP2ZMXb";
+    delete process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL;
     process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
 
     authMock.mockResolvedValue({ userId: "user_1" });
@@ -1793,6 +1925,7 @@ describe("POST /api/stripe/create-checkout-session ownership", () => {
     process.env.STRIPE_PRICE_ID_ANNUAL = "price_1TtRdEHP6uKt4BBo0Ex8Xw8a";
     process.env.STRIPE_LEGACY_PRICE_IDS =
       "price_1SzRiNHP6uKt4BBok7FrpmQY,price_1SZY92HP6uKt4BBo9gP2ZMXb";
+    delete process.env.STRIPE_PRICE_ID_PARTNER_ANNUAL;
     process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
     authMock.mockResolvedValue({ userId: "user_1" });
     currentUserMock.mockResolvedValue({

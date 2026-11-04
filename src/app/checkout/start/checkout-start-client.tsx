@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import { checkoutPlanFromUnknown } from "@/lib/checkout-plan";
+import { checkoutPlanFromUnknown, isPartnerAnnualCheckoutPlan } from "@/lib/checkout-plan";
+import type { PartnerChannel, PartnerKey } from "@/lib/partner-landing";
 
 const CHECKOUT_TIMEOUT_MS = 15000;
 export const CHECKOUT_CLERK_WAIT_MS = 4000;
@@ -33,11 +34,17 @@ function releaseCheckoutStart(): void {
 export default function CheckoutStartClient({
   plan,
   acquisitionJourneyToken = null,
+  partnerKey = null,
+  partnerChannel = "unknown",
 }: {
   plan?: string;
   acquisitionJourneyToken?: string | null;
+  partnerKey?: PartnerKey | null;
+  partnerChannel?: PartnerChannel;
 }) {
-  const checkoutPlan = checkoutPlanFromUnknown(plan);
+  const checkoutPlan = isPartnerAnnualCheckoutPlan(plan)
+    ? "partner_annual"
+    : checkoutPlanFromUnknown(plan);
   const { isLoaded, isSignedIn } = useUser();
   const router = useRouter();
   const startedRef = useRef(false);
@@ -55,8 +62,22 @@ export default function CheckoutStartClient({
       return res.json().catch(() => ({}));
     }
 
+    function checkoutBody(): string {
+      const payload: Record<string, string> = { plan: checkoutPlan };
+      if (acquisitionJourneyToken) payload.acquisitionJourneyToken = acquisitionJourneyToken;
+      if (checkoutPlan === "partner_annual" && partnerKey) {
+        payload.partner = partnerKey;
+        payload.partnerChannel = partnerChannel;
+      }
+      return JSON.stringify(payload);
+    }
+
     async function start(signedIn: boolean) {
       if (startedRef.current) return;
+      if (checkoutPlan === "partner_annual" && !partnerKey) {
+        setError("This offer is unavailable right now.");
+        return;
+      }
       if (!claimCheckoutStart()) {
         setError("Checkout is already opening. Wait a moment and try again.");
         return;
@@ -71,11 +92,7 @@ export default function CheckoutStartClient({
             method: "POST",
             headers: { "Content-Type": "application/json" },
             credentials: "include",
-            body: JSON.stringify(
-              acquisitionJourneyToken
-                ? { plan: checkoutPlan, acquisitionJourneyToken }
-                : { plan: checkoutPlan }
-            ),
+            body: checkoutBody(),
             signal: controller.signal,
           }
         );
@@ -86,11 +103,7 @@ export default function CheckoutStartClient({
               method: "POST",
               headers: { "Content-Type": "application/json" },
               credentials: "include",
-              body: JSON.stringify(
-              acquisitionJourneyToken
-                ? { plan: checkoutPlan, acquisitionJourneyToken }
-                : { plan: checkoutPlan }
-            ),
+              body: checkoutBody(),
               signal: controller.signal,
             });
           }
@@ -167,7 +180,7 @@ export default function CheckoutStartClient({
       clearTimeout(timeoutId);
       if (clerkWait !== undefined) window.clearTimeout(clerkWait);
     };
-  }, [acquisitionJourneyToken, checkoutPlan, isLoaded, isSignedIn, router, retryNonce]);
+  }, [acquisitionJourneyToken, checkoutPlan, isLoaded, isSignedIn, partnerChannel, partnerKey, router, retryNonce]);
 
   function handleRetry() {
     startedRef.current = false;

@@ -2,6 +2,9 @@
  * Consumer checkout-hop plan selection.
  * Only the literal string "annual" opts into annual. Everything else is monthly.
  *
+ * `partner_annual` is intentionally not handled here. It would become monthly.
+ * Callers must check `isPartnerAnnualCheckoutPlan` first.
+ *
  * Plan is a sibling query param on /sign-up and /sign-in — never nested inside
  * redirect_url (the sanitizer rejects /checkout/start?…).
  */
@@ -10,8 +13,14 @@ export const CHECKOUT_START_PATH = "/checkout/start";
 
 const CHECKOUT_START_REDIRECT_QUERY = `redirect_url=${encodeURIComponent(CHECKOUT_START_PATH)}`;
 
+export const PARTNER_ANNUAL_PLAN = "partner_annual" as const;
+
 export function isAnnualCheckoutPlan(raw: unknown): boolean {
   return raw === "annual";
+}
+
+export function isPartnerAnnualCheckoutPlan(raw: unknown): boolean {
+  return raw === PARTNER_ANNUAL_PLAN;
 }
 
 export function checkoutPlanFromUnknown(raw: unknown): "monthly" | "annual" {

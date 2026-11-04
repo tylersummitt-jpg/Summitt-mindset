@@ -17,6 +17,7 @@ import {
 } from "@/lib/stripe-first-checkout/activate";
 import { verifiedAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice.server";
 import { CHECKOUT_BINDING_COOKIE } from "@/lib/stripe-first-checkout/constants";
+import { parsePartnerChannel, parsePartnerKey } from "@/lib/partner-landing";
 
 export const runtime = "nodejs";
 
@@ -35,9 +36,26 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "native_app_checkout_unavailable" }, { status: 403 });
   }
 
-  const body = (await req.json().catch(() => null)) as { plan?: unknown; acquisitionJourneyToken?: unknown } | null;
-  const plan = body?.plan === "annual" ? "annual" : body?.plan === "monthly" ? "monthly" : null;
+  const body = (await req.json().catch(() => null)) as {
+    plan?: unknown;
+    acquisitionJourneyToken?: unknown;
+    partner?: unknown;
+    partnerChannel?: unknown;
+  } | null;
+  const plan =
+    body?.plan === "annual"
+      ? "annual"
+      : body?.plan === "monthly"
+        ? "monthly"
+        : body?.plan === "partner_annual"
+          ? "partner_annual"
+          : null;
   if (!plan) return NextResponse.json({ error: "plan_required" }, { status: 400 });
+  const partner = plan === "partner_annual" ? parsePartnerKey(body?.partner) : null;
+  const partnerChannel = plan === "partner_annual" ? parsePartnerChannel(body?.partnerChannel) : null;
+  if (plan === "partner_annual" && !partner) {
+    return NextResponse.json({ error: "partner_required" }, { status: 400 });
+  }
 
   const acquisitionJourneyId = await verifiedAcquisitionJourneyId(body?.acquisitionJourneyToken).catch(() => null);
   const { userId } = await auth();
@@ -48,6 +66,8 @@ export async function POST(req: Request) {
     const prior = await resumeOrReplacePublicCheckout({
       bindingSecret: jar.get(CHECKOUT_BINDING_COOKIE)?.value,
       plan,
+      partner,
+      partnerChannel,
       request: req,
       displaceOpenSession: Boolean(userId),
       acquisitionJourneyId,
@@ -85,6 +105,8 @@ export async function POST(req: Request) {
     const started = await beginHostedCheckout({
       request: req,
       plan,
+      partner,
+      partnerChannel,
       publicCheckout: true,
       visitorCookie,
       personalVideoId,

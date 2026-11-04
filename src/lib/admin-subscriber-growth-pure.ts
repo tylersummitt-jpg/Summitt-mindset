@@ -271,7 +271,7 @@ export function isLikelySummittStripeSubscription(
   const uid = sub.metadata?.userId?.trim();
   if (uid) return true;
   const plan = sub.metadata?.plan;
-  if (plan === "monthly" || plan === "annual") return true;
+  if (plan === "monthly" || plan === "annual" || plan === "partner_annual") return true;
   const price = stripePriceFromItem(sub.items?.data?.[0]);
   return Boolean(price?.id && recognizedPriceIds.has(price.id));
 }
@@ -769,7 +769,7 @@ export function stripeInterval(
   if (fromPrice === "month" || fromPrice === "year") return fromPrice;
   const plan = sub.metadata?.plan;
   if (plan === "monthly") return "month";
-  if (plan === "annual") return "year";
+  if (plan === "annual" || plan === "partner_annual") return "year";
   return null;
 }
 
