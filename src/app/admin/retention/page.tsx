@@ -1,5 +1,9 @@
 import { requireTylerAdmin, isTylerOwnerSession } from "@/lib/auth/require-tyler-admin";
 import { loadCancellationComments, type CancellationCommentView } from "@/lib/cancellation-comments.server";
+import {
+  loadDeletionComments,
+  type DeletionCommentView,
+} from "@/lib/account-deletion/account-deletion-comment.server";
 import { loadOperatingSnapshot } from "@/lib/admin-operating-snapshot.server";
 
 import { OperatingScreen } from "../operating-screen";
@@ -21,12 +25,19 @@ export default async function AdminRetentionPage({
   } catch {
     cancellationComments = { status: "unavailable" };
   }
+  let deletionComments: DeletionCommentView = { status: "unavailable" };
+  try {
+    deletionComments = await loadDeletionComments();
+  } catch {
+    deletionComments = { status: "unavailable" };
+  }
   return (
     <OperatingScreen
       focus="retention"
       snapshot={snapshot}
       canGenerateReport={canGenerateReport}
       cancellationComments={cancellationComments}
+      deletionComments={deletionComments}
     />
   );
 }

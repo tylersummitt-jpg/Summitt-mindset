@@ -85,7 +85,7 @@ describe("churn survey facts", () => {
     expect(lines).toContain("Apple memberships still in their paid period with auto-renew off: 3");
     expect(lines).toContain("Apple rows stored as expired: 2");
     expect(lines).toContain("Completed account deletions: 10");
-    expect(lines).toContain("Written deletion answers are not stored.");
+    expect(lines).toContain("Written deletion notes are not in this report.");
     expect(lines).not.toContain("clerk");
   });
 

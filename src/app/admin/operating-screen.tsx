@@ -22,6 +22,7 @@ import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { formatCompleteRetentionFacts } from "@/lib/retention-intelligence";
 import { formatChurnSurveyLines } from "@/lib/churn-survey-facts";
 import type { CancellationCommentView } from "@/lib/cancellation-comments.server";
+import type { DeletionCommentView } from "@/lib/account-deletion/account-deletion-comment.server";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
 import type { MemberActivity } from "@/lib/retention-activity-periods";
 import {
@@ -60,6 +61,7 @@ export function OperatingScreen({
   selectedCampaignId = null,
   canGenerateReport = false,
   cancellationComments = null,
+  deletionComments = null,
 }: {
   focus: "distribution" | "retention";
   snapshot: OperatingSnapshot;
@@ -68,6 +70,7 @@ export function OperatingScreen({
   selectedCampaignId?: string | null;
   canGenerateReport?: boolean;
   cancellationComments?: CancellationCommentView | null;
+  deletionComments?: DeletionCommentView | null;
 }) {
   const href = (range: GrowthDateRange) => {
     if (focus !== "distribution") return `/admin/retention?range=${range}`;
@@ -152,6 +155,7 @@ export function OperatingScreen({
           snapshot={snapshot}
           canGenerateReport={canGenerateReport}
           cancellationComments={cancellationComments}
+          deletionComments={deletionComments}
         />
       )}
 
@@ -1118,10 +1122,12 @@ function RetentionBody({
   snapshot,
   canGenerateReport,
   cancellationComments,
+  deletionComments,
 }: {
   snapshot: OperatingSnapshot;
   canGenerateReport: boolean;
   cancellationComments: CancellationCommentView | null;
+  deletionComments: DeletionCommentView | null;
 }) {
   const r = snapshot.retention;
   const intel = snapshot.retentionIntelligence;
@@ -1185,8 +1191,9 @@ function RetentionBody({
         <h2 className="text-lg font-semibold text-gray-900">Why someone might leave</h2>
         <p>
           <span className="font-medium text-gray-900">From the member: </span>
-          cancellation reasons are in Churn intelligence below. The words themselves stay in
-          Written cancellation feedback and are not copied into the facts report.
+          cancellation reasons are in Churn intelligence below. Cancellation words stay in
+          Written cancellation feedback. Deletion notes a member chose to keep stay in Written
+          deletion feedback. Neither is copied into the facts report.
         </p>
         <p>
           <span className="font-medium text-gray-900">Observed: </span>
@@ -1366,6 +1373,11 @@ function RetentionBody({
               <p key={line}>{line}</p>
             ))}
             <p>
+              Written deletion notes a member chose to keep are listed in Written deletion
+              feedback. Skipped notes are not stored. Those words are not copied into the facts
+              report.
+            </p>
+            <p>
               <Link href="/admin/feedback" className="text-gray-800 underline">
                 Weekly Feedback
               </Link>
@@ -1451,6 +1463,7 @@ function RetentionBody({
         <p>{intel.appleNote}</p>
       </section>
       <CancellationCommentsSection view={cancellationComments} />
+      <DeletionCommentsSection view={deletionComments} />
     </>
   );
 }
@@ -1481,6 +1494,42 @@ function CancellationCommentsSection({
                 <p className="text-xs text-gray-500">
                   {comment.createdAt}. {comment.reasonLabel}
                 </p>
+                <p className="mt-1 whitespace-pre-wrap">{comment.message}</p>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function DeletionCommentsSection({
+  view,
+}: {
+  view: DeletionCommentView | null;
+}) {
+  if (!view) return null;
+  return (
+    <section className="space-y-3 rounded border border-gray-200 bg-white px-4 py-4 text-sm text-gray-800">
+      <h2 className="text-xl font-semibold text-gray-900">Written deletion feedback</h2>
+      <p>
+        Part of Churn intelligence. Admin only. These are deletion notes a member chose to keep.
+        They are not cancellation comments. Skipped notes, and notes without that choice, are not
+        stored. These words are not included in Copy Complete Facts Report and are not saved in
+        the retention report. A note can still contain a name or other identifying detail.
+      </p>
+      {view.status === "unavailable" ? (
+        <p>Written deletion notes could not be read. That is not zero notes.</p>
+      ) : null}
+      {view.status === "empty" ? <p>No deletion notes have been kept.</p> : null}
+      {view.status === "ready" ? (
+        <>
+          {view.capped ? <p>Showing the 40 newest kept notes.</p> : null}
+          <ul className="space-y-4">
+            {view.comments.map((comment, index) => (
+              <li key={index}>
+                <p className="text-xs text-gray-500">{comment.retainedOn}</p>
                 <p className="mt-1 whitespace-pre-wrap">{comment.message}</p>
               </li>
             ))}

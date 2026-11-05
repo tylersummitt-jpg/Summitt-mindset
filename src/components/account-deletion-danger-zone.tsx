@@ -40,6 +40,11 @@ import {
 import { ExitFeedbackScreens } from "@/components/exit-feedback-screens";
 import { useIsNativeSummittMindsetApp } from "@/components/native-app/NativeAppProvider";
 import {
+  ACCOUNT_DELETION_COMMENT_DISCLOSURE,
+  ACCOUNT_DELETION_COMMENT_RETAIN_LABEL,
+  sendAccountDeletionComment,
+} from "@/lib/account-deletion/account-deletion-comment-contract";
+import {
   ACCOUNT_DELETION_REASON_DISCLOSURE,
   sendAccountDeletionReason,
 } from "@/lib/account-deletion/account-deletion-reason-contract";
@@ -159,6 +164,7 @@ export default function AccountDeletionDangerZone({
     null
   );
   const [surveyComment, setSurveyComment] = useState("");
+  const [retainNote, setRetainNote] = useState(false);
 
   const enhancedPost = useReverification(postAccountDeletionInitiation);
 
@@ -169,6 +175,7 @@ export default function AccountDeletionDangerZone({
     setMessage(null);
     setSurveyReason(null);
     setSurveyComment("");
+    setRetainNote(false);
     queueMicrotask(() => triggerRef.current?.focus());
   }, []);
 
@@ -256,6 +263,7 @@ export default function AccountDeletionDangerZone({
       const mapped = mapAccountDeletionInitiationResponse(body);
       if (mapped.uiState === "accepted" || mapped.uiState === "existing") {
         sendAccountDeletionReason(surveyReason);
+        sendAccountDeletionComment(surveyComment, retainNote);
       }
       if (mapped.redirectToSignIn) {
         // Leave submitting before navigation so delayed/blocked redirects
@@ -282,7 +290,7 @@ export default function AccountDeletionDangerZone({
     } finally {
       inFlightRef.current = false;
     }
-  }, [confirmationInput, enhancedPost, isNativeApp, surveyReason, uiState]);
+  }, [confirmationInput, enhancedPost, isNativeApp, retainNote, surveyComment, surveyReason, uiState]);
 
   const panelOpen =
     uiState === "consequences" ||
@@ -326,6 +334,10 @@ export default function AccountDeletionDangerZone({
               preface={ACCOUNT_DELETION_REASON_DISCLOSURE}
               onChangeReason={(code) => setSurveyReason(code)}
               onChangeComment={setSurveyComment}
+              commentNotice={ACCOUNT_DELETION_COMMENT_DISCLOSURE}
+              retainLabel={ACCOUNT_DELETION_COMMENT_RETAIN_LABEL}
+              retainChecked={retainNote}
+              onChangeRetain={setRetainNote}
               onSkipReason={() => {
                 setSurveyReason(null);
                 setUiState("survey_comment");
@@ -334,6 +346,7 @@ export default function AccountDeletionDangerZone({
               onBackToReason={() => setUiState("survey_reason")}
               onSkipComment={() => {
                 setSurveyComment("");
+                setRetainNote(false);
                 openConsequences();
               }}
               onContinueComment={() => openConsequences()}

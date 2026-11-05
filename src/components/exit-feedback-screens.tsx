@@ -46,6 +46,10 @@ export function ExitFeedbackScreens({
   onSkipComment,
   onContinueComment,
   preface,
+  commentNotice,
+  retainLabel,
+  retainChecked = false,
+  onChangeRetain,
   classes = PAPER,
 }: {
   step: ExitSurveyStep;
@@ -59,6 +63,10 @@ export function ExitFeedbackScreens({
   onSkipComment: () => void;
   onContinueComment: () => void;
   preface?: string;
+  commentNotice?: string;
+  retainLabel?: string;
+  retainChecked?: boolean;
+  onChangeRetain?: (value: boolean) => void;
   classes?: ExitFeedbackClassNames;
 }) {
   const reasonQuestionId = useId();
@@ -112,6 +120,18 @@ export function ExitFeedbackScreens({
           <label htmlFor={commentFieldId} className={classes.note}>
             Optional. You can leave this blank.
           </label>
+          {commentNotice ? <p className={classes.note}>{commentNotice}</p> : null}
+          {retainLabel ? (
+            <label className={`${classes.note} flex items-start gap-2`}>
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={retainChecked}
+                onChange={(event) => onChangeRetain?.(event.target.checked)}
+              />
+              <span>{retainLabel}</span>
+            </label>
+          ) : null}
           <textarea
             id={commentFieldId}
             rows={4}

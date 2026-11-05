@@ -266,7 +266,7 @@ export function formatChurnSurveyLines(facts: ChurnSurveyFacts | null | undefine
       `Apple renewal still active with auto-renew off: ${countText(facts.appleRenewalOffStillActive)}. Apple rows with expired status: ${countText(facts.appleExpiredStatus)}. Apple EXPIRED notifications stored: ${countText(facts.appleExpiredNotifications)}. These are not survey answers.`
     );
     lines.push(
-      `Completed account deletions: ${countText(facts.completedDeletions)}. Deletion requests that are not completed: ${countText(facts.openDeletionRequests)}. Anonymous deletion-reason counts are in the deletion-reason section when that read succeeds. Written deletion answers are not stored.`
+      `Completed account deletions: ${countText(facts.completedDeletions)}. Deletion requests that are not completed: ${countText(facts.openDeletionRequests)}. Anonymous deletion-reason counts are in the deletion-reason section when that read succeeds. Written deletion notes are not in this report.`
     );
     return lines;
   }
@@ -302,7 +302,7 @@ export function formatChurnSurveyLines(facts: ChurnSurveyFacts | null | undefine
     `Apple memberships still in their paid period with auto-renew off: ${countText(facts.appleRenewalOffStillActive)}. Apple rows stored as expired: ${countText(facts.appleExpiredStatus)}. Apple EXPIRED notifications stored: ${countText(facts.appleExpiredNotifications)}. No survey reason is attached to these. They are not added to the reason counts above.`
   );
   lines.push(
-    `Completed account deletions: ${countText(facts.completedDeletions)}. Deletion requests that are not completed: ${countText(facts.openDeletionRequests)}. Anonymous deletion-reason counts are in the deletion-reason section when that read succeeds. Written deletion answers are not stored. People who opened deletion and stopped are not counted as completed deletions.`
+    `Completed account deletions: ${countText(facts.completedDeletions)}. Deletion requests that are not completed: ${countText(facts.openDeletionRequests)}. Anonymous deletion-reason counts are in the deletion-reason section when that read succeeds. Written deletion notes are not in this report. People who opened deletion and stopped are not counted as completed deletions.`
   );
   lines.push(
     "Members who canceled outside this website are not marked as having skipped the survey. Payment failures stay in the Stripe ending-reason line above and are not repeated as survey answers. Engagement before cancellation is not matched to these reasons because a feedback row has no subscription id."

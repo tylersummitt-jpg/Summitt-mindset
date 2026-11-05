@@ -29,7 +29,7 @@ const NOT_IN_REPORT_NOTE =
   "Deletion reason counts are not in this saved report. They are not shown as zero.";
 
 const SNAPSHOT_LIMIT =
-  "A later saved report can reveal a small count that an earlier report withheld. Written deletion answers are not stored.";
+  "A later saved report can reveal a small count that an earlier report withheld. Written deletion notes are not in this report.";
 
 export function deletionReasonsUnavailable(note = UNAVAILABLE_NOTE): DeletionReasonReport {
   return {

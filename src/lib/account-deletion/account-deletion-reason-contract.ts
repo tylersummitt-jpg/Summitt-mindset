@@ -13,7 +13,7 @@ import {
 export const ACCOUNT_DELETION_REASON_POST_PATH = "/api/account/delete-reason" as const;
 
 export const ACCOUNT_DELETION_REASON_DISCLOSURE =
-  "Both questions are optional. The reason you select may be included in an anonymous count after your account deletion is complete. We do not keep what you write. Skipping does not affect deleting your account. If the reason does not get recorded, deletion still continues." as const;
+  "Both questions are optional. The reason you select may be included in an anonymous count after your account deletion is complete. Skipping does not affect deleting your account. If the reason does not get recorded, deletion still continues." as const;
 
 /** Objects the website expects. They are not created by the application. */
 export const ACCOUNT_DELETION_REASON_SQL_CONTRACT = "2026-11-05-deletion-reason-v1" as const;

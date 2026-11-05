@@ -64,7 +64,7 @@ describe("deletion reason contract", () => {
     ).toBe(false);
     expect(validateAccountDeletionReasonBody({ reasonCode: "cost" }).ok).toBe(false);
     expect(validateAccountDeletionReasonBody({ confirmation: "DELETE" }).ok).toBe(false);
-    expect(ACCOUNT_DELETION_REASON_DISCLOSURE).toContain("We do not keep what you write.");
+    expect(ACCOUNT_DELETION_REASON_DISCLOSURE).not.toContain("We do not keep what you write.");
     expect(ACCOUNT_DELETION_REASON_DISCLOSURE).toContain(
       "If the reason does not get recorded, deletion still continues."
     );
@@ -84,7 +84,7 @@ describe("deletion reason contract", () => {
     expect(lines).toContain("Completed account deletions: 10.");
     expect(lines).toContain("withheld");
     expect(lines).not.toContain("I wasn't using it enough.: 3");
-    expect(lines).toContain("Written deletion answers are not stored.");
+    expect(lines).toContain("Written deletion notes are not in this report.");
   });
 
   it("shows zero only when the full breakdown is safe", () => {
