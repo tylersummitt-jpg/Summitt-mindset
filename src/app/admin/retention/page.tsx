@@ -1,4 +1,5 @@
 import { requireTylerAdmin, isTylerOwnerSession } from "@/lib/auth/require-tyler-admin";
+import { loadCancellationComments, type CancellationCommentView } from "@/lib/cancellation-comments.server";
 import { loadOperatingSnapshot } from "@/lib/admin-operating-snapshot.server";
 
 import { OperatingScreen } from "../operating-screen";
@@ -14,5 +15,18 @@ export default async function AdminRetentionPage({
   const canGenerateReport = await isTylerOwnerSession();
   const resolved = searchParams ? await searchParams : {};
   const snapshot = await loadOperatingSnapshot({ searchParams: resolved });
-  return <OperatingScreen focus="retention" snapshot={snapshot} canGenerateReport={canGenerateReport} />;
+  let cancellationComments: CancellationCommentView = { status: "unavailable" };
+  try {
+    cancellationComments = await loadCancellationComments();
+  } catch {
+    cancellationComments = { status: "unavailable" };
+  }
+  return (
+    <OperatingScreen
+      focus="retention"
+      snapshot={snapshot}
+      canGenerateReport={canGenerateReport}
+      cancellationComments={cancellationComments}
+    />
+  );
 }

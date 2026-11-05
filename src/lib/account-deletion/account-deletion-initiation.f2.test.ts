@@ -799,7 +799,8 @@ describe("APP-041F2 middleware pass-through (exact path)", () => {
 
     // Pages remain auth-gated in app code as well (defense in depth).
     expect(readFileSync(USER_PAGE, "utf8")).toMatch(/auth|Clerk|user/i);
-    expect(readFileSync(CANCEL_PAGE, "utf8")).toContain('redirect("/sign-in")');
+    expect(readFileSync(CANCEL_PAGE, "utf8")).toContain("signInPathForClient");
+    expect(readFileSync(CANCEL_PAGE, "utf8")).not.toContain('redirect("/sign-in")');
     expect(existsSync(ADMIN_DELETIONS_PAGE)).toBe(true);
   });
 });

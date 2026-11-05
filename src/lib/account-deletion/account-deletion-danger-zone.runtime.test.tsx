@@ -47,6 +47,8 @@ async function openToConfirmation(user: ReturnType<typeof userEvent.setup>) {
   await user.click(
     screen.getByRole("button", { name: ACCOUNT_DELETION_DANGER_ZONE_TRIGGER })
   );
+  await user.click(screen.getByRole("button", { name: "Skip" }));
+  await user.click(screen.getByRole("button", { name: "Skip" }));
   await user.click(screen.getByRole("button", { name: "Continue" }));
 }
 
@@ -74,6 +76,25 @@ describe("APP-041F4a Danger Zone runtime UI", () => {
     await user.click(
       screen.getByRole("button", { name: ACCOUNT_DELETION_DANGER_ZONE_TRIGGER })
     );
+    expect(
+      screen.getByRole("heading", {
+        name: /What's the main reason you're leaving/i,
+      })
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/We do not keep what you write/i)
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/If the reason does not get recorded, deletion still continues/i)
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", {
+        name: /Delete your account permanently/i,
+      })
+    ).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Skip" }));
+    await user.click(screen.getByRole("button", { name: "Skip" }));
     expect(
       screen.getByRole("heading", {
         name: /Delete your account permanently/i,
@@ -322,7 +343,13 @@ describe("APP-041F4a useReverification runtime", () => {
     await waitFor(() => {
       expect(screen.getByText(ACCOUNT_DELETION_UI_COPY.accepted)).toBeTruthy();
     });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const deletionPosts = fetchMock.mock.calls.filter((call) =>
+      String(call[0]).endsWith("/api/account/delete")
+    );
+    expect(deletionPosts).toHaveLength(1);
+    expect(JSON.parse(String(deletionPosts[0]?.[1]?.body))).toEqual({
+      confirmation: "DELETE",
+    });
   });
 
   it("39–40. hint triggers challenge; success retries once", async () => {
@@ -365,7 +392,10 @@ describe("APP-041F4a useReverification runtime", () => {
     await waitFor(() => {
       expect(screen.getByText(ACCOUNT_DELETION_UI_COPY.accepted)).toBeTruthy();
     });
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const deletionPosts = fetchMock.mock.calls.filter((call) =>
+      String(call[0]).endsWith("/api/account/delete")
+    );
+    expect(deletionPosts).toHaveLength(2);
   });
 
   it("41. cancelled challenge → no additional POST; safe reauth copy", async () => {
@@ -426,5 +456,79 @@ describe("APP-041F4a useReverification runtime", () => {
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/otp|password/i)).toBeNull();
+  });
+
+  it("sends skipped, not the written answer, and still shows deletion success if that send fails", async () => {
+    useReverificationMock.mockImplementation(defaultUseReverification);
+    const user = userEvent.setup();
+    fetchMock.mockImplementation((url: string) => {
+      if (String(url).includes("/api/account/delete-reason")) {
+        return Promise.reject(new Error("analytics down"));
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ ok: true, code: "accepted_new" }),
+      });
+    });
+    render(<AccountDeletionDangerZone />);
+    await openToConfirmation(user);
+    await user.type(screen.getByLabelText(/Type DELETE to confirm/i), "DELETE");
+    await user.click(
+      screen.getByRole("button", { name: ACCOUNT_DELETION_FINAL_ACTION })
+    );
+    await waitFor(() => {
+      expect(screen.getByText(ACCOUNT_DELETION_UI_COPY.accepted)).toBeTruthy();
+    });
+    const deleteCall = fetchMock.mock.calls.find((call) =>
+      String(call[0]).endsWith("/api/account/delete")
+    );
+    const reasonCall = fetchMock.mock.calls.find((call) =>
+      String(call[0]).includes("/api/account/delete-reason")
+    );
+    expect(JSON.parse(String(deleteCall?.[1]?.body))).toEqual({ confirmation: "DELETE" });
+    expect(JSON.parse(String(reasonCall?.[1]?.body))).toEqual({ reasonCode: "skipped" });
+    expect(JSON.stringify(reasonCall?.[1]?.body)).not.toMatch(/message|comment|requestId/i);
+    expect(reasonCall?.[1]?.keepalive).toBe(true);
+  });
+
+  it("shows deletion success before a slow reason request finishes", async () => {
+    useReverificationMock.mockImplementation(defaultUseReverification);
+    const user = userEvent.setup();
+    let releaseReason: (value: unknown) => void = () => {};
+    const reasonGate = new Promise((resolve) => {
+      releaseReason = resolve;
+    });
+    fetchMock.mockImplementation((url: string) => {
+      if (String(url).includes("/api/account/delete-reason")) return reasonGate;
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({ ok: true, code: "accepted_new" }),
+      });
+    });
+    render(<AccountDeletionDangerZone />);
+    await user.click(
+      screen.getByRole("button", { name: ACCOUNT_DELETION_DANGER_ZONE_TRIGGER })
+    );
+    await user.click(screen.getByRole("radio", { name: "I wasn't using it enough." }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(
+      screen.getByLabelText(/You can leave this blank/i),
+      "Please keep this private note"
+    );
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.type(screen.getByLabelText(/Type DELETE to confirm/i), "DELETE");
+    await user.click(
+      screen.getByRole("button", { name: ACCOUNT_DELETION_FINAL_ACTION })
+    );
+    await waitFor(() => {
+      expect(screen.getByText(ACCOUNT_DELETION_UI_COPY.accepted)).toBeTruthy();
+    });
+    const reasonCall = fetchMock.mock.calls.find((call) =>
+      String(call[0]).includes("/api/account/delete-reason")
+    );
+    expect(JSON.parse(String(reasonCall?.[1]?.body))).toEqual({ reasonCode: "not_using" });
+    expect(JSON.stringify(fetchMock.mock.calls)).not.toContain("Please keep this private note");
+    releaseReason({ ok: true });
   });
 });

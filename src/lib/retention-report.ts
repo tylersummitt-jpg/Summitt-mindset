@@ -1,5 +1,7 @@
 import { mobileFactsNotInReport } from "@/lib/mobile-measurement";
 import { achievementNotInReport } from "@/lib/retention-behavior-retention";
+import { churnSurveyNotCalculated } from "@/lib/churn-survey-facts";
+import { deletionReasonsNotInReport } from "@/lib/account-deletion/deletion-reason-facts";
 import {
   RETENTION_NOT_LOADED,
   unreadableRetentionIntelligence,
@@ -26,7 +28,15 @@ export function retentionReportClaimOrFilter(nowMs: number): string {
   return `state.neq.running,started_at.is.null,started_at.lt.${quotePostgrestFilterValue(cutoff)}`;
 }
 
-const PRIVATE_KEYS = new Set(["raw_body", "answer_text", "question", "reflection"]);
+const PRIVATE_KEYS = new Set([
+  "raw_body",
+  "answer_text",
+  "question",
+  "reflection",
+  "message",
+  "comment",
+  "request_id",
+]);
 
 export function claimIsStale(startedAtIso: string | null, nowMs: number): boolean {
   if (!startedAtIso) return true;
@@ -147,15 +157,31 @@ function withStoredSections(intel: RetentionIntelligence): RetentionIntelligence
   const annualAchievement = intel.annualAchievement ?? achievementNotInReport("Annual");
   const monthlyMobile = intel.monthlyMobile ?? mobileFactsNotInReport("Monthly");
   const annualMobile = intel.annualMobile ?? mobileFactsNotInReport("Annual");
+  const churnSurvey =
+    intel.churnSurvey ??
+    churnSurveyNotCalculated(
+      "Cancellation survey counts are not in this saved report. They are not shown as zero."
+    );
+  const deletionReasons = intel.deletionReasons ?? deletionReasonsNotInReport();
   if (
     monthlyAchievement === intel.monthlyAchievement &&
     annualAchievement === intel.annualAchievement &&
     monthlyMobile === intel.monthlyMobile &&
-    annualMobile === intel.annualMobile
+    annualMobile === intel.annualMobile &&
+    intel.churnSurvey &&
+    intel.deletionReasons
   ) {
     return intel;
   }
-  return { ...intel, monthlyAchievement, annualAchievement, monthlyMobile, annualMobile };
+  return {
+    ...intel,
+    monthlyAchievement,
+    annualAchievement,
+    monthlyMobile,
+    annualMobile,
+    churnSurvey,
+    deletionReasons,
+  };
 }
 
 function generationNote(row: RetentionReportRow, nowMs: number): string | null {

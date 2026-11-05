@@ -36,6 +36,19 @@ import {
 } from "@/lib/mobile-measurement";
 import { smsBehaviorFromRows } from "@/lib/retention-sms-behavior";
 import { supabaseServer } from "@/lib/supabase-server";
+import {
+  buildChurnSurveyFacts,
+  churnSurveyNotCalculated,
+  metadataFlag,
+  splitWrittenFeedbackCounts,
+  surveyVersionFromMetadata,
+  type CancellationFeedbackFact,
+  type ChurnSurveyFacts,
+} from "@/lib/churn-survey-facts";
+import { loadDeletionReasonReport } from "@/lib/account-deletion/account-deletion-reason.server";
+import { deletionReasonsUnavailable } from "@/lib/account-deletion/deletion-reason-facts";
+import { EXIT_SURVEY_VERSION } from "@/lib/exit-survey";
+import { isAppleRowCurrentlyGranting } from "@/lib/summitt-membership-entitlement";
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 100;
@@ -61,6 +74,24 @@ export async function loadRetentionIntelligence(
   if (!key) return unreadableRetentionIntelligence(UNREADABLE);
   try {
     const stripe = new Stripe(key);
+    let churnSurvey = churnSurveyNotCalculated(
+      "Cancellation survey counts could not be read. That is not zero."
+    );
+    try {
+      churnSurvey = await loadChurnSurveyFacts(deadlineMs);
+    } catch (err) {
+      console.warn("[retention] cancellation survey read failed", {
+        message: err instanceof Error ? err.name : "survey_read_failed",
+      });
+    }
+    let deletionReasons = deletionReasonsUnavailable();
+    try {
+      deletionReasons = await loadDeletionReasonReport();
+    } catch (err) {
+      console.warn("[retention] deletion reason report failed", {
+        message: err instanceof Error ? err.name : "deletion_reason_report_failed",
+      });
+    }
     const subscriptions = {
       rows: preloaded.subs.map(fromGrowthSubscription),
       complete: preloaded.complete,
@@ -85,6 +116,8 @@ export async function loadRetentionIntelligence(
         landingReadable: false,
         experimentReadable: false,
         acquisition: [],
+        churnSurvey,
+        deletionReasons,
       });
       return withheld;
     }
@@ -163,6 +196,8 @@ export async function loadRetentionIntelligence(
       landingReadable: acquisition.landingReadable,
       experimentReadable: acquisition.experimentReadable,
       acquisition: acquisition.rows,
+      churnSurvey,
+      deletionReasons,
     });
   } catch (err) {
     console.warn("[retention] billing read failed", {
@@ -258,6 +293,191 @@ async function countAppleRows(): Promise<number | null> {
     return null;
   }
   return count;
+}
+
+async function loadChurnSurveyFacts(deadlineMs?: number): Promise<ChurnSurveyFacts> {
+  if (deadlineMs != null && Date.now() >= deadlineMs) {
+    return churnSurveyNotCalculated(
+      "The cancellation survey read did not finish. That is not zero."
+    );
+  }
+  const feedback = await loadCancellationFeedbackFacts();
+  const apple = await loadAppleChurnCounts();
+  const deletions = await loadDeletionStatusCounts();
+  const facts = buildChurnSurveyFacts({
+    feedbackReadable: feedback.readable,
+    feedbackNote: feedback.note,
+    rows: feedback.rows,
+    appleRenewalOffStillActive: apple.renewalOffStillActive,
+    appleExpiredStatus: apple.expiredStatus,
+    appleExpiredNotifications: apple.expiredNotifications,
+    completedDeletions: deletions.completed,
+    openDeletionRequests: deletions.open,
+  });
+  if (!facts.readable) return facts;
+  try {
+    const written = await loadWrittenFeedbackCounts();
+    facts.legacyWritten = written.legacyWritten;
+    facts.version2Written = written.version2Written;
+  } catch (err) {
+    console.warn("[retention] written feedback count failed", {
+      message: err instanceof Error ? err.name : "written_count_failed",
+    });
+    facts.legacyWritten = null;
+    facts.version2Written = null;
+  }
+  return facts;
+}
+
+async function loadCancellationFeedbackFacts(): Promise<{
+  readable: boolean;
+  note: string | null;
+  rows: CancellationFeedbackFact[];
+}> {
+  const rows: CancellationFeedbackFact[] = [];
+  const pageSize = 1000;
+  for (let page = 0; page < 20; page += 1) {
+    const from = page * pageSize;
+    const { data, error } = await supabaseServer
+      .from("feedback_events")
+      .select("moment, reason_code, metadata, created_at, source")
+      .eq("type", "churn")
+      .in("moment", ["cancel_attempt", "pause_offer_accepted"])
+      .order("created_at", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) {
+      console.warn("[retention] cancellation feedback read failed", { code: error.code });
+      return {
+        readable: false,
+        note: "Cancellation survey counts could not be read. That is not zero.",
+        rows: [],
+      };
+    }
+    const batch = data ?? [];
+    for (const row of batch) {
+      rows.push({
+        moment: typeof row.moment === "string" ? row.moment : null,
+        reasonCode: typeof row.reason_code === "string" ? row.reason_code : null,
+        messagePresent: false,
+        surveyVersion: surveyVersionFromMetadata(row.metadata),
+        skippedReason: metadataFlag(row.metadata, "skipped_reason"),
+        skippedComment: metadataFlag(row.metadata, "skipped_comment"),
+        confirmedStripeCancel: metadataFlag(row.metadata, "confirmed_stripe_cancel"),
+        source: typeof row.source === "string" ? row.source : null,
+        createdAt: typeof row.created_at === "string" ? row.created_at : null,
+      });
+    }
+    if (batch.length < pageSize) {
+      return { readable: true, note: null, rows };
+    }
+  }
+  return {
+    readable: false,
+    note: "Cancellation survey counts stopped before the full history. That is not zero.",
+    rows: [],
+  };
+}
+
+async function loadWrittenFeedbackCounts(): Promise<{
+  legacyWritten: number | null;
+  version2Written: number | null;
+}> {
+  const total = await supabaseServer
+    .from("feedback_events")
+    .select("moment", { count: "exact", head: true })
+    .eq("type", "churn")
+    .eq("moment", "cancel_attempt")
+    .not("message", "is", null);
+  const version2 = await supabaseServer
+    .from("feedback_events")
+    .select("moment", { count: "exact", head: true })
+    .eq("type", "churn")
+    .eq("moment", "cancel_attempt")
+    .not("message", "is", null)
+    .contains("metadata", {
+      survey_version: EXIT_SURVEY_VERSION,
+      confirmed_stripe_cancel: true,
+    });
+  if (
+    total.error ||
+    version2.error ||
+    typeof total.count !== "number" ||
+    typeof version2.count !== "number"
+  ) {
+    console.warn("[retention] written feedback count failed", {
+      code: total.error?.code ?? version2.error?.code ?? "written_count_failed",
+    });
+    return splitWrittenFeedbackCounts(null, null);
+  }
+  return splitWrittenFeedbackCounts(total.count, version2.count);
+}
+
+async function loadAppleChurnCounts(): Promise<{
+  renewalOffStillActive: number | null;
+  expiredStatus: number | null;
+  expiredNotifications: number | null;
+}> {
+  const unavailable = {
+    renewalOffStillActive: null,
+    expiredStatus: null,
+    expiredNotifications: null,
+  };
+  const { data, error } = await supabaseServer
+    .from("apple_subscriptions")
+    .select("product_id, status, expires_at, auto_renew_enabled");
+  if (error || (data ?? []).length >= 1000) {
+    console.warn("[retention] apple churn read failed", { code: error?.code ?? "apple_churn_truncated" });
+    return unavailable;
+  }
+  const now = new Date();
+  let renewalOffStillActive = 0;
+  let expiredStatus = 0;
+  for (const row of data ?? []) {
+    const productId = typeof row.product_id === "string" ? row.product_id : "";
+    const status = typeof row.status === "string" ? row.status : "";
+    if (status === "expired") expiredStatus += 1;
+    const granting = isAppleRowCurrentlyGranting(
+      {
+        product_id: productId,
+        status,
+        expires_at:
+          typeof row.expires_at === "string" || row.expires_at instanceof Date
+            ? row.expires_at
+            : null,
+      },
+      now
+    );
+    if (granting && row.auto_renew_enabled === false) renewalOffStillActive += 1;
+  }
+  const notes = await supabaseServer
+    .from("apple_notification_events")
+    .select("notification_uuid", { count: "exact", head: true })
+    .eq("notification_type", "EXPIRED");
+  return {
+    renewalOffStillActive,
+    expiredStatus,
+    expiredNotifications: notes.error || typeof notes.count !== "number" ? null : notes.count,
+  };
+}
+
+async function loadDeletionStatusCounts(): Promise<{
+  completed: number | null;
+  open: number | null;
+}> {
+  const { data, error } = await supabaseServer
+    .from("account_deletion_requests")
+    .select("status");
+  if (error || (data ?? []).length >= 1000) {
+    console.warn("[retention] deletion count read failed", { code: error?.code ?? "deletion_count_truncated" });
+    return { completed: null, open: null };
+  }
+  let completed = 0;
+  let open = 0;
+  for (const row of data ?? []) {
+    if (row.status === "completed") completed += 1;
+    else open += 1;
+  }
+  return { completed, open };
 }
 
 async function loadEngagement(clerkIds: string[], deadlineMs?: number): Promise<{

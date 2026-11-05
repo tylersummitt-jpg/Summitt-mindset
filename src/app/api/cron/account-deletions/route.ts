@@ -7,7 +7,7 @@
  * - Unauthorized requests are blocked before any work
  *
  * When disabled or unauthorized: no discovery, no dependency construction,
- * no reconciler, no providers, no mutations.
+ * no reconciler, no providers, no mutations, and no reason settlement.
  *
  * Production discovery omits caller clock so PostgreSQL DEFAULT now() applies.
  */
@@ -24,6 +24,7 @@ import {
   runAccountDeletionSchedulerInvocation,
 } from "@/lib/account-deletion/run-account-deletion-scheduler";
 import { executeTrustedAccountDeletionReconcile } from "@/lib/account-deletion/reconcile-account-deletion";
+import { settleAccountDeletionReasons } from "@/lib/account-deletion/account-deletion-reason.server";
 import { listAccountDeletionRequestIdsForReconcile } from "@/lib/account-deletion/repository";
 
 export const runtime = "nodejs";
@@ -69,6 +70,14 @@ export async function GET(req: Request) {
         dependencies: input.dependencies,
       }),
   });
+
+  if (enabled) {
+    try {
+      await settleAccountDeletionReasons();
+    } catch {
+      // Reason settlement is best-effort and cannot change the scheduler result.
+    }
+  }
 
   return jsonResponse(result.body, result.httpStatus);
 }

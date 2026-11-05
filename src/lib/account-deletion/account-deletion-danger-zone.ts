@@ -60,6 +60,8 @@ export const ACCOUNT_DELETION_UI_COPY = {
 
 export type AccountDeletionDangerZoneUiState =
   | "idle"
+  | "survey_reason"
+  | "survey_comment"
   | "consequences"
   | "confirmation"
   | "submitting"

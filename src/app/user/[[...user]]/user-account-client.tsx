@@ -148,11 +148,9 @@ function UpdatePaymentMethodButton() {
 }
 
 function AccountTopCard({
-  dangerZone,
   showSubscribeAgain,
   showUpdatePaymentMethod,
 }: {
-  dangerZone?: ReactNode;
   showSubscribeAgain: boolean;
   showUpdatePaymentMethod: boolean;
 }) {
@@ -203,15 +201,6 @@ function AccountTopCard({
           {showUpdatePaymentMethod ? <UpdatePaymentMethodButton /> : null}
         </div>
       </section>
-
-      {dangerZone ? (
-        <section
-          className={`space-y-3 px-4 py-4 ${utCardDivider}`}
-          data-testid="account-danger-zone-slot"
-        >
-          {dangerZone}
-        </section>
-      ) : null}
     </div>
   );
 }
@@ -235,7 +224,6 @@ export default function UserAccountClient({
             </header>
 
             <AccountTopCard
-              dangerZone={dangerZone}
               showSubscribeAgain={showSubscribeAgain}
               showUpdatePaymentMethod={showUpdatePaymentMethod}
             />
@@ -246,6 +234,15 @@ export default function UserAccountClient({
                 <UserProfile />
               </div>
             </div>
+
+            {dangerZone ? (
+              <section
+                className="w-full"
+                data-testid="account-danger-zone-slot"
+              >
+                {dangerZone}
+              </section>
+            ) : null}
           </div>
         </main>
       </SignedIn>

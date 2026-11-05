@@ -304,7 +304,7 @@ describe("paid retention cohorts", () => {
     expect(report.otherKnown).toBe(1);
     expect(report.unknownReason).toBe(1);
     expect(report.churnNote).toContain("not counted as a member request");
-    expect(report.churnNote).toContain("does not ask");
+    expect(report.churnNote).not.toContain("does not ask");
   });
 
   it("groups first-week use without calling it a cause", () => {
@@ -881,6 +881,20 @@ describe("retention page boundaries", () => {
     expect(server).toContain("hits.push({ clerkUserId, atMs, signal: kind })");
     expect(server).toContain("const ENGAGEMENT_MEMBER_CEILING = 4000");
     expect(server).toContain("const ENGAGEMENT_DEFAULT_MAX_PAGES = 4");
+    const feedbackRead = server.slice(
+      server.indexOf("async function loadCancellationFeedbackFacts"),
+      server.indexOf("async function loadWrittenFeedbackCounts")
+    );
+    expect(feedbackRead).toContain(
+      '.select("moment, reason_code, metadata, created_at, source")'
+    );
+    expect(feedbackRead).not.toContain("reason_code, message");
+    const writtenCount = server.slice(
+      server.indexOf("async function loadWrittenFeedbackCounts"),
+      server.indexOf("async function loadAppleChurnCounts")
+    );
+    expect(writtenCount).toContain("head: true");
+    expect(writtenCount).toContain('.not("message", "is", null)');
   });
 });
 

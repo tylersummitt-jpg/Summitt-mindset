@@ -17,10 +17,23 @@ const loadOperatingSnapshotMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/auth/require-tyler-admin", () => ({
   requireTylerAdmin: (...args: unknown[]) => requireTylerAdminMock(...args),
+  isTylerOwnerSession: async () => true,
 }));
-vi.mock("@/lib/supabase-server", () => ({
-  supabaseServer: { from: vi.fn() },
-}));
+vi.mock("@/lib/supabase-server", () => {
+  const result = { data: [], error: null, count: 0 };
+  const chain = {
+    select: () => chain,
+    eq: () => chain,
+    in: () => chain,
+    order: () => chain,
+    range: () => chain,
+    limit: () => chain,
+    not: () => chain,
+    then: (resolve: (value: typeof result) => unknown) =>
+      Promise.resolve(result).then(resolve),
+  };
+  return { supabaseServer: { from: () => chain } };
+});
 vi.mock("@/lib/admin-operating-snapshot.server", () => ({
   loadOperatingSnapshot: (...args: unknown[]) => loadOperatingSnapshotMock(...args),
 }));

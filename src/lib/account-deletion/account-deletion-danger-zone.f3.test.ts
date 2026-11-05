@@ -236,9 +236,11 @@ describe("APP-041F3 placement / reachability source proofs", () => {
     const helpers = readFileSync(HELPERS, "utf8");
 
     const membershipIdx = client.indexOf("ManageMembershipButton");
+    const profileIdx = client.indexOf("<UserProfile");
     const slotIdx = client.indexOf("account-danger-zone-slot");
     expect(membershipIdx).toBeGreaterThan(-1);
-    expect(slotIdx).toBeGreaterThan(membershipIdx);
+    expect(profileIdx).toBeGreaterThan(membershipIdx);
+    expect(slotIdx).toBeGreaterThan(profileIdx);
 
     expect(helpers).toContain(ACCOUNT_DELETION_DANGER_ZONE_HEADING);
     expect(helpers).toContain(ACCOUNT_DELETION_DANGER_ZONE_SUPPORT);

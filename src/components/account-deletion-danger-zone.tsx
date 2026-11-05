@@ -37,7 +37,13 @@ import {
   mapAccountDeletionInitiationResponse,
   type AccountDeletionDangerZoneUiState,
 } from "@/lib/account-deletion/account-deletion-danger-zone";
+import { ExitFeedbackScreens } from "@/components/exit-feedback-screens";
 import { useIsNativeSummittMindsetApp } from "@/components/native-app/NativeAppProvider";
+import {
+  ACCOUNT_DELETION_REASON_DISCLOSURE,
+  sendAccountDeletionReason,
+} from "@/lib/account-deletion/account-deletion-reason-contract";
+import type { ExitSurveyReasonCode } from "@/lib/exit-survey";
 import { signInPathForClient } from "@/lib/native-app/membership-paths";
 import {
   utBody,
@@ -149,6 +155,10 @@ export default function AccountDeletionDangerZone({
     useState<AccountDeletionDangerZoneUiState>("idle");
   const [confirmationInput, setConfirmationInput] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [surveyReason, setSurveyReason] = useState<ExitSurveyReasonCode | null>(
+    null
+  );
+  const [surveyComment, setSurveyComment] = useState("");
 
   const enhancedPost = useReverification(postAccountDeletionInitiation);
 
@@ -157,7 +167,15 @@ export default function AccountDeletionDangerZone({
     setUiState("idle");
     setConfirmationInput("");
     setMessage(null);
+    setSurveyReason(null);
+    setSurveyComment("");
     queueMicrotask(() => triggerRef.current?.focus());
+  }, []);
+
+  const openSurvey = useCallback(() => {
+    setConfirmationInput("");
+    setMessage(null);
+    setUiState("survey_reason");
   }, []);
 
   const openConsequences = useCallback(() => {
@@ -179,6 +197,8 @@ export default function AccountDeletionDangerZone({
 
   useEffect(() => {
     if (
+      uiState !== "survey_reason" &&
+      uiState !== "survey_comment" &&
       uiState !== "consequences" &&
       uiState !== "confirmation" &&
       uiState !== "error"
@@ -202,7 +222,7 @@ export default function AccountDeletionDangerZone({
     if (prev === uiState) return;
 
     queueMicrotask(() => {
-      if (uiState === "consequences" && prev === "idle") {
+      if (uiState === "consequences" && prev === "survey_comment") {
         (consequencesHeadingRef.current ?? continueRef.current)?.focus();
         return;
       }
@@ -234,6 +254,9 @@ export default function AccountDeletionDangerZone({
     try {
       const body = await enhancedPost();
       const mapped = mapAccountDeletionInitiationResponse(body);
+      if (mapped.uiState === "accepted" || mapped.uiState === "existing") {
+        sendAccountDeletionReason(surveyReason);
+      }
       if (mapped.redirectToSignIn) {
         // Leave submitting before navigation so delayed/blocked redirects
         // do not leave a stuck "Submitting…" control.
@@ -259,7 +282,7 @@ export default function AccountDeletionDangerZone({
     } finally {
       inFlightRef.current = false;
     }
-  }, [confirmationInput, enhancedPost, isNativeApp, uiState]);
+  }, [confirmationInput, enhancedPost, isNativeApp, surveyReason, uiState]);
 
   const panelOpen =
     uiState === "consequences" ||
@@ -287,10 +310,43 @@ export default function AccountDeletionDangerZone({
               ref={triggerRef}
               type="button"
               className={styles.triggerBtn}
-              onClick={openConsequences}
+              onClick={openSurvey}
             >
               {ACCOUNT_DELETION_DANGER_ZONE_TRIGGER}
             </button>
+          </div>
+        ) : null}
+
+        {uiState === "survey_reason" || uiState === "survey_comment" ? (
+          <div className="mt-4">
+            <ExitFeedbackScreens
+              step={uiState === "survey_reason" ? "reason" : "comment"}
+              reasonCode={surveyReason}
+              comment={surveyComment}
+              preface={ACCOUNT_DELETION_REASON_DISCLOSURE}
+              onChangeReason={(code) => setSurveyReason(code)}
+              onChangeComment={setSurveyComment}
+              onSkipReason={() => {
+                setSurveyReason(null);
+                setUiState("survey_comment");
+              }}
+              onContinueReason={() => setUiState("survey_comment")}
+              onBackToReason={() => setUiState("survey_reason")}
+              onSkipComment={() => {
+                setSurveyComment("");
+                openConsequences();
+              }}
+              onContinueComment={() => openConsequences()}
+              classes={{
+                question: styles.consequencesTitle,
+                note: styles.bodyMuted,
+                choice: styles.secondaryBtn,
+                choiceOn: styles.continueBtn,
+                primary: styles.continueBtn,
+                secondary: styles.secondaryBtn,
+                field: styles.formField,
+              }}
+            />
           </div>
         ) : null}
 
@@ -329,6 +385,13 @@ export default function AccountDeletionDangerZone({
 
             {uiState === "consequences" ? (
               <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <button
+                  type="button"
+                  className={styles.secondaryBtn}
+                  onClick={() => setUiState("survey_comment")}
+                >
+                  Back
+                </button>
                 <button
                   type="button"
                   className={styles.secondaryBtn}

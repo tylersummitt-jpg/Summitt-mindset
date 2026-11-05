@@ -4,6 +4,11 @@
  */
 
 import { contentProductionLabel } from "@/lib/content-production";
+import { formatChurnSurveyLines, type ChurnSurveyFacts } from "@/lib/churn-survey-facts";
+import {
+  formatDeletionReasonLines,
+  type DeletionReasonReport,
+} from "@/lib/account-deletion/deletion-reason-facts";
 import {
   buildMemberActivity,
   emptyMemberActivity,
@@ -118,6 +123,8 @@ export type RetentionIntelligenceInput = {
   landingReadable: boolean;
   experimentReadable: boolean;
   acquisition: RetentionAcquisition[];
+  churnSurvey?: ChurnSurveyFacts;
+  deletionReasons?: DeletionReasonReport;
 };
 
 export type RetentionMilestone = {
@@ -222,6 +229,8 @@ export type RetentionIntelligence = {
   limitations: string[];
   recommendedStep: string;
   bridge: string;
+  churnSurvey?: ChurnSurveyFacts;
+  deletionReasons?: DeletionReasonReport;
 };
 
 const UNMEASURED_HISTORY =
@@ -364,6 +373,8 @@ export function buildRetentionIntelligence(
         "Do not quote paid retention until the Stripe history read finishes. This is a data limit, not a churn incident.",
       limitations: [input.withheld],
       appleNote: appleNote(input.appleRows),
+      churnSurvey: input.churnSurvey,
+      deletionReasons: input.deletionReasons,
     });
   }
 
@@ -445,7 +456,7 @@ export function buildRetentionIntelligence(
     endTimeUnknown,
     customerFeedbackCount: input.customerFeedbackCount,
     churnNote:
-      "A canceled subscription is not counted as a member request unless Stripe recorded cancellation_requested. A failed payment is counted here only when the paid membership has an end time. Past due and paused memberships are still entitled. The app does not ask for a cancellation reason.",
+      "A canceled subscription is not counted as a member request unless Stripe recorded cancellation_requested. A failed payment is counted here only when the paid membership has an end time. Past due and paused memberships are still entitled.",
     engagementReadable: input.engagementReadable,
     engagement,
     trialEngagement,
@@ -523,6 +534,8 @@ export function buildRetentionIntelligence(
     limitations,
     recommendedStep,
     bridge,
+    churnSurvey: input.churnSurvey,
+    deletionReasons: input.deletionReasons,
   };
 }
 
@@ -597,6 +610,8 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
   if (intel.withheld) {
     lines.push(intel.withheld);
     lines.push(intel.appleNote);
+    lines.push(...formatChurnSurveyLines(intel.churnSurvey));
+    lines.push(...formatDeletionReasonLines(intel.deletionReasons));
     return lines;
   }
   lines.push("SUBSCRIPTION RETENTION");
@@ -625,6 +640,8 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
     `Ended monthly periods: member-requested ${intel.memberRequested}, payment failure ${intel.paymentFailure}, other known ${intel.otherKnown}, unknown reason ${intel.unknownReason}. End time unknown ${intel.endTimeUnknown}.`
   );
   lines.push(intel.churnNote);
+  lines.push(...formatChurnSurveyLines(intel.churnSurvey));
+  lines.push(...formatDeletionReasonLines(intel.deletionReasons));
   lines.push(
     intel.customerFeedbackCount > 0
       ? `Stripe stored a feedback value on ${intel.customerFeedbackCount} ended memberships. Those words are not copied here.`
@@ -1121,7 +1138,7 @@ function buildLimitations(args: {
     "Trial days are not included in paid tenure.",
     "Feature comparisons are observations. They do not show that a feature caused someone to stay.",
     "Source comparisons use the existing first-touch attribution. They are not controlled experiments.",
-    "Member-written cancellation reasons are not collected in the app. Weekly Feedback is the existing place to read their words.",
+    "Member-written cancellation reasons are listed in Churn Intelligence. They are not split into monthly and annual, and they are not joined to earlier engagement, because a feedback row has no subscription id.",
     appleNote(args.input.appleRows),
   ];
   if (args.input.partial && args.input.partialReason) lines.push(args.input.partialReason);
@@ -1212,6 +1229,8 @@ function emptyIntelligence(args: {
   partial?: boolean;
   withheld?: string | null;
   appleNote?: string;
+  churnSurvey?: ChurnSurveyFacts;
+  deletionReasons?: DeletionReasonReport;
 }): RetentionIntelligence {
   return {
     status: args.status,
@@ -1263,5 +1282,7 @@ function emptyIntelligence(args: {
     limitations: args.limitations,
     recommendedStep: args.recommendedStep,
     bridge: args.bridge,
+    churnSurvey: args.churnSurvey,
+    deletionReasons: args.deletionReasons,
   };
 }

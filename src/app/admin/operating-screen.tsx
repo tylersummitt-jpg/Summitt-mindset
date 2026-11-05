@@ -20,6 +20,8 @@ import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { EmailRepresentativeReport } from "@/lib/acquisition/email-representative-metrics";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { formatCompleteRetentionFacts } from "@/lib/retention-intelligence";
+import { formatChurnSurveyLines } from "@/lib/churn-survey-facts";
+import type { CancellationCommentView } from "@/lib/cancellation-comments.server";
 import { NO_CONTROLLED_EXPERIMENTS } from "@/lib/admin-operating-snapshot";
 import type { MemberActivity } from "@/lib/retention-activity-periods";
 import {
@@ -57,6 +59,7 @@ export function OperatingScreen({
   command = null,
   selectedCampaignId = null,
   canGenerateReport = false,
+  cancellationComments = null,
 }: {
   focus: "distribution" | "retention";
   snapshot: OperatingSnapshot;
@@ -64,6 +67,7 @@ export function OperatingScreen({
   command?: DistributionCommandReport | null;
   selectedCampaignId?: string | null;
   canGenerateReport?: boolean;
+  cancellationComments?: CancellationCommentView | null;
 }) {
   const href = (range: GrowthDateRange) => {
     if (focus !== "distribution") return `/admin/retention?range=${range}`;
@@ -144,7 +148,11 @@ export function OperatingScreen({
           selectedCampaignId={selectedCampaignId}
         />
       ) : (
-        <RetentionBody snapshot={snapshot} canGenerateReport={canGenerateReport} />
+        <RetentionBody
+          snapshot={snapshot}
+          canGenerateReport={canGenerateReport}
+          cancellationComments={cancellationComments}
+        />
       )}
 
       <section className="space-y-3">
@@ -1109,9 +1117,11 @@ function RetentionGroupList({
 function RetentionBody({
   snapshot,
   canGenerateReport,
+  cancellationComments,
 }: {
   snapshot: OperatingSnapshot;
   canGenerateReport: boolean;
+  cancellationComments: CancellationCommentView | null;
 }) {
   const r = snapshot.retention;
   const intel = snapshot.retentionIntelligence;
@@ -1175,7 +1185,8 @@ function RetentionBody({
         <h2 className="text-lg font-semibold text-gray-900">Why someone might leave</h2>
         <p>
           <span className="font-medium text-gray-900">From the member: </span>
-          not collected here. Read Weekly Feedback for words they actually wrote.
+          cancellation reasons are in Churn intelligence below. The words themselves stay in
+          Written cancellation feedback and are not copied into the facts report.
         </p>
         <p>
           <span className="font-medium text-gray-900">Observed: </span>
@@ -1350,6 +1361,10 @@ function RetentionBody({
                 ? `Stripe stored a feedback value on ${intel.customerFeedbackCount} ended memberships. Those words are not copied here.`
                 : "No customer-written cancellation reason is stored on these ended memberships."}
             </p>
+            <h3 className="font-medium text-gray-900">Churn intelligence</h3>
+            {formatChurnSurveyLines(intel.churnSurvey).map((line) => (
+              <p key={line}>{line}</p>
+            ))}
             <p>
               <Link href="/admin/feedback" className="text-gray-800 underline">
                 Weekly Feedback
@@ -1435,6 +1450,43 @@ function RetentionBody({
         )}
         <p>{intel.appleNote}</p>
       </section>
+      <CancellationCommentsSection view={cancellationComments} />
     </>
+  );
+}
+
+function CancellationCommentsSection({
+  view,
+}: {
+  view: CancellationCommentView | null;
+}) {
+  if (!view) return null;
+  return (
+    <section className="space-y-3 rounded border border-gray-200 bg-white px-4 py-4 text-sm text-gray-800">
+      <h2 className="text-xl font-semibold text-gray-900">Written cancellation feedback</h2>
+      <p>
+        Admin only. These words are not included in Copy Complete Facts Report and are not
+        saved in the retention report.
+      </p>
+      {view.status === "unavailable" ? (
+        <p>Written feedback could not be read. That is not zero comments.</p>
+      ) : null}
+      {view.status === "empty" ? <p>No written cancellation comments are stored.</p> : null}
+      {view.status === "ready" ? (
+        <>
+          {view.capped ? <p>Showing the 40 newest written responses.</p> : null}
+          <ul className="space-y-4">
+            {view.comments.map((comment, index) => (
+              <li key={index}>
+                <p className="text-xs text-gray-500">
+                  {comment.createdAt}. {comment.reasonLabel}
+                </p>
+                <p className="mt-1 whitespace-pre-wrap">{comment.message}</p>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </section>
   );
 }

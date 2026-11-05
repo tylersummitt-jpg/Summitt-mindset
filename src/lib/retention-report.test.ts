@@ -92,6 +92,18 @@ describe("retention report publication", () => {
     expect(facts).toContain("did not replace this report");
     expect(retentionReportHasPrivateContent(ready)).toBe(false);
     expect(retentionReportHasPrivateContent({ ...ready, raw_body: "private text" })).toBe(true);
+    expect(
+      retentionReportHasPrivateContent({
+        ...ready,
+        engagement: [{ message: "a member wrote this" }],
+      })
+    ).toBe(true);
+    expect(
+      retentionReportHasPrivateContent({
+        ...ready,
+        deletionReasons: { request_id: "secret-request", comment: "private words" },
+      })
+    ).toBe(true);
   });
 
   it("lets one fresh claim own the job and recovers an expired claim", () => {
