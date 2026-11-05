@@ -553,6 +553,8 @@ function BlockView({
       <ProgramsQuoteImage
         src={block.src}
         alt={block.alt}
+        width={block.width}
+        height={block.height}
         quote={block.quote}
         attribution={block.attribution}
       />

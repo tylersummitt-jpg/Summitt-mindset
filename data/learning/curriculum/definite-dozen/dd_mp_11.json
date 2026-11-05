@@ -198,14 +198,18 @@
           "markdown": "This is where leadership truly matters. When a coach inspires a team at halftime, challenging them to ignite their energies and actions, they are pressing the buttons of competition. When a longstanding champion sees a rival rising up and feels threatened, that sense of competition comes alive. The question is, how competitive are you as a leader? Do you feel that same sense of competitive juice when you observe a competitor gaining on you? Do you feel yourself wanting to overtake the champion? These are honest questions that you must reflect upon.\n\nPart of what can help you learn to compete more often and with enthusiasm is to recognize that competition is an important part of what it means to lead. If you read these words and feel like you \"don't like to compete,\" you may want to ask yourself, how bad do you want to win?"
         },
         {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_11_st_003_image_02.jpg",
-          "alt": "A Lady Vols player faces stiff defensive pressure from an opponent."
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_11_st_003_image_03.jpg",
-          "alt": "Coach Summitt urges her players to compete in a locker-room moment."
+          "type": "gallery",
+          "label": "On the court and in the locker room",
+          "images": [
+            {
+              "src": "/learning/definite-dozen/dd_mp_11_st_003_image_02.jpg",
+              "alt": "A Lady Vols player faces stiff defensive pressure from an opponent."
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_11_st_003_image_03.jpg",
+              "alt": "Coach Summitt urges her players to compete in a locker-room moment."
+            }
+          ]
         },
         {
           "type": "markdown",

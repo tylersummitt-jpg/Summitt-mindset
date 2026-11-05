@@ -92,27 +92,32 @@ describe("Programs media integrity", () => {
         if (!program) continue;
         for (const step of program.steps) {
           for (const block of step.blocks) {
-            if (block.type !== "image") continue;
-            const alt = block.alt.toLowerCase();
-            const repaired =
-              step.id === "dd_mp_05_st_008" ||
-              [
-                "dd_mp_08_st_008_image_02.jpg",
-                "dd_mp_08_st_010_image_01.jpg",
-                "dd_mp_08_st_010_image_02.jpg",
-                "dd_mp_08_st_011_image_02.jpg",
-                "dd_mp_08_st_015_image_01.jpg",
-              ].some((file) => block.src.endsWith(file));
-            if (alt.includes("original docebo lesson image") || alt.includes("course image")) {
-              violations.push(`${step.id} ${block.src} ${block.alt}`);
-            }
-            if (
-              repaired &&
-              (alt.includes("lesson image") ||
-                alt.includes("original docebo lesson image") ||
-                alt.includes("course image"))
-            ) {
-              violations.push(`${step.id} ${block.src} ${block.alt}`);
+            if (block.type !== "image" && block.type !== "gallery") continue;
+            const alts =
+              block.type === "image" ? [block.alt] : block.images.map((image) => image.alt);
+            for (const altText of alts) {
+              const alt = altText.toLowerCase();
+              const repaired =
+                step.id === "dd_mp_05_st_008" ||
+                (block.type === "image" &&
+                  [
+                    "dd_mp_08_st_008_image_02.jpg",
+                    "dd_mp_08_st_010_image_01.jpg",
+                    "dd_mp_08_st_010_image_02.jpg",
+                    "dd_mp_08_st_011_image_02.jpg",
+                    "dd_mp_08_st_015_image_01.jpg",
+                  ].some((file) => block.src.endsWith(file)));
+              if (alt.includes("original docebo lesson image") || alt.includes("course image")) {
+                violations.push(`${step.id} ${altText}`);
+              }
+              if (
+                repaired &&
+                (alt.includes("lesson image") ||
+                  alt.includes("original docebo lesson image") ||
+                  alt.includes("course image"))
+              ) {
+                violations.push(`${step.id} ${altText}`);
+              }
             }
           }
         }
@@ -123,11 +128,13 @@ describe("Programs media integrity", () => {
     const relationships = getLearningMiniProgram("dd_mp_05")?.steps.find(
       (step) => step.id === "dd_mp_05_st_008"
     );
-    const characterAlts = relationships?.blocks.flatMap((block) =>
-      block.type === "image" && /dd_mp_05_st_008_image_(0[3-9]|1[0-4])\.png$/.test(block.src)
-        ? [block.alt]
-        : []
-    );
+    const characterAlts = relationships?.blocks.flatMap((block) => {
+      const images =
+        block.type === "gallery" ? block.images : block.type === "image" ? [block] : [];
+      return images.flatMap((image) =>
+        /dd_mp_05_st_008_image_(0[3-9]|1[0-4])\.png$/.test(image.src) ? [image.alt] : []
+      );
+    });
     expect(characterAlts).toEqual(
       Array.from({ length: 12 }, (_, index) => `Relationship scenario character image ${index + 1}`)
     );

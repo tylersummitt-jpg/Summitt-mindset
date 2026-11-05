@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { utBody, utBodyMuted } from "@/components/utility-page-visual";
+import {
+  galleryImageStyle,
+  galleryItemClassName,
+  galleryLayout,
+} from "@/components/programs/programs-image-frame";
+import { ProgramsNaturalImage } from "@/components/programs/programs-natural-image";
 import {
   programsConceptListItem,
   programsQuote,
@@ -142,15 +147,24 @@ export function ProgramsGallery({
   images,
 }: {
   label: string;
-  images: Array<{ src: string; alt: string }>;
+  images: Array<{ src: string; alt: string; width: number; height: number }>;
 }) {
+  const layout = galleryLayout(images);
   return (
     <section aria-label={label} className="space-y-4">
       <h3 className="text-xl font-semibold tracking-tight text-stone-100">{label}</h3>
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {images.map((image) => (
-          <li key={image.src} className="relative aspect-[4/3] min-w-0 overflow-hidden rounded-md">
-            <Image src={image.src} alt={image.alt} fill className="object-cover" sizes="(min-width: 640px) 30vw, 45vw" />
+      <ul className={layout.listClassName} data-gallery-layout={layout.kind}>
+        {images.map((image, index) => (
+          <li key={`${image.src}-${index}`} className={galleryItemClassName(image, images)}>
+            <ProgramsNaturalImage
+              src={image.src}
+              alt={image.alt}
+              width={image.width}
+              height={image.height}
+              sizes="(min-width: 640px) 22rem, 100vw"
+              className="mx-auto block h-auto w-full rounded-md border border-white/10 object-contain"
+              style={galleryImageStyle(image.width, image.height)}
+            />
           </li>
         ))}
       </ul>

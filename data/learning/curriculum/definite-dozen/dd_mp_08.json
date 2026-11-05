@@ -822,14 +822,18 @@
           "markdown": "Because people are so important to the health and vitality of an organization, it's important to know them. Creating systems where teams are interactive helps you both know and engage your team. This is why leaders sometimes invest in retreats or team outings to have shared experiences together. By getting to know one another, there's a greater likelihood of developing trust and understanding."
         },
         {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_08_st_008_image_03.jpg",
-          "alt": "The Lady Vols team and staff enjoy time together at the Parthenon."
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_08_st_008_image_04.jpg",
-          "alt": "Coach Summitt and her team gather for some casual fun at a local hangout."
+          "type": "gallery",
+          "label": "The Lady Vols together",
+          "images": [
+            {
+              "src": "/learning/definite-dozen/dd_mp_08_st_008_image_03.jpg",
+              "alt": "The Lady Vols team and staff enjoy time together at the Parthenon."
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_08_st_008_image_04.jpg",
+              "alt": "Coach Summitt and her team gather for some casual fun at a local hangout."
+            }
+          ]
         },
         {
           "type": "markdown",

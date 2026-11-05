@@ -977,24 +977,26 @@
           ]
         },
         {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_03.jpg",
-          "alt": "Vacation goal image."
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_04.jpg",
-          "alt": "Wedding goal image."
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_05.jpg",
-          "alt": "Low-carb diet image."
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_06_st_008_image_06.jpg",
-          "alt": "Workout motivation image."
+          "type": "gallery",
+          "label": "Vacation, wedding, diet, and workout",
+          "images": [
+            {
+              "src": "/learning/definite-dozen/dd_mp_06_st_008_image_03.jpg",
+              "alt": "Vacation goal image."
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_06_st_008_image_04.jpg",
+              "alt": "Wedding goal image."
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_06_st_008_image_05.jpg",
+              "alt": "Low-carb diet image."
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_06_st_008_image_06.jpg",
+              "alt": "Workout motivation image."
+            }
+          ]
         },
         {
           "type": "markdown",

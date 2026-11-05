@@ -6,6 +6,8 @@
  * Those ids are the future progress keys and must not be replaced with a second scheme.
  */
 
+import { readPublicLearningImageSize } from "./image-file-size";
+
 export const LEARNING_BLOCK_TYPES = [
   "markdown",
   "heading",
@@ -99,6 +101,10 @@ export type LearningImageBlock = {
   type: "image";
   src: string;
   alt: string;
+  /** Pixel width of the file, measured when the curriculum is loaded. */
+  width: number;
+  /** Pixel height of the file, measured when the curriculum is loaded. */
+  height: number;
   quote?: string;
   attribution?: string;
   role?: "completion";
@@ -108,6 +114,10 @@ export type LearningImageBlock = {
 export type LearningGalleryImage = {
   src: string;
   alt: string;
+  /** Pixel width of the file, measured when the curriculum is loaded. */
+  width: number;
+  /** Pixel height of the file, measured when the curriculum is loaded. */
+  height: number;
 };
 
 export type LearningGalleryBlock = {
@@ -321,6 +331,22 @@ function curatedPublicSrc(src: string, label: string): string {
   return src;
 }
 
+function measuredImageSize(
+  src: string,
+  value: Record<string, unknown>,
+  label: string
+): { width: number; height: number } {
+  const measured = readPublicLearningImageSize(src);
+  const declaredWidth = value.width;
+  const declaredHeight = value.height;
+  if (declaredWidth != null || declaredHeight != null) {
+    if (declaredWidth !== measured.width || declaredHeight !== measured.height) {
+      throw new Error(`Invalid curriculum: ${label} dimensions do not match the file`);
+    }
+  }
+  return measured;
+}
+
 export function parseLearningMiniProgram(value: unknown): LearningMiniProgram {
   if (!isRecord(value)) {
     throw new Error("Invalid curriculum: mini-program must be an object");
@@ -519,10 +545,13 @@ function parseBlock(
       if (role && role !== "completion") {
         throw new Error(`Invalid curriculum: ${label}.role`);
       }
+      const size = measuredImageSize(src, value, label);
       return {
         type: "image",
         src,
         alt: value.alt,
+        width: size.width,
+        height: size.height,
         ...(quote ? { quote } : {}),
         ...(attribution ? { attribution } : {}),
         ...(role === "completion" ? { role: "completion" as const } : {}),
@@ -732,7 +761,8 @@ function parseGallery(value: Record<string, unknown>, label: string): LearningGa
       if (typeof imageValue.alt !== "string") {
         throw new Error(`Invalid curriculum: ${label}.images[${index}].alt must be a string`);
       }
-      return { src, alt: imageValue.alt };
+      const size = measuredImageSize(src, imageValue, `${label}.images[${index}]`);
+      return { src, alt: imageValue.alt, width: size.width, height: size.height };
     }),
   };
 }

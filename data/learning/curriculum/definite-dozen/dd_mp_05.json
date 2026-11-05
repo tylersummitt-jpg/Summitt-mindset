@@ -778,64 +778,58 @@
           ]
         },
         {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_03.png",
-          "alt": "Relationship scenario character image 1"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_04.png",
-          "alt": "Relationship scenario character image 2"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_05.png",
-          "alt": "Relationship scenario character image 3"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_06.png",
-          "alt": "Relationship scenario character image 4"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_07.png",
-          "alt": "Relationship scenario character image 5"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_08.png",
-          "alt": "Relationship scenario character image 6"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_09.png",
-          "alt": "Relationship scenario character image 7"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_10.png",
-          "alt": "Relationship scenario character image 8"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_11.png",
-          "alt": "Relationship scenario character image 9"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_12.png",
-          "alt": "Relationship scenario character image 10"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_13.png",
-          "alt": "Relationship scenario character image 11"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_05_st_008_image_14.png",
-          "alt": "Relationship scenario character image 12"
+          "type": "gallery",
+          "label": "Relationship scenario characters",
+          "images": [
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_03.png",
+              "alt": "Relationship scenario character image 1"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_04.png",
+              "alt": "Relationship scenario character image 2"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_05.png",
+              "alt": "Relationship scenario character image 3"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_06.png",
+              "alt": "Relationship scenario character image 4"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_07.png",
+              "alt": "Relationship scenario character image 5"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_08.png",
+              "alt": "Relationship scenario character image 6"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_09.png",
+              "alt": "Relationship scenario character image 7"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_10.png",
+              "alt": "Relationship scenario character image 8"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_11.png",
+              "alt": "Relationship scenario character image 9"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_12.png",
+              "alt": "Relationship scenario character image 10"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_13.png",
+              "alt": "Relationship scenario character image 11"
+            },
+            {
+              "src": "/learning/definite-dozen/dd_mp_05_st_008_image_14.png",
+              "alt": "Relationship scenario character image 12"
+            }
+          ]
         },
         {
           "type": "heading",
