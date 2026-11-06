@@ -68,15 +68,9 @@ describe("Programs image curriculum, first pass", () => {
   });
 
   it("turns the six approved related sets into galleries and leaves the rival sequence separate", () => {
-    const characters = step("dd_mp_05", "dd_mp_05_st_008").blocks.find(
-      (block) => block.type === "gallery"
-    );
-    expect(characters && characters.type === "gallery" ? characters.images.map((image) => image.src) : []).toEqual(
-      Array.from({ length: 12 }, (_, index) => {
-        const number = String(index + 3).padStart(2, "0");
-        return `/learning/definite-dozen/dd_mp_05_st_008_image_${number}.png`;
-      })
-    );
+    const characters = step("dd_mp_05", "dd_mp_05_st_008");
+    expect(characters.blocks.some((block) => block.type === "gallery")).toBe(false);
+    expect(JSON.stringify(characters)).not.toContain("dd_mp_05_st_008_image_03.png");
     expect(imageSrcs("dd_mp_05", "dd_mp_05_st_008")).toEqual([
       "/learning/definite-dozen/dd_mp_05_st_008_image_02.jpg",
       "/learning/definite-dozen/dd_mp_05_st_008_image_15.jpg",

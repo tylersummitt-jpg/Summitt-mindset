@@ -2,7 +2,7 @@
   "id": "cw_mp_09",
   "collection_id": "championing_women",
   "collection_title": "Championing Women in Leadership",
-  "title": "In It for the Long Haul",
+  "title": "Women Who Are In It For The Long Haul",
   "description": "Become a Go-To Team Player The first is, become a go-to team member. Remember the previous lesson about being your authentic self? Don’t wait for recognition or a promotion to become an ideal team player. As a coach, Pat intentionally looked for players who wanted the ball—those who had declared themselves competitors and felt confident enough in their skills to request the ball when the game was on the line.",
   "sequence": 9,
   "estimated_minutes": 30,
@@ -13,7 +13,7 @@
       "id": "cw_mp_09_st_001",
       "source_step_id": "cw_mp_09_st_001",
       "sequence": 1,
-      "title": "In It for the Long Haul",
+      "title": "Women Who Are In It For The Long Haul",
       "blocks": [
         {
           "type": "markdown",
@@ -32,7 +32,7 @@
         {
           "type": "video",
           "vimeo_video_id": "1151015690",
-          "visible_title": "In It for the Long-Haul",
+          "visible_title": "Women Who Are In It For The Long Haul",
           "speaker": "Michelle Marciniak"
         }
       ]

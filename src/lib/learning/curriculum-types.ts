@@ -55,6 +55,8 @@ export type LearningHeadingBlock = {
   type: "heading";
   level: 2 | 3;
   text: string;
+  /** A teaching prompt that should read as a heading, not body copy. */
+  role?: "instruction";
   reveal_after?: string;
 };
 
@@ -447,10 +449,14 @@ function parseBlock(
       if (level !== 2 && level !== 3) {
         throw new Error(`Invalid curriculum: ${label}.level`);
       }
+      if (value.role != null && value.role !== "instruction") {
+        throw new Error(`Invalid curriculum: ${label}.role`);
+      }
       return {
         type: "heading",
         level,
         text: requireString(value.text, `${label}.text`),
+        ...(value.role === "instruction" ? { role: "instruction" as const } : {}),
         ...revealField(value, label),
       };
     }

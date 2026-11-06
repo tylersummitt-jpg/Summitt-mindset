@@ -3,7 +3,7 @@
   "collection_id": "power_of_team_leader",
   "collection_title": "The Power of Team",
   "title": "Listening to Lead",
-  "description": "How many of us go through a day without saying a word? None of us. But maybe we ought to try it. Communicating is not just about giving great speeches. It’s about allowing others to express themselves.”",
+  "description": "“How many of us go through a day without saying a word? None of us. But maybe we ought to try it. Communicating is not just about giving great speeches. It’s about allowing others to express themselves.” - Pat Summitt",
   "sequence": 9,
   "estimated_minutes": 30,
   "source_mini_program_id": "potl_mp_09",
@@ -17,7 +17,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "A final step to becoming an excellent communicator that Pat always emphasized is the act of listening to lead. As a leader, listening is one of the most overlooked skills you can have. But what does it really mean to listen as a leader? Is it just about nodding your head and pretending to hear what your team is saying? Absolutely not. True listening is about connecting with your team on a deeper level and attempting to understand their perspectives and needs.\n\nHow many of us go through a day without saying a word? None of us. But maybe we ought to try it. Communicating is not just about giving great speeches. It’s about allowing others to express themselves.”"
+          "markdown": "A final step to becoming an excellent communicator that Pat always emphasized is the act of listening to lead. As a leader, listening is one of the most overlooked skills you can have. But what does it really mean to listen as a leader? Is it just about nodding your head and pretending to hear what your team is saying? Absolutely not. True listening is about connecting with your team on a deeper level and attempting to understand their perspectives and needs.\n\n“How many of us go through a day without saying a word? None of us. But maybe we ought to try it. Communicating is not just about giving great speeches. It’s about allowing others to express themselves.”\n\n— Pat Summitt"
         },
         {
           "type": "video",

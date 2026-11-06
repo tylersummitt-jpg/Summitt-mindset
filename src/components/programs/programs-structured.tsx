@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { utBody, utBodyMuted } from "@/components/utility-page-visual";
+import { utBodyMuted } from "@/components/utility-page-visual";
 import {
   galleryImageStyle,
   galleryItemClassName,
@@ -9,9 +9,14 @@ import {
 } from "@/components/programs/programs-image-frame";
 import { ProgramsNaturalImage } from "@/components/programs/programs-natural-image";
 import {
+  programsBody,
   programsConceptListItem,
+  programsInstructionHeading,
   programsQuote,
+  programsQuoteAttribution,
+  programsQuoteText,
   programsSectionCard,
+  programsTableBody,
 } from "@/components/programs/programs-visual";
 import type {
   LearningCalloutBlock,
@@ -22,6 +27,9 @@ import type {
 } from "@/lib/learning/curriculum-types";
 
 export function ProgramsHeading({ block }: { block: LearningHeadingBlock }) {
+  if (block.role === "instruction") {
+    return <h2 className={programsInstructionHeading}>{block.text}</h2>;
+  }
   const className =
     block.level === 2
       ? "text-2xl font-semibold tracking-tight text-balance text-stone-50"
@@ -34,7 +42,7 @@ export function ProgramsHeading({ block }: { block: LearningHeadingBlock }) {
 
 export function ProgramsList({ block }: { block: LearningListBlock }) {
   const itemClass =
-    block.role === "concepts" ? programsConceptListItem : `${utBody} break-words text-stone-100`;
+    block.role === "concepts" ? programsConceptListItem : `${programsBody} break-words`;
   const items = block.items.map((item) => (
     <li key={item} className={itemClass}>
       {item}
@@ -52,7 +60,7 @@ export function ProgramsTable({ block }: { block: LearningTableBlock }) {
     <figure className="min-w-0">
       {block.caption ? <figcaption className={`mb-3 ${utBodyMuted}`}>{block.caption}</figcaption> : null}
       <div className="max-w-full overflow-x-auto">
-        <table className="w-full min-w-[36rem] border-collapse text-left text-sm text-stone-100">
+        <table className={`w-full min-w-[36rem] border-collapse text-left ${programsTableBody}`}>
           <thead>
             <tr>
               {block.headers.map((header) => (
@@ -80,7 +88,21 @@ export function ProgramsTable({ block }: { block: LearningTableBlock }) {
 }
 
 export function ProgramsCallout({ block }: { block: LearningCalloutBlock }) {
-  return <p className={programsQuote}>{block.text}</p>;
+  const parts = block.text
+    .split(/\n\n+/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const attribution = parts.length > 1 ? parts[parts.length - 1] : "";
+  const quoted = /^[—–]\s+\S/.test(attribution);
+  const text = quoted ? parts.slice(0, -1).join("\n\n") : block.text;
+  return (
+    <blockquote className={programsQuote}>
+      <p className={`${programsQuoteText} whitespace-pre-wrap`}>{text}</p>
+      {quoted ? (
+        <footer className={programsQuoteAttribution}>{attribution.replace(/^[—–]\s+/, "— ")}</footer>
+      ) : null}
+    </blockquote>
+  );
 }
 
 export function ProgramsFlashcards({
@@ -111,7 +133,7 @@ export function ProgramsFlashcards({
               </button>
             </h3>
             {expanded ? (
-              <p className={`mt-4 border-t border-white/10 pt-4 ${utBody} break-words text-stone-100`}>
+              <p className={`mt-4 border-t border-white/10 pt-4 ${programsBody} break-words`}>
                 {card.back}
               </p>
             ) : null}
@@ -137,7 +159,7 @@ export function ProgramsAudio({
       <audio className="w-full" controls preload="none">
         <source src={src} type="audio/mpeg" />
       </audio>
-      <blockquote className={`${utBody} break-words text-stone-100`}>{transcript}</blockquote>
+      <blockquote className={`${programsBody} break-words`}>{transcript}</blockquote>
     </figure>
   );
 }
@@ -180,7 +202,7 @@ export function ProgramsProcess({ block }: { block: LearningProcessBlock }) {
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--brand)]">
             {index + 1}. {step.title}
           </p>
-          <p className={`mt-3 ${utBody} break-words text-stone-100`}>{step.body}</p>
+          <p className={`mt-3 ${programsBody} break-words`}>{step.body}</p>
         </li>
       ))}
     </ol>

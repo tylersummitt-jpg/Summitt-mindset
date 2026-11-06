@@ -10,7 +10,6 @@ import {
   saveLearningReflection,
 } from "@/app/programs/actions";
 import {
-  utBody,
   utBodyMuted,
   utFormField,
   utPrimaryBtn,
@@ -34,6 +33,7 @@ import { ProgramsReveal } from "@/components/programs/programs-reveal";
 import { ProgramsTeaching } from "@/components/programs/programs-teaching";
 import { ProgramsVideo } from "@/components/programs/programs-video";
 import {
+  programsBody,
   programsEyebrow,
   programsMissPanel,
   programsSectionCard,
@@ -583,7 +583,7 @@ function BlockView({
       );
       return (
         <div className={`${programsSectionCard} space-y-4`}>
-          <p className={`${utBody} text-stone-100`}>{block.prompt}</p>
+          <p className={`${programsBody}`}>{block.prompt}</p>
           <div role="tablist" aria-label={block.prompt} className="flex flex-col gap-3 sm:flex-row">
             {block.choices.map((choice) => {
               const active = choice.id === selected?.id;
@@ -641,7 +641,7 @@ function BlockView({
     const selected = block.choices.find((choice) => choice.id === choiceId) ?? null;
     return (
       <div className={`${programsSectionCard} space-y-4`}>
-        <p className={`${utBody} text-stone-100`}>{block.prompt}</p>
+        <p className={`${programsBody}`}>{block.prompt}</p>
         <div className="flex flex-col gap-3 sm:flex-row">
           {block.choices.map((choice) => (
             <button
@@ -688,7 +688,7 @@ function BlockView({
         <div className={programsSectionCard}>
           <label className="block space-y-3">
             <span className={programsEyebrow}>Reflection</span>
-            <span className={`${utBody} block font-medium text-stone-100`}>{block.prompt}</span>
+            <span className={`${programsBody} block font-medium`}>{block.prompt}</span>
             <textarea
               className={`${utFormField} min-h-36`}
               rows={6}
@@ -725,7 +725,7 @@ function BlockView({
       <div className={programsSectionCard}>
         <label className="block space-y-3">
           <span className={programsEyebrow}>Reflection</span>
-          <span className={`${utBody} block font-medium text-stone-100`}>{block.prompt}</span>
+          <span className={`${programsBody} block font-medium`}>{block.prompt}</span>
           <textarea
             className={`${utFormField} min-h-36`}
             rows={6}

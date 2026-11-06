@@ -79,15 +79,25 @@
   "partially_curated_quizzes": [
     {
       "id": "cw_mp_10_st_006",
-      "kept": ["cw_mp_10_st_006_q01", "cw_mp_10_st_006_q02"],
-      "removed": ["cw_mp_10_st_006_q03"],
+      "kept": [
+        "cw_mp_10_st_006_q01",
+        "cw_mp_10_st_006_q02"
+      ],
+      "removed": [
+        "cw_mp_10_st_006_q03"
+      ],
       "minimum_correct": "2 of 2",
       "reason": "q03 tests the retired Brevity page."
     },
     {
       "id": "cw_mp_13_st_006",
-      "kept": ["cw_mp_13_st_006_q03"],
-      "removed": ["cw_mp_13_st_006_q01", "cw_mp_13_st_006_q02"],
+      "kept": [
+        "cw_mp_13_st_006_q03"
+      ],
+      "removed": [
+        "cw_mp_13_st_006_q01",
+        "cw_mp_13_st_006_q02"
+      ],
       "minimum_correct": "1 of 1",
       "reason": "q01 and q02 test the retired Peer Review page."
     }
@@ -95,7 +105,11 @@
   "restored_quizzes": [
     {
       "id": "cw_mp_08_st_003",
-      "kept": ["cw_mp_08_st_003_q01", "cw_mp_08_st_003_q02", "cw_mp_08_st_003_q03"],
+      "kept": [
+        "cw_mp_08_st_003_q01",
+        "cw_mp_08_st_003_q02",
+        "cw_mp_08_st_003_q03"
+      ],
       "minimum_correct": "3 of 3",
       "reason": "Fully supported by the surviving Be Your Authentic Self lesson."
     }
@@ -118,13 +132,13 @@
     },
     "mini_programs": {
       "cw_mp_06": "The Strength of Female Leadership",
-      "cw_mp_07": "Climbing With Confidence",
-      "cw_mp_08": "Owning Your Game",
-      "cw_mp_09": "In It for the Long Haul",
-      "cw_mp_10": "Communicate for Success",
-      "cw_mp_11": "Powerful Conversations",
+      "cw_mp_07": "Climbing With Confidence As A Woman In Leadership",
+      "cw_mp_08": "How Women Leaders Can Own Their Game",
+      "cw_mp_09": "Women Who Are In It For The Long Haul",
+      "cw_mp_10": "How to Communicate As A Woman In Leadership",
+      "cw_mp_11": "Powerful Conversations from Female Leaders",
       "cw_mp_12": "Negotiation for Women",
-      "cw_mp_13": "Thriving Together",
+      "cw_mp_13": "Women Thriving Together",
       "potl_mp_01": "Why Is Team Important?",
       "potl_mp_02": "The Big Chair",
       "potl_mp_03": "Responsibility and Ownership",

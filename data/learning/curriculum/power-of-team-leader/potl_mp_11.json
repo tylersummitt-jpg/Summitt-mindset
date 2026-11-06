@@ -3,7 +3,7 @@
   "collection_id": "power_of_team_leader",
   "collection_title": "The Power of Team",
   "title": "How to Be Loyal to Your Team",
-  "description": "Loyalty is a self-less proposition. You won’t ever have it unless you’re willing to give it away first.”",
+  "description": "“The absolute heart of loyalty is to value those people who tell you the truth, not just those people who tell you what you want to hear. In fact, you should value them most. Because they have paid you the compliment of leveling with you and assuming you can handle it. - Pat Summitt”",
   "sequence": 11,
   "estimated_minutes": 30,
   "source_mini_program_id": "potl_mp_11",
@@ -17,7 +17,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Loyalty is a self-less proposition. You won’t ever have it unless you’re willing to give it away first.”"
+          "markdown": "“The absolute heart of loyalty is to value those people who tell you the truth, not just those people who tell you what you want to hear. In fact, you should value them most. Because they have paid you the compliment of leveling with you and assuming you can handle it. - Pat Summitt”"
         },
         {
           "type": "video",

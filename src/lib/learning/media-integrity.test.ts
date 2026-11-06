@@ -135,9 +135,7 @@ describe("Programs media integrity", () => {
         /dd_mp_05_st_008_image_(0[3-9]|1[0-4])\.png$/.test(image.src) ? [image.alt] : []
       );
     });
-    expect(characterAlts).toEqual(
-      Array.from({ length: 12 }, (_, index) => `Relationship scenario character image ${index + 1}`)
-    );
+    expect(characterAlts).toEqual([]);
 
     const workingSmart = getLearningMiniProgram("dd_mp_08");
     const altFor = (stepId: string, file: string) => {

@@ -506,7 +506,7 @@
         },
         {
           "type": "callout",
-          "text": "DO MORE."
+          "text": "DO MORE.\n\n— Pat Summitt"
         },
         {
           "type": "markdown",
@@ -543,31 +543,31 @@
           ],
           "rows": [
             [
-              "give away power and responsibilities to the team",
-              "avoid giving power and responsibilities to the team"
+              "Give away power and responsibilities to the team.",
+              "Avoid giving power and responsibilities to the team."
             ],
             [
-              "define team members' roles and responsibilities",
-              "don't allow the team to make decisions"
+              "Define team members' roles and responsibilities.",
+              "Don't allow the team to make decisions."
             ],
             [
-              "give away the credit to the team for the success",
-              "claim credit for the team's success"
+              "Give away the credit to the team for the success.",
+              "Claim credit for the team's success."
             ],
             [
-              "let people innovate, experiment and grow",
-              "prevent the team from experimenting"
+              "Let people innovate, experiment and grow.",
+              "Prevent the team from experimenting."
             ],
             [
-              "own the team's problems and mistakes",
-              "blame the team for problems and mistakes"
+              "Own the team's problems and mistakes.",
+              "Blame the team for problems and mistakes."
             ],
             [
-              "create accountability through self-reporting",
-              "model behaviors that are different from their requirements"
+              "Create accountability through self-reporting.",
+              "Model behaviors that are different from their requirements."
             ],
             [
-              "replicate successful practices",
+              "Replicate successful practices.",
               ""
             ]
           ]

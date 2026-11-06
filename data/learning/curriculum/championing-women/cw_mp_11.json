@@ -2,7 +2,7 @@
   "id": "cw_mp_11",
   "collection_id": "championing_women",
   "collection_title": "Championing Women in Leadership",
-  "title": "Powerful Conversations",
+  "title": "Powerful Conversations from Female Leaders",
   "description": "Sometimes great communication with your leader may come naturally (if it does, great!). Other times it may be a challenge, especially if your leader has a different personality type or communication style than you do. As a female leader, there are a few things you can do to optimize interactions with your leader.",
   "sequence": 11,
   "estimated_minutes": 30,
@@ -13,7 +13,7 @@
       "id": "cw_mp_11_st_001",
       "source_step_id": "cw_mp_11_st_001",
       "sequence": 1,
-      "title": "Powerful Conversations",
+      "title": "Powerful Conversations from Female Leaders",
       "blocks": [
         {
           "type": "markdown",
@@ -27,7 +27,7 @@
         {
           "type": "video",
           "vimeo_video_id": "1151016114",
-          "visible_title": "Powerful Conversations",
+          "visible_title": "Powerful Conversations from Female Leaders",
           "speaker": "Alexis Hornbuckle"
         }
       ]

@@ -3,7 +3,7 @@
   "collection_id": "power_of_team_leader",
   "collection_title": "The Power of Team",
   "title": "You Have to Demonstrate Loyalty to Receive It",
-  "description": "Loyalty is a selfless proposition. You won’t ever have it unless you are willing to give it away first.”",
+  "description": "“Loyalty is a selfless proposition. You won’t ever have it unless you are willing to give it away first.” - Pat Summitt",
   "sequence": 10,
   "estimated_minutes": 30,
   "source_mini_program_id": "potl_mp_10",
@@ -17,7 +17,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Ah, employee loyalty. A lost art, right? With employees changing jobs every few years, people being more transient in general, and an ever-changing workplace, it feels like the days of 20- or 30-year employees and the “company” man or woman are gone. This feeling isn’t completely unfounded. According to Forbes, the average tenure for an employee in recent years is around 4.1 years, offset by the fact that nearly 38 percent of employees quit within the first year.1 And why not?, you might ask. People have more options. People have more needs. There are more industries and companies than ever to choose from, and they’re more diverse.\n\nLoyalty is a selfless proposition. You won’t ever have it unless you are willing to give it away first.”"
+          "markdown": "Ah, employee loyalty. A lost art, right? With employees changing jobs every few years, people being more transient in general, and an ever-changing workplace, it feels like the days of 20- or 30-year employees and the “company” man or woman are gone. This feeling isn’t completely unfounded. According to Forbes, the average tenure for an employee in recent years is around 4.1 years, offset by the fact that nearly 38 percent of employees quit within the first year.1 And why not?, you might ask. People have more options. People have more needs. There are more industries and companies than ever to choose from, and they’re more diverse.\n\n“Loyalty is a selfless proposition. You won’t ever have it unless you are willing to give it away first.”\n\n— Pat Summitt"
         },
         {
           "type": "video",

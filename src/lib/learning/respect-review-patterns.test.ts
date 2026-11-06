@@ -191,9 +191,11 @@ describe("respect manual-review patterns", () => {
       "Envision the dream of what you want to accomplish.",
       "Dream",
     ]);
-    expect(findStep("dd_mp_04_st_008").blocks.some((block) => block.type === "callout")).toBe(true);
+    expect(findStep("dd_mp_04_st_008").blocks.some((block) => block.type === "callout")).toBe(false);
+    expect(findStep("dd_mp_04_st_008").blocks.some((block) => block.type === "process")).toBe(true);
     expect(findStep("dd_mp_04_st_011").blocks.some((block) => block.type === "callout")).toBe(true);
-    expect(findStep("dd_mp_05_st_013").blocks.filter((block) => block.type === "image").length).toBeGreaterThan(0);
+    expect(findStep("dd_mp_05_st_013").blocks.some((block) => block.type === "image")).toBe(false);
+    expect(findStep("dd_mp_05_st_013").blocks.some((block) => block.type === "video")).toBe(true);
     expect(
       findStep("dd_mp_06_st_013").blocks.filter(
         (block) =>

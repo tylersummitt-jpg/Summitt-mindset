@@ -36,7 +36,25 @@ export const programsSortCardHeading = "text-lg font-semibold leading-snug text-
 export const programsConceptListItem =
   "text-xl font-semibold tracking-tight text-balance break-words text-stone-50";
 
-export const programsQuote = `${utCard} border-l-2 border-l-[var(--brand)] px-5 py-4`;
+/**
+ * Teaching copy for Programs only. One step up from the shared utility body,
+ * with a looser line height. Utility pages keep `utBody`.
+ */
+export const programsBody = "text-base leading-7 text-stone-200 sm:text-lg sm:leading-8";
+
+/** Chart cells stay a step under lesson prose so wide tables still fit. */
+export const programsTableBody = "text-base leading-relaxed text-stone-200";
+
+export const programsQuote = `${utCard} border-l-4 border-l-[var(--brand)] px-5 py-5 sm:px-6`;
+
+export const programsQuoteText =
+  "text-lg font-semibold leading-snug text-stone-50 sm:text-xl";
+
+export const programsQuoteAttribution = "mt-3 text-base font-semibold text-[var(--brand)]";
+
+/** A prompt that should read as a heading, using the existing orange accent. */
+export const programsInstructionHeading =
+  "text-xl font-bold tracking-tight text-balance text-[var(--brand)] sm:text-2xl";
 
 export const programsSuccessPanel =
   "rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-4 py-3 text-sm leading-relaxed text-emerald-100";

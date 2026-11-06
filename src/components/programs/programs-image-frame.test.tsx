@@ -157,7 +157,15 @@ describe("lesson galleries", () => {
     }
     unmount();
 
-    const portraits = gallery("dd_mp_05", "dd_mp_05_st_008", "Relationship");
+    const portraits = {
+      label: "Relationship scenario characters",
+      images: Array.from({ length: 12 }, (_, index) => ({
+        src: `/learning/definite-dozen/portrait-${index + 1}.png`,
+        alt: `Portrait ${index + 1}`,
+        width: 800,
+        height: 1600,
+      })),
+    };
     render(<ProgramsGallery label={portraits.label} images={portraits.images} />);
     list = screen.getByRole("list");
     expect(list.getAttribute("data-gallery-layout")).toBe("portraits");

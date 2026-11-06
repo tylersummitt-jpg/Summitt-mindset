@@ -2,7 +2,7 @@
   "id": "cw_mp_07",
   "collection_id": "championing_women",
   "collection_title": "Championing Women in Leadership",
-  "title": "Climbing With Confidence",
+  "title": "Climbing With Confidence As A Woman In Leadership",
   "description": "Pat firmly believed in a growth mindset, so much so that it was a prerequisite of everyone who played under her leadership. She famously said: \"How can you grow, if you never change? Without changing something almost every year, Tennessee never would have won five national championships…And without accepting some pretty dramatic changes in my own life, I wouldn’t be the head coach of the Lady Vols.\"",
   "sequence": 7,
   "estimated_minutes": 30,
@@ -13,7 +13,7 @@
       "id": "cw_mp_07_st_001",
       "source_step_id": "cw_mp_07_st_001",
       "sequence": 1,
-      "title": "Climbing With Confidence",
+      "title": "Climbing With Confidence As A Woman In Leadership",
       "blocks": [
         {
           "type": "markdown",
@@ -42,7 +42,7 @@
         {
           "type": "video",
           "vimeo_video_id": "1151015078",
-          "visible_title": "Climbing With Confidence",
+          "visible_title": "Climbing With Confidence As A Woman In Leadership",
           "speaker": "Nikki Anosike"
         }
       ]

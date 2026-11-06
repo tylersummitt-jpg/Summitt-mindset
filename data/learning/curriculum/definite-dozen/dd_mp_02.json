@@ -633,8 +633,10 @@
           "role": "concepts"
         },
         {
-          "type": "markdown",
-          "markdown": "Which of these 3 approaches do you already use in your team?"
+          "type": "heading",
+          "level": 2,
+          "role": "instruction",
+          "text": "Which of these 3 approaches do you already use in your team?"
         },
         {
           "type": "sections",

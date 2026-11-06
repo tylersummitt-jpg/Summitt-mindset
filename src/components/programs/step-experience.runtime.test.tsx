@@ -17,7 +17,7 @@ import {
   programsSortCardHeading,
   programsSortCardIndex,
 } from "@/components/programs/programs-visual";
-import { utBody } from "@/components/utility-page-visual";
+import { programsBody } from "@/components/programs/programs-visual";
 import { StepExperience } from "./step-experience";
 
 const saveLearningReflection = vi.hoisted(() => vi.fn());
@@ -839,7 +839,7 @@ describe("step experience", () => {
     );
     const word = screen.getByText("positive");
     expect(word.tagName).toBe("LI");
-    expect(word.className).toBe(`${utBody} break-words text-stone-100`);
+    expect(word.className).toBe(`${programsBody} break-words`);
     expect(word.className).not.toContain("text-xl");
   });
 

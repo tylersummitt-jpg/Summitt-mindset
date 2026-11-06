@@ -1,5 +1,6 @@
 import { ProgramsNaturalImage } from "@/components/programs/programs-natural-image";
 import { imageFrame } from "@/components/programs/programs-image-frame";
+import { programsQuoteAttribution, programsQuoteText } from "@/components/programs/programs-visual";
 
 export function ProgramsQuoteImage({
   src,
@@ -32,9 +33,9 @@ export function ProgramsQuoteImage({
       </div>
       {quote ? (
         <blockquote className="mt-4 max-w-full">
-          <p className="text-lg font-medium leading-snug text-stone-50 sm:text-xl">{quote}</p>
+          <p className={programsQuoteText}>{quote}</p>
           {attribution ? (
-            <footer className="mt-3 text-sm text-stone-400">— {attribution}</footer>
+            <footer className={programsQuoteAttribution}>— {attribution}</footer>
           ) : null}
         </blockquote>
       ) : null}

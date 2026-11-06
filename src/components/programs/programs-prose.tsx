@@ -1,5 +1,4 @@
-import { utBody, utBodyMuted } from "@/components/utility-page-visual";
-import { programsQuote } from "./programs-visual";
+import { programsBody, programsQuote, programsQuoteAttribution, programsQuoteText } from "./programs-visual";
 
 const ATTRIBUTION = /^[—–]\s+\S.{0,80}$/;
 
@@ -38,13 +37,13 @@ export function ProgramsProse({ text }: { text: string }) {
       {blocks.map((block, index) =>
         block.kind === "quote" ? (
           <blockquote key={`${index}-${block.attribution}`} className={programsQuote}>
-            <p className={`${utBody} text-stone-100`}>{block.text}</p>
-            <footer className={`mt-3 ${utBodyMuted}`}>— {block.attribution}</footer>
+            <p className={programsQuoteText}>{block.text}</p>
+            <footer className={programsQuoteAttribution}>— {block.attribution}</footer>
           </blockquote>
         ) : (
           <p
             key={`${index}-${block.text.slice(0, 24)}`}
-            className={`${utBody} whitespace-pre-wrap break-words`}
+            className={`${programsBody} whitespace-pre-wrap break-words`}
           >
             {block.text}
           </p>

@@ -3,7 +3,7 @@
   "collection_id": "power_of_team_leader",
   "collection_title": "The Power of Team",
   "title": "Communicate to Win",
-  "description": "You can have the brightest, most creative people in the world, but if they can’t communicate, you won’t fully comprehend what they’re capable of.”",
+  "description": "“You can have the brightest, most creative people in the world, but if they can’t communicate, you won’t fully comprehend what they’re capable of.” - Pat Summitt",
   "sequence": 6,
   "estimated_minutes": 30,
   "source_mini_program_id": "potl_mp_06",
@@ -17,7 +17,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Good communication is a key part of any successful workplace team. Clear communication helps foster positive relationships between colleagues, improves productivity, and ultimately, leads to better outcomes for your organization. It’s no wonder Pat’s fourth Definite Dozen principle was Learn to be a Great Communicator. And yet, it’s worth a closer look, because even though communication is the glue that holds a team together, many organizations fail to grasp just how essential it is to prioritize good communication over other principles like processes, speed, authority, or confidentiality. As Pat would say, the first step is not merely viewing communication as a component of a healthy team. It’s realizing that communication is everything.\n\nYou can have the brightest, most creative people in the world, but if they can’t communicate, you won’t fully comprehend what they’re capable of.”"
+          "markdown": "Good communication is a key part of any successful workplace team. Clear communication helps foster positive relationships between colleagues, improves productivity, and ultimately, leads to better outcomes for your organization. It’s no wonder Pat’s fourth Definite Dozen principle was Learn to be a Great Communicator. And yet, it’s worth a closer look, because even though communication is the glue that holds a team together, many organizations fail to grasp just how essential it is to prioritize good communication over other principles like processes, speed, authority, or confidentiality. As Pat would say, the first step is not merely viewing communication as a component of a healthy team. It’s realizing that communication is everything.\n\n“You can have the brightest, most creative people in the world, but if they can’t communicate, you won’t fully comprehend what they’re capable of.”\n\n— Pat Summitt"
         },
         {
           "type": "video",

@@ -7,8 +7,8 @@ import {
   programsStatusActive,
   programsStatusPill,
 } from "@/components/programs/programs-visual";
+import { programsBody } from "@/components/programs/programs-visual";
 import {
-  utBody,
   utBodyMuted,
   utErrorPanel,
   utSectionHeading,
@@ -46,7 +46,7 @@ export default async function ProgramsPage() {
       <header>
         <h1 className={programsCatalogTitle}>Programs</h1>
         <div className={`mt-4 ${programsAccentRule}`} aria-hidden="true" />
-        <p className={`mt-4 max-w-xl ${utBody}`}>
+        <p className={`mt-4 max-w-xl ${programsBody}`}>
           Start a lesson, continue where you left off, or revisit one you have finished.
         </p>
       </header>
@@ -72,7 +72,7 @@ export default async function ProgramsPage() {
                         <h3 className="text-2xl font-semibold tracking-tight text-stone-50">
                           {program.title}
                         </h3>
-                        <p className={`mt-4 max-w-2xl whitespace-pre-line ${utBody}`}>
+                        <p className={`mt-4 max-w-2xl whitespace-pre-line ${programsBody}`}>
                           {program.description}
                         </p>
                         <div className="mt-6 flex flex-col gap-4 border-t border-white/10 pt-5 sm:flex-row sm:items-center sm:justify-between">

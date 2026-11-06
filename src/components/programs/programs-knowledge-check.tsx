@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { utBody, utBodyMuted } from "@/components/utility-page-visual";
+import { utBodyMuted } from "@/components/utility-page-visual";
+import { programsBody } from "@/components/programs/programs-visual";
 import {
   programsChoiceCorrect,
   programsChoiceIdle,
@@ -66,7 +67,7 @@ export function ProgramsKnowledgeCheck({
             aria-label={question.prompt}
             className={`${programsSectionCard} min-w-0`}
           >
-            <p className={`${utBody} break-words font-medium text-stone-100`}>{question.prompt}</p>
+            <p className={`${programsBody} break-words font-medium`}>{question.prompt}</p>
             {questionResult ? (
               <p
                 className={
@@ -105,7 +106,7 @@ export function ProgramsKnowledgeCheck({
                     data-choice-result={
                       isCorrectChoice ? "correct" : isWrongSelection ? "incorrect" : revealed ? "neutral" : undefined
                     }
-                    className={`${utBody} ${tone}`}
+                    className={`${programsBody} ${tone}`}
                   >
                     <input
                       className="mt-1 h-5 w-5 shrink-0"

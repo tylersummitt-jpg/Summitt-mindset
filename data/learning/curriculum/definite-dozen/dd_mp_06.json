@@ -3,7 +3,7 @@
   "collection_id": "definite_dozen",
   "collection_title": "Definite Dozen",
   "title": "Principle 5: Discipline Yourself, So No One Else Has To",
-  "description": "It's very important...that we have great work ethic. Some of the most talented players are not always the ones who work the hardest. Why? Because they don't have it right here. You've got to have it in your heart. You've got to be invested.",
+  "description": "You’ve got to have it in your heart. You've got to be invested. — Pat Summitt",
   "sequence": 5,
   "estimated_minutes": 45,
   "source_mini_program_id": "dd_mp_06",
@@ -17,7 +17,7 @@
       "blocks": [
         {
           "type": "callout",
-          "text": "It's very important...that we have great work ethic. Some of the most talented players are not always the ones who work the hardest. Why? Because they don't have it right here. You've got to have it in your heart. You've got to be invested.\n\n— Pat Summitt"
+          "text": "You’ve got to have it in your heart. You've got to be invested.\n\n— Pat Summitt"
         },
         {
           "type": "video",
@@ -206,10 +206,6 @@
           "vimeo_video_id": "1150856471",
           "visible_title": "Discipline Yourself So No One Else Has To: Introduction",
           "speaker": "Joan Cronan"
-        },
-        {
-          "type": "callout",
-          "text": "I don’t like this subject. It makes me bite my lip. I warn you right now that my warmest, friendliest side doesn’t show up in these pages. By the time you’re done, you’ll think I’m one tough lady, and you may even like me a little less. That’s okay, as long as you respect me and believe in what I tell you — because that’s what discipline is all about. It’s about belief.\n\n— Pat Summitt"
         },
         {
           "type": "heading",

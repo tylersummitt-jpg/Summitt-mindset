@@ -3,7 +3,7 @@
   "collection_id": "definite_dozen",
   "collection_title": "Definite Dozen",
   "title": "Principle 3: Develop & Demonstrate Loyalty",
-  "description": "I tell our players right off that loyalty is so big. Loyalty. I would not hire anyone I couldn't trust. I would struggle with any player that wasn't loyal to our system.",
+  "description": "I tell our players right off that loyalty is so big. Loyalty. I would not hire anyone I couldn't trust. I would struggle with any player that wasn't loyal to our system. - Pat Summitt",
   "sequence": 3,
   "estimated_minutes": 45,
   "source_mini_program_id": "dd_mp_04",
@@ -17,7 +17,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "I tell our players right off that loyalty is so big. Loyalty. I would not hire anyone I couldn't trust. I would struggle with any player that wasn't loyal to our system.\n\nPat Summitt"
+          "markdown": "I tell our players right off that loyalty is so big. Loyalty. I would not hire anyone I couldn't trust. I would struggle with any player that wasn't loyal to our system.\n\n— Pat Summitt"
         },
         {
           "type": "video",
@@ -569,10 +569,6 @@
               "body": "Good leaders provide personalized support. Some people need verbal praise and motivation; others prefer one-on-one contact and quiet observation. Emotional intelligence in action requires listening, flexibility, and practice."
             }
           ]
-        },
-        {
-          "type": "callout",
-          "text": "The keys to developing emotional intelligence are: 1. Understand Yourself; 2. Manage Yourself; 3. Understand Others; 4. Manage Relationships."
         }
       ]
     },

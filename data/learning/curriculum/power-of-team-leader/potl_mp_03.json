@@ -3,7 +3,7 @@
   "collection_id": "power_of_team_leader",
   "collection_title": "The Power of Team",
   "title": "Responsibility and Ownership",
-  "description": "A sense of ownership is the most powerful weapon a team or organization can have.”",
+  "description": "“A sense of ownership is the most powerful weapon a team or organization can have.” - Pat Summitt",
   "sequence": 3,
   "estimated_minutes": 30,
   "source_mini_program_id": "potl_mp_03",
@@ -41,7 +41,7 @@
           "type": "audio",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_002_audio.mp3",
           "label": "Pat Summitt on ownership",
-          "transcript": "A sense of ownership is the most powerful weapon a team or organization can have.”"
+          "transcript": "“A sense of ownership is the most powerful weapon a team or organization can have.” - Pat Summitt"
         },
         {
           "type": "sections",
@@ -70,7 +70,7 @@
         },
         {
           "type": "markdown",
-          "markdown": "What’s wrong with employees these days? You can’t find good ones like you used to, right? The list above doesn’t have to be the status quo! Assuming you’re hiring good people — or at least reasonably competent people — many times when any of the above takes place, the flaw isn’t with the person, it’s with the expectations and culture of responsibility that have been created at the organization … or lack thereof. The standard for ownership has been set, and the bar is very low.\n\nA sense of ownership is the most powerful weapon a team or organization can have.”"
+          "markdown": "What’s wrong with employees these days? You can’t find good ones like you used to, right? The list above doesn’t have to be the status quo! Assuming you’re hiring good people — or at least reasonably competent people — many times when any of the above takes place, the flaw isn’t with the person, it’s with the expectations and culture of responsibility that have been created at the organization … or lack thereof. The standard for ownership has been set, and the bar is very low.\n\n“A sense of ownership is the most powerful weapon a team or organization can have.” - Pat Summitt"
         },
         {
           "type": "image",
