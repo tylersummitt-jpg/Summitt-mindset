@@ -174,14 +174,14 @@ describe("3-step join story copy alignment", () => {
     );
   });
 
-  it("consumer onboarding layout shows STEP 3 OF 3; coach banner does not", () => {
+  it("consumer onboarding layout shows Set Up Coach Pat without a step count", () => {
     const layout = readSrc("src/app/onboarding/layout.tsx");
-    expect(layout).toContain("STEP 3 OF 3");
+    expect(layout).not.toContain("STEP 3 OF 3");
     expect(layout).toContain("Set Up Coach Pat");
     expect(layout).toContain("coachCompleteHero ? null");
 
     const coachStart = layout.indexOf('aria-label="Coach onboarding steps"');
-    const consumerHeader = layout.indexOf("STEP 3 OF 3");
+    const consumerHeader = layout.indexOf("Set Up Coach Pat");
     const coachBlock = layout.slice(coachStart, consumerHeader);
     expect(coachStart).toBeGreaterThan(-1);
     expect(consumerHeader).toBeGreaterThan(coachStart);

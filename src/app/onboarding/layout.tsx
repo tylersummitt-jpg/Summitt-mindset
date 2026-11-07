@@ -220,10 +220,7 @@ export default async function OnboardingLayout({
           </div>
         ) : coachCompleteHero ? null : (
           <div className="mb-4 px-1 text-center">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-[var(--brand)]">
-              STEP 3 OF 3
-            </p>
-            <p className="mt-1 text-sm font-semibold leading-snug text-gray-900">
+            <p className="text-sm font-semibold leading-snug text-gray-900">
               Set Up Coach Pat
             </p>
           </div>
