@@ -28,7 +28,7 @@ export default function CommitmentClient({
 }: CommitmentClientInitial = {}): ReactElement {
   const copy: GoalBuilderCopy = {
     focusAreaPrompt: "Choose one focus area",
-    continueLabel: "Continue to Review →",
+    continueLabel: "Continue to Daily Texts →",
     backLabel: "Back",
   };
 

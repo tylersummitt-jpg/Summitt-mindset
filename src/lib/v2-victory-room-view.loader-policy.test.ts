@@ -165,8 +165,9 @@ describe("Victory Room loader policy", () => {
     expect(pastSeasonLoad).toBeGreaterThan(noCommitReturn);
   });
 
-  it("CompleteOnboardingButton still routes to victory room", () => {
-    expect(COMPLETE_BTN).toContain('router.push("/dashboard/victory-room")');
+  it("CompleteOnboardingButton enters the Film Room after completion", () => {
+    expect(COMPLETE_BTN).toContain('router.replace("/film-room")');
+    expect(COMPLETE_BTN).not.toContain('router.push("/dashboard/victory-room")');
   });
 
   it("gates module uses Victory Room as member home", () => {

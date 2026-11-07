@@ -17,7 +17,7 @@ const RECOMMENDED_TITLE = "Be present after work";
 const RECOMMENDED_BEHAVIOR =
   "I will put my phone away for the first 30 minutes after I get home.";
 
-const CONTINUE_DISABLED = /disabled=""[^>]*>Continue to Review/;
+const CONTINUE_DISABLED = /disabled=""[^>]*>Continue to Daily Texts/;
 
 function renderCommitment(
   props: React.ComponentProps<typeof CommitmentClient> = {}
@@ -30,7 +30,7 @@ function expectContinueDisabled(html: string) {
 }
 
 function expectContinueEnabled(html: string) {
-  expect(html).toContain("Continue to Review →");
+  expect(html).toContain("Continue to Daily Texts →");
   expect(html).not.toMatch(CONTINUE_DISABLED);
 }
 

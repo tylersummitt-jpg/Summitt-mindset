@@ -191,7 +191,7 @@ describe("3-step join story copy alignment", () => {
     expect(coachBlock).not.toContain("STEP 3 OF 3");
   });
 
-  it("progress uses PART 1–5 names, not Onboarding step X of 5", () => {
+  it("progress uses four part names, not Onboarding step X of 5", () => {
     const src = readSrc("src/components/onboarding-progress.tsx");
     expect(src).toContain(
       "PART {currentStep} OF {STEPS.length} — {STEPS[currentStep - 1].label.toUpperCase()}"
@@ -199,19 +199,17 @@ describe("3-step join story copy alignment", () => {
     expect(src).not.toContain("Onboarding step");
 
     expect(renderToStaticMarkup(React.createElement(OnboardingProgress, { currentStep: 1 }))).toContain(
-      "PART 1 OF 5 — IDENTITY"
+      "PART 1 OF 4 — IDENTITY"
     );
     expect(renderToStaticMarkup(React.createElement(OnboardingProgress, { currentStep: 2 }))).toContain(
-      "PART 2 OF 5 — GOAL"
+      "PART 2 OF 4 — GOAL"
     );
     expect(renderToStaticMarkup(React.createElement(OnboardingProgress, { currentStep: 3 }))).toContain(
-      "PART 3 OF 5 — REVIEW"
+      "PART 3 OF 4 — TEXTS"
     );
+    expect(src).toContain('{ label: "You\'re In" }');
     expect(renderToStaticMarkup(React.createElement(OnboardingProgress, { currentStep: 4 }))).toContain(
-      "PART 4 OF 5 — TEXTS"
-    );
-    expect(renderToStaticMarkup(React.createElement(OnboardingProgress, { currentStep: 5 }))).toContain(
-      "PART 5 OF 5 — COMPLETE"
+      "PART 4 OF 4"
     );
   });
 
@@ -257,16 +255,18 @@ describe("3-step join story copy alignment", () => {
     expect(client).toContain("smsDisclosureAccepted: true");
   });
 
-  it("Complete heading is Everything is ready; Finish Setup is unchanged", () => {
+  it("Complete is You're In and enters the Film Room after the completion API", () => {
     const page = readSrc("src/app/onboarding/complete/page.tsx");
     const button = readSrc("src/components/CompleteOnboardingButton.tsx");
-    expect(page).toContain("Everything is ready.");
-    expect(page).not.toContain("Almost there.");
-    expect(page).toContain(
-      "Finish setup to activate your commitment and enter your Victory Room."
-    );
-    expect(button).toContain("Finish Setup →");
+    expect(page).toContain("You&apos;re In!");
+    expect(page).toContain("Your Setup");
+    expect(page).toContain("1244458037");
+    expect(page).toContain("buildVimeoPlayerEmbedUrl");
+    expect(button).toContain("Enter the Film Room");
+    expect(button).not.toContain("type=\"checkbox\"");
     expect(button).toContain('fetch("/api/onboarding/complete"');
-    expect(button).toContain('router.push("/dashboard/victory-room")');
+    expect(button).toContain('router.replace("/film-room")');
+    expect(button).not.toContain("router.refresh()");
+    expect(button).not.toContain('router.push("/dashboard/victory-room")');
   });
 });

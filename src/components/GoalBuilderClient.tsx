@@ -118,7 +118,7 @@ export default function GoalBuilderClient({
       : "Choose one focus area");
 
   const continueLabel =
-    copy.continueLabel ?? (isAppEdit ? "Continue" : "Continue to Review →");
+    copy.continueLabel ?? (isAppEdit ? "Continue" : "Continue to Daily Texts →");
   const backLabel = copy.backLabel ?? "Back";
 
   const [showAllFocusAreas, setShowAllFocusAreas] = useState(() =>
@@ -352,7 +352,7 @@ export default function GoalBuilderClient({
         return;
       }
 
-      router.push("/onboarding/review");
+      router.push("/onboarding/sms");
       router.refresh();
     } catch {
       setError("Something went wrong.");

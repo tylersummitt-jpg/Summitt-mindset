@@ -21,7 +21,8 @@ import { stripeFirstOnboardingEmail } from "@/lib/stripe-first-checkout/email-ty
  * Subscribe FIRST → then onboarding.
  *
  * This layout gates ALL onboarding routes. Canonical no-Why flow:
- * Welcome → Identity → Current Goal → Review → SMS → Complete → Victory Room
+ * Welcome → Identity → Current Goal → SMS → Complete → Film Room
+ * /onboarding/review remains a recovery route when a proposed goal has no acknowledgment.
  * - /onboarding (Welcome)
  * - /onboarding/identity (My Identity; optional important people)
  * - /onboarding/commitment (My Current Goal)

@@ -2,7 +2,6 @@ import type { ReactElement } from "react";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import OnboardingProgress from "@/components/onboarding-progress";
 import { requireOnboardingSobPath } from "@/lib/onboarding-sob-page-guard";
 import { supabaseServer } from "@/lib/supabase-server";
 import { shouldShowReviewCoachPatNote } from "@/lib/onboarding-coherence";
@@ -69,8 +68,6 @@ export default async function ReviewPage(): Promise<ReactElement> {
 
   return (
     <div className="space-y-10">
-      <OnboardingProgress currentStep={3} />
-
       <header className="space-y-3">
         <h1 className="text-3xl font-bold">Review your setup</h1>
         <p className="text-gray-600">

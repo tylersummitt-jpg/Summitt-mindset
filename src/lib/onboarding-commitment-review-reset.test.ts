@@ -80,16 +80,16 @@ describe("goal resubmit resets review before SMS", () => {
     );
   });
 
-  it("fresh intake insert does not set review_acknowledged_at", () => {
+  it("fresh intake insert records review_acknowledged_at with the goal save", () => {
     expect(persistSrc).toContain('from("v2_commitment_intake").insert');
-    expect(persistSrc).not.toContain("review_acknowledged_at");
+    expect(persistSrc).toContain("review_acknowledged_at: nowIso");
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("gate returns needs_review after goal resubmit (fresh intake, null acknowledgment)", async () => {
+  it("gate still sends a proposed goal with a null acknowledgment to Review", async () => {
     fromMock.mockImplementation((table: string) => {
       if (table === "user_profiles") {
         return chainMaybeSingle({

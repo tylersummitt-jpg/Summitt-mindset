@@ -40,6 +40,7 @@ export async function persistCommitmentSidecar(
     coherence_status: coherence.coherenceStatus,
     sms_suitability: coherence.smsSuitability,
     identity_version_id: input.identityVersionId,
+    review_acknowledged_at: nowIso,
     updated_at: nowIso,
   });
 

@@ -24,7 +24,7 @@ export default async function SmsPage(): Promise<ReactElement> {
 
   return (
     <div>
-      <OnboardingProgress currentStep={4} />
+      <OnboardingProgress currentStep={3} />
 
       <h1 className="text-3xl font-bold mb-4">Daily Accountability Texts</h1>
 

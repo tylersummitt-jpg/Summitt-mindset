@@ -104,7 +104,7 @@ describe("GoalBuilderClient app_edit", () => {
 });
 
 describe("GoalBuilderClient onboarding", () => {
-  const CONTINUE_DISABLED = /disabled=""[^>]*>Continue to Review/;
+  const CONTINUE_DISABLED = /disabled=""[^>]*>Continue to Daily Texts/;
 
   it("posts to onboarding commitment route", () => {
     const src = fs.readFileSync(
@@ -114,6 +114,9 @@ describe("GoalBuilderClient onboarding", () => {
     expect(src).toContain("/api/onboarding/commitment");
     expect(src).toContain("selected_template_id");
     expect(src).toContain("selectedTemplateId");
+    expect(src).toContain('router.push("/onboarding/sms")');
+    expect(src).not.toContain('router.push("/onboarding/review")');
+    expect(src.indexOf('router.push("/onboarding/sms")')).toBeGreaterThan(src.indexOf("if (!res.ok)"));
   });
 
   it("disables Continue initially", () => {
@@ -134,7 +137,7 @@ describe("GoalBuilderClient onboarding", () => {
       initialBehaviorStatement: RECOMMENDED_BEHAVIOR,
       backHref: "/onboarding/identity",
     });
-    expect(html).toContain("Continue to Review →");
+    expect(html).toContain("Continue to Daily Texts →");
     expect(html).not.toMatch(CONTINUE_DISABLED);
   });
 });

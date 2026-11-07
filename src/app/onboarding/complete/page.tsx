@@ -6,8 +6,11 @@ import CompleteOnboardingButton from "@/components/CompleteOnboardingButton";
 import { requireOnboardingSobPath } from "@/lib/onboarding-sob-page-guard";
 import { supabaseServer } from "@/lib/supabase-server";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
+import { buildVimeoPlayerEmbedUrl } from "@/lib/vimeo-player-embed";
 
 export const dynamic = "force-dynamic";
+
+const WELCOME_VIMEO_ID = "1244458037";
 
 export default async function CompletePage(): Promise<ReactElement> {
   const user = await currentUser();
@@ -57,46 +60,54 @@ export default async function CompletePage(): Promise<ReactElement> {
       ? profile.identity_anchor_text.trim()
       : null;
 
+  const phone =
+    typeof md.phoneNumber === "string" && md.phoneNumber.trim().length > 0
+      ? md.phoneNumber.trim()
+      : null;
+  const welcomeVideoSrc = buildVimeoPlayerEmbedUrl(WELCOME_VIMEO_ID);
+
   return (
-    <div className="space-y-10 text-center">
-      <OnboardingProgress currentStep={5} />
+    <div className="space-y-8 text-center">
+      <OnboardingProgress currentStep={4} />
 
-      <header className="space-y-3">
-        <h1 className="text-4xl font-bold">Everything is ready.</h1>
-        <p className="text-gray-600 text-lg leading-relaxed max-w-lg mx-auto">
-          Finish setup to activate your commitment and enter your Victory Room.
+      <h1 className="text-4xl font-bold">You&apos;re In!</h1>
+
+      {welcomeVideoSrc ? (
+        <div className="overflow-hidden rounded-xl border bg-black text-left">
+          <div className="relative aspect-video w-full">
+            <iframe
+              title="Welcome to Summitt Mindset"
+              src={welcomeVideoSrc}
+              className="absolute inset-0 h-full w-full"
+              allow="fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <section className="rounded-xl border bg-gray-50 p-6 text-left space-y-3">
+        <h2 className="font-semibold text-gray-900">Your Setup</h2>
+        {identityAnchor ? (
+          <p className="text-sm text-gray-800">
+            <span className="font-semibold">Identity:</span> {identityAnchor}
+          </p>
+        ) : null}
+        {commitmentForSummary?.title ? (
+          <p className="text-sm text-gray-800">
+            <span className="font-semibold">Current Goal:</span> {commitmentForSummary.title}
+          </p>
+        ) : null}
+        {commitmentForSummary?.behavior_statement ? (
+          <p className="text-sm text-gray-800">{commitmentForSummary.behavior_statement}</p>
+        ) : null}
+        <p className="text-sm text-gray-800">
+          <span className="font-semibold">Daily texts:</span>{" "}
+          {phone ? `on, at ${phone}` : "on"}
         </p>
-      </header>
-
-      <section className="border rounded-xl bg-gray-50 p-6 text-left space-y-4">
-        <p className="font-semibold text-gray-900">Your coaching setup:</p>
-        <ul className="text-sm text-gray-700 space-y-2 list-disc pl-5">
-          {profile?.preferred_name ? (
-            <li>
-              <strong>What to call you:</strong> {profile.preferred_name}
-            </li>
-          ) : null}
-          {identityAnchor ? (
-            <li>
-              <strong>My Identity:</strong> {identityAnchor}
-            </li>
-          ) : null}
-          {commitmentForSummary?.title ? (
-            <li>
-              <strong>My Current Goal:</strong> {commitmentForSummary.title}
-            </li>
-          ) : null}
-          {commitmentForSummary?.behavior_statement ? (
-            <li>
-              <strong>Daily check-in:</strong> {commitmentForSummary.behavior_statement}
-            </li>
-          ) : null}
-        </ul>
       </section>
 
-      <section className="border rounded-xl bg-white shadow-sm p-6 text-left space-y-4">
-        <CompleteOnboardingButton />
-      </section>
+      <CompleteOnboardingButton />
     </div>
   );
 }

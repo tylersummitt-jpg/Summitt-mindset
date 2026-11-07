@@ -35,9 +35,13 @@ describe("member app home routing (Package 5)", () => {
     expect(src).not.toMatch(/redirect\("\/dashboard"\)/);
   });
 
-  it("CompleteOnboardingButton routes to Victory Room", () => {
+  it("CompleteOnboardingButton enters the Film Room without changing member home", () => {
     const src = readSrc("src/components/CompleteOnboardingButton.tsx");
-    expect(src).toContain('router.push("/dashboard/victory-room")');
+    const home = readSrc("src/lib/member-app-home-path.ts");
+    expect(src).toContain('router.replace("/film-room")');
+    expect(src).not.toContain("router.refresh()");
+    expect(src).not.toContain('router.push("/dashboard/victory-room")');
+    expect(home).toContain('MEMBER_APP_HOME_PATH = "/dashboard/victory-room"');
   });
 
   it("Navbar includes Victory Room but not Daily OS for app users", () => {

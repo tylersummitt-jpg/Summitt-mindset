@@ -5,15 +5,14 @@ type Step = {
 const STEPS: Step[] = [
   { label: "Identity" },
   { label: "Goal" },
-  { label: "Review" },
   { label: "Texts" },
-  { label: "Complete" },
+  { label: "You're In" },
 ];
 
 export default function OnboardingProgress({
   currentStep,
 }: {
-  currentStep: 1 | 2 | 3 | 4 | 5;
+  currentStep: 1 | 2 | 3 | 4;
 }) {
   return (
     <div className="mb-10">
