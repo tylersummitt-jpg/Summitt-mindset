@@ -29,7 +29,7 @@ export const programsSectionCard = `${utCard} space-y-4 p-5 sm:p-6`;
 export const programsSortActivityTitle =
   "text-xl font-semibold tracking-tight text-balance text-stone-50";
 
-export const programsSortCardIndex = "text-base font-semibold leading-relaxed text-stone-200";
+export const programsSortCardIndex = "text-base font-semibold leading-relaxed text-[var(--brand)]";
 
 export const programsSortCardHeading = "text-lg font-semibold leading-snug text-stone-50";
 
@@ -51,6 +51,13 @@ export const programsQuoteText =
   "text-lg font-semibold leading-snug text-stone-50 sm:text-xl";
 
 export const programsQuoteAttribution = "mt-3 text-base font-semibold text-[var(--brand)]";
+
+/** Disclosure control on a reveal. The title next to it stays light. */
+export const programsRevealControl = "shrink-0 text-base font-semibold text-[var(--brand)]";
+
+/** Short header label. Brand orange clears AA on the lesson card. */
+export const programsTableHeader =
+  "border-b border-[var(--brand)]/70 px-3 py-2 font-semibold text-[var(--brand)]";
 
 /** A prompt that should read as a heading, using the existing orange accent. */
 export const programsInstructionHeading =

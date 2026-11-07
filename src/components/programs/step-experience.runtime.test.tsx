@@ -11,13 +11,13 @@ import {
   sortCompleteMessage,
 } from "@/lib/learning/programs-copy";
 import {
+  programsBody,
   programsConceptListItem,
-  programsEyebrow,
+  programsGroupLabel,
   programsSortActivityTitle,
   programsSortCardHeading,
   programsSortCardIndex,
 } from "@/components/programs/programs-visual";
-import { programsBody } from "@/components/programs/programs-visual";
 import { StepExperience } from "./step-experience";
 
 const saveLearningReflection = vi.hoisted(() => vi.fn());
@@ -814,7 +814,7 @@ describe("step experience", () => {
 
     renderStep("dd_mp_02_st_005");
     const label = screen.getAllByText("Reflection")[0];
-    expect(label?.className).toBe(programsEyebrow);
+    expect(label?.className).toBe(programsGroupLabel);
     cleanup();
 
     renderStep("dd_mp_02_st_011");

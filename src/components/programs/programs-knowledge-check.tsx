@@ -2,8 +2,9 @@
 
 import { useEffect, useRef } from "react";
 import { utBodyMuted } from "@/components/utility-page-visual";
-import { programsBody } from "@/components/programs/programs-visual";
 import {
+  programsAccentRule,
+  programsBody,
   programsChoiceCorrect,
   programsChoiceIdle,
   programsChoiceIncorrect,
@@ -47,6 +48,7 @@ export function ProgramsKnowledgeCheck({
 
   return (
     <div className="min-w-0 space-y-5">
+      <div className={programsAccentRule} aria-hidden="true" />
       <p className={utBodyMuted}>{quizInstructions()}</p>
       {block.questions.map((question) => {
         const multiple = question.question_type === "multiple_choice";

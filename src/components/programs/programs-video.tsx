@@ -1,5 +1,5 @@
 import { utBodyMuted } from "@/components/utility-page-visual";
-import { programsTeaching } from "@/components/programs/programs-visual";
+import { programsAccentRule, programsTeaching } from "@/components/programs/programs-visual";
 import { buildVimeoPlayerEmbedUrl } from "@/lib/vimeo-player-embed";
 
 export function ProgramsVideo({
@@ -16,7 +16,8 @@ export function ProgramsVideo({
   const src = buildVimeoPlayerEmbedUrl(vimeoId);
   return (
     <figure className={`${programsTeaching} space-y-4`}>
-      <figcaption>
+      <figcaption className="space-y-3">
+        <div className={programsAccentRule} aria-hidden="true" />
         <p className="text-base font-semibold text-stone-50 sm:text-lg">{title}</p>
         <p className={`mt-1 ${utBodyMuted}`}>{speaker}</p>
       </figcaption>

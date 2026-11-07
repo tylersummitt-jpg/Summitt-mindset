@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ProgramsProse } from "@/components/programs/programs-prose";
-import { programsSectionCard } from "@/components/programs/programs-visual";
+import { programsRevealControl, programsSectionCard } from "@/components/programs/programs-visual";
 
 export function ProgramsReveal({
   sections,
@@ -19,14 +19,14 @@ export function ProgramsReveal({
             <h3>
               <button
                 type="button"
-                className="flex w-full items-start justify-between gap-4 text-left text-base font-semibold text-stone-50"
+                className="flex w-full items-start justify-between gap-4 rounded-md text-left text-base font-semibold text-stone-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
                 aria-expanded={expanded}
                 onClick={() =>
                   setOpen((current) => ({ ...current, [section.id]: !current[section.id] }))
                 }
               >
                 <span>{section.title}</span>
-                <span aria-hidden="true" className="text-stone-400">
+                <span aria-hidden="true" className={programsRevealControl}>
                   {expanded ? "–" : "+"}
                 </span>
               </button>

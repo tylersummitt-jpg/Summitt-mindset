@@ -9,6 +9,7 @@ import {
 } from "@/components/programs/programs-image-frame";
 import { ProgramsNaturalImage } from "@/components/programs/programs-natural-image";
 import {
+  programsAccentRule,
   programsBody,
   programsConceptListItem,
   programsInstructionHeading,
@@ -17,6 +18,7 @@ import {
   programsQuoteText,
   programsSectionCard,
   programsTableBody,
+  programsTableHeader,
 } from "@/components/programs/programs-visual";
 import type {
   LearningCalloutBlock,
@@ -35,7 +37,12 @@ export function ProgramsHeading({ block }: { block: LearningHeadingBlock }) {
       ? "text-2xl font-semibold tracking-tight text-balance text-stone-50"
       : "text-xl font-semibold tracking-tight text-balance text-stone-100";
   if (block.level === 2) {
-    return <h2 className={className}>{block.text}</h2>;
+    return (
+      <div className="space-y-3">
+        <div className={programsAccentRule} aria-hidden="true" />
+        <h2 className={className}>{block.text}</h2>
+      </div>
+    );
   }
   return <h3 className={className}>{block.text}</h3>;
 }
@@ -48,7 +55,9 @@ export function ProgramsList({ block }: { block: LearningListBlock }) {
       {item}
     </li>
   ));
-  const className = "list-outside space-y-2 pl-6";
+  const className = `list-outside space-y-2 pl-6${
+    block.role === "concepts" ? " marker:text-[var(--brand)]" : ""
+  }`;
   if (block.ordered) {
     return <ol className={`${className} list-decimal`}>{items}</ol>;
   }
@@ -64,7 +73,7 @@ export function ProgramsTable({ block }: { block: LearningTableBlock }) {
           <thead>
             <tr>
               {block.headers.map((header) => (
-                <th key={header} className="border-b border-white/15 px-3 py-2 font-semibold">
+                <th key={header} className={programsTableHeader}>
                   {header}
                 </th>
               ))}
@@ -155,6 +164,7 @@ export function ProgramsAudio({
 }) {
   return (
     <figure className={`${programsSectionCard} space-y-4`}>
+      <div className={programsAccentRule} aria-hidden="true" />
       <figcaption className="text-base font-semibold text-stone-50">{label}</figcaption>
       <audio className="w-full" controls preload="none">
         <source src={src} type="audio/mpeg" />
@@ -174,7 +184,10 @@ export function ProgramsGallery({
   const layout = galleryLayout(images);
   return (
     <section aria-label={label} className="space-y-4">
-      <h3 className="text-xl font-semibold tracking-tight text-stone-100">{label}</h3>
+      <div className="space-y-3">
+        <div className={programsAccentRule} aria-hidden="true" />
+        <h3 className="text-xl font-semibold tracking-tight text-stone-100">{label}</h3>
+      </div>
       <ul className={layout.listClassName} data-gallery-layout={layout.kind}>
         {images.map((image, index) => (
           <li key={`${image.src}-${index}`} className={galleryItemClassName(image, images)}>

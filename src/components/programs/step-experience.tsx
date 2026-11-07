@@ -33,8 +33,9 @@ import { ProgramsReveal } from "@/components/programs/programs-reveal";
 import { ProgramsTeaching } from "@/components/programs/programs-teaching";
 import { ProgramsVideo } from "@/components/programs/programs-video";
 import {
+  programsAccentRule,
   programsBody,
-  programsEyebrow,
+  programsGroupLabel,
   programsMissPanel,
   programsSectionCard,
   programsSortActivityTitle,
@@ -622,7 +623,10 @@ function BlockView({
               aria-labelledby={`scenario-tab-${selected.id}`}
               className="space-y-4"
             >
-              <h3 className="text-xl font-semibold text-stone-50">{selected.label}</h3>
+              <div className="space-y-3">
+                <div className={programsAccentRule} aria-hidden="true" />
+                <h3 className="text-xl font-semibold text-stone-50">{selected.label}</h3>
+              </div>
               <div className="relative aspect-[4/3] max-w-md overflow-hidden rounded-md">
                 <Image
                   src={selected.image.src}
@@ -687,7 +691,7 @@ function BlockView({
       return (
         <div className={programsSectionCard}>
           <label className="block space-y-3">
-            <span className={programsEyebrow}>Reflection</span>
+            <span className={programsGroupLabel}>Reflection</span>
             <span className={`${programsBody} block font-medium`}>{block.prompt}</span>
             <textarea
               className={`${utFormField} min-h-36`}
@@ -724,7 +728,7 @@ function BlockView({
     return (
       <div className={programsSectionCard}>
         <label className="block space-y-3">
-          <span className={programsEyebrow}>Reflection</span>
+          <span className={programsGroupLabel}>Reflection</span>
           <span className={`${programsBody} block font-medium`}>{block.prompt}</span>
           <textarea
             className={`${utFormField} min-h-36`}
@@ -764,9 +768,12 @@ function BlockView({
   return (
     <div className="space-y-4">
       <ProgramsTeaching>
-        <h2 className={programsSortActivityTitle}>
+        <div className="space-y-3">
+          <div className={programsAccentRule} aria-hidden="true" />
+          <h2 className={programsSortActivityTitle}>
           {nativeSortDirections(block.prompt, block.categories)}
-        </h2>
+          </h2>
+        </div>
       </ProgramsTeaching>
       {sortFeedback === "right" ? (
         <p className={programsSuccessPanel} role="status">
