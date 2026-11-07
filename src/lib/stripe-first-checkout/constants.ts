@@ -21,6 +21,9 @@ export const HOSTED_TEST_ACCESS_COOKIE = "sm_hosted_test";
 /** HttpOnly secret. Only its hash is stored. */
 export const CHECKOUT_BINDING_COOKIE = "sm_checkout_bind";
 
+/** Response header for one activate request. Not a session id or a credential. */
+export const CHECKOUT_ACTIVATE_TRACE_HEADER = "x-checkout-trace";
+
 export const ACCESS_MAX_AGE_SECONDS = 60 * 60 * 2;
 
 /** Owner canary only. Unset or any value other than "true" keeps production closed. */

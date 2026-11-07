@@ -4,7 +4,10 @@ import { useSignIn } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-import { ONBOARDING_IDENTITY_PATH } from "@/lib/stripe-first-checkout/constants";
+import {
+  CHECKOUT_ACTIVATE_TRACE_HEADER,
+  ONBOARDING_IDENTITY_PATH,
+} from "@/lib/stripe-first-checkout/constants";
 
 type ActivateBody = {
   status?: string;
@@ -17,6 +20,25 @@ type ActivateBody = {
 
 const RETRY_COPY =
   "We're still confirming your membership. Please try again here. You don't need to enter your payment information again.";
+const SAFE_CATEGORY_RE = /^[a-z_]{1,40}$/;
+const TRACE_ID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function noteUnclassifiedActivate(response: Response, body: ActivateBody | null) {
+  try {
+    const trace = response.headers?.get(CHECKOUT_ACTIVATE_TRACE_HEADER) ?? null;
+    const status = body?.status;
+    const error = body?.error;
+    console.info("[checkout-activate]", {
+      trace: typeof trace === "string" && TRACE_ID_RE.test(trace) ? trace : null,
+      http: response.status,
+      status: typeof status === "string" && SAFE_CATEGORY_RE.test(status) ? status : null,
+      error: typeof error === "string" && SAFE_CATEGORY_RE.test(error) ? error : null,
+    });
+  } catch {
+    // The confirmation screen must not depend on this diagnostic.
+  }
+}
 
 export function HostedTestReturnClient({
   activatePath = "/api/checkout/hosted-test/activate",
@@ -117,6 +139,7 @@ export function HostedTestReturnClient({
         }
       }
 
+      noteUnclassifiedActivate(response, body);
       setMessage(
         response.status === 403
           ? "This checkout link cannot be confirmed in this browser."

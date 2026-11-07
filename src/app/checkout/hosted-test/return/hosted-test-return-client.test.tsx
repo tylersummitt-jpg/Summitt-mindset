@@ -25,12 +25,26 @@ vi.mock("@clerk/nextjs", () => ({
 }));
 
 import { HostedTestReturnClient } from "@/app/checkout/hosted-test/return/hosted-test-return-client";
-import { ONBOARDING_IDENTITY_PATH } from "@/lib/stripe-first-checkout/constants";
+import {
+  CHECKOUT_ACTIVATE_TRACE_HEADER,
+  ONBOARDING_IDENTITY_PATH,
+} from "@/lib/stripe-first-checkout/constants";
 
-function jsonResponse(status: number, body: unknown) {
+const TRACE = "11111111-1111-4111-8111-111111111111";
+
+function jsonResponse(
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {}
+) {
   return {
     status,
     ok: status >= 200 && status < 300,
+    headers: {
+      get(name: string) {
+        return headers[name] ?? null;
+      },
+    },
     json: async () => body,
   };
 }
@@ -174,5 +188,81 @@ describe("hosted checkout return", () => {
     expect(gate).not.toContain("subscriptions.cancel");
     expect(gate).not.toContain(".create(");
     expect(gate).not.toContain("stripeClient");
+  });
+
+  it("records the unclassified response without its sensitive fields and still shows the same screen", async () => {
+    stubLocation();
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const fetchMock = vi.fn(async () =>
+      jsonResponse(
+        500,
+        {
+          error: "retry",
+          ticket: "tkt_secret_ticket_value",
+          sessionId: "cs_live_secret_session_value",
+          email: "member@example.com",
+        },
+        { [CHECKOUT_ACTIVATE_TRACE_HEADER]: TRACE }
+      )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HostedTestReturnClient />);
+
+    expect(await screen.findByText(/Checkout could not be confirmed/i)).toBeTruthy();
+    expect(push).not.toHaveBeenCalled();
+    expect(info.mock.calls.length).toBeGreaterThan(0);
+    for (const call of info.mock.calls) {
+      expect(call[0]).toBe("[checkout-activate]");
+      expect(call[1]).toEqual({ trace: TRACE, http: 500, status: null, error: "retry" });
+      const text = JSON.stringify(call);
+      expect(text).not.toContain("tkt_secret");
+      expect(text).not.toContain("cs_live");
+      expect(text).not.toContain("member@example.com");
+    }
+    info.mockRestore();
+  });
+
+  it("keeps the failure screen when the browser diagnostic throws", async () => {
+    stubLocation();
+    vi.spyOn(console, "info").mockImplementation(() => {
+      throw new Error("console down");
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(500, { status: "cs_live_secret_session_value" }))
+    );
+
+    render(<HostedTestReturnClient />);
+
+    expect(await screen.findByText(/Checkout could not be confirmed/i)).toBeTruthy();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("does not emit a browser diagnostic for a recognized ticket or continue", async () => {
+    stubLocation();
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    signInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_new" });
+    setActive.mockResolvedValue(undefined);
+    const fetchMock = vi.fn(async (url: string) =>
+      String(url).includes("confirm")
+        ? jsonResponse(200, { next: ONBOARDING_IDENTITY_PATH })
+        : jsonResponse(200, { status: "ticket", ticket: "ticket_1" })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const ticket = render(<HostedTestReturnClient />);
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(ONBOARDING_IDENTITY_PATH);
+    });
+    expect(info).not.toHaveBeenCalled();
+    ticket.unmount();
+
+    fetchMock.mockResolvedValue(jsonResponse(200, { status: "continue" }));
+    render(<HostedTestReturnClient />);
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(ONBOARDING_IDENTITY_PATH);
+    });
+    expect(info).not.toHaveBeenCalled();
+    info.mockRestore();
   });
 });
