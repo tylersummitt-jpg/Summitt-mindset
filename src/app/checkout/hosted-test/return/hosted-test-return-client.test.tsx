@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 
+import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 
@@ -10,19 +11,64 @@ const assign = vi.fn();
 const reload = vi.fn();
 const signInCreate = vi.fn();
 const setActive = vi.fn();
+const { clerkBridge, searchBridge, stableRouter } = vi.hoisted(() => {
+  const listeners = new Set<() => void>();
+  const searchListeners = new Set<() => void>();
+  return {
+    clerkBridge: {
+      generation: 0,
+      listeners,
+      rotate() {
+        this.generation += 1;
+        this.listeners.forEach((listener) => listener());
+      },
+    },
+    searchBridge: {
+      sessionId: "cs_test_same",
+      listeners: searchListeners,
+      setSession(sessionId: string) {
+        this.sessionId = sessionId;
+        this.listeners.forEach((listener) => listener());
+      },
+    },
+    stableRouter: { push: null as unknown as typeof push },
+  };
+});
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
-  useSearchParams: () => new URLSearchParams("session_id=cs_test_same"),
+  useRouter: () => stableRouter,
+  useSearchParams: () => {
+    const [, setTick] = useState(0);
+    useEffect(() => {
+      const listener = () => setTick((value) => value + 1);
+      searchBridge.listeners.add(listener);
+      return () => {
+        searchBridge.listeners.delete(listener);
+      };
+    }, []);
+    return new URLSearchParams(`session_id=${searchBridge.sessionId}`);
+  },
 }));
 
 vi.mock("@clerk/nextjs", () => ({
-  useSignIn: () => ({
-    isLoaded: true,
-    signIn: { create: signInCreate },
-    setActive,
-  }),
+  useSignIn: () => {
+    const [, setGeneration] = useState(0);
+    useEffect(() => {
+      const listener = () => setGeneration((value) => value + 1);
+      clerkBridge.listeners.add(listener);
+      return () => {
+        clerkBridge.listeners.delete(listener);
+      };
+    }, []);
+    return {
+      isLoaded: true,
+      signIn: { create: signInCreate, generation: clerkBridge.generation },
+      setActive,
+    };
+  },
 }));
+
+stableRouter.push = push;
 
 import { HostedTestReturnClient } from "@/app/checkout/hosted-test/return/hosted-test-return-client";
 import {
@@ -52,6 +98,8 @@ function jsonResponse(
 describe("hosted checkout return", () => {
   afterEach(() => {
     cleanup();
+    clerkBridge.generation = 0;
+    searchBridge.sessionId = "cs_test_same";
     push.mockReset();
     assign.mockReset();
     reload.mockReset();
@@ -264,5 +312,187 @@ describe("hosted checkout return", () => {
     });
     expect(info).not.toHaveBeenCalled();
     info.mockRestore();
+  });
+
+  it("keeps ticket confirmation navigating to Identity when Clerk replaces signIn during setActive", async () => {
+    stubLocation();
+    let rotated = false;
+    setActive.mockImplementation(async () => {
+      if (rotated) return;
+      rotated = true;
+      await act(async () => {
+        clerkBridge.rotate();
+      });
+    });
+    signInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_new" });
+    let activates = 0;
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("confirm")) {
+        return jsonResponse(200, { next: ONBOARDING_IDENTITY_PATH });
+      }
+      activates += 1;
+      if (activates === 1) {
+        return jsonResponse(200, { status: "ticket", ticket: "ticket_1" });
+      }
+      return jsonResponse(200, { status: "account_mismatch", signedIn: true });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HostedTestReturnClient />);
+
+    await waitFor(() => {
+      expect({
+        navigated: push.mock.calls.map((call) => call[0]),
+        activates,
+      }).toEqual({
+        navigated: [ONBOARDING_IDENTITY_PATH],
+        activates: 1,
+      });
+    });
+    expect(signInCreate).toHaveBeenCalledWith({ strategy: "ticket", ticket: "ticket_1" });
+    expect(setActive).toHaveBeenCalledWith({ session: "sess_new" });
+    expect(screen.queryByRole("heading", { name: "Sign in to finish" })).toBeNull();
+  });
+
+  it("survives several Clerk rerenders during ticket sign-in without another activate", async () => {
+    stubLocation();
+    setActive.mockImplementation(async () => {
+      await act(async () => {
+        clerkBridge.rotate();
+        clerkBridge.rotate();
+        clerkBridge.rotate();
+      });
+    });
+    signInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_new" });
+    let activates = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) => {
+        if (String(url).includes("confirm")) {
+          return jsonResponse(200, { next: ONBOARDING_IDENTITY_PATH });
+        }
+        activates += 1;
+        return jsonResponse(200, { status: "ticket", ticket: "ticket_1" });
+      })
+    );
+
+    render(<HostedTestReturnClient />);
+
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(ONBOARDING_IDENTITY_PATH);
+    });
+    expect(activates).toBe(1);
+  });
+
+  it("keeps a signed-out continue response on the sign-in screen", async () => {
+    stubLocation();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => jsonResponse(200, { status: "account_mismatch", signedIn: false }))
+    );
+
+    render(<HostedTestReturnClient />);
+
+    expect(await screen.findByRole("heading", { name: "Sign in to finish" })).toBeTruthy();
+    expect(screen.getByText(/email you used at checkout/i)).toBeTruthy();
+    expect(screen.queryByText(/different Summitt Mindset account/i)).toBeNull();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate a ticket that was in flight when the checkout session changed", async () => {
+    stubLocation();
+    let releaseSetActive: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      releaseSetActive = resolve;
+    });
+    setActive.mockImplementation(() => gate);
+    signInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_old" });
+    const sessions: string[] = [];
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (String(url).includes("confirm")) {
+        return jsonResponse(200, { next: ONBOARDING_IDENTITY_PATH });
+      }
+      const sessionId = JSON.parse(String(init?.body)).sessionId as string;
+      sessions.push(sessionId);
+      if (sessionId === "cs_test_same") {
+        return jsonResponse(200, { status: "ticket", ticket: "ticket_old" });
+      }
+      return jsonResponse(200, { status: "continue" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<HostedTestReturnClient />);
+    await waitFor(() => {
+      expect(setActive).toHaveBeenCalledWith({ session: "sess_old" });
+    });
+
+    await act(async () => {
+      searchBridge.setSession("cs_test_other");
+    });
+    releaseSetActive();
+
+    await waitFor(() => {
+      expect(sessions).toContain("cs_test_other");
+    });
+    expect(sessions.filter((session) => session === "cs_test_same")).toEqual(["cs_test_same"]);
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("confirm"))).toBe(false);
+    await waitFor(() => {
+      expect(push).toHaveBeenCalledWith(ONBOARDING_IDENTITY_PATH);
+    });
+    expect(push).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not navigate after the return screen unmounts during ticket sign-in", async () => {
+    stubLocation();
+    let releaseSetActive: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      releaseSetActive = resolve;
+    });
+    setActive.mockImplementation(() => gate);
+    signInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_new" });
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("confirm")) {
+        return jsonResponse(200, { next: ONBOARDING_IDENTITY_PATH });
+      }
+      return jsonResponse(200, { status: "ticket", ticket: "ticket_1" });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const view = render(<HostedTestReturnClient />);
+    await waitFor(() => {
+      expect(setActive).toHaveBeenCalled();
+    });
+    view.unmount();
+    releaseSetActive();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(push).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some((call) => String(call[0]).includes("confirm"))).toBe(false);
+  });
+
+  it("shows the ticket failure and the confirm failure without starting another checkout", async () => {
+    stubLocation();
+    signInCreate.mockRejectedValue(new Error("ticket_rejected"));
+    const fetchMock = vi.fn(async () => jsonResponse(200, { status: "ticket", ticket: "ticket_1" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const failedSignIn = render(<HostedTestReturnClient />);
+    expect(await screen.findByText(/Sign-in did not finish/i)).toBeTruthy();
+    expect(push).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    failedSignIn.unmount();
+
+    signInCreate.mockResolvedValue({ status: "complete", createdSessionId: "sess_new" });
+    setActive.mockResolvedValue(undefined);
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).includes("confirm")
+        ? jsonResponse(503, { error: "retry" })
+        : jsonResponse(200, { status: "ticket", ticket: "ticket_1" })
+    );
+    render(<HostedTestReturnClient />);
+    expect(await screen.findByText(/Your session did not finish/i)).toBeTruthy();
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.queryByText(/could not be confirmed/i)).toBeNull();
   });
 });

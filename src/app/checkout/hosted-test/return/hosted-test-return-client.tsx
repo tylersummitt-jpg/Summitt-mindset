@@ -2,7 +2,7 @@
 
 import { useSignIn } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   CHECKOUT_ACTIVATE_TRACE_HEADER,
@@ -50,13 +50,17 @@ export function HostedTestReturnClient({
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isLoaded, signIn, setActive } = useSignIn();
+  const signInRef = useRef(signIn);
+  const setActiveRef = useRef(setActive);
+  signInRef.current = signIn;
+  setActiveRef.current = setActive;
   const [message, setMessage] = useState<string | null>(null);
   const [recovery, setRecovery] = useState<"retry" | "unsigned" | "mismatch" | null>(null);
   const [pending, setPending] = useState(true);
   const sessionId = searchParams.get("session_id") ?? "";
 
   useEffect(() => {
-    if (!sessionId || !isLoaded || !signIn || !setActive) return;
+    if (!sessionId || !isLoaded || !signInRef.current || !setActiveRef.current) return;
     let cancelled = false;
 
     void (async () => {
@@ -100,9 +104,9 @@ export function HostedTestReturnClient({
         setPending(false);
         return;
       }
-      if (body?.status === "ticket" && body.ticket && signIn && setActive) {
+      if (body?.status === "ticket" && body.ticket && signInRef.current && setActiveRef.current) {
         try {
-          const attempt = await signIn.create({
+          const attempt = await signInRef.current.create({
             strategy: "ticket",
             ticket: body.ticket,
           });
@@ -110,7 +114,8 @@ export function HostedTestReturnClient({
           if (attempt.status !== "complete" || !attempt.createdSessionId) {
             throw new Error("ticket_incomplete");
           }
-          await setActive({ session: attempt.createdSessionId });
+          await setActiveRef.current({ session: attempt.createdSessionId });
+          if (cancelled) return;
           let confirmed = await fetch(confirmPath, {
             method: "POST",
           });
@@ -151,7 +156,7 @@ export function HostedTestReturnClient({
     return () => {
       cancelled = true;
     };
-  }, [activatePath, confirmPath, isLoaded, router, sessionId, setActive, signIn]);
+  }, [activatePath, confirmPath, isLoaded, router, sessionId]);
 
   const title =
     recovery === "retry"
