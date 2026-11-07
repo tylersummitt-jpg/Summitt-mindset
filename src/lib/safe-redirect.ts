@@ -171,6 +171,23 @@ export function sanitizeInternalRedirectUrl(
   return path;
 }
 
+const CHECKOUT_CONTINUE_AFTER_AUTH = new Set([
+  "/checkout/continue",
+  "/checkout/hosted-test/continue",
+]);
+
+/**
+ * Sign-up completion for an in-progress checkout. Only the two continuation
+ * paths. A query, another site, or /checkout/start is not a continuation.
+ */
+export function checkoutContinueAfterAuthUrl(
+  raw: string | null | undefined
+): string | null {
+  const dest = sanitizeInternalRedirectUrl(raw);
+  if (!dest || !CHECKOUT_CONTINUE_AFTER_AUTH.has(dest)) return null;
+  return dest;
+}
+
 /** Sign-up href that keeps a sanitized internal redirect_url (coach, hop, etc.). */
 export function signUpUrlPreservingInternalRedirect(
   raw: string | null | undefined

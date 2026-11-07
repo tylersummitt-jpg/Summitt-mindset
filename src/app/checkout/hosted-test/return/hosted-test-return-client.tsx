@@ -8,10 +8,15 @@ import { ONBOARDING_IDENTITY_PATH } from "@/lib/stripe-first-checkout/constants"
 
 type ActivateBody = {
   status?: string;
+  error?: string;
+  signedIn?: boolean;
   ticket?: string;
   signInUrl?: string;
   next?: string;
 };
+
+const RETRY_COPY =
+  "We're still confirming your membership. Please try again here. You don't need to enter your payment information again.";
 
 export function HostedTestReturnClient({
   activatePath = "/api/checkout/hosted-test/activate",
@@ -24,6 +29,7 @@ export function HostedTestReturnClient({
   const router = useRouter();
   const { isLoaded, signIn, setActive } = useSignIn();
   const [message, setMessage] = useState<string | null>(null);
+  const [recovery, setRecovery] = useState<"retry" | "unsigned" | "mismatch" | null>(null);
   const [pending, setPending] = useState(true);
   const sessionId = searchParams.get("session_id") ?? "";
 
@@ -50,6 +56,16 @@ export function HostedTestReturnClient({
       }
       if (body?.status === "continue") {
         router.push(ONBOARDING_IDENTITY_PATH);
+        return;
+      }
+      if (response.status === 503 && body?.error === "retry") {
+        setRecovery("retry");
+        setPending(false);
+        return;
+      }
+      if (body?.status === "account_mismatch") {
+        setRecovery(body.signedIn === true ? "mismatch" : "unsigned");
+        setPending(false);
         return;
       }
       if (body?.status === "incomplete") {
@@ -114,24 +130,43 @@ export function HostedTestReturnClient({
     };
   }, [activatePath, confirmPath, isLoaded, router, sessionId, setActive, signIn]);
 
+  const title =
+    recovery === "retry"
+      ? "Finishing your free trial"
+      : recovery === "mismatch" || recovery === "unsigned"
+        ? "Sign in to finish"
+        : "Finishing checkout";
+  const recoveryCopy =
+    recovery === "retry"
+      ? RETRY_COPY
+      : recovery === "mismatch"
+        ? "This browser is signed in to a different Summitt Mindset account. Sign in with the email you used at checkout, then try again here. You don't need to enter payment information again."
+        : recovery === "unsigned"
+          ? "Sign in with the email you used at checkout, then try again here. You don't need to enter payment information again."
+          : null;
+
   return (
     <div className="mx-auto max-w-lg px-6 py-16">
-      <h1 className="text-2xl font-bold text-gray-900">Finishing checkout</h1>
-      <p className="mt-3 text-sm leading-relaxed text-gray-700">
-        {!sessionId
-          ? "This checkout link is incomplete."
-          : pending && !message
-            ? "Confirming your checkout…"
-            : "Checkout confirmation runs in this browser."}
-      </p>
+      <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+      {recoveryCopy ? (
+        <p className="mt-3 text-sm leading-relaxed text-gray-700">{recoveryCopy}</p>
+      ) : (
+        <p className="mt-3 text-sm leading-relaxed text-gray-700">
+          {!sessionId
+            ? "This checkout link is incomplete."
+            : pending && !message
+              ? "Confirming your checkout…"
+              : "Checkout confirmation runs in this browser."}
+        </p>
+      )}
       {message ? <p className="mt-3 text-sm text-gray-800">{message}</p> : null}
-      {message ? (
+      {recovery || message ? (
         <button
           type="button"
           onClick={() => window.location.reload()}
           className="mt-6 rounded-lg bg-[var(--brand)] px-4 py-3 text-sm font-semibold text-white"
         >
-          Try again
+          {recovery ? "Try Again" : "Try again"}
         </button>
       ) : null}
     </div>

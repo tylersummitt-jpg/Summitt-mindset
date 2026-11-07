@@ -92,6 +92,30 @@ export function publicCheckoutFinishUrl(origin: string, sessionId: string): stri
   return `${origin}${PUBLIC_CHECKOUT_RETURN_PATH}?session_id=${encodeURIComponent(sessionId)}`;
 }
 
+/**
+ * Resume of an already started checkout. The browser does not choose the user.
+ * The binding cookie's intent user and the Clerk session from auth() must match.
+ * This decision does not read Stripe. Provisioning already wrote the account link.
+ */
+export type CheckoutContinueAccess = "allow" | "unsigned" | "mismatch" | "rejected";
+
+export function decideCheckoutContinueAccess(args: {
+  bindingOk: boolean;
+  sessionStarted: boolean;
+  provisioned: boolean;
+  intentClerkUserId: string | null;
+  authenticatedClerkUserId: string | null;
+}): CheckoutContinueAccess {
+  const intentUser = args.intentClerkUserId?.trim() || null;
+  if (!args.bindingOk || !args.sessionStarted || !args.provisioned || !intentUser) {
+    return "rejected";
+  }
+  const signedInUser = args.authenticatedClerkUserId?.trim() || null;
+  if (!signedInUser) return "unsigned";
+  if (signedInUser !== intentUser) return "mismatch";
+  return "allow";
+}
+
 /** Paid, no Clerk user, and not waiting on the email-code sign-in. */
 export const STRANDED_NEW_CUSTOMER_GRACE_MS = 60 * 60 * 1000;
 

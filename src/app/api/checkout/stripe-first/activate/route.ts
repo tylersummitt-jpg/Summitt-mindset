@@ -1,7 +1,11 @@
+import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { activateHostedCheckout } from "@/lib/stripe-first-checkout/activate";
+import {
+  activateHostedCheckout,
+  checkoutContinueHttpResult,
+} from "@/lib/stripe-first-checkout/activate";
 import {
   CHECKOUT_BINDING_COOKIE,
   PUBLIC_CHECKOUT_CONTINUE_PATH,
@@ -42,6 +46,14 @@ export async function POST(req: Request) {
   }
   if (result.status === "preserved") {
     return NextResponse.json({ status: "preserved", next: "/post-sign-in" }, { headers });
+  }
+  if (result.status === "continue") {
+    const { userId } = await auth();
+    const resume = await checkoutContinueHttpResult({
+      bindingSecret,
+      authenticatedClerkUserId: userId ?? null,
+    });
+    return NextResponse.json(resume.body, { status: resume.http, headers });
   }
   return NextResponse.json({ status: result.status }, { headers });
 }

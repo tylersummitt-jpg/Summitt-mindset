@@ -95,6 +95,7 @@ import {
   assessCheckoutSession,
   readCheckoutIntentId,
 } from "@/lib/stripe-first-checkout/reconcile";
+import { decideCheckoutContinueAccess } from "@/lib/stripe-first-checkout/checkout-reliability";
 import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
 import { recomputeMembershipFromAuthoritativeStripeSubscription } from "@/lib/summitt-membership-entitlement.server";
 import { resolveAppleMembershipGrantForUser } from "@/lib/summitt-membership-entitlement.server";
@@ -620,6 +621,44 @@ async function requireBoundIntent(bindingSecret: string): Promise<CheckoutBrowse
     return null;
   }
   return intent;
+}
+
+export type CheckoutContinueHttpResult =
+  | { http: 200; body: { status: "continue" } }
+  | { http: 200; body: { status: "account_mismatch"; signedIn: boolean } }
+  | { http: 503; body: { error: "retry" } }
+  | { http: 403; body: { error: "rejected" } };
+
+/**
+ * Already-started checkout. Identity is allowed only when the Clerk session
+ * from auth() is the user stored on this binding's intent.
+ * The request body is not an identity source. Stripe is not read again here.
+ */
+export async function checkoutContinueHttpResult(args: {
+  bindingSecret: string;
+  authenticatedClerkUserId: string | null;
+}): Promise<CheckoutContinueHttpResult> {
+  try {
+    const intent = await requireBoundIntent(args.bindingSecret);
+    const access = decideCheckoutContinueAccess({
+      bindingOk: Boolean(intent),
+      sessionStarted: Boolean(intent?.session_started_at),
+      provisioned: Boolean(intent?.clerk_user_provisioned_at),
+      intentClerkUserId: intent?.clerk_user_id ?? null,
+      authenticatedClerkUserId: args.authenticatedClerkUserId,
+    });
+    if (access === "allow") return { http: 200, body: { status: "continue" } };
+    if (access === "unsigned") {
+      return { http: 200, body: { status: "account_mismatch", signedIn: false } };
+    }
+    if (access === "mismatch") {
+      return { http: 200, body: { status: "account_mismatch", signedIn: true } };
+    }
+    return { http: 403, body: { error: "rejected" } };
+  } catch {
+    console.error("[stripe-first] continue authorization failed");
+    return { http: 503, body: { error: "retry" } };
+  }
 }
 
 async function requireTrial(intent: CheckoutBrowserIntent, sessionId: string) {

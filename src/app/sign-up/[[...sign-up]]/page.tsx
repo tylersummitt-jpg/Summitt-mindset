@@ -11,6 +11,7 @@ import {
   signUpHrefForCheckoutStart,
 } from "@/lib/checkout-plan";
 import {
+  checkoutContinueAfterAuthUrl,
   isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
   sanitizeSubscribeRedirectUrl,
@@ -25,6 +26,7 @@ import {
  * After sign-up destination is sanitized from ?redirect_url=:
  * - consumer acquisition → /checkout/start
  * - coach → /subscribe?src=coach
+ * - checkout continuation → /checkout/continue (no new Checkout)
  * - bare /sign-up (no redirect) → /onboarding, then unpaid users
  *   are gated to /subscribe (not an automatic Checkout hop)
  *
@@ -99,12 +101,16 @@ export default function SignUpPage() {
     ? checkoutStartForceRedirectUrl(selectedCheckoutPlan)
     : null;
 
+  const safeCheckoutContinueDestination = checkoutContinueAfterAuthUrl(redirectUrl);
   const safeAfterSignInUrl =
     safeCheckoutStartDestination ??
     sanitizeInternalRedirectUrl(redirectUrl) ??
     "/post-sign-in";
   const safeAfterSignUpUrl =
-    safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding";
+    safeCheckoutContinueDestination ??
+    safeSubscribeDestination ??
+    safeCheckoutStartDestination ??
+    "/onboarding";
   const isAcquisitionSignUp = Boolean(
     safeSubscribeDestination || safeCheckoutStartDestination
   );

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   STRANDED_NEW_CUSTOMER_GRACE_MS,
   bindingMaxAgeSeconds,
+  decideCheckoutContinueAccess,
   duplicateTrialBlockFromSubscription,
   duplicateTrialNextPath,
   entitlementFromStoredSubscription,
@@ -53,6 +54,40 @@ describe("duplicate trials for an existing membership", () => {
     expect(link).not.toContain('return "mismatch"');
     expect(link).toContain('entitlement === "retry"');
     expect(link).toContain("duplicateTrialNextPath");
+  });
+});
+
+describe("started checkout may continue only for the linked Clerk user", () => {
+  const ready = {
+    bindingOk: true,
+    sessionStarted: true,
+    provisioned: true,
+    intentClerkUserId: "user_linked",
+    authenticatedClerkUserId: "user_linked",
+  };
+
+  it("allows the authenticated user on the intent without reading Stripe", () => {
+    expect(decideCheckoutContinueAccess(ready)).toBe("allow");
+    expect(decideCheckoutContinueAccess.toString()).not.toContain("subscription");
+  });
+
+  it("rejects a missing binding or an intent that has not started", () => {
+    expect(decideCheckoutContinueAccess({ ...ready, bindingOk: false })).toBe("rejected");
+    expect(decideCheckoutContinueAccess({ ...ready, sessionStarted: false })).toBe("rejected");
+    expect(decideCheckoutContinueAccess({ ...ready, provisioned: false })).toBe("rejected");
+    expect(decideCheckoutContinueAccess({ ...ready, intentClerkUserId: null })).toBe("rejected");
+  });
+
+  it("fails a signed-out or different Clerk session without allowing Identity", () => {
+    expect(decideCheckoutContinueAccess({ ...ready, authenticatedClerkUserId: null })).toBe(
+      "unsigned"
+    );
+    expect(decideCheckoutContinueAccess({ ...ready, authenticatedClerkUserId: " " })).toBe(
+      "unsigned"
+    );
+    expect(decideCheckoutContinueAccess({ ...ready, authenticatedClerkUserId: "user_other" })).toBe(
+      "mismatch"
+    );
   });
 });
 

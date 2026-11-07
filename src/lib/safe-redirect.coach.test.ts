@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  checkoutContinueAfterAuthUrl,
   isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
   signInUrlPreservingInternalRedirect,
@@ -54,6 +55,27 @@ describe("sanitizeInternalRedirectUrl checkout hop", () => {
     );
     expect(signUpUrlPreservingInternalRedirect(null)).toBe("/sign-up");
     expect(signInUrlPreservingInternalRedirect(null)).toBe("/sign-in");
+  });
+});
+
+describe("checkout continuation after sign-up", () => {
+  it("keeps the public and hosted-test continuation paths", () => {
+    expect(checkoutContinueAfterAuthUrl("/checkout/continue")).toBe("/checkout/continue");
+    expect(checkoutContinueAfterAuthUrl("/checkout/hosted-test/continue")).toBe(
+      "/checkout/hosted-test/continue"
+    );
+    expect(
+      checkoutContinueAfterAuthUrl(encodeURIComponent("/checkout/continue"))
+    ).toBe("/checkout/continue");
+  });
+
+  it("does not treat checkout start, subscribe, or another site as continuation", () => {
+    expect(checkoutContinueAfterAuthUrl("/checkout/start")).toBeNull();
+    expect(checkoutContinueAfterAuthUrl("/subscribe")).toBeNull();
+    expect(checkoutContinueAfterAuthUrl("/onboarding")).toBeNull();
+    expect(checkoutContinueAfterAuthUrl("https://evil.example/checkout/continue")).toBeNull();
+    expect(checkoutContinueAfterAuthUrl("/checkout/continue?plan=annual")).toBeNull();
+    expect(checkoutContinueAfterAuthUrl(null)).toBeNull();
   });
 });
 

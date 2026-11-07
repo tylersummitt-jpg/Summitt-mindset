@@ -10,6 +10,7 @@ import {
   signUpHrefForCheckoutStart,
 } from "@/lib/checkout-plan";
 import {
+  checkoutContinueAfterAuthUrl,
   isCoachSubscribeRedirectUrl,
   sanitizeInternalRedirectUrl,
   sanitizeSubscribeRedirectUrl,
@@ -42,12 +43,16 @@ export default function SignInPage() {
     ? checkoutStartForceRedirectUrl(selectedCheckoutPlan)
     : null;
 
+  const safeCheckoutContinueDestination = checkoutContinueAfterAuthUrl(redirectUrl);
   const safeAfterSignInUrl =
     safeCheckoutStartDestination ??
     sanitizeInternalRedirectUrl(redirectUrl) ??
     "/post-sign-in";
   const safeAfterSignUpUrl =
-    safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding";
+    safeCheckoutContinueDestination ??
+    safeSubscribeDestination ??
+    safeCheckoutStartDestination ??
+    "/onboarding";
 
   const isCoachSignIn = isCoachSubscribeRedirectUrl(redirectUrl);
 

@@ -325,7 +325,7 @@ describe("app-specific combined email-code auth (/app/sign-in)", () => {
     expect(websiteSignUp).toContain("safeCheckoutStartDestination");
     expect(websiteSignUp).toContain('"/checkout/start"');
     expect(websiteSignUp).toContain(
-      'safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding"'
+      'safeCheckoutContinueDestination ??\n    safeSubscribeDestination ??\n    safeCheckoutStartDestination ??\n    "/onboarding"'
     );
     expect(websiteSignUp).toContain("checkoutStartForceRedirectUrl");
     expect(websiteSignUp).toContain("signInHrefForCheckoutStart");

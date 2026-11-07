@@ -71,6 +71,21 @@ describe("consumer sign-in plan preservation", () => {
     );
   });
 
+  it("Sign Up after an existing-email checkout stays on /checkout/continue", () => {
+    params = new URLSearchParams(
+      `redirect_url=${encodeURIComponent("/checkout/continue")}`
+    );
+    render(<SignInPage />);
+    const clerk = screen.getByTestId("clerk-signin");
+    expect(clerk.getAttribute("data-force-redirect")).toBe("/checkout/continue");
+    expect(clerk.getAttribute("data-signup-force-redirect")).toBe("/checkout/continue");
+    expect(clerk.getAttribute("data-signup-url")).toBe(
+      `/sign-up?redirect_url=${encodeURIComponent("/checkout/continue")}`
+    );
+    expect(clerk.getAttribute("data-signup-force-redirect")).not.toBe("/onboarding");
+    expect(clerk.getAttribute("data-signup-force-redirect")).not.toContain("/checkout/start");
+  });
+
   it("coach sign-in ignores plan=annual", () => {
     params = new URLSearchParams(
       `plan=annual&redirect_url=${encodeURIComponent("/subscribe?src=coach")}`

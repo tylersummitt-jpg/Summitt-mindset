@@ -86,7 +86,7 @@ describe("consumer checkout plan wiring (source)", () => {
     expect(src).toContain("signUpHrefForCheckoutStart");
     expect(src).toContain('sanitizeInternalRedirectUrl(redirectUrl) === "/checkout/start"');
     expect(src).toContain(
-      'safeSubscribeDestination ?? safeCheckoutStartDestination ?? "/onboarding"'
+      'safeCheckoutContinueDestination ??\n    safeSubscribeDestination ??\n    safeCheckoutStartDestination ??\n    "/onboarding"'
     );
     expect(src).not.toContain("unsafeMetadata");
     expect(src).not.toContain("sessionStorage");
