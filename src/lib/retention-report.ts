@@ -2,6 +2,7 @@ import { mobileFactsNotInReport } from "@/lib/mobile-measurement";
 import { achievementNotInReport } from "@/lib/retention-behavior-retention";
 import { churnSurveyNotCalculated } from "@/lib/churn-survey-facts";
 import { deletionReasonsNotInReport } from "@/lib/account-deletion/deletion-reason-facts";
+import { youreInVideoNotInReport } from "@/lib/youre-in-video";
 import {
   RETENTION_NOT_LOADED,
   unreadableRetentionIntelligence,
@@ -163,13 +164,15 @@ function withStoredSections(intel: RetentionIntelligence): RetentionIntelligence
       "Cancellation survey counts are not in this saved report. They are not shown as zero."
     );
   const deletionReasons = intel.deletionReasons ?? deletionReasonsNotInReport();
+  const youreInVideo = intel.youreInVideo ?? youreInVideoNotInReport();
   if (
     monthlyAchievement === intel.monthlyAchievement &&
     annualAchievement === intel.annualAchievement &&
     monthlyMobile === intel.monthlyMobile &&
     annualMobile === intel.annualMobile &&
     intel.churnSurvey &&
-    intel.deletionReasons
+    intel.deletionReasons &&
+    intel.youreInVideo
   ) {
     return intel;
   }
@@ -181,6 +184,7 @@ function withStoredSections(intel: RetentionIntelligence): RetentionIntelligence
     annualMobile,
     churnSurvey,
     deletionReasons,
+    youreInVideo,
   };
 }
 

@@ -3,6 +3,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import OnboardingProgress from "@/components/onboarding-progress";
 import CompleteOnboardingButton from "@/components/CompleteOnboardingButton";
+import { YoureInVideoTracker } from "@/components/youre-in-video-tracker";
 import { requireOnboardingSobPath } from "@/lib/onboarding-sob-page-guard";
 import { supabaseServer } from "@/lib/supabase-server";
 import { isQuotableIdentitySource } from "@/lib/v2-identity-anchor-validation";
@@ -76,6 +77,7 @@ export default async function CompletePage(): Promise<ReactElement> {
         <div className="overflow-hidden rounded-xl border bg-black text-left">
           <div className="relative aspect-video w-full">
             <iframe
+              data-youre-in-player=""
               title="Welcome to Summitt Mindset"
               src={welcomeVideoSrc}
               className="absolute inset-0 h-full w-full"
@@ -85,6 +87,7 @@ export default async function CompletePage(): Promise<ReactElement> {
           </div>
         </div>
       ) : null}
+      <YoureInVideoTracker />
 
       <section className="rounded-xl border bg-gray-50 p-6 text-left space-y-3">
         <h2 className="font-semibold text-gray-900">Your Setup</h2>

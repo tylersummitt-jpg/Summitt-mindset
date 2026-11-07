@@ -20,6 +20,7 @@ import { ExperimentRegistryPanel } from "@/app/admin/experiment-registry";
 import type { EmailRepresentativeReport } from "@/lib/acquisition/email-representative-metrics";
 import type { OperatingSnapshot } from "@/lib/admin-operating-snapshot";
 import { formatCompleteRetentionFacts } from "@/lib/retention-intelligence";
+import { formatYoureInVideoEngagement, type YoureInVideoEngagement } from "@/lib/youre-in-video";
 import { formatChurnSurveyLines } from "@/lib/churn-survey-facts";
 import type { CancellationCommentView } from "@/lib/cancellation-comments.server";
 import type { DeletionCommentView } from "@/lib/account-deletion/account-deletion-comment.server";
@@ -1118,6 +1119,18 @@ function RetentionGroupList({
   );
 }
 
+function YoureInVideoBlock({ facts }: { facts: YoureInVideoEngagement | undefined }) {
+  const lines = formatYoureInVideoEngagement(facts).slice(1);
+  return (
+    <>
+      <h3 className="font-medium text-gray-900">You&apos;re In! Video Engagement</h3>
+      {lines.map((line) => (
+        <p key={line}>{line}</p>
+      ))}
+    </>
+  );
+}
+
 function RetentionBody({
   snapshot,
   canGenerateReport,
@@ -1382,6 +1395,8 @@ function RetentionBody({
                 Weekly Feedback
               </Link>
             </p>
+
+            <YoureInVideoBlock facts={intel.youreInVideo} />
 
             <h3 className="font-medium text-gray-900">Monthly experiences and day-30 survival</h3>
             <p>{intel.engagementNote}</p>

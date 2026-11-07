@@ -384,7 +384,12 @@ export default function PrivacyPage() {
           SMS content, payment-card information, email, phone, or Clerk user IDs
           into Vimeo embed URLs. Our embeds use Vimeo’s Do Not Track player
           option where implemented; that does not guarantee zero technical
-          logging or zero essential storage by Vimeo.
+          logging or zero essential storage by Vimeo. On the final onboarding
+          page, our own event log records whether a signed-in member reached
+          that page, started the welcome video, reached a quarter or half of it
+          by played time, or the player reported that playback ended. We do not
+          put that member’s name, email, phone, or Clerk user ID into the
+          welcome video URL.
         </p>
         <p className="text-base leading-7 text-[var(--muted)]">
           Vimeo’s handling of information is also governed by Vimeo’s own privacy

@@ -49,6 +49,12 @@ import { loadDeletionReasonReport } from "@/lib/account-deletion/account-deletio
 import { deletionReasonsUnavailable } from "@/lib/account-deletion/deletion-reason-facts";
 import { EXIT_SURVEY_VERSION } from "@/lib/exit-survey";
 import { isAppleRowCurrentlyGranting } from "@/lib/summitt-membership-entitlement";
+import {
+  aggregateYoureInVideoMembers,
+  YOURE_IN_VIDEO_EVENT_TYPES,
+  youreInVideoUnavailable,
+  type YoureInVideoEngagement,
+} from "@/lib/youre-in-video";
 
 const PAGE_SIZE = 100;
 const MAX_PAGES = 100;
@@ -168,6 +174,16 @@ export async function loadRetentionIntelligence(
     const clerkIds = [
       ...new Set(spells.map((spell) => spell.clerkUserId).filter((id): id is string => Boolean(id))),
     ];
+    let youreInVideo = youreInVideoUnavailable(
+      "You're In! video events could not be read. They are not shown as zero."
+    );
+    try {
+      youreInVideo = await loadYoureInVideoEvents(deadlineMs);
+    } catch (err) {
+      console.warn("[retention] you're in video read failed", {
+        message: err instanceof Error ? err.name : "youre_in_video_read_failed",
+      });
+    }
     const engagement = await loadEngagement(clerkIds, deadlineMs);
     const acquisition =
       deadlineMs != null && Date.now() >= deadlineMs
@@ -198,6 +214,7 @@ export async function loadRetentionIntelligence(
       acquisition: acquisition.rows,
       churnSurvey,
       deletionReasons,
+      youreInVideo,
     });
   } catch (err) {
     console.warn("[retention] billing read failed", {
@@ -819,6 +836,44 @@ function experimentLabel(visits: Array<Record<string, unknown>>): string {
   if (labels.size === 1) return [...labels][0] ?? "Unknown";
   if (labels.size > 1) return "Unknown";
   return "Not in a controlled experiment";
+}
+
+async function loadYoureInVideoEvents(deadlineMs?: number): Promise<YoureInVideoEngagement> {
+  const unavailable = youreInVideoUnavailable(
+    "You're In! video events could not be fully read. They are not shown as zero."
+  );
+  if (deadlineMs != null && Date.now() >= deadlineMs) return unavailable;
+  const rows: Array<{ clerkUserId: string; eventType: string }> = [];
+  let from = 0;
+  for (let page = 0; page < 40; page += 1) {
+    if (deadlineMs != null && Date.now() >= deadlineMs) return unavailable;
+    const { data, error } = await supabaseServer
+      .from("v2_event")
+      .select("clerk_user_id, event_type, occurred_at, idempotency_key")
+      .in("event_type", [...YOURE_IN_VIDEO_EVENT_TYPES])
+      .order("occurred_at", { ascending: true })
+      .order("idempotency_key", { ascending: true })
+      .range(from, from + ENGAGEMENT_PAGE_ROWS - 1);
+    if (error) {
+      console.warn("[retention] you're in video read failed", {
+        code: error.code ?? "youre_in_video_read_failed",
+      });
+      return unavailable;
+    }
+    const batch = (data ?? []) as Array<{
+      clerk_user_id?: unknown;
+      event_type?: unknown;
+    }>;
+    for (const row of batch) {
+      const clerkUserId = typeof row.clerk_user_id === "string" ? row.clerk_user_id : "";
+      const eventType = typeof row.event_type === "string" ? row.event_type : "";
+      if (!clerkUserId || !eventType) continue;
+      rows.push({ clerkUserId, eventType });
+    }
+    if (batch.length < ENGAGEMENT_PAGE_ROWS) return aggregateYoureInVideoMembers(rows);
+    from += ENGAGEMENT_PAGE_ROWS;
+  }
+  return unavailable;
 }
 
 async function readVisitorEvents(

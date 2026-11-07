@@ -37,6 +37,11 @@ import {
   type BehaviorMembership,
   type BehaviorRetention,
 } from "@/lib/retention-behavior-retention";
+import {
+  formatYoureInVideoEngagement,
+  youreInVideoNotInReport,
+  type YoureInVideoEngagement,
+} from "@/lib/youre-in-video";
 
 export const RETENTION_DAY_MS = 86_400_000;
 const CONTINUITY_SLACK_MS = RETENTION_DAY_MS;
@@ -125,6 +130,7 @@ export type RetentionIntelligenceInput = {
   acquisition: RetentionAcquisition[];
   churnSurvey?: ChurnSurveyFacts;
   deletionReasons?: DeletionReasonReport;
+  youreInVideo?: YoureInVideoEngagement;
 };
 
 export type RetentionMilestone = {
@@ -231,6 +237,8 @@ export type RetentionIntelligence = {
   bridge: string;
   churnSurvey?: ChurnSurveyFacts;
   deletionReasons?: DeletionReasonReport;
+  /** Undefined on an older saved report. That is not a measured zero. */
+  youreInVideo?: YoureInVideoEngagement;
 };
 
 const UNMEASURED_HISTORY =
@@ -536,6 +544,7 @@ export function buildRetentionIntelligence(
     bridge,
     churnSurvey: input.churnSurvey,
     deletionReasons: input.deletionReasons,
+    youreInVideo: input.youreInVideo ?? youreInVideoNotInReport(),
   };
 }
 
@@ -659,6 +668,7 @@ export function formatRetentionIntelligence(intel: RetentionIntelligence): strin
   lines.push("MOBILE APP FACTS");
   lines.push(...formatMobilePopulation(intel.monthlyMobile ?? mobileFactsNotInReport("Monthly")));
   lines.push(...formatMobilePopulation(intel.annualMobile ?? mobileFactsNotInReport("Annual")));
+  lines.push(...formatYoureInVideoEngagement(intel.youreInVideo));
   lines.push("EARLIER DAY-30 COMPARISONS");
   lines.push(intel.engagementNote);
   for (const gap of intel.engagementGaps) lines.push(gap);
