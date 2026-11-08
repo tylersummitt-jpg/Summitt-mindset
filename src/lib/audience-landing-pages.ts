@@ -3,6 +3,8 @@
  * Paths are exact. Query strings are not separate pages.
  */
 
+import { PARTNER_LANDINGS } from "@/lib/partner-landing";
+
 export const AUDIENCE_LANDING_SITE = "https://summittmindset.com";
 
 export const AUDIENCE_LANDING_PAGES = [
@@ -57,6 +59,11 @@ export const LANDING_MEASUREMENT_DESTINATIONS = [
     id: page.id,
     path: page.path,
     label: LANDING_SHORT_LABEL[page.id],
+  })),
+  ...PARTNER_LANDINGS.map((partner) => ({
+    id: partner.key,
+    path: partner.path,
+    label: partner.name,
   })),
   ...RETIRED_LANDING_MEASUREMENTS,
 ] as const;

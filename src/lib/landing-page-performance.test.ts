@@ -57,6 +57,140 @@ function growth() {
   };
 }
 
+describe("partner landing pages", () => {
+  const ORANGE = "/orange-mountain-designs";
+  const LADY_VOL = "/lady-vol-boost-her-club";
+
+  it("shows both partner paths without changing the other landing rows", () => {
+    const summary = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: ORANGE, occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: ORANGE, occurredAtMs: AFTER + 1000 },
+        { kind: "cta_click", visitorId: VISITOR, path: ORANGE, occurredAtMs: AFTER + 2000 },
+        { kind: "cta_click", visitorId: OTHER, path: ORANGE, occurredAtMs: AFTER + 3000 },
+        { kind: "page_view", visitorId: OTHER, path: LADY_VOL, occurredAtMs: AFTER },
+      ],
+    });
+    const orange = summary.rows.find((row) => row.path === ORANGE);
+    const lady = summary.rows.find((row) => row.path === LADY_VOL);
+    const home = summary.rows.find((row) => row.id === "homepage");
+    const become = summary.rows.find((row) => row.id === "become_proud");
+    expect(orange).toMatchObject({
+      id: "orange-mountain-designs",
+      label: "Orange Mountain Designs",
+      visitors: 1,
+      ctaClicks: 1,
+      ctaRate: "100.0%",
+      trials: "Not available",
+      paid: "Not available",
+    });
+    expect(orange?.gap).toContain("1 trial-button clicks had no matching page view");
+    expect(lady).toMatchObject({
+      id: "lady-vol-boost-her-club",
+      label: "Lady Vol Boost Her Club",
+      visitors: 1,
+      ctaClicks: 0,
+      ctaRate: "0.0%",
+      checkoutStarts: 0,
+    });
+    expect(home).toMatchObject({ visitors: 0, ctaClicks: 0, checkoutStarts: 0 });
+    expect(become).toMatchObject({ visitors: 0, ctaClicks: 0, checkoutStarts: 0 });
+    expect(summary.rows.filter((row) => row.path === "/").length).toBe(1);
+  });
+
+  it("credits checkout, trial, and payment only when the partner page was first", () => {
+    const trial = {
+      clerkUserId: CLERK,
+      trialStartMs: AFTER + 2 * DAY,
+      trialEndMs: AFTER + 9 * DAY,
+      status: "active",
+    };
+    const credited = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 9 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: ORANGE, occurredAtMs: AFTER },
+        { kind: "checkout", visitorId: VISITOR, path: null, occurredAtMs: AFTER + DAY },
+        { kind: "account", visitorId: VISITOR, path: null, occurredAtMs: AFTER + DAY },
+      ],
+      identities: [link()],
+      billing: readyBilling([trial], [{ clerkUserId: CLERK, paidAtMs: AFTER + 9 * DAY }]),
+    });
+    const orange = credited.rows.find((row) => row.path === ORANGE);
+    const home = credited.rows.find((row) => row.id === "homepage");
+    expect(orange).toMatchObject({
+      checkoutStarts: 1,
+      accounts: 1,
+      trials: 1,
+      visitorToTrial: "100.0%",
+      paid: 1,
+      trialToPaid: "100.0%",
+    });
+    expect(orange?.gap).toContain("First-touch sources on attributed trials: meta 1.");
+    expect(orange?.gap).not.toContain("originated");
+    expect(home).toMatchObject({ checkoutStarts: 0, trials: 0, paid: 0 });
+
+    const earlierHome = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: true,
+      nowMs: AFTER + 9 * DAY,
+      observations: [
+        { kind: "page_view", visitorId: VISITOR, path: "/", occurredAtMs: AFTER },
+        { kind: "page_view", visitorId: VISITOR, path: ORANGE, occurredAtMs: AFTER + DAY },
+        { kind: "checkout", visitorId: VISITOR, path: null, occurredAtMs: AFTER + DAY },
+      ],
+      identities: [link()],
+      billing: readyBilling([trial], [{ clerkUserId: CLERK, paidAtMs: AFTER + 9 * DAY }]),
+    });
+    expect(earlierHome.rows.find((row) => row.id === "homepage")).toMatchObject({
+      checkoutStarts: 1,
+      trials: 1,
+      paid: 1,
+    });
+    expect(earlierHome.rows.find((row) => row.path === ORANGE)).toMatchObject({
+      visitors: 1,
+      checkoutStarts: 0,
+      trials: 0,
+      paid: 0,
+    });
+  });
+
+  it("does not turn an unread partner report or a pre-cutover view into zero conversions", () => {
+    const unread = summarizeLandingPagePerformance({
+      observations: [],
+      pagesReadable: false,
+      outcomesReadable: false,
+    });
+    expect(unread.rows).toEqual([]);
+    expect(unread.note).toContain("Do not treat that as zero visitors.");
+
+    const early = summarizeLandingPagePerformance({
+      pagesReadable: true,
+      outcomesReadable: false,
+      observations: [
+        {
+          kind: "page_view",
+          visitorId: VISITOR,
+          path: LADY_VOL,
+          occurredAtMs: LANDING_PAGE_MEASUREMENT_CUTOVER_MS - 1,
+        },
+      ],
+    });
+    const lady = early.rows.find((row) => row.path === LADY_VOL);
+    expect(lady).toMatchObject({
+      visitors: 0,
+      ctaClicks: 0,
+      ctaRate: "Not available",
+      trials: "Not available",
+      paid: "Not available",
+      checkoutStarts: null,
+    });
+  });
+});
+
 describe("landing page measurement", () => {
   it("counts a refreshed visitor once and does not treat a click as a trial", () => {
     const summary = summarizeLandingPagePerformance({
