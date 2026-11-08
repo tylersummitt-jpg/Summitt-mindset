@@ -89,6 +89,6 @@ describe("homepage member testimonials", () => {
     expect(page).not.toContain("A TRUSTED LEGACY");
     expect(page).not.toContain("Rooted in her legacy. Built for real life.");
     expect(page).toContain("marketingAcquisitionHref");
-    expect(page).toContain("Reach Your Goals.");
+    expect(page).toContain("DAILY COACHING");
   });
 });

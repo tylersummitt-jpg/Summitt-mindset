@@ -20,7 +20,7 @@ describe("homepage entitled member redirect (source)", () => {
     expect(home).not.toContain('redirect("/dashboard/victory-room")');
 
     const redirectIndex = home.indexOf('redirect("/post-sign-in")');
-    const headlineIndex = home.indexOf("Reach Your Goals.");
+    const headlineIndex = home.indexOf("DAILY COACHING");
 
     expect(redirectIndex).toBeGreaterThan(-1);
     expect(home).not.toContain("/api/quote-of-the-day");
@@ -29,7 +29,7 @@ describe("homepage entitled member redirect (source)", () => {
 
   it("keeps signed-out marketing copy in the homepage source", () => {
     const home = read("src/app/page.tsx");
-    expect(home).toContain("Reach Your Goals.");
+    expect(home).toContain("DAILY COACHING");
     expect(home).toContain("Start My Free Trial");
   });
 });

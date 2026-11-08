@@ -127,13 +127,13 @@ export default async function HomePage() {
             <div className="flex w-full max-w-xl min-w-0 flex-col gap-5 break-words">
               <div>
                 <h1 className="max-w-xl text-[1.65rem] font-black leading-[1.15] tracking-tight text-white drop-shadow-sm min-[390px]:text-[1.85rem] sm:text-4xl md:text-5xl md:leading-[1.05]">
-                  <span className="block">Reach Your Goals.</span>
+                  <span className="block">DAILY COACHING</span>
                   <span className="mt-1 block text-[var(--brand)] md:mt-1.5">
-                    Remember the Journey.
+                    INSPIRED BY PAT SUMMITT
                   </span>
                 </h1>
                 <p className="mt-3 max-w-xl text-lg font-medium leading-relaxed text-white/90 drop-shadow-sm md:mt-4 md:text-xl">
-                  Get daily text messages from Coach Pat to help you reach your goals, celebrate your wins, and remember the special moments along the way.
+                  Tell Coach Pat what you&apos;re working toward. Get personalized daily text messages that help you turn your goals into daily action and recognize your progress.
                 </p>
               </div>
 
@@ -200,7 +200,7 @@ export default async function HomePage() {
                   </div>
                   {showPricingCopy ? (
                     <p className="mt-1 max-w-md text-lg font-bold leading-relaxed tracking-tight text-white drop-shadow-sm">
-                      7 days free · $0 today · Cancel anytime
+                      7 days free · $0 today · Then $29/month · Cancel anytime
                     </p>
                   ) : null}
                 </>

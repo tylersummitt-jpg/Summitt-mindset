@@ -34,7 +34,7 @@ describe("become-proud challenger", () => {
     expect(page).not.toContain("pat_statue_grandkids");
     expect(page).not.toContain("home-hero-");
     expect(home).toContain("/brand/pat-summitt-homepage-hero.jpg");
-    expect(home).toContain("Reach Your Goals.");
+    expect(home).toContain("DAILY COACHING");
     expect(MEMBERSHIP_PUBLIC_OFFER.monthly).toBe("$29/month");
     expect(MEMBERSHIP_PUBLIC_OFFER.annual).toBe("$249/year");
     expect(MEMBERSHIP_PUBLIC_OFFER.cancel).toBe("Cancel anytime");

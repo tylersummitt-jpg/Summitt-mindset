@@ -16,9 +16,9 @@ describe("homepage redesign phase 2", () => {
 
   it("keeps the approved hero and the seven-section order", () => {
     const markers = [
-      "Reach Your Goals.",
-      "Remember the Journey.",
-      "Get daily text messages from Coach Pat to help you reach your goals, celebrate your wins, and remember the special moments along the way.",
+      "DAILY COACHING",
+      "INSPIRED BY PAT SUMMITT",
+      "Tell Coach Pat what you&apos;re working toward. Get personalized daily text messages that help you turn your goals into daily action and recognize your progress.",
       "<HomepageSmsExample />",
       "<HomepageHowItWorksSteps />",
       "<HomepageVictoryRoom />",
@@ -32,7 +32,7 @@ describe("homepage redesign phase 2", () => {
       expect(index).toBeGreaterThan(last);
       last = index;
     }
-    expect(home).toContain("7 days free · $0 today · Cancel anytime");
+    expect(home).toContain("7 days free · $0 today · Then $29/month · Cancel anytime");
     expect(home).not.toContain("HomepageMobileStickyCta");
     expect(home).not.toContain("HomepageHowItWorksVideo");
     expect(home).not.toContain("/api/quote-of-the-day");

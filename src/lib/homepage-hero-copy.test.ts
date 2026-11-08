@@ -11,11 +11,19 @@ function read(rel: string): string {
 describe("homepage hero copy hierarchy (source)", () => {
   it("uses the approved headline and supporting line", () => {
     const home = read("src/app/page.tsx");
-    expect(home).toContain("Reach Your Goals.");
-    expect(home).toContain("Remember the Journey.");
+    const headline = home.slice(home.indexOf("<h1"), home.indexOf("</h1>"));
+    const headlineText = headline.replace(/<[^>]+>/g, "");
+    expect(headline).toContain("DAILY COACHING");
+    expect(headline).toContain("INSPIRED BY PAT SUMMITT");
+    expect(headline).toContain("text-white");
+    expect(headline).toContain("text-[var(--brand)]");
+    expect(headlineText).not.toContain("(");
+    expect(headlineText).not.toContain(")");
     expect(home).toContain(
-      "Get daily text messages from Coach Pat to help you reach your goals, celebrate your wins, and remember the special moments along the way."
+      "Tell Coach Pat what you&apos;re working toward. Get personalized daily text messages that help you turn your goals into daily action and recognize your progress."
     );
+    expect(home).toContain("7 days free · $0 today · Then $29/month · Cancel anytime");
+    expect(home).toContain("Start My Free Trial");
     expect(home).not.toContain("whitespace-nowrap");
     expect(home).not.toContain("Coach Pat in your corner.");
     expect(home).toContain("/brand/pat-summitt-homepage-hero.jpg");
