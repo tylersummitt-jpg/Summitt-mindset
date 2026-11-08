@@ -17,7 +17,7 @@ describe("homepage redesign phase 2", () => {
   it("keeps the approved hero and the seven-section order", () => {
     const markers = [
       "DAILY COACHING",
-      "INSPIRED BY PAT SUMMITT",
+      "INSPIRED BY",
       "Tell Coach Pat what you&apos;re working toward. Get personalized daily text messages that help you turn your goals into daily action and recognize your progress.",
       "<HomepageSmsExample />",
       "<HomepageHowItWorksSteps />",
@@ -32,7 +32,8 @@ describe("homepage redesign phase 2", () => {
       expect(index).toBeGreaterThan(last);
       last = index;
     }
-    expect(home).toContain("7 days free · $0 today · Then $29/month · Cancel anytime");
+    expect(home).toContain("7 days free · $0 today");
+    expect(home).toContain("Then $29/month · Cancel anytime");
     expect(home).not.toContain("HomepageMobileStickyCta");
     expect(home).not.toContain("HomepageHowItWorksVideo");
     expect(home).not.toContain("/api/quote-of-the-day");

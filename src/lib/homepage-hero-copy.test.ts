@@ -14,7 +14,7 @@ describe("homepage hero copy hierarchy (source)", () => {
     const headline = home.slice(home.indexOf("<h1"), home.indexOf("</h1>"));
     const headlineText = headline.replace(/<[^>]+>/g, "");
     expect(headline).toContain("DAILY COACHING");
-    expect(headline).toContain("INSPIRED BY PAT SUMMITT");
+    expect(headline).toMatch(/INSPIRED BY\s*<br \/>\s*PAT&nbsp;SUMMITT/);
     expect(headline).toContain("text-white");
     expect(headline).toContain("text-[var(--brand)]");
     expect(headlineText).not.toContain("(");
@@ -22,7 +22,9 @@ describe("homepage hero copy hierarchy (source)", () => {
     expect(home).toContain(
       "Tell Coach Pat what you&apos;re working toward. Get personalized daily text messages that help you turn your goals into daily action and recognize your progress."
     );
-    expect(home).toContain("7 days free · $0 today · Then $29/month · Cancel anytime");
+    expect(home).toMatch(
+      /7 days free · \$0 today\s*<br \/>\s*Then \$29\/month · Cancel anytime/
+    );
     expect(home).toContain("Start My Free Trial");
     expect(home).not.toContain("whitespace-nowrap");
     expect(home).not.toContain("Coach Pat in your corner.");
