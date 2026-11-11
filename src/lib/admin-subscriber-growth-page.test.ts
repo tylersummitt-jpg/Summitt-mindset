@@ -11,13 +11,18 @@ import {
 
 const requireTylerAdminMock = vi.hoisted(() => vi.fn());
 const loadDashboardMock = vi.hoisted(() => vi.fn());
+const loadMetaInsightsMock = vi.hoisted(() => vi.fn());
 
+vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/require-tyler-admin", () => ({
   requireTylerAdmin: (...args: unknown[]) => requireTylerAdminMock(...args),
 }));
 vi.mock("@/lib/admin-subscriber-growth", () => ({
   loadSubscriberGrowthDashboard: (...args: unknown[]) =>
     loadDashboardMock(...args),
+}));
+vi.mock("@/lib/meta-ad-lab-insights", () => ({
+  loadMetaAdLabInsights: (...args: unknown[]) => loadMetaInsightsMock(...args),
 }));
 
 const ROOT = process.cwd();
@@ -40,6 +45,14 @@ describe("subscriber growth page authorization", () => {
   beforeEach(() => {
     requireTylerAdminMock.mockReset();
     loadDashboardMock.mockReset();
+    loadMetaInsightsMock.mockReset();
+    loadMetaInsightsMock.mockResolvedValue({
+      status: "unconfigured",
+      missing: ["token"],
+      since: "2026-09-01",
+      until: "2026-09-01",
+      rangeNote: null,
+    });
     loadDashboardMock.mockResolvedValue({
       range: "last_7",
       source: "all",
@@ -76,6 +89,7 @@ describe("subscriber growth page authorization", () => {
     );
     await expect(Page({})).rejects.toMatchObject({ status: 401 });
     expect(loadDashboardMock).not.toHaveBeenCalled();
+    expect(loadMetaInsightsMock).not.toHaveBeenCalled();
   });
 
   it("blocks non-Tyler authenticated access before data load", async () => {
@@ -86,6 +100,7 @@ describe("subscriber growth page authorization", () => {
     );
     await expect(Page({})).rejects.toMatchObject({ status: 403 });
     expect(loadDashboardMock).not.toHaveBeenCalled();
+    expect(loadMetaInsightsMock).not.toHaveBeenCalled();
   });
 
   it("allows Tyler through existing requireTylerAdmin, then loads aggregates", async () => {
@@ -116,6 +131,10 @@ describe("subscriber growth auth architecture", () => {
     expect(page.indexOf("requireTylerAdmin")).toBeLessThan(
       page.indexOf("loadSubscriberGrowthDashboard")
     );
+    expect(page.indexOf("requireTylerAdmin")).toBeLessThan(
+      page.indexOf("loadMetaAdLabInsights")
+    );
+    expect(page).toContain("<Suspense");
     expect(layout).toContain("requireTylerAdmin");
     expect(layout).toContain("Subscriber Growth");
     expect(layout).toContain("/admin/subscriber-growth");

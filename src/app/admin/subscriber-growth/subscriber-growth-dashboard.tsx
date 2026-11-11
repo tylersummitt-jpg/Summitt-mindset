@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import {
   adSpendDisplayStatus,
@@ -665,8 +666,10 @@ function HomepageVideoSection({
 
 export default function SubscriberGrowthDashboard({
   data,
+  metaInsights,
 }: {
   data: SubscriberGrowthDashboardData;
+  metaInsights?: ReactNode;
 }) {
   const { snapshot, range, source } = data;
   const spendStatus = adSpendDisplayStatus({
@@ -1298,6 +1301,7 @@ export default function SubscriberGrowthDashboard({
         <div className="mt-2">
           <SubscriberGrowthAdSpend entries={data.adSpendEntries} />
         </div>
+        {metaInsights}
       </section>
 
       <section>

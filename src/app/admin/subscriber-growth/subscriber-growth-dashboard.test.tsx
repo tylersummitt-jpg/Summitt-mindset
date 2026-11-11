@@ -31,6 +31,7 @@ vi.mock("next/link", () => ({
 }));
 
 import SubscriberGrowthDashboard from "./subscriber-growth-dashboard";
+import { SubscriberGrowthMetaInsights } from "./subscriber-growth-meta-insights";
 
 function organicRow(
   partial: Partial<TrafficSourceRow> & { platform: string; utmContent: string }
@@ -753,6 +754,33 @@ describe("subscriber growth CMO completion copy", () => {
     expect(screen.getByText("5.6% of visitors")).toBeTruthy();
     expect(screen.getByText(/browser cookie, not a guaranteed unique person/)).toBeTruthy();
     expect(screen.getByText("From website visit to paid member")).toBeTruthy();
+  });
+
+  it("shows a Meta read failure without removing the existing advertising section", () => {
+    render(
+      <SubscriberGrowthDashboard
+        data={dashboardData([])}
+        metaInsights={
+          <SubscriberGrowthMetaInsights
+            report={{
+              status: "error",
+              since: "2026-11-04",
+              until: "2026-11-10",
+              rangeNote: null,
+              fetchedAt: "2026-11-10T16:00:00.000Z",
+              httpStatus: 400,
+              code: 190,
+              message: "Meta rejected the insights request.",
+            }}
+          />
+        }
+      />
+    );
+    expect(screen.getByText("Advertising")).toBeTruthy();
+    expect(screen.getByText("Meta ad delivery")).toBeTruthy();
+    expect(screen.getByText(/HTTP 400, Meta code 190/)).toBeTruthy();
+    expect(screen.getByText(/The rest of this page is unchanged/)).toBeTruthy();
+    expect(screen.getAllByText("Cost per paid subscriber").length).toBeGreaterThan(0);
   });
 });
 
