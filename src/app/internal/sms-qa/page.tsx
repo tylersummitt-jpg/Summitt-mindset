@@ -7,10 +7,10 @@ import {
 import { getV2SmsProductionActivationSnapshot } from "@/lib/v2-sms-production-activation-snapshot";
 
 async function resolveSearchParams(
-  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 ): Promise<Record<string, string | string[] | undefined>> {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 function Card({
@@ -59,7 +59,7 @@ function FlagPills({ flags }: { flags: string[] }) {
 export default async function OperatorSmsQaPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await resolveSearchParams(searchParams);
   const rawUser = sp.userId;

@@ -49,14 +49,14 @@ type VictoryRoomSearchParams = {
 };
 
 type PageProps = {
-  searchParams?: Promise<VictoryRoomSearchParams> | VictoryRoomSearchParams;
+  searchParams?: Promise<VictoryRoomSearchParams>;
 };
 
 async function resolveVictoryRoomSearchParams(
   searchParams: PageProps["searchParams"]
 ): Promise<VictoryRoomSearchParams> {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 export default async function VictoryRoomPage({ searchParams }: PageProps) {

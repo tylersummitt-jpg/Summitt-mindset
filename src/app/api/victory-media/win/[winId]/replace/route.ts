@@ -19,7 +19,7 @@ const UI_STALE =
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-type RouteParams = { params: Promise<{ winId: string }> | { winId: string } };
+type RouteParams = { params: Promise<{ winId: string }> };
 
 async function resolveWinId(params: RouteParams["params"]): Promise<string> {
   const p = params instanceof Promise ? await params : params;

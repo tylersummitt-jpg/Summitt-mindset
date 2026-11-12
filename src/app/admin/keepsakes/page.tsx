@@ -25,16 +25,12 @@ const TEMPLATE_COPY: Record<IdentityPosterTemplateId, { name: string; note: stri
 };
 
 type PageProps = {
-  searchParams?: Promise<{ template?: string }> | { template?: string };
+  searchParams?: Promise<{ template?: string }>;
 };
 
 async function readTemplate(searchParams: PageProps["searchParams"]): Promise<IdentityPosterTemplateId> {
-  const params = !searchParams
-    ? {}
-    : searchParams instanceof Promise
-      ? await searchParams
-      : searchParams;
-  return parseIdentityPosterTemplate(params.template) ?? "classic";
+  const params = searchParams ? await searchParams : undefined;
+  return parseIdentityPosterTemplate(params?.template) ?? "classic";
 }
 
 export default async function KeepsakeStudioPage({ searchParams }: PageProps) {

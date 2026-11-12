@@ -55,6 +55,7 @@ import {
 import {
   createClerkSignInTicket,
   createReservedClerkUser,
+  getClerkIdentity,
   lookupClerkUserIdByExternalId,
   lookupClerkUserIdsByEmail,
 } from "@/lib/stripe-first-checkout/clerk-provision";
@@ -73,10 +74,15 @@ import {
   deleteUnstartedLiveIntent,
   insertCheckoutIntent,
   liveCanaryIntentExists,
+  loadConfirmedIntentsForEmail,
   loadIntentByBindingHash,
   loadIntentById,
   loadIntentBySubscriptionId,
+  loadResumeCandidateIntents,
   markClerkProvisioned,
+  markHoldConfirmedAndReleased,
+  markHoldReleased,
+  markResumeSignInRequired,
   saveCheckoutMatchFields,
   saveCheckoutRequestCountry,
   saveGoogleClickId,
@@ -96,6 +102,14 @@ import {
   readCheckoutIntentId,
 } from "@/lib/stripe-first-checkout/reconcile";
 import { decideCheckoutContinueAccess } from "@/lib/stripe-first-checkout/checkout-reliability";
+import { normalizeCheckoutEmail } from "@/lib/stripe-first-checkout/email-typo";
+import { decideHold, unixFromIso } from "@/lib/stripe-first-checkout/hold-decision";
+import {
+  decideResumeStripe,
+  type ResumeStripeSnapshot,
+} from "@/lib/stripe-first-checkout/resume-eligibility";
+import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
+import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
 import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
 import { recomputeMembershipFromAuthoritativeStripeSubscription } from "@/lib/summitt-membership-entitlement.server";
 import { resolveAppleMembershipGrantForUser } from "@/lib/summitt-membership-entitlement.server";
@@ -1036,4 +1050,518 @@ export async function linkExistingHostedCheckout(args: {
     });
     return { status: "retry" };
   }
+}
+
+export type ResumeActivationStatus = "none" | "linked" | "retry" | "preserved" | "conflict";
+
+export type ResumeActivationResult = {
+  status: ResumeActivationStatus;
+  subscriptionId?: string;
+};
+
+type ResumeCandidate = {
+  kind: "ready";
+  email: string;
+  intent: CheckoutBrowserIntent;
+};
+
+type ResumeLookup =
+  | { kind: "none" }
+  | { kind: "conflict"; subscriptionId?: string }
+  | ResumeCandidate;
+
+function resumeSubscriptionId(intent: CheckoutBrowserIntent): string | undefined {
+  const id = intent.stripe_subscription_id?.trim();
+  return id || undefined;
+}
+
+function recognizedPriceId(subscription: Stripe.Subscription): boolean {
+  const priceId = subscription.items?.data?.[0]?.price?.id;
+  if (!priceId) return false;
+  return getRecognizedSummittPriceIds().has(priceId);
+}
+
+function resumeSnapshot(
+  intent: CheckoutBrowserIntent,
+  customer: Stripe.Customer | Stripe.DeletedCustomer,
+  subscription: Stripe.Subscription
+): ResumeStripeSnapshot | null {
+  const subscriptionUserId = subscription.metadata?.userId?.trim() || null;
+  const base = {
+    subscriptionId: subscription.id,
+    livemode: subscription.livemode,
+    status: subscription.status,
+    paused: subscription.pause_collection != null,
+    cancelAt: subscription.cancel_at,
+    cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    trialEnd: subscription.trial_end,
+    priceRecognized: recognizedPriceId(subscription),
+    checkoutIntentId: readCheckoutIntentId(subscription.metadata),
+    subscriptionUserId,
+    canary: subscription.metadata?.[CANARY_METADATA_KEY] === CANARY_METADATA_VALUE,
+    stripeFirst: subscription.metadata?.[PUBLIC_CHECKOUT_FLOW_KEY] === PUBLIC_CHECKOUT_FLOW_VALUE,
+  };
+  if (customer.deleted) {
+    return {
+      ...base,
+      customerId: "",
+      customerDeleted: true,
+      customerEmail: null,
+      customerUserId: null,
+    };
+  }
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : "";
+  return {
+    ...base,
+    customerId,
+    customerDeleted: false,
+    customerEmail: normalizeCheckoutEmail(customer.email ?? ""),
+    customerUserId: customer.metadata?.userId?.trim() || null,
+  };
+}
+
+async function findResumeCandidate(clerkUserId: string): Promise<ResumeLookup> {
+  try {
+    const serverLive = stripeFirstServerLivemode({
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+      clerkSecretKey: process.env.CLERK_SECRET_KEY,
+    });
+    if (serverLive == null) return { kind: "none" };
+    const identity = await getClerkIdentity(clerkUserId);
+    const email = normalizeCheckoutEmail(identity?.primaryEmail ?? "");
+    if (!identity || !email) return { kind: "none" };
+    const rows = await loadResumeCandidateIntents({
+      email,
+      livemode: serverLive,
+      clerkUserId,
+    });
+    const recordedProvision =
+      rows.length === 1 &&
+      rows[0].clerk_user_provisioned_at != null &&
+      rows[0].clerk_user_id === clerkUserId;
+    if (identity.verificationStatus !== "verified" && !recordedProvision) {
+      return rows.length > 0
+        ? {
+            kind: "conflict",
+            subscriptionId: rows.length === 1 ? resumeSubscriptionId(rows[0]) : undefined,
+          }
+        : { kind: "none" };
+    }
+    if (rows.length === 0) return { kind: "none" };
+    if (rows.length > 1) return { kind: "conflict" };
+    const intent = rows[0];
+    if (
+      !intent.email ||
+      intent.email !== email ||
+      !intent.stripe_subscription_id ||
+      !intent.stripe_customer_id
+    ) {
+      return { kind: "conflict", subscriptionId: resumeSubscriptionId(intent) };
+    }
+    return { kind: "ready", email, intent };
+  } catch (err) {
+    console.error("[stripe-first] resume lookup failed", {
+      reason: err instanceof Error ? err.message : "resume_lookup_failed",
+    });
+    return { kind: "none" };
+  }
+}
+
+function otherConfirmedIntentBlocks(
+  rows: Awaited<ReturnType<typeof loadConfirmedIntentsForEmail>>,
+  candidateId: string,
+  clerkUserId: string
+): boolean {
+  return rows.some((row) => {
+    if (row.id === candidateId) return false;
+    if (row.clerk_user_provisioned_at) return true;
+    if (row.clerk_user_id && row.clerk_user_id !== clerkUserId) return true;
+    if (row.session_started_at && !row.hold_released_at && row.clerk_user_id !== clerkUserId) {
+      return true;
+    }
+    return false;
+  });
+}
+
+async function otherProtectedStripeMembership(
+  clerkUserId: string,
+  subscriptionId: string
+): Promise<"clear" | "conflict" | "retry"> {
+  const metadata = await getClerkPublicMetadata(clerkUserId);
+  const existingId =
+    typeof metadata.stripeSubscriptionId === "string" ? metadata.stripeSubscriptionId.trim() : "";
+  if (!existingId || existingId === subscriptionId) return "clear";
+  try {
+    const existing = await stripeClient().subscriptions.retrieve(existingId);
+    if (!stripeKeyMatchesLivemode(process.env.STRIPE_SECRET_KEY, existing.livemode)) {
+      return "retry";
+    }
+    const classification = classifySummittMembership(existing);
+    if (
+      classification === "entitled" ||
+      classification === "paused_recoverable" ||
+      classification === "past_due_recoverable"
+    ) {
+      return "conflict";
+    }
+    return "clear";
+  } catch (err) {
+    if (stripeErrorCode(err) === "resource_missing") return "clear";
+    throw err;
+  }
+}
+
+/**
+ * A Clerk external ID limits recovery only when it is one of our checkout
+ * intents. An empty or unrelated ID belongs to an ordinary account.
+ * The recorded provisioned owner is not sent through this rule.
+ * This reads the Backend user already returned by getClerkIdentity.
+ */
+async function checkoutExternalIdAllowsClaim(
+  intent: CheckoutBrowserIntent,
+  clerkUserId: string
+): Promise<"allow" | "conflict" | "retry"> {
+  if (intent.clerk_user_provisioned_at && intent.clerk_user_id === clerkUserId) {
+    return "allow";
+  }
+  const identity = await getClerkIdentity(clerkUserId);
+  if (!identity || identity.id !== clerkUserId) return "retry";
+  const externalId = identity.externalId?.trim() ?? "";
+  if (!externalId || externalId === intent.id) return "allow";
+  const referenced = await loadIntentById(externalId);
+  if (referenced?.id === externalId) return "conflict";
+  return "allow";
+}
+
+/**
+ * Claim the intent before any Stripe or Clerk identity write.
+ * The loser of a race does not continue into provider linking.
+ */
+async function claimResumeIntent(
+  intent: CheckoutBrowserIntent,
+  clerkUserId: string,
+  email: string
+): Promise<"claimed" | "owned" | "conflict" | "retry"> {
+  if (intent.clerk_user_provisioned_at) {
+    if (intent.clerk_user_id !== clerkUserId) return "conflict";
+    if (intent.session_started_at) return "owned";
+    const started = await markSessionStartedForProvisionedUser(intent.id, clerkUserId);
+    if (started) return "claimed";
+    const fresh = await loadIntentById(intent.id);
+    if (!fresh) return "retry";
+    if (fresh.clerk_user_id === clerkUserId && fresh.session_started_at) return "owned";
+    if (fresh.clerk_user_id && fresh.clerk_user_id !== clerkUserId) return "conflict";
+    return "retry";
+  }
+  if (intent.clerk_user_id && intent.clerk_user_id !== clerkUserId) return "conflict";
+  if (intent.session_started_at && intent.clerk_user_id === clerkUserId) return "owned";
+  if (!intent.stripe_subscription_id) return "retry";
+
+  if (!intent.sign_in_required_at) {
+    await markResumeSignInRequired({
+      intentId: intent.id,
+      email,
+      subscriptionId: intent.stripe_subscription_id,
+    });
+  }
+
+  const started = await markSessionStartedForExistingUser({
+    intentId: intent.id,
+    clerkUserId,
+  });
+  if (started) return "claimed";
+  const fresh = await loadIntentById(intent.id);
+  if (!fresh) return "retry";
+  if (fresh.clerk_user_provisioned_at) return "conflict";
+  if (fresh.clerk_user_id === clerkUserId && fresh.session_started_at) return "owned";
+  if (fresh.clerk_user_id && fresh.clerk_user_id !== clerkUserId) return "conflict";
+  return "retry";
+}
+
+function resumeIntentSnapshot(intent: CheckoutBrowserIntent, clerkUserId: string) {
+  return {
+    id: intent.id,
+    livemode: intent.livemode,
+    email: intent.email ?? "",
+    customerId: intent.stripe_customer_id ?? "",
+    subscriptionId: intent.stripe_subscription_id ?? "",
+    holdCancelAt: intent.stripe_hold_cancel_at,
+    trialEndAt: intent.stripe_trial_end_at,
+    sessionStarted: intent.session_started_at != null,
+    claimedByThisUser: intent.clerk_user_id === clerkUserId,
+  };
+}
+
+async function readResumeStripe(intent: CheckoutBrowserIntent): Promise<{
+  customer: Stripe.Customer | Stripe.DeletedCustomer;
+  subscription: Stripe.Subscription;
+} | null> {
+  if (!intent.stripe_customer_id || !intent.stripe_subscription_id) return null;
+  const stripe = stripeClient();
+  const [customer, subscription] = await Promise.all([
+    stripe.customers.retrieve(intent.stripe_customer_id),
+    stripe.subscriptions.retrieve(intent.stripe_subscription_id),
+  ]);
+  return { customer, subscription };
+}
+
+/**
+ * The Stripe hold is already gone. Record that without the unprotected-trial
+ * alert, which reconcile would send when the hold was never confirmed.
+ */
+async function acknowledgeClearedHold(
+  intent: CheckoutBrowserIntent,
+  subscription: Stripe.Subscription
+): Promise<boolean> {
+  if (intent.hold_released_at) return true;
+  if (
+    subscription.cancel_at != null ||
+    subscription.cancel_at_period_end === true ||
+    subscription.pause_collection != null ||
+    (subscription.status !== "trialing" && subscription.status !== "active")
+  ) {
+    return false;
+  }
+  if (intent.hold_confirmed_at) {
+    if (await markHoldReleased(intent.id)) return true;
+    const fresh = await loadIntentById(intent.id);
+    return fresh?.hold_released_at != null;
+  }
+  const holdUnix = unixFromIso(intent.stripe_hold_cancel_at) ?? subscription.trial_end;
+  if (holdUnix == null) return false;
+  const wrote = await markHoldConfirmedAndReleased({
+    intentId: intent.id,
+    holdCancelAtIso: new Date(holdUnix * 1000).toISOString(),
+  });
+  if (wrote) return true;
+  const fresh = await loadIntentById(intent.id);
+  return fresh?.hold_released_at != null;
+}
+
+function holdReleaseConfirmed(
+  subscription: Stripe.Subscription,
+  intent: CheckoutBrowserIntent,
+  clerkUserId: string
+): boolean {
+  return (
+    intent.clerk_user_id === clerkUserId &&
+    intent.session_started_at != null &&
+    intent.hold_released_at != null &&
+    subscription.cancel_at == null &&
+    subscription.cancel_at_period_end !== true &&
+    (subscription.status === "trialing" || subscription.status === "active") &&
+    subscription.pause_collection == null
+  );
+}
+
+async function finishResumeLink(
+  found: ResumeCandidate,
+  clerkUserId: string
+): Promise<ResumeActivationResult> {
+  const subscriptionId = resumeSubscriptionId(found.intent);
+  const owners = await lookupClerkUserIdsByEmail(found.email);
+  if (owners.length !== 1 || owners[0] !== clerkUserId) {
+    return { status: "conflict", subscriptionId };
+  }
+  const confirmed = await loadConfirmedIntentsForEmail({
+    email: found.email,
+    livemode: found.intent.livemode,
+  });
+  if (otherConfirmedIntentBlocks(confirmed, found.intent.id, clerkUserId)) {
+    return { status: "conflict", subscriptionId };
+  }
+  const apple = await resolveAppleMembershipGrantForUser(clerkUserId);
+  if (apple?.grantsAccess) return { status: "conflict", subscriptionId };
+  const otherStripe = await otherProtectedStripeMembership(
+    clerkUserId,
+    found.intent.stripe_subscription_id ?? ""
+  );
+  if (otherStripe !== "clear") return { status: otherStripe, subscriptionId };
+
+  const opened = await readResumeStripe(found.intent);
+  if (!opened) return { status: "retry", subscriptionId };
+  const openedSnapshot = resumeSnapshot(found.intent, opened.customer, opened.subscription);
+  if (!openedSnapshot) return { status: "retry", subscriptionId };
+  const before = decideResumeStripe({
+    intent: resumeIntentSnapshot(found.intent, clerkUserId),
+    stripe: openedSnapshot,
+    clerkUserId,
+    nowUnix: Math.floor(Date.now() / 1000),
+  });
+  if (before.outcome !== "ready") return { status: before.outcome, subscriptionId };
+
+  const externalOwner = await checkoutExternalIdAllowsClaim(found.intent, clerkUserId);
+  if (externalOwner !== "allow") return { status: externalOwner, subscriptionId };
+
+  const claim = await claimResumeIntent(found.intent, clerkUserId, found.email);
+  if (claim === "conflict" || claim === "retry") return { status: claim, subscriptionId };
+
+  const claimed = await loadIntentById(found.intent.id);
+  if (!claimed || claimed.clerk_user_id !== clerkUserId || !claimed.session_started_at) {
+    return { status: "retry", subscriptionId };
+  }
+  const reread = await readResumeStripe(claimed);
+  if (!reread) return { status: "retry", subscriptionId };
+  const rereadSnapshot = resumeSnapshot(claimed, reread.customer, reread.subscription);
+  if (!rereadSnapshot) return { status: "retry", subscriptionId };
+  const afterClaim = decideResumeStripe({
+    intent: resumeIntentSnapshot(claimed, clerkUserId),
+    stripe: rereadSnapshot,
+    clerkUserId,
+    nowUnix: Math.floor(Date.now() / 1000),
+  });
+  if (afterClaim.outcome !== "ready") return { status: afterClaim.outcome, subscriptionId };
+
+  await linkProviderIdentity({
+    clerkUserId,
+    customerId: claimed.stripe_customer_id ?? "",
+    subscriptionId: claimed.stripe_subscription_id ?? "",
+    plan: null,
+  });
+
+  const linkedIntent = await loadIntentById(claimed.id);
+  const linkedStripe = linkedIntent ? await readResumeStripe(linkedIntent) : null;
+  if (!linkedIntent || !linkedStripe) return { status: "retry", subscriptionId };
+  const linkedSnapshot = resumeSnapshot(
+    linkedIntent,
+    linkedStripe.customer,
+    linkedStripe.subscription
+  );
+  if (!linkedSnapshot) return { status: "retry", subscriptionId };
+  const afterLink = decideResumeStripe({
+    intent: resumeIntentSnapshot(linkedIntent, clerkUserId),
+    stripe: linkedSnapshot,
+    clerkUserId,
+    nowUnix: Math.floor(Date.now() / 1000),
+  });
+  if (afterLink.outcome !== "ready") return { status: afterLink.outcome, subscriptionId };
+
+  // Same Backend read the next onboarding request uses. Do not release the
+  // hold or report success until that read shows the membership.
+  const clerkAfterLink = await getClerkPublicMetadata(clerkUserId);
+  if (!isSubscribedFromPublicMetadata(clerkAfterLink)) {
+    return { status: "retry", subscriptionId };
+  }
+
+  const holdDecision = decideHold(
+    {
+      sessionStarted: true,
+      holdConfirmed: linkedIntent.hold_confirmed_at != null,
+      holdReleased: linkedIntent.hold_released_at != null,
+      trialConfirmed: linkedIntent.stripe_trial_confirmed_at != null,
+      storedHoldCancelAtUnix: unixFromIso(linkedIntent.stripe_hold_cancel_at),
+    },
+    {
+      status: linkedStripe.subscription.status,
+      cancelAt: linkedStripe.subscription.cancel_at,
+      cancelAtPeriodEnd: linkedStripe.subscription.cancel_at_period_end,
+      trialEnd: linkedStripe.subscription.trial_end,
+      paused: linkedStripe.subscription.pause_collection != null,
+    }
+  );
+  if (holdDecision.action === "preserve_cancellation") {
+    return { status: "preserved", subscriptionId };
+  }
+  if (holdDecision.action === "unprotected") {
+    const acknowledged = await acknowledgeClearedHold(linkedIntent, linkedStripe.subscription);
+    if (!acknowledged) return { status: "retry", subscriptionId };
+  } else if (
+    holdDecision.action === "release" ||
+    holdDecision.action === "mark_released" ||
+    holdDecision.action === "compensate_clear"
+  ) {
+    const hold = await reconcileActivationHold(linkedIntent.id);
+    if (hold === "retry" || hold === "unprotected") return { status: "retry", subscriptionId };
+    if (hold === "preserved") {
+      const afterHold = await readResumeStripe(linkedIntent);
+      if (
+        !afterHold ||
+        afterHold.subscription.cancel_at != null ||
+        afterHold.subscription.cancel_at_period_end === true ||
+        afterHold.subscription.status === "canceled" ||
+        afterHold.subscription.status === "incomplete_expired"
+      ) {
+        return { status: "preserved", subscriptionId };
+      }
+      const current = await loadIntentById(linkedIntent.id);
+      if (!current) return { status: "retry", subscriptionId };
+      const acknowledged = await acknowledgeClearedHold(current, afterHold.subscription);
+      if (!acknowledged) return { status: "retry", subscriptionId };
+    }
+  }
+
+  const finishedIntent = await loadIntentById(linkedIntent.id);
+  const finishedStripe = finishedIntent ? await readResumeStripe(finishedIntent) : null;
+  if (
+    !finishedIntent ||
+    !finishedStripe ||
+    !holdReleaseConfirmed(finishedStripe.subscription, finishedIntent, clerkUserId)
+  ) {
+    return { status: "retry", subscriptionId };
+  }
+  return { status: "linked", subscriptionId };
+}
+
+/**
+ * Signed-in recovery for one confirmed Stripe-first trial.
+ * Does not use the browser binding and does not cancel a subscription.
+ */
+export async function resumeExistingAccountActivation(args: {
+  clerkUserId: string;
+}): Promise<ResumeActivationResult> {
+  const found = await findResumeCandidate(args.clerkUserId);
+  if (found.kind === "none") return { status: "none" };
+  if (found.kind === "conflict") {
+    return { status: "conflict", subscriptionId: found.subscriptionId };
+  }
+  try {
+    return await finishResumeLink(found, args.clerkUserId);
+  } catch (err) {
+    console.error("[stripe-first] resume activation failed", {
+      reason: err instanceof Error ? err.message : "resume_failed",
+    });
+    return { status: "retry", subscriptionId: resumeSubscriptionId(found.intent) };
+  }
+}
+
+/**
+ * Post-sign-in routing for one recovery result.
+ * `linked` continues with subscribed metadata even if this request's Clerk
+ * object was loaded before the write. Any other unfinished result stays on
+ * the notice instead of opening checkout.
+ */
+export function applyRecoveryToSignInMetadata(args: {
+  metadata: Record<string, unknown>;
+  status: ResumeActivationStatus;
+  subscriptionId?: string;
+}):
+  | {
+      action: "notice";
+      status: Exclude<ResumeActivationStatus, "none" | "linked">;
+    }
+  | { action: "continue"; metadata: Record<string, unknown> } {
+  if (args.status === "linked") {
+    return {
+      action: "continue",
+      metadata: { ...args.metadata, summittSubscribed: true },
+    };
+  }
+  if (args.status !== "none") {
+    const knownSubscriptionId =
+      typeof args.metadata.stripeSubscriptionId === "string"
+        ? args.metadata.stripeSubscriptionId
+        : "";
+    const targetsThisSubscription =
+      knownSubscriptionId !== "" && knownSubscriptionId === args.subscriptionId;
+    if (!isSubscribedFromPublicMetadata(args.metadata) || targetsThisSubscription) {
+      return { action: "notice", status: args.status };
+    }
+  }
+  return { action: "continue", metadata: args.metadata };
+}
+
+/** True when /subscribe must hand this signed-in user to /post-sign-in. */
+export async function accountResumeNeedsPostSignIn(clerkUserId: string): Promise<boolean> {
+  const found = await findResumeCandidate(clerkUserId);
+  return found.kind === "ready" || found.kind === "conflict";
 }

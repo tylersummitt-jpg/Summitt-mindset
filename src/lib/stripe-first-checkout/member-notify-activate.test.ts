@@ -45,9 +45,14 @@ vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({
   loadIntentById: (...args: unknown[]) => loadIdMock(...args),
   loadIntentBySubscriptionId: vi.fn(async () => null),
   markClerkProvisioned: (...args: unknown[]) => markProvisionedMock(...args),
+  markHoldConfirmedAndReleased: vi.fn(),
+  markHoldReleased: vi.fn(),
+  markResumeSignInRequired: vi.fn(),
   markSessionStartedForExistingUser: vi.fn(),
   markSessionStartedForProvisionedUser: vi.fn(),
   markSignInRequired: vi.fn(),
+  loadConfirmedIntentsForEmail: vi.fn(async () => []),
+  loadResumeCandidateIntents: vi.fn(async () => []),
 }));
 
 vi.mock("@/lib/stripe-first-checkout/reconcile", () => ({
@@ -66,6 +71,7 @@ vi.mock("@/lib/stripe-first-checkout/clerk-provision", () => ({
   createClerkSignInTicket: (...args: unknown[]) => ticketMock(...args),
   createReservedClerkUser: (...args: unknown[]) => createUserMock(...args),
   lookupClerkUserIdByExternalId: (...args: unknown[]) => lookupExternalMock(...args),
+  getClerkIdentity: vi.fn(async () => null),
   lookupClerkUserIdsByEmail: (...args: unknown[]) => lookupEmailMock(...args),
 }));
 

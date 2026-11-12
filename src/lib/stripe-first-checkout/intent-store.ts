@@ -645,6 +645,162 @@ export async function markHoldConfirmed(args: {
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * Case 2 resume only. The browser never reached sign-in, so the row has no
+ * sign_in_required_at. This does not set the Clerk user. The existing session
+ * claim is the ownership lock.
+ */
+export async function markResumeSignInRequired(args: {
+  intentId: string;
+  email: string;
+  subscriptionId: string;
+}): Promise<boolean> {
+  const timestamp = nowIso();
+  const { data, error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .update({
+      sign_in_required_at: timestamp,
+      updated_at: timestamp,
+    })
+    .eq("id", args.intentId)
+    .eq("email", args.email)
+    .eq("stripe_subscription_id", args.subscriptionId)
+    .is("sign_in_required_at", null)
+    .is("clerk_user_provisioned_at", null)
+    .is("clerk_user_id", null)
+    .is("session_started_at", null)
+    .not("stripe_trial_confirmed_at", "is", null)
+    .select("id");
+  if (error) {
+    logIntentError("resume_sign_in", error.code);
+    throw new Error("intent_update_failed");
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+const RESUME_CANDIDATE_LIMIT = 5;
+
+/**
+ * Unlinked confirmed trials for one email, a partial existing-account link,
+ * and a recorded new-user provision whose session or hold is unfinished.
+ * A finished provisioned checkout is not returned.
+ */
+export async function loadResumeCandidateIntents(args: {
+  email: string;
+  livemode: boolean;
+  clerkUserId: string;
+}): Promise<CheckoutBrowserIntent[]> {
+  const pending = supabaseServer
+    .from("checkout_browser_intents")
+    .select("*")
+    .eq("email", args.email)
+    .eq("livemode", args.livemode)
+    .not("stripe_trial_confirmed_at", "is", null)
+    .not("stripe_subscription_id", "is", null)
+    .not("stripe_customer_id", "is", null)
+    .is("clerk_user_provisioned_at", null)
+    .is("hold_released_at", null)
+    .is("clerk_user_id", null)
+    .is("session_started_at", null)
+    .limit(RESUME_CANDIDATE_LIMIT);
+  const owned = supabaseServer
+    .from("checkout_browser_intents")
+    .select("*")
+    .eq("email", args.email)
+    .eq("livemode", args.livemode)
+    .not("stripe_trial_confirmed_at", "is", null)
+    .not("stripe_subscription_id", "is", null)
+    .not("stripe_customer_id", "is", null)
+    .is("clerk_user_provisioned_at", null)
+    .is("hold_released_at", null)
+    .eq("clerk_user_id", args.clerkUserId)
+    .limit(RESUME_CANDIDATE_LIMIT);
+  const provisioned = supabaseServer
+    .from("checkout_browser_intents")
+    .select("*")
+    .eq("email", args.email)
+    .eq("livemode", args.livemode)
+    .not("stripe_trial_confirmed_at", "is", null)
+    .not("stripe_subscription_id", "is", null)
+    .not("stripe_customer_id", "is", null)
+    .not("clerk_user_provisioned_at", "is", null)
+    .is("hold_released_at", null)
+    .eq("clerk_user_id", args.clerkUserId)
+    .limit(RESUME_CANDIDATE_LIMIT);
+  const [pendingResult, ownedResult, provisionedResult] = await Promise.all([
+    pending,
+    owned,
+    provisioned,
+  ]);
+  if (pendingResult.error) {
+    logIntentError("resume_pending", pendingResult.error.code);
+    throw new Error("intent_load_failed");
+  }
+  if (ownedResult.error) {
+    logIntentError("resume_owned", ownedResult.error.code);
+    throw new Error("intent_load_failed");
+  }
+  if (provisionedResult.error) {
+    logIntentError("resume_provisioned", provisionedResult.error.code);
+    throw new Error("intent_load_failed");
+  }
+  const byId = new Map<string, CheckoutBrowserIntent>();
+  for (const row of [
+    ...(pendingResult.data ?? []),
+    ...(ownedResult.data ?? []),
+    ...(provisionedResult.data ?? []),
+  ]) {
+    byId.set(row.id, row as CheckoutBrowserIntent);
+  }
+  return [...byId.values()];
+}
+
+/**
+ * Other confirmed intents for this email. A provisioned new-user checkout or
+ * another Clerk owner blocks resume. A finished historical intent does not.
+ */
+export async function loadConfirmedIntentsForEmail(args: {
+  email: string;
+  livemode: boolean;
+}): Promise<
+  Array<
+    Pick<
+      CheckoutBrowserIntent,
+      | "id"
+      | "clerk_user_id"
+      | "clerk_user_provisioned_at"
+      | "session_started_at"
+      | "stripe_subscription_id"
+      | "hold_released_at"
+    >
+  >
+> {
+  const { data, error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .select(
+      "id, clerk_user_id, clerk_user_provisioned_at, session_started_at, stripe_subscription_id, hold_released_at"
+    )
+    .eq("email", args.email)
+    .eq("livemode", args.livemode)
+    .not("stripe_trial_confirmed_at", "is", null)
+    .limit(20);
+  if (error) {
+    logIntentError("resume_confirmed", error.code);
+    throw new Error("intent_load_failed");
+  }
+  return (data ?? []) as Array<
+    Pick<
+      CheckoutBrowserIntent,
+      | "id"
+      | "clerk_user_id"
+      | "clerk_user_provisioned_at"
+      | "session_started_at"
+      | "stripe_subscription_id"
+      | "hold_released_at"
+    >
+  >;
+}
+
 export async function markSignInRequired(intentId: string): Promise<boolean> {
   const timestamp = nowIso();
   const { data, error } = await supabaseServer

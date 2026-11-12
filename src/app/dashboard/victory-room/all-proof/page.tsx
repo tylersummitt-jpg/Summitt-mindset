@@ -8,16 +8,14 @@ import { loadVictoryAllProofView } from "@/lib/v2-victory-all-proof-view";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams?:
-    | Promise<{ cursor?: string }>
-    | { cursor?: string };
+  searchParams?: Promise<{ cursor?: string }>;
 };
 
 async function resolveCursorSearchParams(
   searchParams: PageProps["searchParams"]
 ): Promise<{ cursor?: string }> {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 export default async function VictoryAllProofPage({ searchParams }: PageProps) {

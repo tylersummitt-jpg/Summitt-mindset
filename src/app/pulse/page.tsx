@@ -7,9 +7,10 @@ import PulseClient from "./pulse-client";
 export default async function PulsePage({
   searchParams,
 }: {
-  searchParams?: { t?: string };
+  searchParams?: Promise<{ t?: string }>;
 }) {
-  const token = typeof searchParams?.t === "string" ? searchParams.t : null;
+  const params = searchParams ? await searchParams : undefined;
+  const token = typeof params?.t === "string" ? params.t : null;
 
   return (
     <main className="max-w-xl mx-auto px-6 py-16 space-y-6">

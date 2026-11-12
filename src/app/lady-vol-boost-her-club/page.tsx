@@ -11,13 +11,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type SearchParams =
-  | Promise<Record<string, string | string[] | undefined>>
-  | Record<string, string | string[] | undefined>;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
 async function readSearch(searchParams?: SearchParams) {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 export default async function LadyVolBoostHerClubPage({

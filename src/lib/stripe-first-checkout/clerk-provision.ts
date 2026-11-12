@@ -11,6 +11,8 @@ export type ClerkIdentity = {
   primaryEmail: string | null;
   reserved: boolean;
   verificationStatus: string | null;
+  /** Clerk Backend value. Never taken from the browser. */
+  externalId: string | null;
 };
 
 function clerkKey(): string {
@@ -50,7 +52,11 @@ function primaryFromUser(body: Record<string, unknown> | null): ClerkIdentity | 
     typeof (verification as { status?: unknown }).status === "string"
       ? (verification as { status: string }).status
       : null;
-  return { id: body.id, primaryEmail, reserved, verificationStatus };
+  const externalId =
+    typeof body.external_id === "string" && body.external_id.trim()
+      ? body.external_id.trim()
+      : null;
+  return { id: body.id, primaryEmail, reserved, verificationStatus, externalId };
 }
 
 export async function getClerkIdentity(userId: string): Promise<ClerkIdentity | null> {

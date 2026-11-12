@@ -10,7 +10,7 @@ const UI_SESSION = "Your session expired. Please sign in again.";
 const UI_GENERIC = "We couldn’t save this Victory. Please try again.";
 const UI_DELETE_GENERIC = "We couldn’t delete this Victory. Please try again.";
 
-type RouteParams = { params: Promise<{ winId: string }> | { winId: string } };
+type RouteParams = { params: Promise<{ winId: string }> };
 
 async function resolveWinId(params: RouteParams["params"]): Promise<string> {
   const p = params instanceof Promise ? await params : params;

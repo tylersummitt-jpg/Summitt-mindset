@@ -19,19 +19,17 @@ import EditWinClient from "./edit-win-client";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: Promise<{ winId: string }> | { winId: string };
-  searchParams?:
-    | Promise<{ from?: string }>
-    | { from?: string };
+  params: Promise<{ winId: string }>;
+  searchParams?: Promise<{ from?: string }>;
 };
 
 async function resolveParams(params: PageProps["params"]) {
-  return params instanceof Promise ? await params : params;
+  return await params;
 }
 
 async function resolveSearchParams(searchParams: PageProps["searchParams"]) {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 export default async function VictoryRoomEditWinPage({ params, searchParams }: PageProps) {

@@ -10,15 +10,14 @@ import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
 import { isSubscribedFromPublicMetadata } from "@/lib/onboarding-subscription-metadata";
+import { accountResumeNeedsPostSignIn } from "@/lib/stripe-first-checkout/activate";
 import SubscribeCheckoutPanel from "./subscribe-checkout-panel";
 
 async function resolveSubscribeSearchParams(
-  searchParams?:
-    | Promise<Record<string, string | string[] | undefined>>
-    | Record<string, string | string[] | undefined>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 ) {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 /**
@@ -47,13 +46,13 @@ export const metadata: Metadata = {
 export default async function SubscribePage({
   searchParams,
 }: {
-  searchParams?:
-    | Promise<Record<string, string | string[] | undefined>>
-    | Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await resolveSubscribeSearchParams(searchParams);
   const rawSrc = sp.src;
   const src = Array.isArray(rawSrc) ? rawSrc[0] : rawSrc;
+  const rawFrom = sp.from;
+  const from = Array.isArray(rawFrom) ? rawFrom[0] : rawFrom;
   const user = await currentUser();
   const md = user?.publicMetadata as Record<string, unknown> | undefined;
 
@@ -63,6 +62,14 @@ export default async function SubscribePage({
   }
 
   if (user && isSubscribedFromPublicMetadata(user.publicMetadata)) {
+    redirect("/post-sign-in");
+  }
+
+  if (
+    user?.id &&
+    from !== "post-sign-in" &&
+    (await accountResumeNeedsPostSignIn(user.id))
+  ) {
     redirect("/post-sign-in");
   }
 

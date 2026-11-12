@@ -14,14 +14,12 @@ import AddWinClient from "./add-win-client";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams?:
-    | Promise<{ seasonId?: string; from?: string; occurredOn?: string }>
-    | { seasonId?: string; from?: string; occurredOn?: string };
+  searchParams?: Promise<{ seasonId?: string; from?: string; occurredOn?: string }>;
 };
 
 async function resolveSearchParams(searchParams: PageProps["searchParams"]) {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 export default async function VictoryRoomAddWinPage({ searchParams }: PageProps) {

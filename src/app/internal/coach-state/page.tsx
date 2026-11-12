@@ -31,16 +31,16 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 async function resolveSearchParams(
-  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 ): Promise<Record<string, string | string[] | undefined>> {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 export default async function OperatorCoachStatePage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = await resolveSearchParams(searchParams);
   const rawTarget = sp.target;

@@ -11,12 +11,10 @@ import { APP_MEMBERSHIP_PATH } from "@/lib/native-app/membership-paths";
 import CheckoutStartClient from "./checkout-start-client";
 
 async function resolveCheckoutStartSearchParams(
-  searchParams?:
-    | Promise<Record<string, string | string[] | undefined>>
-    | Record<string, string | string[] | undefined>
+  searchParams?: Promise<Record<string, string | string[] | undefined>>
 ) {
   if (!searchParams) return {};
-  return searchParams instanceof Promise ? await searchParams : searchParams;
+  return await searchParams;
 }
 
 /**
@@ -27,9 +25,7 @@ async function resolveCheckoutStartSearchParams(
 export default async function CheckoutStartPage({
   searchParams,
 }: {
-  searchParams?:
-    | Promise<Record<string, string | string[] | undefined>>
-    | Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const isNativeApp = await isNativeSummittMindsetAppRequest();
   if (isNativeApp) {

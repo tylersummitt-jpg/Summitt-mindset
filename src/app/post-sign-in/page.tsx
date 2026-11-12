@@ -1,6 +1,7 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
+import { ActivationRecoveryNotice } from "@/components/activation-recovery-notice";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
 import {
   COACH_ATTRIBUTION_COOKIE_NAME,
@@ -19,6 +20,10 @@ import {
   inactiveMembershipRedirectPath,
   signInPathForClient,
 } from "@/lib/native-app/membership-paths";
+import {
+  applyRecoveryToSignInMetadata,
+  resumeExistingAccountActivation,
+} from "@/lib/stripe-first-checkout/activate";
 
 /**
  * ======================================================
@@ -100,6 +105,17 @@ export default async function PostSignInPage() {
   } catch {
     // fail-open: analytics must never change post-sign-in redirects
   }
+
+  const recovery = await resumeExistingAccountActivation({ clerkUserId: user.id });
+  const applied = applyRecoveryToSignInMetadata({
+    metadata: effectiveMd,
+    status: recovery.status,
+    subscriptionId: recovery.subscriptionId,
+  });
+  if (applied.action === "notice") {
+    return <ActivationRecoveryNotice status={applied.status} />;
+  }
+  effectiveMd = applied.metadata;
 
   const isSubscribed = isSubscribedFromMetadata(effectiveMd);
   if (!isSubscribed) {
