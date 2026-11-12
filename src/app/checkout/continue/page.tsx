@@ -10,6 +10,7 @@ import {
 } from "@/lib/stripe-first-checkout/constants";
 import { hostedCompletionBrowserPresent } from "@/lib/stripe-first-checkout/credentials";
 import { signInUrlPreservingInternalRedirect } from "@/lib/safe-redirect";
+import { noteSignInRedirectIssued } from "@/lib/stripe-first-checkout/signup-diagnostics";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,8 @@ export default async function PublicCheckoutContinuePage(): Promise<ReactElement
   }
   const { userId } = await auth();
   if (!userId) {
+    const binding = jar.get(CHECKOUT_BINDING_COOKIE)?.value;
+    if (binding) await noteSignInRedirectIssued(binding);
     redirect(signInUrlPreservingInternalRedirect(PUBLIC_CHECKOUT_CONTINUE_PATH));
   }
   return <HostedTestContinueClient linkPath="/api/checkout/stripe-first/link" />;

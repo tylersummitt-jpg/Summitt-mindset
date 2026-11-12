@@ -2,6 +2,7 @@
 
 import { SignIn } from "@clerk/nextjs";
 import { useSearchParams } from "next/navigation";
+import { CheckoutSignInReachedBeacon } from "@/app/checkout/sign-in-reached-beacon";
 import { AuthMarketingShell } from "@/components/auth-marketing-shell";
 import { CoachAttributionSync } from "@/components/coach-attribution-sync";
 import {
@@ -59,6 +60,7 @@ export default function SignInPage() {
   return (
     <AuthMarketingShell authPage="sign-in">
       {isCoachSignIn ? <CoachAttributionSync enabled /> : null}
+      <CheckoutSignInReachedBeacon />
       <SignIn
         forceRedirectUrl={safeAfterSignInUrl}
         fallbackRedirectUrl={safeAfterSignInUrl}

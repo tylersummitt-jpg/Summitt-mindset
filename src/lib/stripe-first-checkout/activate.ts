@@ -52,6 +52,8 @@ import {
   hashCheckoutBinding,
   newCheckoutBinding,
 } from "@/lib/stripe-first-checkout/binding";
+import { noteHoldReleaseRetry } from "@/lib/stripe-first-checkout/signup-diagnostics";
+import { recordSignupFailure } from "@/lib/stripe-first-checkout/signup-failures";
 import {
   createClerkSignInTicket,
   createReservedClerkUser,
@@ -599,11 +601,24 @@ export async function resumeOrReplacePublicCheckout(args: {
   return { action: "keep" };
 }
 
+async function reconcileHoldForCheckout(intentId: string) {
+  try {
+    return await reconcileActivationHold(intentId);
+  } catch (err) {
+    await recordSignupFailure({ intentId, step: "hold", error: err });
+    throw err;
+  }
+}
+
 async function finishActivationHold(
   intentId: string
 ): Promise<{ status: "ready" } | { status: "preserved" } | { status: "retry" }> {
-  const hold = await reconcileActivationHold(intentId);
-  if (hold === "retry" || hold === "unprotected") return { status: "retry" };
+  const hold = await reconcileHoldForCheckout(intentId);
+  if (hold === "retry") {
+    await noteHoldReleaseRetry(intentId);
+    return { status: "retry" };
+  }
+  if (hold === "unprotected") return { status: "retry" };
   if (hold === "preserved") return { status: "preserved" };
   return { status: "ready" };
 }
@@ -691,7 +706,7 @@ async function requireTrial(intent: CheckoutBrowserIntent, sessionId: string) {
 }
 
 async function protectTrial(intentId: string): Promise<ActivateResult | null> {
-  const hold = await reconcileActivationHold(intentId);
+  const hold = await reconcileHoldForCheckout(intentId);
   if (hold === "retry") return { status: "retry" };
   if (hold === "unprotected") return { status: "unprotected" };
   if (hold === "preserved") return { status: "incomplete" };
@@ -762,6 +777,19 @@ export type PrepareCheckoutResult =
  * Does not issue a sign-in ticket, start a session, or release the activation hold.
  */
 export async function prepareConfirmedCheckout(
+  intent: CheckoutBrowserIntent,
+  email: string,
+  proof: Extract<Awaited<ReturnType<typeof assessCheckoutSession>>, { ok: true }>
+): Promise<PrepareCheckoutResult> {
+  try {
+    return await prepareConfirmedCheckoutBody(intent, email, proof);
+  } catch (err) {
+    await recordSignupFailure({ intentId: intent.id, step: "prepare", error: err });
+    throw err;
+  }
+}
+
+async function prepareConfirmedCheckoutBody(
   intent: CheckoutBrowserIntent,
   email: string,
   proof: Extract<Awaited<ReturnType<typeof assessCheckoutSession>>, { ok: true }>
@@ -867,9 +895,11 @@ export async function activateHostedCheckout(args: {
   sessionId: string;
   bindingSecret: string;
 }): Promise<ActivateResult> {
+  let intentId: string | null = null;
   try {
     const intent = await requireBoundIntent(args.bindingSecret);
     if (!intent) return { status: "rejected" };
+    intentId = intent.id;
     if (intent.session_started_at && intent.clerk_user_provisioned_at) {
       const finished = await finishActivationHold(intent.id);
       if (finished.status === "retry") return { status: "retry" };
@@ -941,6 +971,7 @@ export async function activateHostedCheckout(args: {
     console.error("[stripe-first] activate failed", {
       reason: err instanceof Error ? err.message : "activate_failed",
     });
+    if (intentId) await recordSignupFailure({ intentId, step: "activate", error: err });
     return { status: "retry" };
   }
 }
@@ -949,11 +980,13 @@ export async function confirmHostedSession(args: {
   bindingSecret: string;
   clerkUserId: string;
 }): Promise<ConfirmResult> {
+  let intentId: string | null = null;
   try {
     const intent = await requireBoundIntent(args.bindingSecret);
     if (!intent?.clerk_user_id || intent.clerk_user_id !== args.clerkUserId) {
       return { status: "rejected" };
     }
+    intentId = intent.id;
     if (intent.sign_in_required_at || !intent.clerk_user_provisioned_at) {
       return { status: "rejected" };
     }
@@ -974,6 +1007,7 @@ export async function confirmHostedSession(args: {
     console.error("[stripe-first] confirm session failed", {
       reason: err instanceof Error ? err.message : "confirm_failed",
     });
+    if (intentId) await recordSignupFailure({ intentId, step: "confirm", error: err });
     return { status: "retry" };
   }
 }
@@ -1023,9 +1057,11 @@ export async function linkExistingHostedCheckout(args: {
   clerkUserId: string;
   signedInEmail: string;
 }): Promise<LinkResult> {
+  let intentId: string | null = null;
   try {
     const intent = await requireBoundIntent(args.bindingSecret);
     if (!intent) return { status: "rejected" };
+    intentId = intent.id;
     if (!intent.sign_in_required_at || intent.clerk_user_provisioned_at) {
       return { status: "rejected" };
     }
@@ -1079,7 +1115,7 @@ export async function linkExistingHostedCheckout(args: {
         return { status: "retry" };
       }
     }
-    const hold = await reconcileActivationHold(intent.id);
+    const hold = await reconcileHoldForCheckout(intent.id);
     if (hold === "retry" || hold === "unprotected") return { status: "retry" };
     await linkMarketingVisitorToClerkUser(args.clerkUserId);
     return { status: "linked", next: ONBOARDING_IDENTITY_PATH };
@@ -1087,6 +1123,7 @@ export async function linkExistingHostedCheckout(args: {
     console.error("[stripe-first] link existing failed", {
       reason: err instanceof Error ? err.message : "link_failed",
     });
+    if (intentId) await recordSignupFailure({ intentId, step: "link", error: err });
     return { status: "retry" };
   }
 }

@@ -7,6 +7,7 @@ import { getClerkIdentity } from "@/lib/stripe-first-checkout/clerk-provision";
 import { CHECKOUT_BINDING_COOKIE } from "@/lib/stripe-first-checkout/constants";
 import { hostedCompletionBrowserPresent } from "@/lib/stripe-first-checkout/credentials";
 import { normalizeCheckoutEmail } from "@/lib/stripe-first-checkout/email-typo";
+import { noteAuthObserved, noteLinkRetry } from "@/lib/stripe-first-checkout/signup-diagnostics";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,7 @@ export async function POST() {
   }
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  await noteAuthObserved(bindingSecret);
 
   const identity = await getClerkIdentity(userId);
   const email = normalizeCheckoutEmail(identity?.primaryEmail ?? "");
@@ -33,6 +35,7 @@ export async function POST() {
     return NextResponse.json({ error: "rejected" }, { status: 403, headers });
   }
   if (result.status === "retry") {
+    await noteLinkRetry(bindingSecret);
     return NextResponse.json({ error: "retry" }, { status: 503, headers });
   }
   return NextResponse.json({ status: result.status, next: result.next }, { headers });

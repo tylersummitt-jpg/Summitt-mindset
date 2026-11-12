@@ -17,6 +17,10 @@ vi.mock("@clerk/nextjs/server", () => ({
   auth: () => authMock(),
 }));
 
+vi.mock("@/lib/stripe-first-checkout/signup-diagnostics", () => ({
+  noteActivateRetry: vi.fn(),
+}));
+
 vi.mock("@/lib/stripe-first-checkout/activate", () => ({
   activateHostedCheckout: (...args: unknown[]) => activateMock(...args),
   checkoutContinueHttpResult: (...args: unknown[]) => continueMock(...args),

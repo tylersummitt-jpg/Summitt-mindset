@@ -6,6 +6,10 @@ const holdMock = vi.fn();
 const sendMock = vi.fn();
 const retrieveSubMock = vi.fn();
 
+vi.mock("@/lib/stripe-first-checkout/signup-failures", () => ({
+  recordSignupFailure: vi.fn(),
+}));
+
 vi.mock("@/lib/stripe-first-checkout/intent-store", () => ({
   loadIntentById: (...args: unknown[]) => loadIntentMock(...args),
   confirmStripeTrial: (...args: unknown[]) => confirmMock(...args),

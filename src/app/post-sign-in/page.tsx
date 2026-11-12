@@ -24,6 +24,8 @@ import {
   applyRecoveryToSignInMetadata,
   resumeExistingAccountActivation,
 } from "@/lib/stripe-first-checkout/activate";
+import { CHECKOUT_BINDING_COOKIE } from "@/lib/stripe-first-checkout/constants";
+import { noteAuthObserved } from "@/lib/stripe-first-checkout/signup-diagnostics";
 
 /**
  * ======================================================
@@ -104,6 +106,13 @@ export default async function PostSignInPage() {
     await linkMarketingVisitorToClerkUser(user.id);
   } catch {
     // fail-open: analytics must never change post-sign-in redirects
+  }
+
+  try {
+    const binding = (await cookies()).get(CHECKOUT_BINDING_COOKIE)?.value;
+    if (binding) await noteAuthObserved(binding);
+  } catch {
+    // A diagnostic miss must not change where this signed-in customer goes.
   }
 
   const recovery = await resumeExistingAccountActivation({ clerkUserId: user.id });

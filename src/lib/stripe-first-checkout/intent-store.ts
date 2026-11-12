@@ -14,6 +14,7 @@ import {
 import { googleClickIdFromPair } from "@/lib/marketing-attribution-pure";
 import type { GoogleClickIdType } from "@/lib/marketing-attribution-pure";
 import { supabaseServer } from "@/lib/supabase-server";
+import { isCheckoutSessionId } from "@/lib/checkout-tracking";
 import { unixFromIso } from "@/lib/stripe-first-checkout/hold-decision";
 import type { HoldIntentView } from "@/lib/stripe-first-checkout/hold-decision";
 
@@ -41,6 +42,15 @@ export type CheckoutBrowserIntent = {
   session_started_at: string | null;
   hold_released_at: string | null;
   prepare_closed_at: string | null;
+  return_seen_at: string | null;
+  return_unbound_at: string | null;
+  activate_retry_at: string | null;
+  sign_in_redirected_at: string | null;
+  link_retry_at: string | null;
+  hold_release_retry_at: string | null;
+  sign_in_client_reached_at: string | null;
+  auth_observed_at: string | null;
+  onboarding_reached_at: string | null;
   created_at: string;
   updated_at: string;
   meta_fbc: string | null;
@@ -987,6 +997,99 @@ export async function markPrepareClosed(intentId: string): Promise<boolean> {
     throw new Error("intent_update_failed");
   }
   return (data?.length ?? 0) > 0;
+}
+
+export const SIGNUP_DIAGNOSTIC_COLUMNS = [
+  "return_seen_at",
+  "return_unbound_at",
+  "activate_retry_at",
+  "sign_in_redirected_at",
+  "link_retry_at",
+  "hold_release_retry_at",
+  "sign_in_client_reached_at",
+  "auth_observed_at",
+  "onboarding_reached_at",
+] as const;
+
+export type SignupDiagnosticColumn = (typeof SIGNUP_DIAGNOSTIC_COLUMNS)[number];
+
+/**
+ * Records one diagnostic timestamp. A database error is contained.
+ * The first value stays. This does not authorize activation.
+ */
+export async function markSignupDiagnostic(
+  intentId: string,
+  column: SignupDiagnosticColumn
+): Promise<void> {
+  try {
+    const id = intentId.trim();
+    if (!id || !SIGNUP_DIAGNOSTIC_COLUMNS.includes(column)) return;
+    const timestamp = nowIso();
+    const { error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .update({
+        [column]: timestamp,
+        updated_at: timestamp,
+      })
+      .eq("id", id)
+      .is(column, null);
+    if (error) logIntentError("signup_diagnostic", error.code);
+  } catch {
+    console.warn("[stripe-first] signup diagnostic failed");
+  }
+}
+
+/**
+ * A return request named a Checkout Session and had no accepted binding.
+ * The response to the caller stays empty. No email, account, or subscription
+ * state is read back.
+ */
+export async function markUnboundCheckoutReturn(sessionId: string): Promise<void> {
+  try {
+    if (!isCheckoutSessionId(sessionId)) return;
+    const timestamp = nowIso();
+    const { error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .update({
+        return_unbound_at: timestamp,
+        updated_at: timestamp,
+      })
+      .eq("stripe_checkout_session_id", sessionId)
+      .is("return_unbound_at", null);
+    if (error) logIntentError("signup_diagnostic", error.code);
+  } catch {
+    console.warn("[stripe-first] signup diagnostic failed");
+  }
+}
+
+/**
+ * The onboarding identity handler is rendering for this already-stored Clerk user.
+ * Only the intent id is read. This does not link a subscription.
+ */
+export async function markOnboardingReachedForClerkUser(clerkUserId: string): Promise<void> {
+  try {
+    const id = clerkUserId.trim();
+    if (!id) return;
+    const { data, error } = await supabaseServer
+      .from("checkout_browser_intents")
+      .select("id")
+      .eq("clerk_user_id", id)
+      .is("onboarding_reached_at", null)
+      .order("created_at", { ascending: false })
+      .limit(5);
+    if (error) {
+      logIntentError("signup_diagnostic", error.code);
+      return;
+    }
+    for (const row of data ?? []) {
+      const intentId = (row as { id?: unknown }).id;
+      if (typeof intentId === "string" && intentId.trim()) {
+        await markSignupDiagnostic(intentId, "onboarding_reached_at");
+      }
+    }
+  } catch {
+    console.warn("[stripe-first] signup diagnostic failed");
+  }
 }
 
 /** Hourly preparation page. The cutoff and closure filters are applied before ordering and the limit. */

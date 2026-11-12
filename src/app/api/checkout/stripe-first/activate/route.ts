@@ -16,6 +16,7 @@ import {
 } from "@/lib/stripe-first-checkout/constants";
 import { hostedCompletionBrowserPresent } from "@/lib/stripe-first-checkout/credentials";
 import { signInUrlPreservingInternalRedirect } from "@/lib/safe-redirect";
+import { noteActivateRetry } from "@/lib/stripe-first-checkout/signup-diagnostics";
 
 export const runtime = "nodejs";
 
@@ -48,6 +49,7 @@ async function activatePost(req: Request, traceId: string) {
     });
   }
   if (result.status === "retry") {
+    await noteActivateRetry(bindingSecret);
     return deliverActivateResponse({
       traceId,
       category: "retry",

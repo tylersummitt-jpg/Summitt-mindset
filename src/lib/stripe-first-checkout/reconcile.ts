@@ -21,6 +21,7 @@ import {
   stripeFirstMemberNotification,
 } from "@/lib/stripe-first-checkout/member-notify";
 import { prepareConfirmedCheckout } from "@/lib/stripe-first-checkout/activate";
+import { recordSignupFailure } from "@/lib/stripe-first-checkout/signup-failures";
 import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
 import { normalizeCheckoutEmail } from "@/lib/stripe-first-checkout/email-typo";
@@ -153,7 +154,13 @@ export async function reconcileStripeFirstFromCheckoutSession(
     return "ack";
   }
 
-  const hold = await reconcileActivationHold(intentId);
+  let hold: Awaited<ReturnType<typeof reconcileActivationHold>>;
+  try {
+    hold = await reconcileActivationHold(intentId);
+  } catch (err) {
+    await recordSignupFailure({ intentId, step: "hold", error: err });
+    throw err;
+  }
   let notificationFailed = false;
   if (saved === "saved" || saved === "already") {
     const ownerCanary =
@@ -259,6 +266,11 @@ export async function reconcileStripeFirstFromCheckoutSession(
 export async function reconcileStripeFirstSubscription(
   intentId: string
 ): Promise<"ack" | "retry"> {
-  const hold = await reconcileActivationHold(intentId);
-  return hold === "retry" ? "retry" : "ack";
+  try {
+    const hold = await reconcileActivationHold(intentId);
+    return hold === "retry" ? "retry" : "ack";
+  } catch (err) {
+    await recordSignupFailure({ intentId, step: "hold", error: err });
+    throw err;
+  }
 }

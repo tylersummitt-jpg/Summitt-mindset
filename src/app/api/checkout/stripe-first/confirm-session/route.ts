@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { confirmHostedSession } from "@/lib/stripe-first-checkout/activate";
+import { noteAuthObserved } from "@/lib/stripe-first-checkout/signup-diagnostics";
 import { CHECKOUT_BINDING_COOKIE } from "@/lib/stripe-first-checkout/constants";
 import { hostedCompletionBrowserPresent } from "@/lib/stripe-first-checkout/credentials";
 
@@ -16,6 +17,7 @@ export async function POST() {
   }
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  await noteAuthObserved(bindingSecret);
 
   const result = await confirmHostedSession({ bindingSecret, clerkUserId: userId });
   const headers = { "Cache-Control": "no-store" };

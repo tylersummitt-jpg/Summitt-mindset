@@ -13,6 +13,7 @@ import {
   type CheckoutBrowserIntent,
 } from "@/lib/stripe-first-checkout/intent-store";
 import { prepareConfirmedCheckout } from "@/lib/stripe-first-checkout/activate";
+import { recordSignupFailure } from "@/lib/stripe-first-checkout/signup-failures";
 import { readPrepareAfterCutoff } from "@/lib/stripe-first-checkout/prepare-cutoff";
 import {
   assessCheckoutSession,
@@ -64,11 +65,21 @@ function subscriptionEnded(subscription: Stripe.Subscription): boolean {
   return subscription.status === "canceled" || subscription.status === "incomplete_expired";
 }
 
+async function holdDuringPreparation(intentId: string) {
+  try {
+    return await reconcileActivationHold(intentId);
+  } catch (err) {
+    await recordSignupFailure({ intentId, step: "hold", error: err });
+    throw err;
+  }
+}
+
 async function closeTerminalPreparation(intentId: string): Promise<IntentOutcome> {
   let closed = false;
   try {
     closed = await markPrepareClosed(intentId);
-  } catch {
+  } catch (err) {
+    await recordSignupFailure({ intentId, step: "prepare", error: err });
     return "retry";
   }
   if (closed) return "preserved";
@@ -113,7 +124,8 @@ async function prepareEligibleIntent(
   let session: Stripe.Checkout.Session;
   try {
     session = await stripeClient().checkout.sessions.retrieve(sessionId);
-  } catch {
+  } catch (err) {
+    await recordSignupFailure({ intentId, step: "prepare", error: err });
     return "retry";
   }
   if (session.id !== sessionId || session.livemode !== intent.livemode) return "skipped";
@@ -125,7 +137,8 @@ async function prepareEligibleIntent(
     let rejectedSubscription: Stripe.Subscription;
     try {
       rejectedSubscription = await stripeClient().subscriptions.retrieve(subscriptionId);
-    } catch {
+    } catch (err) {
+      await recordSignupFailure({ intentId, step: "prepare", error: err });
       return "retry";
     }
     if (
@@ -146,12 +159,13 @@ async function prepareEligibleIntent(
   const beforeHold = await loadIntentById(intent.id);
   if (!beforeHold || beforeHold.session_started_at || beforeHold.hold_released_at) return "skipped";
 
-  const hold = await reconcileActivationHold(intent.id);
+  const hold = await holdDuringPreparation(intent.id);
   if (hold === "preserved") {
     let preservedSubscription: Stripe.Subscription;
     try {
       preservedSubscription = await stripeClient().subscriptions.retrieve(subscriptionId);
-    } catch {
+    } catch (err) {
+      await recordSignupFailure({ intentId, step: "prepare", error: err });
       return "retry";
     }
     const latest = await loadIntentById(intent.id);
@@ -197,6 +211,7 @@ export async function runConfirmedCheckoutPreparationPass(
       else if (outcome === "preserved") result.preserved += 1;
     } catch (err) {
       result.retry += 1;
+      await recordSignupFailure({ intentId: candidate.id, step: "prepare", error: err });
       console.error("[stripe-first] preparation pass intent failed", {
         intentId: candidate.id,
         reason: err instanceof Error ? err.message : "prepare_failed",
