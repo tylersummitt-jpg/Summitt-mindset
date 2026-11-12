@@ -15,6 +15,13 @@ vi.mock("@/lib/stripe-first-checkout/stripe-hold", () => ({
   reconcileActivationHold: (...args: unknown[]) => holdMock(...args),
 }));
 
+vi.mock("@/lib/stripe-first-checkout/activate", () => ({
+  prepareConfirmedCheckout: vi.fn(async () => ({
+    status: "prepared",
+    clerkUserId: "user_prepared",
+  })),
+}));
+
 vi.mock("stripe", () => {
   class StripeMock {
     subscriptions = {
@@ -66,6 +73,7 @@ vi.mock("@/lib/meta-capi-stripe-conversions", () => ({
 }));
 
 import { notifyMemberSubscribedInternal } from "@/lib/notify-member-subscribed";
+import { prepareConfirmedCheckout } from "@/lib/stripe-first-checkout/activate";
 import {
   notifyConfirmedStripeFirstTrial,
   stripeFirstMemberNotification,
@@ -260,6 +268,7 @@ describe("reconcileStripeFirstFromCheckoutSession member email", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_SECRET_KEY = "sk_test_notify";
+    delete process.env.STRIPE_FIRST_PREPARE_AFTER;
     process.env.STRIPE_PRICE_ID_MONTHLY = PRICE;
     process.env.RESEND_API_KEY = "re_test_key";
     process.env.COACH_KIT_NOTIFY_EMAIL = "tyler@summittmindset.com";
@@ -336,6 +345,7 @@ describe("reconcileStripeFirstFromCheckoutSession member email", () => {
 
     expect(first).toBe("retry");
     expect(second).toBe("ack");
+    expect(prepareConfirmedCheckout).not.toHaveBeenCalled();
     expect(order[0]).toBe("hold");
     expect(sendMock.mock.calls.map((call) => call[1].idempotencyKey)).toEqual([
       "stripe-first-member-sub_1",
@@ -377,5 +387,98 @@ describe("reconcileStripeFirstFromCheckoutSession member email", () => {
     expect(outcome).toBe("ack");
     expect(confirmMock).toHaveBeenCalledTimes(1);
     expect(sendMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("staff notification does not gate preparation", () => {
+  const cutoff = "2026-12-01T00:00:00.000Z";
+  const confirmedAfter = "2026-12-02T00:00:00.000Z";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.STRIPE_SECRET_KEY = "sk_test_notify";
+    delete process.env.STRIPE_FIRST_PREPARE_AFTER;
+    process.env.STRIPE_PRICE_ID_MONTHLY = PRICE;
+    process.env.RESEND_API_KEY = "re_test_key";
+    process.env.COACH_KIT_NOTIFY_EMAIL = "tyler@summittmindset.com";
+    delete process.env.COACH_KIT_NOTIFY_FROM;
+    loadIntentMock.mockResolvedValue(intent());
+    confirmMock.mockResolvedValue("saved");
+    holdMock.mockResolvedValue("ok");
+    retrieveSubMock.mockResolvedValue(subscription());
+    sendMock.mockResolvedValue({ data: { id: "re_1" }, error: null });
+    vi.mocked(prepareConfirmedCheckout).mockResolvedValue({
+      status: "prepared",
+      clerkUserId: "user_prepared",
+    });
+  });
+
+  function postCutoffIntent() {
+    process.env.STRIPE_FIRST_PREPARE_AFTER = cutoff;
+    loadIntentMock.mockResolvedValue(
+      intent({ stripe_trial_confirmed_at: confirmedAfter })
+    );
+  }
+
+  it("prepares when the staff email fails", async () => {
+    postCutoffIntent();
+    sendMock.mockResolvedValue({ data: null, error: { message: "timeout" } });
+    const outcome = await reconcileStripeFirstFromCheckoutSession(session() as never);
+    expect(outcome).toBe("retry");
+    expect(prepareConfirmedCheckout).toHaveBeenCalledTimes(1);
+    expect(holdMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries when the staff email succeeds and preparation fails", async () => {
+    postCutoffIntent();
+    vi.mocked(prepareConfirmedCheckout).mockResolvedValueOnce({ status: "retry" });
+    const outcome = await reconcileStripeFirstFromCheckoutSession(session() as never);
+    expect(outcome).toBe("retry");
+    expect(prepareConfirmedCheckout).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(sendMock.mock.calls[0][1]).toEqual({
+      idempotencyKey: "stripe-first-member-sub_1",
+    });
+  });
+
+  it("retries when the staff email and preparation both fail", async () => {
+    postCutoffIntent();
+    sendMock.mockResolvedValue({ data: null, error: { message: "timeout" } });
+    vi.mocked(prepareConfirmedCheckout).mockResolvedValueOnce({ status: "retry" });
+    const outcome = await reconcileStripeFirstFromCheckoutSession(session() as never);
+    expect(outcome).toBe("retry");
+    expect(prepareConfirmedCheckout).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries the same email after preparation succeeds", async () => {
+    postCutoffIntent();
+    sendMock
+      .mockResolvedValueOnce({ data: null, error: { message: "timeout" } })
+      .mockResolvedValueOnce({ data: { id: "re_retry" }, error: null });
+    const first = await reconcileStripeFirstFromCheckoutSession(session() as never);
+    const second = await reconcileStripeFirstFromCheckoutSession(session() as never);
+    expect(first).toBe("retry");
+    expect(second).toBe("ack");
+    expect(prepareConfirmedCheckout).toHaveBeenCalledTimes(2);
+    expect(sendMock.mock.calls.map((call) => call[1].idempotencyKey)).toEqual([
+      "stripe-first-member-sub_1",
+      "stripe-first-member-sub_1",
+    ]);
+  });
+
+  it("keeps a pre-cutoff email failure retryable and does not prepare", async () => {
+    process.env.STRIPE_FIRST_PREPARE_AFTER = cutoff;
+    loadIntentMock.mockResolvedValue(
+      intent({ stripe_trial_confirmed_at: "2026-11-09T15:52:37.000Z" })
+    );
+    sendMock.mockResolvedValue({ data: null, error: { message: "timeout" } });
+    const outcome = await reconcileStripeFirstFromCheckoutSession(session() as never);
+    expect(outcome).toBe("retry");
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(holdMock).toHaveBeenCalledTimes(1);
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(prepareConfirmedCheckout).not.toHaveBeenCalled();
   });
 });

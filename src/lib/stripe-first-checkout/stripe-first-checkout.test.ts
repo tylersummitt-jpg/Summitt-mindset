@@ -237,8 +237,11 @@ describe("public checkout stays on the current path", () => {
     ).toBeNull();
   });
 
-  it("does not let the webhook create a Clerk user for stripe-first checkout", () => {
+  it("prepares a stripe-first account through the shared function and does not sign the customer in", () => {
     const reconcile = readFileSync("src/lib/stripe-first-checkout/reconcile.ts", "utf8");
+    expect(reconcile).toContain("prepareConfirmedCheckout");
+    expect(reconcile).not.toContain("createClerkSignInTicket");
+    expect(reconcile).not.toContain("markSessionStarted");
     expect(reconcile).not.toContain("sign_in_tokens");
     expect(reconcile).not.toContain("email_address_identification_status");
     expect(reconcile).not.toContain("checkout.sessions.create");
@@ -246,6 +249,9 @@ describe("public checkout stays on the current path", () => {
     expect(webhook).toContain("stripe_webhook_events");
     expect(webhook).toContain("missing userId");
     expect(webhook).toContain("stripeFirstIntentId && !userId");
+    expect(webhook).toContain("releaseDedupeAndRetry");
+    expect(webhook).not.toContain("createClerkSignInTicket");
+    expect(webhook).not.toContain("prepareConfirmedCheckout");
   });
 
   it("public activation uses the existing-account sign-in path and not the owner canary", () => {

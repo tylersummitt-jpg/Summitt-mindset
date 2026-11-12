@@ -26,6 +26,13 @@ vi.mock("@/lib/stripe-first-checkout/stripe-hold", () => ({
   reconcileActivationHold: (...args: unknown[]) => holdMock(...args),
 }));
 
+vi.mock("@/lib/stripe-first-checkout/activate", () => ({
+  prepareConfirmedCheckout: vi.fn(async () => ({
+    status: "prepared",
+    clerkUserId: "user_prepared",
+  })),
+}));
+
 vi.mock("stripe", () => {
   class StripeMock {
     subscriptions = {
@@ -120,6 +127,7 @@ describe("Stripe-first Meta StartTrial", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.STRIPE_SECRET_KEY = "sk_test_start_trial";
+    delete process.env.STRIPE_FIRST_PREPARE_AFTER;
     process.env.STRIPE_PRICE_ID_MONTHLY = MONTHLY;
     process.env.STRIPE_PRICE_ID_ANNUAL = ANNUAL;
     process.env.RESEND_API_KEY = "re_test_key";

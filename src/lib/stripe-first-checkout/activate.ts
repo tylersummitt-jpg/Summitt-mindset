@@ -745,6 +745,27 @@ async function provisionNewCustomer(
   email: string,
   proof: Extract<Awaited<ReturnType<typeof assessCheckoutSession>>, { ok: true }>
 ): Promise<ActivateResult> {
+  const prepared = await prepareConfirmedCheckout(intent, email, proof);
+  if (prepared.status !== "prepared") return prepared;
+  return issueTicketIfNeeded(intent);
+}
+
+export type PrepareCheckoutResult =
+  | { status: "prepared"; clerkUserId: string }
+  | { status: "sign_in_required" }
+  | { status: "rejected" }
+  | { status: "retry" };
+
+/**
+ * Account preparation for one confirmed Stripe-first trial.
+ * Finds or creates the Clerk user and links that subscription.
+ * Does not issue a sign-in ticket, start a session, or release the activation hold.
+ */
+export async function prepareConfirmedCheckout(
+  intent: CheckoutBrowserIntent,
+  email: string,
+  proof: Extract<Awaited<ReturnType<typeof assessCheckoutSession>>, { ok: true }>
+): Promise<PrepareCheckoutResult> {
   const externalUserId = await lookupClerkUserIdByExternalId(intent.id);
   const emailUserIds = await lookupClerkUserIdsByEmail(email);
   const emailOwnerIsSomeoneElse = emailUserIds.some((id) => id !== externalUserId);
@@ -756,7 +777,7 @@ async function provisionNewCustomer(
     if (!marked) {
       const fresh = await loadIntentById(intent.id);
       if (fresh?.clerk_user_provisioned_at && fresh.clerk_user_id) {
-        return issueTicketIfNeeded(fresh);
+        return { status: "prepared", clerkUserId: fresh.clerk_user_id };
       }
     }
     return { status: "sign_in_required" };
@@ -769,16 +790,14 @@ async function provisionNewCustomer(
       externalId: intent.id,
     });
     if ("conflict" in created) {
-      clerkUserId = await lookupClerkUserIdByExternalId(intent.id);
-      if (!clerkUserId) {
-        const taken = await lookupClerkUserIdsByEmail(email);
-        if (taken.length > 0) {
-          if (ownerCanary) return { status: "rejected" };
-          await markSignInRequired(intent.id);
-          return { status: "sign_in_required" };
-        }
-        return { status: "retry" };
+      const resolved = await clerkUserIdAfterReservedConflict(intent.id, email);
+      if (resolved.kind === "unrelated") {
+        if (ownerCanary) return { status: "rejected" };
+        await markSignInRequired(intent.id);
+        return { status: "sign_in_required" };
       }
+      if (resolved.kind === "unknown") return { status: "retry" };
+      clerkUserId = resolved.id;
     } else {
       clerkUserId = created.id;
     }
@@ -817,7 +836,27 @@ async function provisionNewCustomer(
     console.warn("[stripe-first] acquisition clerk link isolated failure");
   }
   await linkMarketingVisitorToClerkUser(clerkUserId);
-  return issueTicketIfNeeded(intent);
+  return { status: "prepared", clerkUserId };
+}
+
+/**
+ * A 422 from Clerk means the email or external id is already taken.
+ * If that user was created for this intent, reuse it. An unrelated owner
+ * still requires sign-in and is handled by the caller.
+ */
+async function clerkUserIdAfterReservedConflict(
+  intentId: string,
+  email: string
+): Promise<{ kind: "user"; id: string } | { kind: "unrelated" } | { kind: "unknown" }> {
+  const byIntent = await lookupClerkUserIdByExternalId(intentId);
+  if (byIntent) return { kind: "user", id: byIntent };
+  const taken = await lookupClerkUserIdsByEmail(email);
+  if (taken.length === 0) return { kind: "unknown" };
+  if (taken.length !== 1) return { kind: "unrelated" };
+  const identity = await getClerkIdentity(taken[0]);
+  if (!identity || identity.id !== taken[0]) return { kind: "unknown" };
+  if (identity.externalId?.trim() === intentId) return { kind: "user", id: identity.id };
+  return { kind: "unrelated" };
 }
 
 /**

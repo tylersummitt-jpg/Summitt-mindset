@@ -11,7 +11,8 @@ import {
   maybeEmitMetaStartTrialFromCheckout,
   metaStartTrialEventUnix,
 } from "@/lib/meta-capi-stripe-conversions";
-import { INTENT_METADATA_KEY } from "@/lib/stripe-first-checkout/constants";
+import { INTENT_METADATA_KEY, PREPARE_AFTER_ENV } from "@/lib/stripe-first-checkout/constants";
+import { confirmedTrialIsAfterPrepareCutoff, readPrepareAfterCutoff } from "@/lib/stripe-first-checkout/prepare-cutoff";
 import { stripeKeyMatchesLivemode } from "@/lib/stripe-first-checkout/credentials";
 import { confirmStripeTrial, loadIntentById } from "@/lib/stripe-first-checkout/intent-store";
 import {
@@ -19,6 +20,7 @@ import {
   notifyConfirmedStripeFirstTrial,
   stripeFirstMemberNotification,
 } from "@/lib/stripe-first-checkout/member-notify";
+import { prepareConfirmedCheckout } from "@/lib/stripe-first-checkout/activate";
 import { reconcileActivationHold } from "@/lib/stripe-first-checkout/stripe-hold";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
 import { normalizeCheckoutEmail } from "@/lib/stripe-first-checkout/email-typo";
@@ -152,6 +154,7 @@ export async function reconcileStripeFirstFromCheckoutSession(
   }
 
   const hold = await reconcileActivationHold(intentId);
+  let notificationFailed = false;
   if (saved === "saved" || saved === "already") {
     const ownerCanary =
       isOwnerCanaryMetadata(session.metadata) ||
@@ -222,6 +225,7 @@ export async function reconcileStripeFirstFromCheckoutSession(
       timestamp: new Date().toISOString(),
     };
     const notified = await notifyConfirmedStripeFirstTrial(memberNotice);
+    notificationFailed = notified === "failed";
     if (stripeFirstMemberNotification(memberNotice).send) {
       try {
         await maybeNotifyEmailAcquiredMember({
@@ -235,9 +239,21 @@ export async function reconcileStripeFirstFromCheckoutSession(
         console.warn("[stripe-first] outreach history notification failed", err);
       }
     }
-    if (notified === "failed") return "retry";
   }
-  return hold === "retry" ? "retry" : "ack";
+  if (hold === "retry") return "retry";
+  // A customer cancellation is already protected. Do not create an account for it.
+  if (hold === "preserved") return notificationFailed ? "retry" : "ack";
+  const cutoff = readPrepareAfterCutoff(process.env[PREPARE_AFTER_ENV]);
+  if (!cutoff) return notificationFailed ? "retry" : "ack";
+  const persisted = await loadIntentById(intentId);
+  const confirmedAt = persisted?.stripe_trial_confirmed_at ?? null;
+  if (!confirmedAt) return "retry";
+  if (!confirmedTrialIsAfterPrepareCutoff(confirmedAt, process.env[PREPARE_AFTER_ENV])) {
+    return notificationFailed ? "retry" : "ack";
+  }
+  const prepared = await prepareConfirmedCheckout(intent, proof.email, proof);
+  if (prepared.status === "retry" || notificationFailed) return "retry";
+  return "ack";
 }
 
 export async function reconcileStripeFirstSubscription(

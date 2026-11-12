@@ -136,7 +136,7 @@ vi.mock("@/lib/acquisition/email-acquired-member-notice.server", () => ({
   maybeNotifyEmailAcquiredMember: vi.fn(async () => "skipped"),
 }));
 
-const reconcileCheckoutMock = vi.fn(async () => "ack" as const);
+const reconcileCheckoutMock = vi.fn(async (): Promise<"ack" | "retry"> => "ack");
 vi.mock("@/lib/stripe-first-checkout/reconcile", () => ({
   readCheckoutIntentId: (metadata: { checkoutIntentId?: string } | null | undefined) => {
     const value = metadata?.checkoutIntentId;
@@ -740,6 +740,51 @@ describe("Stripe webhook Phase 3 membership cutover", () => {
     expect(notifyMemberMock).not.toHaveBeenCalled();
     expect(notifyCoachMock).not.toHaveBeenCalled();
     expect(updateClerkMock).not.toHaveBeenCalled();
+  });
+
+  it("stripe-first preparation retry releases the dedupe claim", async () => {
+    reconcileCheckoutMock.mockResolvedValueOnce("retry");
+    constructEventMock.mockReturnValue({
+      id: "evt_stripe_first_retry",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_sf",
+          client_reference_id: null,
+          subscription: "sub_sf",
+          customer: "cus_sf",
+          metadata: { checkoutIntentId: "intent_1" },
+        },
+      },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(500);
+    expect(releaseDedupeMock).toHaveBeenCalledWith("evt_stripe_first_retry");
+    expect(finishDedupeMock).not.toHaveBeenCalled();
+    expect(updateClerkMock).not.toHaveBeenCalled();
+  });
+
+  it("stripe-first preparation failure releases the dedupe claim", async () => {
+    reconcileCheckoutMock.mockRejectedValueOnce(new Error("clerk_create_failed"));
+    constructEventMock.mockReturnValue({
+      id: "evt_stripe_first_throw",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_sf",
+          client_reference_id: null,
+          subscription: "sub_sf",
+          customer: "cus_sf",
+          metadata: { checkoutIntentId: "intent_1" },
+        },
+      },
+    });
+    const { POST } = await import("./route");
+    const res = await POST(webhookReq() as never);
+    expect(res.status).toBe(500);
+    expect(releaseDedupeMock).toHaveBeenCalledWith("evt_stripe_first_throw");
+    expect(finishDedupeMock).not.toHaveBeenCalled();
   });
 
   it("paused Stripe + Apple active → subscribed monthly", async () => {

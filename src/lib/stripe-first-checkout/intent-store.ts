@@ -40,6 +40,7 @@ export type CheckoutBrowserIntent = {
   clerk_user_provisioned_at: string | null;
   session_started_at: string | null;
   hold_released_at: string | null;
+  prepare_closed_at: string | null;
   created_at: string;
   updated_at: string;
   meta_fbc: string | null;
@@ -956,6 +957,67 @@ export async function alignBindingExpiry(args: {
     .eq("id", args.intentId)
     .is("session_started_at", null);
   if (error) logIntentError("binding_expiry", error.code);
+}
+
+/**
+ * Closes automatic preparation for one intent. A concurrent provision, sign-in,
+ * session, or earlier close matches zero rows and is left untouched.
+ */
+export async function markPrepareClosed(intentId: string): Promise<boolean> {
+  const timestamp = nowIso();
+  const { data, error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .update({
+      prepare_closed_at: timestamp,
+      updated_at: timestamp,
+    })
+    .eq("id", intentId)
+    .is("prepare_closed_at", null)
+    .is("clerk_user_provisioned_at", null)
+    .is("sign_in_required_at", null)
+    .is("clerk_user_id", null)
+    .is("session_started_at", null)
+    .is("hold_released_at", null)
+    .not("stripe_trial_confirmed_at", "is", null)
+    .not("stripe_subscription_id", "is", null)
+    .not("stripe_checkout_session_id", "is", null)
+    .select("id");
+  if (error) {
+    logIntentError("prepare_closed", error.code);
+    throw new Error("intent_update_failed");
+  }
+  return (data?.length ?? 0) > 0;
+}
+
+/** Hourly preparation page. The cutoff and closure filters are applied before ordering and the limit. */
+export async function loadPrepareEligibleIntents(
+  confirmedAfterIso: string,
+  limit: number,
+  nowIso = new Date().toISOString()
+): Promise<CheckoutBrowserIntent[]> {
+  const cutoff = confirmedAfterIso.trim();
+  const now = nowIso.trim();
+  const bounded = Math.min(Math.max(Math.floor(limit), 1), 10);
+  if (!cutoff || !now || bounded < 1) return [];
+  const { data, error } = await supabaseServer
+    .from("checkout_browser_intents")
+    .select("*")
+    .gt("stripe_trial_confirmed_at", cutoff)
+    .gt("stripe_trial_end_at", now)
+    .not("stripe_subscription_id", "is", null)
+    .not("stripe_checkout_session_id", "is", null)
+    .is("clerk_user_provisioned_at", null)
+    .is("sign_in_required_at", null)
+    .is("session_started_at", null)
+    .is("hold_released_at", null)
+    .is("prepare_closed_at", null)
+    .order("stripe_trial_confirmed_at", { ascending: true })
+    .limit(bounded);
+  if (error) {
+    logIntentError("load_prepare", error.code);
+    throw new Error("intent_load_failed");
+  }
+  return (data as CheckoutBrowserIntent[] | null) ?? [];
 }
 
 export async function loadUnprovisionedPaidIntents(

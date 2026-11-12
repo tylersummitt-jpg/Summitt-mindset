@@ -29,6 +29,12 @@ export const ACCESS_MAX_AGE_SECONDS = 60 * 60 * 2;
 /** Owner canary only. Unset or any value other than "true" keeps production closed. */
 export const CANARY_ENABLED_ENV = "STRIPE_FIRST_CANARY_ENABLED";
 
+/**
+ * ISO-8601 UTC instant. Automatic preparation selects trials confirmed
+ * strictly after this value. Unset, empty, or invalid selects nothing.
+ */
+export const PREPARE_AFTER_ENV = "STRIPE_FIRST_PREPARE_AFTER";
+
 export const CANARY_ACCESS_MAX_AGE_SECONDS = 30 * 60;
 
 export const CANARY_METADATA_KEY = "summittCanary";
