@@ -61,6 +61,10 @@ describe("meta ad lab insights parsing", () => {
         impressions: 400,
         outboundClicks: 9,
         landingPageViews: 7,
+        campaignId: null,
+        campaignName: null,
+        adsetId: null,
+        adsetName: null,
       },
     ]);
     expect(JSON.stringify(parsed)).not.toContain("access_token");

@@ -51,16 +51,16 @@ function errorResult(args: {
   };
 }
 
-async function requestInsights(args: {
-  url: string;
-  token: string;
-}): Promise<{ httpStatus: number; payload: unknown } | { failed: string }> {
+export async function fetchMetaGraph(
+  url: string,
+  token: string
+): Promise<{ httpStatus: number; payload: unknown } | { failed: string }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), META_AD_LAB_TIMEOUT_MS);
   try {
-    const response = await fetch(args.url, {
+    const response = await fetch(url, {
       method: "GET",
-      headers: { Authorization: `Bearer ${args.token}` },
+      headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
       cache: "no-store",
     });
@@ -101,15 +101,15 @@ export async function loadMetaAdLabInsights(args: {
 
   const secrets = [token];
   const request = (fields: string) =>
-    requestInsights({
-      url: buildMetaInsightsUrl({
+    fetchMetaGraph(
+      buildMetaInsightsUrl({
         accountId,
         since: window.since,
         until: window.until,
         fields,
       }),
-      token,
-    });
+      token
+    );
 
   try {
     let fieldSet: "full" | "core" = "full";

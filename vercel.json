@@ -39,6 +39,10 @@
     {
       "path": "/api/cron/victory-media",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/ad-lab-insights",
+      "schedule": "15 11,21 * * *"
     }
   ]
 }

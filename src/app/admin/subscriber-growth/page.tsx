@@ -3,10 +3,12 @@ import { Suspense } from "react";
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 import { loadSubscriberGrowthDashboard } from "@/lib/admin-subscriber-growth";
 import type { GrowthDateRange } from "@/lib/admin-subscriber-growth-pure";
+import { loadAdLabSummary } from "@/lib/ad-lab-read";
 import { loadMetaAdLabInsights } from "@/lib/meta-ad-lab-insights";
 import { metaAdLabRangeFromQuery } from "@/lib/meta-ad-lab-insights-pure";
 
 import SubscriberGrowthDashboard from "./subscriber-growth-dashboard";
+import { SubscriberGrowthAdLab } from "./subscriber-growth-ad-lab";
 import { SubscriberGrowthMetaInsights } from "./subscriber-growth-meta-insights";
 
 function firstQueryValue(value: string | string[] | undefined): string | null {
@@ -17,6 +19,11 @@ function firstQueryValue(value: string | string[] | undefined): string | null {
 async function MetaAdDelivery({ range }: { range: GrowthDateRange }) {
   const report = await loadMetaAdLabInsights({ range });
   return <SubscriberGrowthMetaInsights report={report} />;
+}
+
+async function AdLabSummary({ range }: { range: GrowthDateRange }) {
+  const view = await loadAdLabSummary({ range });
+  return <SubscriberGrowthAdLab view={view} />;
 }
 
 /** Never cache admin growth aggregates across sessions. */
@@ -36,6 +43,17 @@ export default async function AdminSubscriberGrowthPage({
   return (
     <SubscriberGrowthDashboard
       data={data}
+      adLab={
+        <Suspense
+          fallback={
+            <p className="mt-3 text-[11px] text-gray-500">
+              Reading stored Meta delivery. The figures above are unchanged.
+            </p>
+          }
+        >
+          <AdLabSummary range={range} />
+        </Suspense>
+      }
       metaInsights={
         <Suspense
           fallback={

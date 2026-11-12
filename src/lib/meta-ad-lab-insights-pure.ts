@@ -12,11 +12,16 @@ import {
 
 export const META_AD_LAB_GRAPH_VERSION = "v27.0" as const;
 export const META_AD_LAB_ROW_LIMIT = 100;
+export const META_AD_LAB_MAX_PAGES = 5;
 export const META_AD_LAB_ALL_TIME_CAP_DAYS = 30;
 export const META_AD_LAB_TIMEOUT_MS = 8000;
 export const META_AD_LAB_FULL_FIELDS =
   "ad_id,ad_name,spend,impressions,outbound_clicks,actions" as const;
 export const META_AD_LAB_CORE_FIELDS = "ad_id,ad_name,spend,impressions" as const;
+export const META_AD_LAB_IMPORT_FIELDS =
+  "ad_id,ad_name,spend,impressions,outbound_clicks,actions,campaign_id,campaign_name,adset_id,adset_name" as const;
+export const META_AD_STATUS_FIELDS =
+  "id,name,effective_status,campaign_id,adset_id,creative{id},campaign{name},adset{name}" as const;
 
 export type MetaAdInsightRow = {
   adId: string;
@@ -26,6 +31,10 @@ export type MetaAdInsightRow = {
   impressions: number | null;
   outboundClicks: number | null;
   landingPageViews: number | null;
+  campaignId: string | null;
+  campaignName: string | null;
+  adsetId: string | null;
+  adsetName: string | null;
 };
 
 export type MetaAdLabInsightsResult =
@@ -89,6 +98,7 @@ export function buildMetaInsightsUrl(args: {
   until: string;
   fields: string;
   limit?: number;
+  after?: string | null;
 }): string {
   const url = new URL(
     `https://graph.facebook.com/${META_AD_LAB_GRAPH_VERSION}/act_${args.accountId}/insights`
@@ -98,7 +108,39 @@ export function buildMetaInsightsUrl(args: {
   url.searchParams.set("time_range", JSON.stringify({ since: args.since, until: args.until }));
   url.searchParams.set("fields", args.fields);
   url.searchParams.set("limit", String(args.limit ?? META_AD_LAB_ROW_LIMIT));
+  const after = safeMetaCursor(args.after);
+  if (after) url.searchParams.set("after", after);
   return url.toString();
+}
+
+export function buildMetaAdAccountUrl(accountId: string): string {
+  const url = new URL(
+    `https://graph.facebook.com/${META_AD_LAB_GRAPH_VERSION}/act_${accountId}`
+  );
+  url.searchParams.set("fields", "timezone_name,currency");
+  return url.toString();
+}
+
+export function buildMetaAdsUrl(accountId: string, after?: string | null): string {
+  const url = new URL(
+    `https://graph.facebook.com/${META_AD_LAB_GRAPH_VERSION}/act_${accountId}/ads`
+  );
+  url.searchParams.set("fields", META_AD_STATUS_FIELDS);
+  url.searchParams.set("limit", String(META_AD_LAB_ROW_LIMIT));
+  const cursor = safeMetaCursor(after);
+  if (cursor) url.searchParams.set("after", cursor);
+  return url.toString();
+}
+
+export function safeMetaCursor(raw: string | null | undefined): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  if (trimmed.length < 1 || trimmed.length > 1024) return null;
+  if (/[\s?#&]/.test(trimmed) || trimmed.includes("://") || /access_token/i.test(trimmed)) {
+    return null;
+  }
+  if (!/^[A-Za-z0-9+/_=-]+$/.test(trimmed)) return null;
+  return trimmed;
 }
 
 export function redactMetaSecrets(text: string, secrets: readonly string[]): string {
@@ -184,10 +226,131 @@ export function parseMetaInsightRows(payload: unknown): {
       landingPageViews: Object.prototype.hasOwnProperty.call(row, "actions")
         ? sumActionValues(row.actions, "landing_page_view")
         : null,
+      campaignId: digitId(row.campaign_id),
+      campaignName: shortText(row.campaign_name),
+      adsetId: digitId(row.adset_id),
+      adsetName: shortText(row.adset_name),
     });
   }
   rows.sort((a, b) => b.date.localeCompare(a.date) || a.adName.localeCompare(b.adName));
   return { rows, truncated: typeof paging?.next === "string" && paging.next.length > 0 };
+}
+
+export function readMetaPagingCursor(payload: unknown): {
+  after: string | null;
+  hasNextUrl: boolean;
+} {
+  const record =
+    payload && typeof payload === "object" ? (payload as { paging?: unknown }).paging : null;
+  const paging = record && typeof record === "object" ? (record as { cursors?: unknown; next?: unknown }) : null;
+  const cursors =
+    paging?.cursors && typeof paging.cursors === "object"
+      ? (paging.cursors as { after?: unknown })
+      : null;
+  return {
+    after: safeMetaCursor(typeof cursors?.after === "string" ? cursors.after : null),
+    hasNextUrl: typeof paging?.next === "string" && paging.next.length > 0,
+  };
+}
+
+const ZERO_DECIMAL_CURRENCIES = new Set([
+  "BIF",
+  "CLP",
+  "DJF",
+  "GNF",
+  "JPY",
+  "KMF",
+  "KRW",
+  "MGA",
+  "PYG",
+  "RWF",
+  "UGX",
+  "VND",
+  "VUV",
+  "XAF",
+  "XOF",
+  "XPF",
+]);
+
+export function parseMetaAdAccount(payload: unknown): { timezone: string; currency: string } | null {
+  const record = payload && typeof payload === "object" ? (payload as Record<string, unknown>) : null;
+  if (!record) return null;
+  const timezone = typeof record.timezone_name === "string" ? record.timezone_name.trim() : "";
+  const currency = typeof record.currency === "string" ? record.currency.trim().toUpperCase() : "";
+  if (!/^[A-Z]{3}$/.test(currency) || ZERO_DECIMAL_CURRENCIES.has(currency)) return null;
+  if (!isIanaTimezone(timezone)) return null;
+  return { timezone, currency };
+}
+
+export type MetaAdStatusRow = {
+  adId: string;
+  adName: string;
+  effectiveStatus: string | null;
+  campaignId: string | null;
+  campaignName: string | null;
+  adsetId: string | null;
+  adsetName: string | null;
+  creativeId: string | null;
+};
+
+export function parseMetaAdsPage(payload: unknown): {
+  ads: MetaAdStatusRow[];
+  after: string | null;
+  hasNextUrl: boolean;
+} {
+  const record =
+    payload && typeof payload === "object" ? (payload as { data?: unknown }) : {};
+  const data = Array.isArray(record.data) ? record.data : [];
+  const paging = readMetaPagingCursor(payload);
+  const ads: MetaAdStatusRow[] = [];
+  for (const item of data) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as Record<string, unknown>;
+    const adId = digitId(row.id);
+    if (!adId) continue;
+    const creative =
+      row.creative && typeof row.creative === "object"
+        ? (row.creative as { id?: unknown })
+        : null;
+    const campaign =
+      row.campaign && typeof row.campaign === "object"
+        ? (row.campaign as { name?: unknown })
+        : null;
+    const adset =
+      row.adset && typeof row.adset === "object" ? (row.adset as { name?: unknown }) : null;
+    const status = typeof row.effective_status === "string" ? row.effective_status.trim() : "";
+    ads.push({
+      adId,
+      adName: shortText(row.name) || "Untitled ad",
+      effectiveStatus: /^[A-Z0-9_]{1,40}$/.test(status) ? status : null,
+      campaignId: digitId(row.campaign_id),
+      campaignName: shortText(campaign?.name),
+      adsetId: digitId(row.adset_id),
+      adsetName: shortText(adset?.name),
+      creativeId: digitId(creative?.id),
+    });
+  }
+  return { ads, after: paging.after, hasNextUrl: paging.hasNextUrl };
+}
+
+function digitId(raw: unknown): string | null {
+  return typeof raw === "string" && /^\d{5,20}$/.test(raw) ? raw : null;
+}
+
+function shortText(raw: unknown, max = 200): string | null {
+  if (typeof raw !== "string") return null;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed.slice(0, max) : null;
+}
+
+function isIanaTimezone(timezone: string): boolean {
+  if (!timezone || timezone.length > 64) return false;
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date());
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function readMetaGraphError(payload: unknown): { code: number | null; message: string } {

@@ -782,5 +782,20 @@ describe("subscriber growth CMO completion copy", () => {
     expect(screen.getByText(/The rest of this page is unchanged/)).toBeTruthy();
     expect(screen.getAllByText("Cost per paid subscriber").length).toBeGreaterThan(0);
   });
+
+  it("shows the stored Ad Lab summary without replacing the hand-entered advertising cards", () => {
+    render(
+      <SubscriberGrowthDashboard
+        data={dashboardData([])}
+        adLab={<p>Summitt Ad Lab stored summary</p>}
+        metaInsights={<p>Meta ad delivery live check</p>}
+      />
+    );
+    expect(screen.getByText("Summitt Ad Lab stored summary")).toBeTruthy();
+    expect(screen.getByText("Live Meta check")).toBeTruthy();
+    expect(screen.getByText("Meta ad delivery live check")).toBeTruthy();
+    expect(screen.getAllByText("Cost per paid subscriber").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Spend is typed in by hand/)).toBeTruthy();
+  });
 });
 

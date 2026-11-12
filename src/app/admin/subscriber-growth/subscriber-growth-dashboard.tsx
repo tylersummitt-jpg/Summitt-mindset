@@ -667,9 +667,13 @@ function HomepageVideoSection({
 export default function SubscriberGrowthDashboard({
   data,
   metaInsights,
+  adLab,
+  liveCheckOpen = false,
 }: {
   data: SubscriberGrowthDashboardData;
   metaInsights?: ReactNode;
+  adLab?: ReactNode;
+  liveCheckOpen?: boolean;
 }) {
   const { snapshot, range, source } = data;
   const spendStatus = adSpendDisplayStatus({
@@ -1301,7 +1305,26 @@ export default function SubscriberGrowthDashboard({
         <div className="mt-2">
           <SubscriberGrowthAdSpend entries={data.adSpendEntries} />
         </div>
-        {metaInsights}
+        {adLab}
+        {metaInsights ? (
+          adLab ? (
+            <details
+              open={liveCheckOpen}
+              className="mt-3 rounded-lg border border-gray-200 bg-white px-3 py-2"
+            >
+              <summary className="cursor-pointer text-[11px] font-medium text-gray-800">
+                Live Meta check
+              </summary>
+              <p className="mt-1 text-[10px] text-gray-500">
+                Direct read for the selected dates. Compare it with the stored
+                import above. It does not change the hand-entered spend.
+              </p>
+              {metaInsights}
+            </details>
+          ) : (
+            metaInsights
+          )
+        ) : null}
       </section>
 
       <section>
