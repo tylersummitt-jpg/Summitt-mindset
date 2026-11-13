@@ -7,6 +7,9 @@ import "server-only";
 import type { AdLabIdentity, AdLabStore } from "@/lib/ad-lab-import";
 import { supabaseServer } from "@/lib/supabase-server";
 
+const LOCK_TOKEN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const AD_COLUMNS =
   "meta_ad_id, ad_name, campaign_id, campaign_name, adset_id, adset_name, effective_status, creative_id, first_seen_on, last_seen_on, status_checked_at, metadata_imported_at";
 
@@ -29,6 +32,29 @@ export function createSupabaseAdLabStore(): AdLabStore {
           .map((row) => identityFromRow(row as Record<string, unknown>))
           .filter((row) => row.metaAdId && row.firstSeenOn && row.lastSeenOn),
       };
+    },
+    async claimImport(accountId) {
+      const { data, error } = await supabaseServer.rpc("ad_lab_claim_import", {
+        p_account_id: accountId,
+      });
+      if (error) {
+        console.warn("[meta-ad-lab] import claim failed", { code: error.code ?? null });
+        return { ok: false, reason: "storage" };
+      }
+      if (data === "busy" || data === "cooldown") return { ok: false, reason: data };
+      if (typeof data === "string" && LOCK_TOKEN.test(data)) return { ok: true, token: data };
+      console.warn("[meta-ad-lab] import claim failed", { code: "unexpected" });
+      return { ok: false, reason: "storage" };
+    },
+    async finishImport(accountId, token, succeeded) {
+      const { error } = await supabaseServer.rpc("ad_lab_finish_import", {
+        p_account_id: accountId,
+        p_token: token,
+        p_succeeded: succeeded,
+      });
+      if (error) {
+        console.warn("[meta-ad-lab] import finish failed", { code: error.code ?? null });
+      }
     },
     async commitImport(commit) {
       if (commit.ads.length === 0 && commit.days.length === 0) return { ok: true };

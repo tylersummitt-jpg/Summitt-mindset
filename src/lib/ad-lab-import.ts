@@ -6,12 +6,14 @@
 import "server-only";
 
 import {
+  adLabImportClientMessage,
   defaultImportWindow,
   deliveryFromInsight,
   identitiesFromImport,
   importWindowAllowed,
   type AdLabDay,
   type AdLabIdentity,
+  type AdLabImportFailureReason,
 } from "@/lib/ad-lab-import-pure";
 import {
   META_AD_LAB_FULL_FIELDS,
@@ -43,9 +45,16 @@ export type AdLabCommit = {
   importedAt: string;
 };
 
+export type AdLabImportClaim =
+  | { ok: true; token: string }
+  | { ok: false; reason: "busy" | "cooldown" | "storage" };
+
 export type AdLabStore = {
   readAds(accountId: string): Promise<{ ok: true; ads: AdLabIdentity[] } | { ok: false }>;
   commitImport(commit: AdLabCommit): Promise<{ ok: true } | { ok: false }>;
+  /** Present on the production store. Holds the shared lock before Meta is called. */
+  claimImport?(accountId: string): Promise<AdLabImportClaim>;
+  finishImport?(accountId: string, token: string, succeeded: boolean): Promise<void>;
 };
 
 export type AdLabImportResult =
@@ -61,7 +70,7 @@ export type AdLabImportResult =
     }
   | {
       ok: false;
-      reason: "unconfigured" | "window" | "meta" | "truncated" | "storage";
+      reason: AdLabImportFailureReason;
       message: string;
     };
 
@@ -90,8 +99,59 @@ export async function runAdLabImport(args?: {
     return { ok: false, reason: "window", message: "An import window can cover at most 7 days." };
   }
 
-  const secrets = [token];
-  const account = await getWithRetry(buildMetaAdAccountUrl(accountId), token, retryDelayMs);
+  const store = args?.store ?? (await defaultStore());
+  let lockToken = "";
+  if (store.claimImport) {
+    const claim = await store.claimImport(accountId);
+    if (!claim.ok) {
+      const reason = claim.reason === "busy" || claim.reason === "cooldown" ? claim.reason : "storage";
+      return { ok: false, reason, message: adLabImportClientMessage(reason) };
+    }
+    if (!claim.token) {
+      return { ok: false, reason: "storage", message: adLabImportClientMessage("storage") };
+    }
+    lockToken = claim.token;
+  }
+  let succeeded = false;
+  try {
+    const result = await importClaimedWindow({
+      accountId,
+      token,
+      now,
+      retryDelayMs,
+      since: args?.since,
+      until: args?.until,
+      store,
+    });
+    succeeded = result.ok;
+    return result;
+  } finally {
+    if (lockToken) {
+      try {
+        if (store.finishImport) await store.finishImport(accountId, lockToken, succeeded);
+        else console.warn("[meta-ad-lab] import finish missing");
+      } catch {
+        console.warn("[meta-ad-lab] import finish failed");
+      }
+    }
+  }
+}
+
+async function importClaimedWindow(args: {
+  accountId: string;
+  token: string;
+  now: Date;
+  retryDelayMs: number;
+  since?: string;
+  until?: string;
+  store: AdLabStore;
+}): Promise<AdLabImportResult> {
+  const secrets = [args.token];
+  const account = await getWithRetry(
+    buildMetaAdAccountUrl(args.accountId),
+    args.token,
+    args.retryDelayMs
+  );
   const accountFailure = graphFailure(account, secrets);
   if (accountFailure) return accountFailure;
   const accountMeta =
@@ -104,21 +164,25 @@ export async function runAdLabImport(args?: {
     };
   }
   const window =
-    args?.since && args.until
+    args.since && args.until
       ? { since: args.since, until: args.until }
-      : defaultImportWindow(now, accountMeta.timezone);
+      : defaultImportWindow(args.now, accountMeta.timezone);
 
   const insights = await readInsightPages({
-    accountId,
+    accountId: args.accountId,
     since: window.since,
     until: window.until,
-    token,
-    retryDelayMs,
+    token: args.token,
+    retryDelayMs: args.retryDelayMs,
   });
   if (!insights.ok) return insights.result;
 
-  const statuses = await readStatusPages({ accountId, token, retryDelayMs });
-  const store = args?.store ?? (await defaultStore());
+  const statuses = await readStatusPages({
+    accountId: args.accountId,
+    token: args.token,
+    retryDelayMs: args.retryDelayMs,
+  });
+  const store = args.store;
   const ids = [
     ...new Set([
       ...insights.rows.map((row) => row.adId),
@@ -136,11 +200,11 @@ export async function runAdLabImport(args?: {
       statusUpdated: false,
     };
   }
-  const existing = await store.readAds(accountId);
+  const existing = await store.readAds(args.accountId);
   if (!existing.ok) {
     return { ok: false, reason: "storage", message: "Stored Meta ads could not be read." };
   }
-  const importedAt = now.toISOString();
+  const importedAt = args.now.toISOString();
   const ads = identitiesFromImport({
     insights: insights.rows,
     statuses: statuses.complete ? statuses.ads : null,
@@ -163,7 +227,7 @@ export async function runAdLabImport(args?: {
   const days = dedupeDays(insights.rows.map(deliveryFromInsight));
   if (ads.length > 0 || days.length > 0) {
     const saved = await store.commitImport({
-      accountId,
+      accountId: args.accountId,
       ads,
       days,
       currency: accountMeta.currency,

@@ -62,6 +62,9 @@ async function handleCron(request: Request) {
     const result = await runAdLabImport(
       window === "default" ? {} : { since: window.since, until: window.until }
     );
+    if (!result.ok && (result.reason === "busy" || result.reason === "cooldown")) {
+      return NextResponse.json(result, { status: 200 });
+    }
     return NextResponse.json(result, { status: result.ok ? 200 : 502 });
   } catch {
     console.error("[meta-ad-lab] cron_failed");

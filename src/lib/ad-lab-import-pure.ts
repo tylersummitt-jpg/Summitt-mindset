@@ -8,6 +8,36 @@ import { getDateKeyInTimezone } from "@/lib/timezone";
 
 export const AD_LAB_IMPORT_MAX_DAYS = 7;
 export const AD_LAB_STALE_MS = 36 * 60 * 60 * 1000;
+export const AD_LAB_REFRESH_COOLDOWN_MS = 5 * 60 * 1000;
+
+export type AdLabImportFailureReason =
+  | "unconfigured"
+  | "window"
+  | "meta"
+  | "truncated"
+  | "storage"
+  | "busy"
+  | "cooldown";
+
+/** Browser-safe sentences. These never include a Meta response or token. */
+export function adLabImportClientMessage(reason: AdLabImportFailureReason): string {
+  switch (reason) {
+    case "busy":
+      return "A Meta import is already running. The stored results are unchanged.";
+    case "cooldown":
+      return "Meta was refreshed a few minutes ago. The stored results are unchanged.";
+    case "meta":
+      return "Meta is temporarily unavailable. The stored results are unchanged.";
+    case "truncated":
+      return "Meta did not return the full recent window. Nothing new was saved.";
+    case "storage":
+      return "The import could not be saved. The stored results are unchanged.";
+    case "unconfigured":
+      return "Meta import is not configured on this server.";
+    case "window":
+      return "That import window is not allowed.";
+  }
+}
 
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -240,6 +270,7 @@ export function summarizeAdLab(args: {
   rangeSince: string;
   rangeUntil: string;
   now: Date;
+  recordedSuccessAt?: string | null;
 }): AdLabSummary {
   const weekStart = mondayOnOrBefore(args.todayKey);
   const inRange = args.days.filter(
@@ -249,10 +280,13 @@ export function summarizeAdLab(args: {
   const weekRows = args.days.filter(
     (row) => row.spendDate >= weekStart && row.spendDate <= args.todayKey
   );
-  const lastImportedAt = args.days.reduce<string | null>((latest, row) => {
-    if (!latest || row.importedAt > latest) return row.importedAt;
-    return latest;
-  }, null);
+  const lastImportedAt = laterIso(
+    args.days.reduce<string | null>((latest, row) => {
+      if (!latest || row.importedAt > latest) return row.importedAt;
+      return latest;
+    }, null),
+    args.recordedSuccessAt ?? null
+  );
   const stale =
     lastImportedAt != null && args.now.getTime() - new Date(lastImportedAt).getTime() > AD_LAB_STALE_MS;
   const statusKnownAt = latestStatusCheck(args.identities);
@@ -308,6 +342,14 @@ export function summarizeAdLab(args: {
     stale,
     ads,
   };
+}
+
+function laterIso(left: string | null, right: string | null): string | null {
+  const leftMs = left ? Date.parse(left) : Number.NaN;
+  const rightMs = right ? Date.parse(right) : Number.NaN;
+  if (Number.isNaN(leftMs)) return Number.isNaN(rightMs) ? null : right;
+  if (Number.isNaN(rightMs)) return left;
+  return leftMs >= rightMs ? left : right;
 }
 
 function latestStatusCheck(identities: readonly AdLabIdentity[]): string | null {

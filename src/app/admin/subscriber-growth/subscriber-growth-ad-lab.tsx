@@ -2,6 +2,7 @@ import { SUBSCRIBER_GROWTH_TZ, UNKNOWN_METRIC } from "@/lib/admin-subscriber-gro
 import type { AdLabPanel } from "@/lib/ad-lab-import-pure";
 import type { AdLabPageView } from "@/lib/ad-lab-product-pure";
 
+import { AdLabMetaRefresh } from "./ad-lab-refresh";
 import { AdLabWorkspace } from "./ad-lab-workspace";
 
 function formatWhen(iso: string | null): string {
@@ -50,10 +51,21 @@ export function SubscriberGrowthAdLab({ view }: { view: AdLabPanel | AdLabPageVi
       </div>
     );
   }
+  const refresh =
+    view.status === "ready"
+      ? {
+          lastImportedAt: view.summary.lastImportedAt,
+          timezone: view.summary.timezone,
+          stale: view.summary.stale,
+        }
+      : { lastImportedAt: null, timezone: SUBSCRIBER_GROWTH_TZ, stale: false };
   return (
     <div className="mt-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
       <h3 className="text-[11px] font-medium text-gray-800">Summitt Ad Lab</h3>
-      <p className="mt-0.5 text-[10px] text-gray-500">
+      <div className="mt-2">
+        <AdLabMetaRefresh {...refresh} />
+      </div>
+      <p className="mt-2 text-[10px] text-gray-500">
         Meta-reported delivery from the stored import. It is not added to the
         hand-entered advertising spend above. Verified trials, paying subscribers,
         and cost per result are not connected to individual ads yet.

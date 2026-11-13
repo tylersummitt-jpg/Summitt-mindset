@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 
 vi.mock("server-only", () => ({}));
 
-import { runAdLabImport, type AdLabIdentity, type AdLabStore } from "@/lib/ad-lab-import";
+import { AD_LAB_REFRESH_COOLDOWN_MS } from "@/lib/ad-lab-import-pure";
+import { runAdLabImport, type AdLabIdentity, type AdLabImportClaim, type AdLabStore } from "@/lib/ad-lab-import";
 import { readMetaPagingCursor } from "@/lib/meta-ad-lab-insights-pure";
 
 const TOKEN = "meta-ad-lab-test-token-value";
@@ -513,5 +514,117 @@ describe("ad lab import sql", () => {
     expect(storeSource).toContain("ad_lab_import_batch");
     expect(storeSource).not.toContain("writeChunks");
     expect(storeSource).not.toContain(".upsert(");
+  });
+
+  it("adds a shared lock without a second delivery writer", () => {
+    const sql = readFileSync("supabase/migrations/20261113160000_ad_lab_import_guard.sql", "utf8");
+    const storeSource = readFileSync("src/lib/ad-lab-store.ts", "utf8");
+    expect(AD_LAB_REFRESH_COOLDOWN_MS).toBe(5 * 60 * 1000);
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.ad_lab_claim_import");
+    expect(sql).toContain("CREATE OR REPLACE FUNCTION public.ad_lab_finish_import");
+    expect(sql).toContain("FOR UPDATE");
+    expect(sql).toContain("interval '5 minutes'");
+    expect(sql).toContain("interval '2 hours'");
+    expect(sql).not.toContain("interval '3 minutes'");
+    expect(sql).toContain("WHEN p_succeeded THEN pg_catalog.now()");
+    expect(sql).toContain("GRANT SELECT ON TABLE public.ad_lab_import_guard TO service_role");
+    expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.ad_lab_claim_import(text) TO service_role");
+    expect(sql).toContain("GRANT EXECUTE ON FUNCTION public.ad_lab_finish_import(text, uuid, boolean) TO service_role");
+    expect(sql).toContain("pg_catalog.gen_random_uuid()");
+    expect(sql).toContain("AND lock_token = p_token");
+    expect(sql).not.toContain("ad_lab_finish_import(text, boolean)");
+    expect(sql).not.toContain("CREATE OR REPLACE FUNCTION public.ad_lab_import_batch");
+    expect(sql).not.toContain("INSERT INTO public.ad_lab_daily_delivery");
+    expect(sql).not.toMatch(/GRANT\s+(INSERT|UPDATE|DELETE)/);
+    expect(sql).not.toMatch(/EXECUTE\s+format/i);
+    expect(storeSource).toContain("ad_lab_claim_import");
+    expect(storeSource).toContain("ad_lab_finish_import");
+    expect(storeSource).toContain("p_token: token");
+    expect(storeSource).toContain("ad_lab_import_batch");
+  });
+});
+
+const OWNER = "11111111-1111-4111-8111-111111111111";
+
+function gated(claim: AdLabImportClaim) {
+  const finishes: Array<{ token: string; succeeded: boolean }> = [];
+  let commits = 0;
+  const saved: AdLabStore = {
+    async readAds() {
+      return { ok: true, ads: [] };
+    },
+    async commitImport() {
+      commits += 1;
+      return { ok: true };
+    },
+    async claimImport() {
+      return claim;
+    },
+    async finishImport(_accountId, token, succeeded) {
+      finishes.push({ token, succeeded });
+    },
+  };
+  return { saved, finishes, commitCount: () => commits };
+}
+
+describe("ad lab import lock", () => {
+  it("does not call Meta when another import is running", async () => {
+    process.env.META_AD_LAB_ACCESS_TOKEN = TOKEN;
+    process.env.META_AD_LAB_ACCOUNT_ID = "1234567890";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const gate = gated({ ok: false, reason: "busy" });
+    const result = await runAdLabImport({ store: gate.saved });
+    expect(result).toMatchObject({
+      ok: false,
+      reason: "busy",
+      message: "A Meta import is already running. The stored results are unchanged.",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(gate.finishes).toEqual([]);
+    expect(gate.commitCount()).toBe(0);
+  });
+
+  it("does not call Meta during the cooldown", async () => {
+    process.env.META_AD_LAB_ACCESS_TOKEN = TOKEN;
+    process.env.META_AD_LAB_ACCOUNT_ID = "1234567890";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const gate = gated({ ok: false, reason: "cooldown" });
+    const result = await runAdLabImport({ store: gate.saved });
+    expect(result).toMatchObject({ ok: false, reason: "cooldown" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(gate.finishes).toEqual([]);
+  });
+
+  it("keeps stored rows and releases the lock when Meta is unavailable", async () => {
+    process.env.META_AD_LAB_ACCESS_TOKEN = TOKEN;
+    process.env.META_AD_LAB_ACCOUNT_ID = "1234567890";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(jsonResponse(429, { error: { message: `slow down ${TOKEN}`, code: 4 } }))
+    );
+    const gate = gated({ ok: true, token: OWNER });
+    const result = await runAdLabImport({ store: gate.saved, retryDelayMs: 0 });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("meta");
+      expect(result.message).not.toContain(TOKEN);
+    }
+    expect(gate.commitCount()).toBe(0);
+    expect(gate.finishes).toEqual([{ token: OWNER, succeeded: false }]);
+  });
+
+  it("does not finish a lock it does not own", async () => {
+    process.env.META_AD_LAB_ACCESS_TOKEN = TOKEN;
+    process.env.META_AD_LAB_ACCOUNT_ID = "1234567890";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const gate = gated({ ok: true, token: "" });
+    const result = await runAdLabImport({ store: gate.saved });
+    expect(result).toMatchObject({ ok: false, reason: "storage" });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(gate.finishes).toEqual([]);
+    expect(gate.commitCount()).toBe(0);
   });
 });

@@ -247,6 +247,23 @@ describe("ad lab import rules", () => {
     expect(summary.stale).toBe(true);
   });
 
+  it("shows a newer recorded import without changing the stored spend", () => {
+    const summary = summarizeAdLab({
+      identities: [],
+      timezone: "America/New_York",
+      currency: "USD",
+      todayKey: "2026-11-11",
+      rangeSince: "2026-11-10",
+      rangeUntil: "2026-11-11",
+      now: new Date("2026-11-11T16:00:00.000Z"),
+      days: [day({ metaAdId: "1111111111", spendDate: "2026-11-11", spendCents: 300, importedAt: "2026-11-09T12:00:00.000Z" })],
+      recordedSuccessAt: "2026-11-11T15:30:00.000Z",
+    });
+    expect(summary.lastImportedAt).toBe("2026-11-11T15:30:00.000Z");
+    expect(summary.stale).toBe(false);
+    expect(summary.todaySpendCents).toBe(300);
+  });
+
   it("gives a new ad its earliest and latest insight dates", () => {
     const [created] = identitiesFromImport({
       existing: [],

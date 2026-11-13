@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import type { AdLabAdCard, AdLabExperimentView, AdLabLab, AdLabNotes } from "@/lib/ad-lab-product-pure";
 
+import { AdLabMetaRefresh } from "./ad-lab-refresh";
+
 type Tab = "overview" | "ads" | "experiments" | "learning";
 
 const METRIC_LABEL: Record<string, string> = {
@@ -27,7 +29,11 @@ export function AdLabWorkspace({ lab }: { lab: AdLabLab }) {
             experiments you choose. This does not change the hand-entered spend above.
           </p>
         </div>
-        <p className="text-xs text-stone-500">{freshness(lab)}</p>
+        <AdLabMetaRefresh
+          lastImportedAt={lab.lastImportedAt}
+          timezone={lab.timezone}
+          stale={lab.stale}
+        />
       </div>
       <div className="mt-4 flex flex-wrap gap-2">
         {(
@@ -557,12 +563,6 @@ function count(value: number | null): string {
 
 function percent(value: number | null): string {
   return value == null ? "—" : `${(value * 100).toFixed(2)}%`;
-}
-
-function freshness(lab: AdLabLab): string {
-  if (!lab.lastImportedAt) return "No successful import yet";
-  const when = new Date(lab.lastImportedAt).toLocaleString("en-US", { timeZone: lab.timezone });
-  return lab.stale ? `Import is stale. Last success ${when}` : `Last import ${when}`;
 }
 
 function dollarsToCents(value: FormDataEntryValue | null): string {

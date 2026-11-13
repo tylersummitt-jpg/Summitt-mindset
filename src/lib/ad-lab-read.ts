@@ -86,6 +86,7 @@ export async function loadAdLabSummary(args: {
       rangeSince: page.since,
       rangeUntil: page.until,
       now,
+      recordedSuccessAt: await readLastImportSuccess(accountId),
     });
     let lab: AdLabLab | undefined;
     try {
@@ -126,6 +127,17 @@ async function readIdentities(
     ok: true,
     rows: (data ?? []).map((row) => identityFromRow(row as Record<string, unknown>)),
   };
+}
+
+async function readLastImportSuccess(accountId: string): Promise<string | null> {
+  const { data, error } = await supabaseServer
+    .from("ad_lab_import_guard")
+    .select("last_success_at")
+    .eq("account_id", accountId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const value = (data as { last_success_at?: unknown }).last_success_at;
+  return typeof value === "string" && value.trim() ? value : null;
 }
 
 async function readExperimentStarts(accountId: string): Promise<string[]> {

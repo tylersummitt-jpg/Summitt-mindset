@@ -58,4 +58,20 @@ describe("ad lab insights cron", () => {
     expect(response.status).toBe(400);
     expect(importMock).not.toHaveBeenCalled();
   });
+
+  it("treats a lock or cooldown as a skip, not a failed import", async () => {
+    process.env.CRON_SECRET = "cron-test-secret";
+    importMock.mockResolvedValueOnce({
+      ok: false,
+      reason: "busy",
+      message: "A Meta import is already running. The stored results are unchanged.",
+    });
+    const response = await GET(
+      new Request("https://example.com/api/cron/ad-lab-insights", {
+        headers: { authorization: "Bearer cron-test-secret" },
+      })
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ ok: false, reason: "busy" });
+  });
 });
