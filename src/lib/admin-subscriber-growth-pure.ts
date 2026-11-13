@@ -1875,6 +1875,11 @@ export type SubscriberGrowthDashboardData = {
   trialOnboardingFunnel: TrialOnboardingFunnelCounts;
   visitorCohortTable: VisitorCohortTable;
   homepageVideo: HomepageVideoReport;
+  /** Subscriptions already listed for this page. The Ad Lab reads them. The spend cards do not. */
+  adLabSubscriptions?: {
+    complete: boolean;
+    subs: GrowthStripeSubscription[];
+  };
   /**
    * Subscriptions already listed for this dashboard load.
    * Set only when the operating snapshot asks. Brooke's page does not ask and does not render it.

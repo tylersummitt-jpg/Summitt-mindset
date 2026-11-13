@@ -21,8 +21,14 @@ async function MetaAdDelivery({ range }: { range: GrowthDateRange }) {
   return <SubscriberGrowthMetaInsights report={report} />;
 }
 
-async function AdLabSummary({ range }: { range: GrowthDateRange }) {
-  const view = await loadAdLabSummary({ range });
+async function AdLabSummary({
+  range,
+  subscriptions,
+}: {
+  range: GrowthDateRange;
+  subscriptions?: { complete: boolean; subs: import("@/lib/admin-subscriber-growth-pure").GrowthStripeSubscription[] };
+}) {
+  const view = await loadAdLabSummary({ range, subscriptions });
   return <SubscriberGrowthAdLab view={view} />;
 }
 
@@ -51,7 +57,7 @@ export default async function AdminSubscriberGrowthPage({
             </p>
           }
         >
-          <AdLabSummary range={range} />
+          <AdLabSummary range={range} subscriptions={data.adLabSubscriptions} />
         </Suspense>
       }
       metaInsights={

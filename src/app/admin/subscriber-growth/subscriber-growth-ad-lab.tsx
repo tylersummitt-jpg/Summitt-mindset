@@ -1,5 +1,8 @@
 import { SUBSCRIBER_GROWTH_TZ, UNKNOWN_METRIC } from "@/lib/admin-subscriber-growth-pure";
 import type { AdLabPanel } from "@/lib/ad-lab-import-pure";
+import type { AdLabPageView } from "@/lib/ad-lab-product-pure";
+
+import { AdLabWorkspace } from "./ad-lab-workspace";
 
 function formatWhen(iso: string | null): string {
   if (!iso) return "Unknown";
@@ -39,7 +42,14 @@ function statusLabel(status: string | null): string {
     .join(" ");
 }
 
-export function SubscriberGrowthAdLab({ view }: { view: AdLabPanel }) {
+export function SubscriberGrowthAdLab({ view }: { view: AdLabPanel | AdLabPageView }) {
+  if (view.status === "ready" && "lab" in view && view.lab) {
+    return (
+      <div className="mt-6">
+        <AdLabWorkspace lab={view.lab} />
+      </div>
+    );
+  }
   return (
     <div className="mt-3 rounded-lg border border-gray-200 bg-white px-3 py-2">
       <h3 className="text-[11px] font-medium text-gray-800">Summitt Ad Lab</h3>

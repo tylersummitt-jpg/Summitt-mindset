@@ -18,6 +18,8 @@ import {
   type AdLabStoredDay,
 } from "@/lib/ad-lab-import-pure";
 import { metaAdLabWindow, normalizeMetaAdAccountId } from "@/lib/meta-ad-lab-insights-pure";
+import { buildAdLabLab } from "@/lib/ad-lab-product";
+import type { AdLabLab, AdLabPageView } from "@/lib/ad-lab-product-pure";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getDateKeyInTimezone } from "@/lib/timezone";
 
@@ -28,7 +30,8 @@ const UNAVAILABLE = "Stored Meta delivery could not be read. The rest of this pa
 export async function loadAdLabSummary(args: {
   range: GrowthDateRange;
   now?: Date;
-}): Promise<AdLabPanel> {
+  subscriptions?: { complete: boolean; subs: import("@/lib/admin-subscriber-growth-pure").GrowthStripeSubscription[] };
+}): Promise<AdLabPageView> {
   try {
     const accountId = normalizeMetaAdAccountId(process.env.META_AD_LAB_ACCOUNT_ID);
     if (!accountId) {
@@ -41,12 +44,20 @@ export async function loadAdLabSummary(args: {
     const todayNy = getDateKeyInTimezone(now, SUBSCRIBER_GROWTH_TZ);
     const page = metaAdLabWindow(args.range, todayNy);
     const weekStart = mondayOnOrBefore(todayNy);
-    const since = addDaysToDateKey(page.since < weekStart ? page.since : weekStart, -1);
+    const pageSince = addDaysToDateKey(page.since < weekStart ? page.since : weekStart, -1);
     const until = addDaysToDateKey(page.until > todayNy ? page.until : todayNy, 1);
-    const [identities, days] = await Promise.all([
-      readIdentities(accountId),
-      readDays(accountId, since, until),
-    ]);
+    const experimentStarts = await readExperimentStarts(accountId);
+    let since = pageSince;
+    for (const start of experimentStarts) {
+      if (start < since) since = start;
+    }
+    let days = await readDays(accountId, since, until);
+    let loadedSince = since;
+    if (!days.ok && since !== pageSince) {
+      days = await readDays(accountId, pageSince, until);
+      loadedSince = pageSince;
+    }
+    const identities = await readIdentities(accountId);
     if (!identities.ok || !days.ok) return { status: "unavailable", message: UNAVAILABLE };
     if (identities.rows.length === 0 && days.rows.length === 0) {
       return {
@@ -66,19 +77,31 @@ export async function loadAdLabSummary(args: {
     const timezone = [...timezones][0] ?? SUBSCRIBER_GROWTH_TZ;
     const currency = [...currencies][0] ?? "USD";
     const todayKey = getDateKeyInTimezone(now, timezone);
-    return {
-      status: "ready",
-      summary: summarizeAdLab({
+    const summary = summarizeAdLab({
+      identities: identities.rows,
+      days: days.rows,
+      timezone,
+      currency,
+      todayKey,
+      rangeSince: page.since,
+      rangeUntil: page.until,
+      now,
+    });
+    let lab: AdLabLab | undefined;
+    try {
+      lab = await buildAdLabLab({
         identities: identities.rows,
         days: days.rows,
-        timezone,
-        currency,
+        summary,
+        loadedSince,
+        loadedUntil: until,
         todayKey,
-        rangeSince: page.since,
-        rangeUntil: page.until,
-        now,
-      }),
-    };
+        subscriptions: args.subscriptions,
+      });
+    } catch {
+      lab = undefined;
+    }
+    return { status: "ready", summary, lab };
   } catch {
     return { status: "unavailable", message: UNAVAILABLE };
   }
@@ -103,6 +126,18 @@ async function readIdentities(
     ok: true,
     rows: (data ?? []).map((row) => identityFromRow(row as Record<string, unknown>)),
   };
+}
+
+async function readExperimentStarts(accountId: string): Promise<string[]> {
+  const { data, error } = await supabaseServer
+    .from("ad_lab_experiments")
+    .select("starts_on")
+    .eq("account_id", accountId)
+    .limit(200);
+  if (error) return [];
+  return (data ?? [])
+    .map((row) => (row as { starts_on?: unknown }).starts_on)
+    .filter((value): value is string => typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value));
 }
 
 async function readDays(

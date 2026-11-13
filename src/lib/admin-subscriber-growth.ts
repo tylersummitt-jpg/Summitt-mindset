@@ -13,8 +13,10 @@ import {
   aggregateTrafficSourceRows,
   appleSubscriberIdentity,
   buildLatestTrialRows,
+  becamePaidAfterTrial,
   clerkUserIdFromStripeSub,
   computeGrowthSnapshot,
+  stripeInterval,
   attachRecentActivityDetails,
   collectRecentActivityEvents,
   countActivePaidMembers,
@@ -75,6 +77,7 @@ import { isAppleRowCurrentlyGranting } from "@/lib/summitt-membership-entitlemen
 import { listClerkUsers, listClerkUsersByIds } from "@/lib/clerk-rest";
 import { extractPrimaryEmail } from "@/lib/quotes-book-fulfillment-reminder";
 import { getRecognizedSummittPriceIds } from "@/lib/stripe-recognized-price-ids";
+import type { AdLabOutcomePerson } from "@/lib/ad-lab-product-pure";
 import { supabaseServer } from "@/lib/supabase-server";
 import { getDateKeyInTimezone, utcInstantForLocalMidnight } from "@/lib/timezone";
 
@@ -1602,6 +1605,10 @@ export async function loadSubscriberGrowthDashboard(args: {
     trialOnboardingFunnel,
     visitorCohortTable,
     homepageVideo,
+    adLabSubscriptions: {
+      complete: stripeListComplete,
+      subs: stripeSubs,
+    },
     landingBilling: toLandingBilling({
       subscriptionsReadable: stripeListComplete,
       paymentsReadable: stripeListComplete && invoiceListComplete,
@@ -1618,4 +1625,69 @@ export async function loadSubscriberGrowthDashboard(args: {
         }
       : {}),
   };
+}
+
+const AD_LAB_OUTCOME_EMPTY = {
+  people: [] as AdLabOutcomePerson[],
+  paymentsKnown: false,
+  subscriptionsComplete: false,
+  attributionComplete: false,
+};
+
+/** Stripe trials already stored on subscriptions, matched to first-touch UTMs. */
+export async function loadAdLabOutcomePeople(args?: {
+  subs?: GrowthStripeSubscription[];
+  subscriptionsComplete?: boolean;
+}): Promise<{
+  people: AdLabOutcomePerson[];
+  paymentsKnown: boolean;
+  subscriptionsComplete: boolean;
+  attributionComplete: boolean;
+}> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return AD_LAB_OUTCOME_EMPTY;
+  try {
+    const stripe = new Stripe(key);
+    const recognized = getRecognizedSummittPriceIds();
+    const listed = args?.subs
+      ? { subs: args.subs, complete: args.subscriptionsComplete === true }
+      : await listStripeSubscriptions(stripe);
+    const subs = listed.subs.filter((sub) => sub.metadata?.summittCanary !== "owner");
+    const seeds = selectLatestTrialSeeds(subs, recognized, 10000);
+    const invoices = await listPeriodStripeInvoices({
+      stripe,
+      startMs: null,
+      endMs: Date.now(),
+      recognized,
+      summitSubIds: new Set(seeds.map((seed) => seed.sub.id)),
+    });
+    const attribution = await loadMarketingAttribution();
+    const attrByClerk = new Map(attribution.rows.map((row) => [row.clerk_user_id, row]));
+    const nowSec = Math.floor(Date.now() / 1000);
+    const paymentsKnown = listed.complete && invoices.complete;
+    const people = seeds.map((seed): AdLabOutcomePerson => {
+      const attr = attrByClerk.get(seed.clerkUserId);
+      const trialEnd = seed.sub.trial_end ?? null;
+      return {
+        clerkUserId: seed.clerkUserId,
+        utmContent: attr?.utm_content ?? null,
+        utmCampaign: attr?.utm_campaign ?? null,
+        trialStartUnix: seed.trialStartUnix,
+        trialEndUnix: trialEnd,
+        trialing:
+          seed.sub.status === "trialing" || (trialEnd != null && trialEnd > nowSec),
+        paid: paymentsKnown ? becamePaidAfterTrial(seed.sub, invoices.paidInvoiceSubIds.has(seed.sub.id)) : null,
+        interval: stripeInterval(seed.sub),
+      };
+    });
+    return {
+      people,
+      paymentsKnown,
+      subscriptionsComplete: listed.complete,
+      attributionComplete: attribution.complete,
+    };
+  } catch {
+    console.warn("[meta-ad-lab] outcome read failed");
+    return AD_LAB_OUTCOME_EMPTY;
+  }
 }
