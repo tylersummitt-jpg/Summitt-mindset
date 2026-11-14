@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin-subscriber-growth-pure";
 
 export const META_AD_LAB_GRAPH_VERSION = "v27.0" as const;
+export const META_AD_LAB_EXPECTED_ACCOUNT_ID = "2269585583831138";
 export const META_AD_LAB_ROW_LIMIT = 100;
 export const META_AD_LAB_MAX_PAGES = 5;
 export const META_AD_LAB_ALL_TIME_CAP_DAYS = 30;
@@ -35,6 +36,21 @@ export type MetaAdInsightRow = {
   campaignName: string | null;
   adsetId: string | null;
   adsetName: string | null;
+};
+
+export type MetaAdLabAccessCheck = {
+  accountId: string | null;
+  accountMatchesExpected: boolean;
+  tokenPresent: boolean;
+  graphVersion: typeof META_AD_LAB_GRAPH_VERSION;
+  endpoint: "insights";
+  authorization: "bearer";
+  systemUserId: string | null;
+  systemUserName: string | null;
+  grantedScopes: string[] | null;
+  visibleAdAccountIds: string[] | null;
+  targetAccountListed: boolean | null;
+  note: string | null;
 };
 
 export type MetaAdLabInsightsResult =
@@ -63,7 +79,12 @@ export type MetaAdLabInsightsResult =
       fetchedAt: string;
       httpStatus: number | null;
       code: number | null;
+      subcode: number | null;
+      errorType: string | null;
+      fbtraceId: string | null;
+      accountId: string | null;
       message: string;
+      access: MetaAdLabAccessCheck;
     };
 
 export function metaAdLabWindow(
@@ -141,6 +162,55 @@ export function safeMetaCursor(raw: string | null | undefined): string | null {
   }
   if (!/^[A-Za-z0-9+/_=-]+$/.test(trimmed)) return null;
   return trimmed;
+}
+
+export function parseMetaIdentity(
+  payload: unknown
+): { id: string | null; name: string | null } {
+  if (!payload || typeof payload !== "object") return { id: null, name: null };
+  const record = payload as { id?: unknown; name?: unknown };
+  const id = typeof record.id === "string" && /^\d{1,32}$/.test(record.id) ? record.id : null;
+  const name =
+    typeof record.name === "string"
+      ? record.name.replace(/\s+/g, " ").trim().slice(0, 80)
+      : null;
+  return { id, name: name && name.length > 0 ? name : null };
+}
+
+export function parseGrantedScopes(payload: unknown): string[] | null {
+  if (!payload || typeof payload !== "object") return null;
+  const data = (payload as { data?: unknown }).data;
+  if (!Array.isArray(data)) return null;
+  const scopes: string[] = [];
+  for (const item of data) {
+    if (!item || typeof item !== "object") continue;
+    const row = item as { permission?: unknown; status?: unknown };
+    if (row.status !== "granted" || typeof row.permission !== "string") continue;
+    if (!/^[a-z0-9_]{1,64}$/.test(row.permission)) continue;
+    if (!scopes.includes(row.permission)) scopes.push(row.permission);
+    if (scopes.length >= 30) break;
+  }
+  return scopes;
+}
+
+export function parseVisibleAdAccountIds(payload: unknown): {
+  ids: string[] | null;
+  complete: boolean;
+} {
+  if (!payload || typeof payload !== "object") return { ids: null, complete: true };
+  const record = payload as { data?: unknown; paging?: { next?: unknown } };
+  if (!Array.isArray(record.data)) return { ids: null, complete: true };
+  const ids: string[] = [];
+  for (const item of record.data) {
+    if (!item || typeof item !== "object") continue;
+    const accountId = (item as { account_id?: unknown; id?: unknown }).account_id;
+    const raw = typeof accountId === "string" ? accountId : null;
+    if (!raw || !/^\d{5,20}$/.test(raw) || ids.includes(raw)) continue;
+    ids.push(raw);
+    if (ids.length >= 50) break;
+  }
+  if (ids.length === 0 && record.data.length > 0) return { ids: null, complete: false };
+  return { ids, complete: !record.paging?.next };
 }
 
 export function redactMetaSecrets(text: string, secrets: readonly string[]): string {
@@ -353,19 +423,51 @@ function isIanaTimezone(timezone: string): boolean {
   }
 }
 
-export function readMetaGraphError(payload: unknown): { code: number | null; message: string } {
+export function readMetaGraphError(payload: unknown): {
+  code: number | null;
+  subcode: number | null;
+  type: string | null;
+  fbtraceId: string | null;
+  message: string;
+} {
   const error =
     payload && typeof payload === "object" ? (payload as { error?: unknown }).error : null;
   if (!error || typeof error !== "object") {
-    return { code: null, message: "Meta returned an unexpected response." };
+    return {
+      code: null,
+      subcode: null,
+      type: null,
+      fbtraceId: null,
+      message: "Meta returned an unexpected response.",
+    };
   }
-  const record = error as { code?: unknown; message?: unknown };
-  const code = typeof record.code === "number" && Number.isFinite(record.code) ? record.code : null;
+  const record = error as {
+    code?: unknown;
+    error_subcode?: unknown;
+    type?: unknown;
+    fbtrace_id?: unknown;
+    message?: unknown;
+  };
+  const code = finiteInt(record.code);
+  const subcode = finiteInt(record.error_subcode);
+  const type = shortToken(record.type, 40);
+  const fbtraceId = shortToken(record.fbtrace_id, 64);
   const message =
     typeof record.message === "string" && record.message.trim()
       ? record.message.trim()
       : "Meta rejected the insights request.";
-  return { code, message };
+  return { code, subcode, type, fbtraceId, message };
+}
+
+function finiteInt(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) ? value : null;
+}
+
+function shortToken(value: unknown, max: number): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > max || !/^[A-Za-z0-9_-]+$/.test(trimmed)) return null;
+  return trimmed;
 }
 
 export function metaAdLabRangeFromQuery(raw: string | undefined | null): GrowthDateRange {

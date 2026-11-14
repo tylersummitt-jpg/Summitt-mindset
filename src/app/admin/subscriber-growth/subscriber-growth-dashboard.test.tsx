@@ -770,7 +770,25 @@ describe("subscriber growth CMO completion copy", () => {
               fetchedAt: "2026-11-10T16:00:00.000Z",
               httpStatus: 400,
               code: 190,
+              subcode: null,
+              errorType: null,
+              fbtraceId: null,
+              accountId: "2269585583831138",
               message: "Meta rejected the insights request.",
+              access: {
+                accountId: "2269585583831138",
+                accountMatchesExpected: true,
+                tokenPresent: true,
+                graphVersion: "v27.0",
+                endpoint: "insights",
+                authorization: "bearer",
+                systemUserId: null,
+                systemUserName: null,
+                grantedScopes: null,
+                visibleAdAccountIds: null,
+                targetAccountListed: null,
+                note: null,
+              },
             }}
           />
         }

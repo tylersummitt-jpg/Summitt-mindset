@@ -9,6 +9,8 @@ import {
   metaAdLabWindow,
   normalizeMetaAdAccountId,
   parseMetaInsightRows,
+  parseVisibleAdAccountIds,
+  readMetaGraphError,
   redactMetaSecrets,
 } from "@/lib/meta-ad-lab-insights-pure";
 import { loadMetaAdLabInsights } from "@/lib/meta-ad-lab-insights";
@@ -121,6 +123,42 @@ describe("meta ad lab insights parsing", () => {
     expect(normalizeMetaAdAccountId("not-an-account")).toBeNull();
   });
 
+  it("keeps the permission subcode and drops an unsafe trace id", () => {
+    expect(
+      readMetaGraphError({
+        error: {
+          message: "Ad account owner has NOT grant ads_read permission",
+          type: "OAuthException",
+          code: 200,
+          error_subcode: 1815066,
+          fbtrace_id: "safe_trace",
+        },
+      })
+    ).toEqual({
+      code: 200,
+      subcode: 1815066,
+      type: "OAuthException",
+      fbtraceId: "safe_trace",
+      message: "Ad account owner has NOT grant ads_read permission",
+    });
+    expect(
+      readMetaGraphError({
+        error: { code: 200, fbtrace_id: `bad ${TOKEN}`, type: "not a token" },
+      }).fbtraceId
+    ).toBeNull();
+  });
+
+  it("does not treat an unreadable account list as proof the account is missing", () => {
+    expect(parseVisibleAdAccountIds({ data: [{ id: "act_2269585583831138" }] })).toEqual({
+      ids: null,
+      complete: false,
+    });
+    expect(parseVisibleAdAccountIds({ data: [], paging: { next: "https://graph.facebook.com/next" } })).toEqual({
+      ids: [],
+      complete: false,
+    });
+  });
+
   it("strips the token from an error message", () => {
     const message = redactMetaSecrets(
       `OAuth failed for ${TOKEN} at https://graph.facebook.com/path?access_token=${TOKEN}`,
@@ -207,7 +245,132 @@ describe("loadMetaAdLabInsights", () => {
       expect(result.code).toBe(190);
       expect(result.httpStatus).toBe(400);
       expect(result.message).not.toContain(TOKEN);
+      expect(JSON.stringify(result)).not.toContain(TOKEN);
     }
+  });
+
+  it("records the insights error and a read-only token check without the token", async () => {
+    process.env.META_AD_LAB_ACCESS_TOKEN = TOKEN;
+    process.env.META_AD_LAB_ACCOUNT_ID = "act_2269585583831138";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.includes("/insights")) {
+        return {
+          status: 400,
+          text: async () =>
+            JSON.stringify({
+              error: {
+                message: `(#200) Ad account owner has NOT granted ads_management or ads_read permission for ${TOKEN}`,
+                type: "OAuthException",
+                code: 200,
+                error_subcode: 1815066,
+                fbtrace_id: "AbCdEf",
+              },
+            }),
+        };
+      }
+      if (url.endsWith("/me?fields=id,name")) {
+        return { status: 200, text: async () => JSON.stringify({ id: "9001", name: "Summitt Ad Lab" }) };
+      }
+      if (url.endsWith("/me/permissions")) {
+        return {
+          status: 200,
+          text: async () =>
+            JSON.stringify({
+              data: [
+                { permission: "ads_read", status: "granted" },
+                { permission: "public_profile", status: "declined" },
+              ],
+            }),
+        };
+      }
+      if (url.includes("/me/adaccounts")) {
+        return {
+          status: 200,
+          text: async () => JSON.stringify({ data: [{ account_id: "1111111111", name: "Other" }] }),
+        };
+      }
+      throw new Error("unexpected url");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await loadMetaAdLabInsights({
+      range: "today",
+      now: new Date("2026-11-14T12:17:00.000Z"),
+    });
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.httpStatus).toBe(400);
+      expect(result.code).toBe(200);
+      expect(result.subcode).toBe(1815066);
+      expect(result.errorType).toBe("OAuthException");
+      expect(result.fbtraceId).toBe("AbCdEf");
+      expect(result.accountId).toBe("2269585583831138");
+      expect(result.message).toContain("NOT granted");
+      expect(result.access.accountMatchesExpected).toBe(true);
+      expect(result.access.authorization).toBe("bearer");
+      expect(result.access.graphVersion).toBe("v27.0");
+      expect(result.access.systemUserId).toBe("9001");
+      expect(result.access.grantedScopes).toEqual(["ads_read"]);
+      expect(result.access.targetAccountListed).toBe(false);
+    }
+    const urls = fetchMock.mock.calls.map((call) => String(call[0]));
+    expect(urls.some((url) => url.includes("/insights"))).toBe(true);
+    expect(urls.some((url) => url.includes("access_token"))).toBe(false);
+    expect(urls.join(" ")).not.toContain(TOKEN);
+    const logged = JSON.stringify(warn.mock.calls);
+    expect(logged).toContain('"step":"insights"');
+    expect(logged).toContain("1815066");
+    expect(logged).toContain("2269585583831138");
+    expect(logged).not.toContain(TOKEN);
+    expect(JSON.stringify(result)).not.toContain(TOKEN);
+    warn.mockRestore();
+  });
+
+  it("keeps Meta's insights error when the account list and token check fail", async () => {
+    process.env.META_AD_LAB_ACCESS_TOKEN = TOKEN;
+    process.env.META_AD_LAB_ACCOUNT_ID = "2269585583831138";
+    const fetchMock = vi.fn(async (url: string) => {
+      if (String(url).includes("/insights")) {
+        return {
+          status: 400,
+          text: async () =>
+            JSON.stringify({
+              error: {
+                message: "(#200) Ad account owner has NOT granted ads_read permission",
+                type: "OAuthException",
+                code: 200,
+                error_subcode: 1815066,
+                fbtrace_id: "TraceOnly",
+              },
+            }),
+        };
+      }
+      if (String(url).includes("/me/adaccounts")) {
+        return {
+          status: 400,
+          text: async () =>
+            JSON.stringify({
+              error: { message: `account list failed ${TOKEN}`, code: 200 },
+            }),
+        };
+      }
+      throw new Error(`token check failed ${TOKEN}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await loadMetaAdLabInsights({
+      range: "today",
+      now: new Date("2026-11-14T12:17:00.000Z"),
+    });
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.httpStatus).toBe(400);
+      expect(result.code).toBe(200);
+      expect(result.subcode).toBe(1815066);
+      expect(result.message).toBe("(#200) Ad account owner has NOT granted ads_read permission");
+      expect(result.access.targetAccountListed).toBeNull();
+      expect(result.access.note).not.toContain(TOKEN);
+    }
+    expect(JSON.stringify(result)).not.toContain(TOKEN);
   });
 
   it("retries once with the core fields when Meta rejects an extra field", async () => {

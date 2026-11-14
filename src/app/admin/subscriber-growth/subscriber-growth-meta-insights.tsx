@@ -70,11 +70,32 @@ export function SubscriberGrowthMetaInsights({
             ? ` (${[
                 report.httpStatus != null ? `HTTP ${report.httpStatus}` : null,
                 report.code != null ? `Meta code ${report.code}` : null,
+                report.subcode != null ? `subcode ${report.subcode}` : null,
+                report.errorType ? report.errorType : null,
               ]
                 .filter(Boolean)
                 .join(", ")}).`
             : "."}{" "}
-          {report.message} The rest of this page is unchanged.
+          {report.message}
+          {report.fbtraceId ? ` Trace ${report.fbtraceId}.` : ""}
+          {report.accountId ? ` Requested ad account ${report.accountId}.` : ""}{" "}
+          The insights request uses Graph {report.access.graphVersion} and a bearer header.
+          {report.access.accountMatchesExpected
+            ? " That account is 2269585583831138."
+            : " That account is not 2269585583831138."}{" "}
+          {report.access.tokenPresent ? "A token is set." : "No token is set."}{" "}
+          {report.access.systemUserId
+            ? `Meta identifies this token as ${report.access.systemUserName ?? "an unnamed system user"} (${report.access.systemUserId}).`
+            : "Meta did not identify the token."}{" "}
+          {report.access.grantedScopes
+            ? `Granted scopes: ${report.access.grantedScopes.join(", ") || "none"}.`
+            : "Granted scopes could not be read."}{" "}
+          {report.access.targetAccountListed === true
+            ? "This token can list the requested ad account."
+            : report.access.targetAccountListed === false
+              ? "This token’s visible ad accounts do not include the requested account."
+              : "This check could not confirm whether the token can list the requested account."}{" "}
+          {report.access.note ? report.access.note : ""} The rest of this page is unchanged.
         </p>
       ) : null}
       {report.status === "ok" ? (
