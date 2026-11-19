@@ -235,6 +235,21 @@ export async function runAcquisitionPass(args: {
       videoToken,
       unsubscribeToken: args.unsubscribeToken(),
     };
+    const latestStop = await args.suppression(fresh.email);
+    if (latestStop !== false) {
+      if (latestStop) {
+        await args.apply({
+          kind: "stop",
+          actionId: action.id,
+          status: "suppressed",
+          cancelSiblings: true,
+        });
+      } else {
+        await args.apply({ kind: "release", actionId: action.id });
+      }
+      continue;
+    }
+    // The remaining race is this provider request. A stop recorded after this read can still be handed to the provider once.
     const result = await args.send(request);
     const kind = providerKind(result.outcome);
     if (kind === "accepted") {

@@ -17,6 +17,7 @@ import {
   type EmailAnswerNotice,
 } from "@/lib/acquisition/email-manual-answer";
 import { reconcileInstantlyReply, replyRowFromAttempt } from "@/lib/acquisition/instantly-reply";
+import { durableAcquisitionStop } from "@/lib/acquisition/instantly-block-import.server";
 import { ACQUISITION_CLAIM_MS } from "@/lib/acquisition/model";
 import { notifyAcquisitionEmailAnswer } from "@/lib/acquisition/notify-email-answer";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -456,9 +457,8 @@ async function readApprovedSnapshot(requestId: string): Promise<ApprovedEmailSna
   const email = asText(person?.email_normalized) ?? "";
   let suppressed: boolean | null = null;
   if (email) {
-    const suppression = await supabaseServer.from("recovery_suppressions").select("id").eq("email_normalized", email).maybeSingle();
-    if (suppression.error) return { readable: false, request: null, inbound: null, person: ABSENT, outbound: null };
-    suppressed = Boolean(suppression.data?.id);
+    suppressed = await durableAcquisitionStop(email);
+    if (suppressed === null) return { readable: false, request: null, inbound: null, person: ABSENT, outbound: null };
   }
   let clerkSubscribed = false;
   const clerkUserId = asText(person?.clerk_user_id);

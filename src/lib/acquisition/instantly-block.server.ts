@@ -18,6 +18,7 @@ import {
   unavailableInstantlyBlockVisibility,
   type InstantlyBlockVisibility,
 } from "@/lib/acquisition/instantly-block-visibility";
+import { importVisibilityFields } from "@/lib/acquisition/instantly-block-import.server";
 import { normalizeAcquisitionEmail } from "@/lib/acquisition/model";
 import { supabaseServer } from "@/lib/supabase-server";
 
@@ -655,7 +656,7 @@ export async function deliverPendingInstantlyBlocks(args: {
 export async function loadInstantlyBlockVisibility(): Promise<InstantlyBlockVisibility> {
   const unavailable = unavailableInstantlyBlockVisibility();
   try {
-    const [pending, confirmed, failed, uncertain, oldest, settings] = await Promise.all([
+    const [pending, confirmed, failed, uncertain, oldest, settings, imported] = await Promise.all([
       countBlockStatus("pending"),
       countBlockStatus("confirmed"),
       countBlockStatus("failed"),
@@ -672,6 +673,11 @@ export async function loadInstantlyBlockVisibility(): Promise<InstantlyBlockVisi
         .select("instantly_blocklist")
         .eq("id", "default")
         .maybeSingle(),
+      supabaseServer
+        .from("acquisition_settings")
+        .select("instantly_block_import_cursor, instantly_block_import_completed_at, instantly_block_import_error, instantly_block_import_claim_until")
+        .eq("id", "default")
+        .maybeSingle(),
     ]);
     const countsReadable = pending != null && confirmed != null && failed != null && uncertain != null;
     const oldestPayload = oldest.data as { created_at?: unknown } | Array<{ created_at?: unknown }> | null;
@@ -679,6 +685,18 @@ export async function loadInstantlyBlockVisibility(): Promise<InstantlyBlockVisi
     const oldestAt = typeof oldestRow?.created_at === "string" ? oldestRow.created_at : null;
     const settingsPayload = settings.data as { instantly_blocklist?: unknown } | Array<{ instantly_blocklist?: unknown }> | null;
     const switchValue = Array.isArray(settingsPayload) ? settingsPayload[0] ?? null : settingsPayload;
+    const importedPayload = imported.data as {
+      instantly_block_import_cursor?: unknown;
+      instantly_block_import_completed_at?: unknown;
+      instantly_block_import_error?: unknown;
+      instantly_block_import_claim_until?: unknown;
+    } | Array<{
+      instantly_block_import_cursor?: unknown;
+      instantly_block_import_completed_at?: unknown;
+      instantly_block_import_error?: unknown;
+      instantly_block_import_claim_until?: unknown;
+    }> | null;
+    const importedRow = Array.isArray(importedPayload) ? importedPayload[0] ?? null : importedPayload;
     return {
       countsReadable,
       switchReadable: !settings.error && switchValue != null,
@@ -691,6 +709,7 @@ export async function loadInstantlyBlockVisibility(): Promise<InstantlyBlockVisi
       failed: countsReadable ? failed : null,
       uncertain: countsReadable ? uncertain : null,
       oldestOutstandingAt: oldest.error ? null : oldestAt,
+      ...importVisibilityFields(imported.error ? null : importedRow, !imported.error),
     };
   } catch {
     return unavailable;

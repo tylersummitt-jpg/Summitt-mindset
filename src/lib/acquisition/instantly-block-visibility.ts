@@ -8,6 +8,10 @@ export type InstantlyBlockVisibility = {
   failed: number | null;
   uncertain: number | null;
   oldestOutstandingAt: string | null;
+  importReadable: boolean;
+  importCompletedAt: string | null;
+  importError: string | null;
+  importInProgress: boolean;
 };
 
 export type InstantlyBlockVisibilityView = {
@@ -20,6 +24,7 @@ export type InstantlyBlockVisibilityView = {
   oldestAge: string;
   blocking: string;
   note: string;
+  importStatus: string;
 };
 
 const NOT_AVAILABLE = "Not available";
@@ -35,6 +40,10 @@ export function unavailableInstantlyBlockVisibility(): InstantlyBlockVisibility 
     failed: null,
     uncertain: null,
     oldestOutstandingAt: null,
+    importReadable: false,
+    importCompletedAt: null,
+    importError: null,
+    importInProgress: false,
   };
 }
 
@@ -63,6 +72,7 @@ export function presentInstantlyBlockVisibility(
     oldestAge: ageText(report, outstanding, countsReady, now),
     blocking: report.switchReadable ? (report.blocking === "on" ? "ON" : "OFF") : NOT_AVAILABLE,
     note: "Pending, failed, and uncertain rows are local stop requests waiting in our database. Confirmed means Instantly has a matched blocklist entry. A pending count is not a confirmed provider block. Native blocking OFF means the hourly cron stores local requests and does not call Instantly.",
+    importStatus: importStatus(report),
   };
 }
 
@@ -78,8 +88,19 @@ export function formatInstantlyBlockVisibility(view: InstantlyBlockVisibilityVie
     `Uncertain local stop requests: ${view.uncertain}`,
     `Outstanding stops: ${view.outstanding}`,
     `Oldest outstanding stop: ${view.oldestAge}`,
+    `Blocklist import: ${view.importStatus}`,
     view.note,
   ];
+}
+
+function importStatus(report: InstantlyBlockVisibility): string {
+  if (!report.importReadable) return NOT_AVAILABLE;
+  if (report.importError && /^invalid_entry(?::[A-Za-z0-9-]{1,64})?$/.test(report.importError)) {
+    return `Held: ${report.importError}`;
+  }
+  if (report.importError) return "Incomplete";
+  if (report.importInProgress || !report.importCompletedAt) return "Not finished";
+  return "Finished";
 }
 
 function countText(value: number | null, readable: boolean): string {
