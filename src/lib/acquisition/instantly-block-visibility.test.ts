@@ -21,6 +21,10 @@ function report(overrides: Partial<InstantlyBlockVisibility> = {}): InstantlyBlo
     failed: 0,
     uncertain: 0,
     oldestOutstandingAt: null,
+    importReadable: false,
+    importCompletedAt: null,
+    importError: null,
+    importInProgress: false,
     ...overrides,
   };
 }
@@ -81,6 +85,35 @@ describe("subscriber stop visibility", () => {
     expect(clear.confirmed).toBe("5");
     expect(clear.oldestAge).toBe("None");
     expect(clear.blocking).toBe("OFF");
+  });
+
+  it("keeps an unfinished or failed blocklist import distinct from a finished one", () => {
+    const walking = presentInstantlyBlockVisibility(report({
+      importReadable: true,
+      importCompletedAt: "2026-10-24T00:00:00.000Z",
+      importInProgress: true,
+    }), NOW);
+    const failed = presentInstantlyBlockVisibility(report({
+      importReadable: true,
+      importError: "rate_limited",
+      importInProgress: true,
+    }), NOW);
+    const done = presentInstantlyBlockVisibility(report({
+      importReadable: true,
+      importCompletedAt: "2026-10-24T00:00:00.000Z",
+    }), NOW);
+    const held = presentInstantlyBlockVisibility(report({
+      importReadable: true,
+      importError: "invalid_entry:bad-1",
+      importInProgress: true,
+    }), NOW);
+    expect(walking.importStatus).toBe("Not finished");
+    expect(failed.importStatus).toBe("Incomplete");
+    expect(held.importStatus).toBe("Held: invalid_entry:bad-1");
+    expect(done.importStatus).toBe("Finished");
+    expect(formatInstantlyBlockVisibility(held).join("\n")).not.toMatch(/@/);
+    expect(formatInstantlyBlockVisibility(done).join("\n")).toContain("Blocklist import: Finished");
+    expect(formatInstantlyBlockVisibility(done).join("\n")).not.toMatch(/@/);
   });
 
   it("formats ages without inventing a time for an unreadable timestamp", () => {

@@ -232,6 +232,13 @@ function lead(value: string | null): value is string {
   return Boolean(value && value.includes("@") && value.length >= 6 && value.length <= 254 && !/\s/.test(value));
 }
 
+/**
+ * Manual answers check durable local suppressions and domain blocks only.
+ * They do not call Instantly. A block added after the last imported page stays
+ * invisible here until a later import or an automatic verification records it.
+ * That is a weaker freshness guarantee than an automatic send, which requires
+ * this cron's completed reconciliation or a conclusive recipient check.
+ */
 export function approvedEmailDecision(snapshot: ApprovedEmailSnapshot, now: Date):
   | { action: "refuse"; reason: string }
   | { action: "block_opt_out" }
@@ -391,6 +398,23 @@ export async function runApprovedEmailAnswer(deps: ApprovedEmailDeps): Promise<A
     if (after.action === "reconcile") return reconcileOutbound(after, deps);
     if (after.action === "block_opt_out") return { state: "blocked", reason: "ineligible", providerMessageId: null };
     return { state: "refused", reason: after.reason, providerMessageId: null };
+  }
+  const latest = await deps.read();
+  const latestLifecycleOk = knownLifecycle(latest.person.lifecycle) && !salesEmailMustStop(latest.person.lifecycle);
+  const latestJourney = journeyAnswerBlock(latest);
+  const latestStopped = !latest.readable
+    || !latest.person.found
+    || latest.person.suppressed !== false
+    || latest.person.clerkSubscribed
+    || !latestLifecycleOk
+    || latestJourney !== "ok";
+  if (latestStopped) {
+    if (!latest.readable || latest.person.suppressed == null || latestJourney === "unreadable") {
+      await deps.mark("open", { send_error: "suppression_unknown" });
+      return { state: "refused", reason: latestJourney === "unreadable" ? "journey_unreadable" : "suppression_unknown", providerMessageId: null };
+    }
+    await deps.mark("blocked", { send_error: "ineligible" });
+    return { state: "blocked", reason: "ineligible", providerMessageId: null };
   }
   const attempt = await postInstantlyThreadReply({
     apiKey: deps.apiKey,

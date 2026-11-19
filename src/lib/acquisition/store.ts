@@ -56,6 +56,8 @@ import {
   instantlyBlockSourceId,
 } from "@/lib/acquisition/instantly-block";
 import { deliverPendingInstantlyBlocks, ensureInstantlyBlock, reconcileMissingInstantlyBlocks } from "@/lib/acquisition/instantly-block.server";
+import { automaticSendsAllowed, type BlockImportRun } from "@/lib/acquisition/instantly-block-import";
+import { durableAcquisitionStop, importInstantlyBlockList } from "@/lib/acquisition/instantly-block-import.server";
 import {
   continueAfterInstantlyPage,
   continueAfterRangePage,
@@ -1369,7 +1371,11 @@ async function finishInbound(id: string, patch: Record<string, unknown>, now: Da
   return true;
 }
 
-export async function processAcquisitionConversations(now = new Date(), known?: Settings): Promise<{
+export async function processAcquisitionConversations(
+  now = new Date(),
+  known?: Settings,
+  options?: { holdAutomaticReplies?: boolean },
+): Promise<{
   skipped: string;
   interpreted: number;
   failed: number;
@@ -1538,11 +1544,7 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       failed += 1;
       continue;
     }
-    const { data: suppression, error: suppressionError } = await supabaseServer
-      .from("recovery_suppressions")
-      .select("id")
-      .eq("email_normalized", person.email_normalized)
-      .maybeSingle();
+    const suppressed = await durableAcquisitionStop(person.email_normalized);
     const acceptanceMode = priorOutcome ? "established" as const : "new" as const;
     const promise = acceptanceMode === "established" && campaignContext.source === "playbook"
       ? campaignContext.obligationPromise
@@ -1564,7 +1566,7 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       journeyId: row.journeyId,
       hasPromise: campaignContext.source === "legacy" ? Boolean(promise) : playbookSend !== null,
       stopped: salesEmailMustStop(person.lifecycle_state) || journeyStopped,
-      suppressed: suppressionError ? null : Boolean(suppression?.id),
+      suppressed,
     });
     if (effect.type === "retry") {
       await finishInbound(row.id, {
@@ -1657,7 +1659,7 @@ export async function processAcquisitionConversations(now = new Date(), known?: 
       reason: err instanceof Error ? err.message : "email_answers_unavailable",
     });
   }
-  if (sending) {
+  if (sending && !options?.holdAutomaticReplies) {
     const { data: ready, error: readyError } = await supabaseServer
       .from("acquisition_messages")
       .select("id, campaign_id, created_at")
@@ -1775,9 +1777,7 @@ export async function deliverAcquisitionThreadReply(args: {
   });
   if (claimError) return { state: "blocked", reason: (claimError as { code?: string }).code === "23505" ? "duplicate_send" : "provider_error" };
   const person = await findPersonById(inbound.person_id);
-  const suppressed = person
-    ? await supabaseServer.from("recovery_suppressions").select("id").eq("email_normalized", person.email_normalized).maybeSingle()
-    : { data: null, error: { message: "missing" } };
+  const suppressed = person ? await durableAcquisitionStop(person.email_normalized) : null;
   let clerkSubscribed = false;
   if (person?.clerk_user_id) {
     try {
@@ -1799,7 +1799,7 @@ export async function deliverAcquisitionThreadReply(args: {
     replyToProviderMessageId: typeof inbound.reply_to_provider_message_id === "string" ? inbound.reply_to_provider_message_id : null,
     senderAccount: typeof inbound.sender_account === "string" ? inbound.sender_account : null,
     stopped: !person || clerkSubscribed || salesEmailMustStop(person.lifecycle_state) || journeyStopped,
-    suppressed: suppressed.error ? null : Boolean(suppressed.data?.id),
+    suppressed,
     campaignId: typeof inbound.campaign_id === "string" ? inbound.campaign_id : null,
     pilotCampaigns: settings.conversationPilotCampaigns,
     receivedAt: typeof inbound.created_at === "string" ? inbound.created_at : null,
@@ -1817,6 +1817,17 @@ export async function deliverAcquisitionThreadReply(args: {
       updated_at: new Date().toISOString(),
     }).eq("provider_message_id", localId).eq("direction", "outbound").eq("processing_status", "processing");
     return { state: "blocked", reason: decision.reason };
+  }
+  const latestStop = person ? await durableAcquisitionStop(person.email_normalized) : null;
+  if (latestStop !== false) {
+    const reason = latestStop === null || !person ? "suppression_unknown" : "ineligible";
+    await supabaseServer.from("acquisition_messages").update({
+      processing_status: "blocked",
+      processing_error: reason,
+      claim_until: null,
+      updated_at: new Date().toISOString(),
+    }).eq("provider_message_id", localId).eq("direction", "outbound").eq("processing_status", "processing");
+    return { state: "blocked", reason };
   }
   const attempt = await postInstantlyThreadReply({
     apiKey: process.env.INSTANTLY_API_KEY ?? null,
@@ -1838,13 +1849,33 @@ export async function deliverAcquisitionThreadReply(args: {
     : { state: attempt.state, reason: attempt.reason, providerMessageId: attempt.state === "uncertain" ? attempt.providerMessageId : null };
 }
 
-export async function runAcquisitionCron(now = new Date()): Promise<{
+export async function runAcquisitionCron(
+  now = new Date(),
+  clock: () => Date = () => new Date(),
+): Promise<{
   automation: string;
   accepted: number;
   skipped: string;
   assets?: Awaited<ReturnType<typeof readAcquisitionAssetReport>>;
 }> {
   const settings = await readAcquisitionSettings();
+  let blockImport: BlockImportRun = {
+    readable: false,
+    cycleCompletedThisRun: false,
+    pagesRead: 0,
+    error: "unreadable",
+  };
+  try {
+    blockImport = await importInstantlyBlockList({
+      now,
+      clock,
+      apiKey: process.env.INSTANTLY_API_KEY ?? null,
+    });
+  } catch (err) {
+    console.error("[acquisition] instantly block import failed", {
+      reason: err instanceof Error ? err.message : "block_import_failed",
+    });
+  }
   try {
     const repaired = await reconcileMissingInstantlyBlocks({ now });
     if (!repaired.readable || !repaired.complete || repaired.failed > 0 || repaired.deferred > 0) {
@@ -1872,10 +1903,14 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       reason: err instanceof Error ? err.message : "block_drain_failed",
     });
   }
+  const holdAutomaticReplies = !automaticSendsAllowed({
+    readable: blockImport.readable,
+    cycleCompletedThisRun: blockImport.cycleCompletedThisRun,
+  });
   const converse = async () => {
     if (settings.conversationInterpretation !== "pilot" && settings.conversationSending !== "on") return;
     try {
-      await processAcquisitionConversations(now, settings);
+      await processAcquisitionConversations(now, settings, { holdAutomaticReplies });
     } catch (err) {
       console.error("[acquisition] conversation processing failed", {
         reason: err instanceof Error ? err.message : "processing_failed",
@@ -1890,6 +1925,10 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
       skipped: "automation_off",
       assets: await readAcquisitionAssetReport(),
     };
+  }
+  if (holdAutomaticReplies) {
+    await converse();
+    return { automation: settings.automation, accepted: 0, skipped: "block_import_held" };
   }
   await supabaseServer
     .from("acquisition_actions")
@@ -2018,15 +2057,7 @@ export async function runAcquisitionCron(now = new Date()): Promise<{
         clerkUserId: person.clerk_user_id,
       };
     },
-    suppression: async (email) => {
-      const { data, error } = await supabaseServer
-        .from("recovery_suppressions")
-        .select("id")
-        .eq("email_normalized", email)
-        .maybeSingle();
-      if (error) return null;
-      return Boolean(data?.id);
-    },
+    suppression: async (email) => durableAcquisitionStop(email),
     clerkSubscribed: async (clerkUserId) => {
       if (!clerkUserId) return false;
       try {

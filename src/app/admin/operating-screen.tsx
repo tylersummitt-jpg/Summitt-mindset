@@ -536,6 +536,11 @@ function SubscriberStopSection({ report }: { report: InstantlyBlockVisibilityVie
           value={report.oldestAge}
           note="Age of the earliest local request that Instantly has not confirmed."
         />
+        <Metric
+          label="Blocklist import"
+          value={report.importStatus}
+          note="Finished means one complete read of Instantly's block list. Not finished is not permission to send."
+        />
       </div>
     </section>
   );

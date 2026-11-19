@@ -227,6 +227,7 @@ describe("acquisition warm sends", () => {
     video?: string | null;
     outcome?: "accepted" | "temporary_failure" | "permanent_failure" | "unknown";
     due?: PassAction[];
+    stops?: Array<boolean | null>;
   }) {
     const sends: PassSendRequest[] = [];
     const effects: string[] = [];
@@ -245,7 +246,13 @@ describe("acquisition warm sends", () => {
         return true;
       },
       person: async (id) => rows.get(id) ?? null,
-      suppression: async () => overrides.suppressed ?? false,
+      suppression: async () => {
+        if (overrides.stops) {
+          const next = overrides.stops.shift();
+          return next === undefined ? false : next;
+        }
+        return overrides.suppressed ?? false;
+      },
       clerkSubscribed: async () => overrides.subscribed ?? false,
       assetFiles: async (row, scheduled) => {
         if (scheduled.journeyId) {
@@ -292,6 +299,18 @@ describe("acquisition warm sends", () => {
     const ran = await pass({ automation: "off" });
     expect(ran.sends).toHaveLength(0);
     expect(ran.result.skipped).toBe("automation_off");
+  });
+
+  it("does not send when a suppression appears after the action is claimed", async () => {
+    const ran = await pass({ stops: [false, true] });
+    expect(ran.sends).toHaveLength(0);
+    expect(ran.effects).toContain("stop:suppressed");
+  });
+
+  it("releases the claim when the last suppression check cannot be read", async () => {
+    const ran = await pass({ stops: [false, null] });
+    expect(ran.sends).toHaveLength(0);
+    expect(ran.effects).toContain("release:");
   });
 
   it("claims an action once", async () => {
