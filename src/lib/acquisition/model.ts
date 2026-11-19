@@ -190,6 +190,27 @@ export function salesEmailMustStop(state: AcquisitionLifecycle): boolean {
   );
 }
 
+/**
+ * A Stripe retry may finish a block and a lifecycle change after the ledger row
+ * is already linked. It must not move a stopped or paid person backward.
+ */
+export function subscriptionRetryEffect(args: {
+  signal: "trial_started" | "paid_member";
+  lifecycle: string;
+}): { queueBlock: true; applySignal: boolean; cancelPending: true } {
+  if (!isAcquisitionLifecycle(args.lifecycle)) {
+    return { queueBlock: true, applySignal: false, cancelPending: true };
+  }
+  if (args.signal === "trial_started") {
+    const stopped = salesEmailMustStop(args.lifecycle);
+    const allowed = reduceLiveSignal(args.lifecycle, "trial_started").outcome === "advance";
+    return { queueBlock: true, applySignal: allowed && !stopped, cancelPending: true };
+  }
+  const hardStop = args.lifecycle === "paid_member" || args.lifecycle === "unsubscribed" || args.lifecycle === "suppressed";
+  const allowed = reduceLiveSignal(args.lifecycle, "paid_member").outcome === "advance";
+  return { queueBlock: true, applySignal: allowed && !hardStop, cancelPending: true };
+}
+
 export function actionMatchesState(
   action: AcquisitionActionType,
   state: AcquisitionLifecycle

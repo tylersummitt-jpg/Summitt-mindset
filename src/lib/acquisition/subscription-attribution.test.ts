@@ -180,11 +180,163 @@ describe("verified journey attribution", () => {
       person("other-campaign", "camp-video"),
     ]);
     expect(built.campaigns.find((campaign) => campaign.id === "camp-video")?.attributedTrials).toBe(0);
+    expect(built.campaigns.find((campaign) => campaign.id === "camp-video")?.campaignLinkTrials).toBe(1);
     expect(built.campaigns.find((campaign) => campaign.id === "camp-other")?.attributedTrials).toBe(1);
     expect(built.attributedTrialPeople).toBe(1);
-    expect(built.emailOnlyTrialPeople).toBe(2);
+    expect(built.campaignLinkTrialPeople).toBe(1);
+    expect(built.emailOnlyTrialPeople).toBe(1);
     expect(built.emailOnlyPaidPeople).toBe(1);
     expect(built.attributedPaidPeople).toBe(0);
+    expect(built.unlinkedCampaignTrialEvents).toBe(0);
+  });
+});
+
+describe("campaign-link distribution", () => {
+  it("counts journey trials and payments separately from campaign-link trials and payments", () => {
+    const built = report([
+      stripeEvent({
+        personId: "journey-person",
+        eventType: "trial_started",
+        providerEventId: "trial:journey",
+        campaignId: "camp-video",
+        journeyId: JOURNEY,
+      }),
+      stripeEvent({
+        personId: "journey-person",
+        eventType: "paid_member",
+        providerEventId: "paid:journey",
+        campaignId: "camp-video",
+        journeyId: JOURNEY,
+      }),
+      stripeEvent({
+        personId: "link-person",
+        eventType: "trial_started",
+        providerEventId: "trial:link",
+        campaignId: "camp-video",
+        journeyId: null,
+      }),
+      stripeEvent({
+        personId: "link-person",
+        eventType: "paid_member",
+        providerEventId: "paid:link",
+        campaignId: "camp-video",
+        journeyId: null,
+      }),
+    ], [person("journey-person", "camp-video"), person("link-person", "camp-video")]);
+    const video = built.campaigns.find((campaign) => campaign.id === "camp-video");
+    expect(video?.attributedTrials).toBe(1);
+    expect(video?.attributedPaid).toBe(1);
+    expect(video?.campaignLinkTrials).toBe(1);
+    expect(video?.campaignLinkPaid).toBe(1);
+    expect(built.attributedTrialPeople).toBe(1);
+    expect(built.attributedPaidPeople).toBe(1);
+    expect(built.campaignLinkTrialPeople).toBe(1);
+    expect(built.campaignLinkPaidPeople).toBe(1);
+    expect(built.emailOnlyTrialPeople).toBe(0);
+    expect(built.emailOnlyPaidPeople).toBe(0);
+  });
+
+  it("counts a campaign-link checkout with no person as an event, not a prospect", () => {
+    const built = report([
+      stripeEvent({
+        personId: null,
+        eventType: "trial_started",
+        providerEventId: "trial:unlinked",
+        campaignId: "camp-video",
+        journeyId: null,
+      }),
+      stripeEvent({
+        personId: null,
+        eventType: "paid_member",
+        providerEventId: "paid:unlinked",
+        campaignId: "camp-video",
+        journeyId: null,
+      }),
+    ], []);
+    const video = built.campaigns.find((campaign) => campaign.id === "camp-video");
+    expect(video?.campaignLinkTrials).toBe(0);
+    expect(video?.campaignLinkPaid).toBe(0);
+    expect(video?.unlinkedCampaignTrialEvents).toBe(1);
+    expect(video?.unlinkedCampaignPaidEvents).toBe(1);
+    expect(built.campaignLinkTrialPeople).toBe(0);
+    expect(built.campaignLinkPaidPeople).toBe(0);
+    expect(built.unlinkedCampaignTrialEvents).toBe(1);
+    expect(built.unlinkedCampaignPaidEvents).toBe(1);
+    expect(built.attributedTrialPeople).toBe(0);
+    expect(built.emailOnlyTrialPeople).toBe(0);
+  });
+
+  it("keeps a Stripe event with no campaign off campaign credit", () => {
+    const built = report([
+      stripeEvent({
+        personId: "email-only",
+        eventType: "trial_started",
+        providerEventId: "trial:none",
+        campaignId: null,
+        journeyId: null,
+      }),
+      stripeEvent({
+        personId: null,
+        eventType: "paid_member",
+        providerEventId: "paid:none",
+        campaignId: null,
+        journeyId: null,
+      }),
+    ], [person("email-only", null)]);
+    expect(built.emailOnlyTrialPeople).toBe(1);
+    expect(built.emailOnlyPaidPeople).toBe(0);
+    expect(built.campaignLinkTrialPeople).toBe(0);
+    expect(built.campaignLinkPaidPeople).toBe(0);
+    expect(built.attributedTrialPeople).toBe(0);
+    expect(built.attributedPaidPeople).toBe(0);
+    expect(built.unlinkedCampaignTrialEvents).toBe(0);
+    expect(built.unlinkedCampaignPaidEvents).toBe(0);
+    expect(built.campaigns.every((campaign) => campaign.campaignLinkTrials === 0 && campaign.attributedTrials === 0)).toBe(true);
+  });
+
+  it("counts one conversion when the same Stripe event is delivered twice", () => {
+    const trial = stripeEvent({
+      personId: "link-person",
+      eventType: "trial_started",
+      providerEventId: "trial:subscription:sub_1",
+      campaignId: "camp-video",
+      journeyId: null,
+    });
+    const paid = stripeEvent({
+      personId: "link-person",
+      eventType: "paid_member",
+      providerEventId: "paid:subscription:sub_1",
+      campaignId: "camp-video",
+      journeyId: null,
+    });
+    const built = report([trial, trial, paid, paid], [person("link-person", "camp-video")]);
+    expect(built.campaignLinkTrialPeople).toBe(1);
+    expect(built.campaignLinkPaidPeople).toBe(1);
+    expect(built.campaigns.find((campaign) => campaign.id === "camp-video")?.campaignLinkTrials).toBe(1);
+    expect(built.campaigns.find((campaign) => campaign.id === "camp-video")?.campaignLinkPaid).toBe(1);
+  });
+
+  it("keeps an older journey-verified trial out of the current range and still counts one inside it", () => {
+    const built = report([
+      stripeEvent({
+        personId: "old-person",
+        eventType: "trial_started",
+        providerEventId: "trial:old",
+        campaignId: "camp-video",
+        journeyId: JOURNEY,
+        occurredAt: "2026-10-01T12:00:00.000Z",
+      }),
+      stripeEvent({
+        personId: "current-person",
+        eventType: "trial_started",
+        providerEventId: "trial:current",
+        campaignId: "camp-video",
+        journeyId: JOURNEY,
+      }),
+    ], [person("old-person", "camp-video"), person("current-person", "camp-video")]);
+    expect(built.attributedTrialPeople).toBe(1);
+    expect(built.campaigns.find((campaign) => campaign.id === "camp-video")?.attributedTrials).toBe(1);
+    expect(built.campaignLinkTrialPeople).toBe(0);
   });
 });
 
@@ -208,7 +360,7 @@ describe("subscription attribution wiring", () => {
     expect(trial).toContain("trial:subscription:");
     expect(trial).toContain("verifiedCampaignJourney");
     expect(trial).not.toContain("source_campaign");
-    expect(trial.indexOf("subscriptionLifecycleEvent")).toBeLessThan(trial.indexOf("insertEvent"));
+    expect(trial.indexOf("subscriptionLifecycleEvent")).toBeLessThan(trial.indexOf("recordSubscriptionEvent"));
     expect(paid).toContain("paid:subscription:");
     expect(paid).toContain('reason: "paid_member"');
     expect(paid).not.toContain("source_campaign");

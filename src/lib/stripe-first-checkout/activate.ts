@@ -15,9 +15,13 @@ import {
 import { parsePersonalVideoId } from "@/lib/personal-videos/analytics";
 import { trustedRequestCountryFromRequest } from "@/lib/stripe-first-checkout/request-country";
 import {
+  ACQUISITION_CAMPAIGN_METADATA_KEY,
+  ACQUISITION_CAMPAIGN_QUERY,
   ACQUISITION_JOURNEY_METADATA_KEY,
   ACQUISITION_JOURNEY_QUERY,
+  acquisitionCampaignTokenShape,
   acquisitionJourneyTokenShape,
+  parseAcquisitionCampaignId,
   parseAcquisitionJourneyId,
 } from "@/lib/acquisition/email-acquired-member-notice";
 import { noteAcquisitionClerk } from "@/lib/acquisition/store";
@@ -270,6 +274,10 @@ export async function beginHostedCheckout(args: {
   acquisitionJourneyId?: string | null;
   /** Signed token returned on cancel so a retry can be verified again. */
   acquisitionJourneyToken?: string | null;
+  /** Verified campaign id from a reusable direct-trial link. */
+  acquisitionCampaignId?: string | null;
+  /** Signed campaign token returned on cancel so a retry can be verified again. */
+  acquisitionCampaignToken?: string | null;
 }): Promise<{
   url: string;
   bindingSecret: string;
@@ -328,6 +336,8 @@ export async function beginHostedCheckout(args: {
   const personalVideoId = publicCheckout ? parsePersonalVideoId(args.personalVideoId) : null;
   const acquisitionJourneyId = canary ? null : parseAcquisitionJourneyId(args.acquisitionJourneyId);
   const acquisitionJourneyToken = acquisitionJourneyTokenShape(args.acquisitionJourneyToken);
+  const acquisitionCampaignId = canary ? null : parseAcquisitionCampaignId(args.acquisitionCampaignId);
+  const acquisitionCampaignToken = acquisitionCampaignTokenShape(args.acquisitionCampaignToken);
   const intent = await insertCheckoutIntent({
     bindingHash: binding.hash,
     bindingExpiresAt: new Date(Date.now() + BINDING_MAX_AGE_SECONDS * 1000).toISOString(),
@@ -375,6 +385,9 @@ export async function beginHostedCheckout(args: {
           ...(acquisitionJourneyId
             ? { [ACQUISITION_JOURNEY_METADATA_KEY]: acquisitionJourneyId }
             : {}),
+          ...(acquisitionCampaignId
+            ? { [ACQUISITION_CAMPAIGN_METADATA_KEY]: acquisitionCampaignId }
+            : {}),
           ...(partnerKey
             ? { partner: partnerKey, partner_channel: partnerChannel ?? "unknown" }
             : {}),
@@ -397,6 +410,9 @@ export async function beginHostedCheckout(args: {
             ...(acquisitionJourneyId
               ? { [ACQUISITION_JOURNEY_METADATA_KEY]: acquisitionJourneyId }
               : {}),
+            ...(acquisitionCampaignId
+              ? { [ACQUISITION_CAMPAIGN_METADATA_KEY]: acquisitionCampaignId }
+              : {}),
             ...(partnerKey
               ? { partner: partnerKey, partner_channel: partnerChannel ?? "unknown" }
               : {}),
@@ -415,6 +431,10 @@ export async function beginHostedCheckout(args: {
             }${
               acquisitionJourneyToken
                 ? `&${ACQUISITION_JOURNEY_QUERY}=${encodeURIComponent(acquisitionJourneyToken)}`
+                : ""
+            }${
+              acquisitionCampaignToken
+                ? `&${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(acquisitionCampaignToken)}`
                 : ""
             }`
           : `${origin}/checkout/hosted-test?canceled=1`,
@@ -515,6 +535,7 @@ export async function resumeOrReplacePublicCheckout(args: {
   /** Signed-in checkout must not leave an older anonymous session payable. */
   displaceOpenSession?: boolean;
   acquisitionJourneyId?: string | null;
+  acquisitionCampaignId?: string | null;
 }): Promise<PublicCheckoutResume> {
   if (!args.bindingSecret) return { action: "replace" };
   const intent = await loadIntentByBindingHash(hashCheckoutBinding(args.bindingSecret));
@@ -548,10 +569,12 @@ export async function resumeOrReplacePublicCheckout(args: {
     sessionPartner: session.metadata?.partner,
     sessionChannel: session.metadata?.partner_channel,
     sessionJourney: parseAcquisitionJourneyId(session.metadata?.[ACQUISITION_JOURNEY_METADATA_KEY]),
+    sessionCampaign: parseAcquisitionCampaignId(session.metadata?.[ACQUISITION_CAMPAIGN_METADATA_KEY]),
     plan: args.plan,
     partner: args.partner ?? null,
     channel: args.partnerChannel ?? "unknown",
     journey: parseAcquisitionJourneyId(args.acquisitionJourneyId),
+    campaign: parseAcquisitionCampaignId(args.acquisitionCampaignId),
   });
   const hasUrl = typeof session.url === "string" && session.url.length > 0;
   let action = priorCheckoutAction({

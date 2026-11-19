@@ -97,6 +97,7 @@ import {
   isAcquisitionAction,
   isVideoReminderAction,
   salesEmailMustStop,
+  subscriptionRetryEffect,
   type AcquisitionActionType,
   type AcquisitionAsset,
   type AcquisitionAutomation,
@@ -105,9 +106,14 @@ import {
 } from "@/lib/acquisition/model";
 import {
   ACQUISITION_JOURNEY_QUERY,
+  acquisitionSubscriptionCredit,
   acquisitionTrialCheckoutUrl,
   attributionFromVerifiedJourney,
+  mergeSubscriptionCredit,
+  type AcquisitionSubscriptionCredit,
+  parseAcquisitionCampaignId,
   parseAcquisitionJourneyId,
+  subscriptionLedgerDecision,
   readSignedAcquisitionJourneyId,
   signAcquisitionJourneyId,
 } from "@/lib/acquisition/email-acquired-member-notice";
@@ -2236,6 +2242,226 @@ async function subscriptionLifecycleEvent(args: {
   return Array.isArray(data) && data.length > 0 ? "present" : "absent";
 }
 
+type StripeSubscriptionEventRow = {
+  personId: string | null;
+  campaignId: string | null;
+  journeyId: string | null;
+  checkoutEmail: string | null;
+  stripeEventId: string | null;
+};
+
+async function stripeProviderEvent(
+  providerEventId: string,
+): Promise<{ state: "absent" } | { state: "unreadable" } | ({ state: "present" } & StripeSubscriptionEventRow)> {
+  const { data, error } = await supabaseServer
+    .from("acquisition_events")
+    .select("person_id, campaign_id, journey_id, metadata")
+    .eq("provider", "stripe")
+    .eq("provider_event_id", providerEventId)
+    .limit(1);
+  if (error) return { state: "unreadable" };
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return { state: "absent" };
+  const metadata = row.metadata;
+  const rawCheckoutEmail = metadata && typeof metadata === "object"
+    ? (metadata as { checkout_email?: unknown }).checkout_email
+    : null;
+  const checkoutEmail = typeof rawCheckoutEmail === "string" ? normalizeAcquisitionEmail(rawCheckoutEmail) : null;
+  const stripeEventId = metadata && typeof metadata === "object" && typeof (metadata as { stripe_event_id?: unknown }).stripe_event_id === "string"
+    ? (metadata as { stripe_event_id: string }).stripe_event_id
+    : null;
+  return {
+    state: "present",
+    personId: typeof row.person_id === "string" ? row.person_id : null,
+    campaignId: typeof row.campaign_id === "string" ? row.campaign_id : null,
+    journeyId: typeof row.journey_id === "string" ? row.journey_id : null,
+    checkoutEmail,
+    stripeEventId,
+  };
+}
+
+function creditFromStripeRow(row: { campaignId: string | null; journeyId: string | null }): AcquisitionSubscriptionCredit {
+  if (row.campaignId && row.journeyId) {
+    return { attribution: "journey", campaignId: row.campaignId, journeyId: row.journeyId };
+  }
+  if (row.campaignId) return { attribution: "campaign_link", campaignId: row.campaignId, journeyId: null };
+  return { attribution: "unattributed", campaignId: null, journeyId: null };
+}
+
+function subscriptionCreditMetadata(args: {
+  subscriptionId: string;
+  eventId: string;
+  credit: AcquisitionSubscriptionCredit;
+  checkoutEmail: string | null;
+}): Record<string, unknown> {
+  return {
+    subscription_id: args.subscriptionId,
+    stripe_event_id: args.eventId,
+    acquisition_attribution: args.credit.attribution,
+    ...(args.credit.journeyId ? { journey_id: args.credit.journeyId } : {}),
+    ...(args.checkoutEmail ? { checkout_email: args.checkoutEmail } : {}),
+  };
+}
+
+async function attachStripeSubscriptionEvent(args: {
+  providerEventId: string;
+  personId: string;
+  credit: AcquisitionSubscriptionCredit;
+  checkoutEmail: string | null;
+  subscriptionId: string;
+  eventId: string;
+}): Promise<boolean> {
+  const { data, error } = await supabaseServer
+    .from("acquisition_events")
+    .update({
+      person_id: args.personId,
+      campaign_id: args.credit.campaignId,
+      journey_id: args.credit.journeyId,
+      metadata: subscriptionCreditMetadata({
+        subscriptionId: args.subscriptionId,
+        eventId: args.eventId,
+        credit: args.credit,
+        checkoutEmail: args.checkoutEmail,
+      }),
+    })
+    .eq("provider", "stripe")
+    .eq("provider_event_id", args.providerEventId)
+    .is("person_id", null)
+    .select("id");
+  return !error && Array.isArray(data) && data.length === 1;
+}
+
+async function recordSubscriptionEvent(args: {
+  providerEventId: string;
+  eventType: "trial_started" | "paid_member";
+  email: string | null;
+  person: PersonRow | null;
+  linkable: boolean;
+  credit: AcquisitionSubscriptionCredit;
+  subscriptionId: string;
+  eventId: string;
+}): Promise<"linked" | "already_linked" | "recorded" | "skipped"> {
+  const existing = await stripeProviderEvent(args.providerEventId);
+  if (existing.state === "unreadable") return "skipped";
+  const decision = subscriptionLedgerDecision({
+    email: args.email,
+    personLinkable: args.linkable,
+    existing: existing.state === "absent" ? "absent" : existing.personId ? "linked" : "unlinked",
+    existingCheckoutEmail: existing.state === "present" ? existing.checkoutEmail : null,
+    credit: args.credit,
+  });
+  if (decision.action === "ignore") {
+    if (existing.state === "present" && args.person && existing.personId === args.person.id) return "already_linked";
+    return "skipped";
+  }
+  const credit = existing.state === "present"
+    ? mergeSubscriptionCredit(creditFromStripeRow(existing), args.credit)
+    : args.credit;
+  const checkoutEmail = existing.state === "present" ? existing.checkoutEmail ?? args.email : args.email;
+  const eventId = existing.state === "present" ? existing.stripeEventId ?? args.eventId : args.eventId;
+  if (decision.action === "attach") {
+    if (!args.person) return "skipped";
+    const attached = await attachStripeSubscriptionEvent({
+      providerEventId: args.providerEventId,
+      personId: args.person.id,
+      credit,
+      checkoutEmail,
+      subscriptionId: args.subscriptionId,
+      eventId,
+    });
+    return attached ? "linked" : "skipped";
+  }
+  const stored = await insertEvent({
+    personId: decision.action === "insert" && decision.linkPerson && args.person ? args.person.id : null,
+    provider: "stripe",
+    providerEventId: args.providerEventId,
+    eventType: args.eventType,
+    occurredAt: new Date().toISOString(),
+    campaignId: credit.campaignId,
+    journeyId: credit.journeyId,
+    metadata: subscriptionCreditMetadata({
+      subscriptionId: args.subscriptionId,
+      eventId: args.eventId,
+      credit,
+      checkoutEmail: args.email,
+    }),
+  });
+  if (
+    stored === "duplicate"
+    && decision.action === "insert"
+    && decision.linkPerson
+    && args.person
+    && args.email
+  ) {
+    const again = await stripeProviderEvent(args.providerEventId);
+    if (again.state === "present" && !again.personId && again.checkoutEmail === args.email) {
+      const attached = await attachStripeSubscriptionEvent({
+        providerEventId: args.providerEventId,
+        personId: args.person.id,
+        credit: mergeSubscriptionCredit(creditFromStripeRow(again), args.credit),
+        checkoutEmail: again.checkoutEmail,
+        subscriptionId: args.subscriptionId,
+        eventId: again.stripeEventId ?? args.eventId,
+      });
+      return attached ? "linked" : "skipped";
+    }
+    return "skipped";
+  }
+  if (stored !== "stored") return "skipped";
+  return decision.action === "insert" && decision.linkPerson && args.person ? "linked" : "recorded";
+}
+
+async function linkTrialSignal(person: PersonRow, args: {
+  clerkUserId: string | null;
+  customerId: string | null;
+  subscriptionId: string;
+  eventId: string;
+}): Promise<PersonRow> {
+  const block = await ensureInstantlyBlock({
+    email: person.email_normalized,
+    personId: person.id,
+    reason: "trial_started",
+    sourceEventId: instantlyBlockSourceId("stripe:trial", args.eventId),
+  });
+  if (block.outcome === "not_stored") console.warn("[acquisition] instantly block intent remains unconfirmed");
+  const updated = await applySignal(person, "trial_started", {
+    clerk_user_id: args.clerkUserId ?? person.clerk_user_id,
+    stripe_customer_id: args.customerId ?? person.stripe_customer_id,
+    ...(person.stripe_subscription_id ? {} : { stripe_subscription_id: args.subscriptionId }),
+  });
+  await cancelPending(person.id);
+  return updated;
+}
+
+async function reconcileOpenTrial(args: {
+  person: PersonRow;
+  email: string;
+  subscriptionId: string;
+  clerkUserId: string | null;
+  customerId: string | null;
+  credit: AcquisitionSubscriptionCredit;
+}): Promise<PersonRow> {
+  const providerEventId = `trial:subscription:${args.subscriptionId}`;
+  const existing = await stripeProviderEvent(providerEventId);
+  if (existing.state !== "present" || existing.personId) return args.person;
+  if (!existing.checkoutEmail || existing.checkoutEmail !== args.email) return args.person;
+  const attached = await attachStripeSubscriptionEvent({
+    providerEventId,
+    personId: args.person.id,
+    credit: mergeSubscriptionCredit(creditFromStripeRow(existing), args.credit),
+    checkoutEmail: existing.checkoutEmail,
+    subscriptionId: args.subscriptionId,
+    eventId: existing.stripeEventId ?? providerEventId,
+  });
+  if (!attached) return args.person;
+  return linkTrialSignal(args.person, {
+    clerkUserId: args.clerkUserId,
+    customerId: args.customerId,
+    subscriptionId: args.subscriptionId,
+    eventId: existing.stripeEventId ?? providerEventId,
+  });
+}
+
 async function verifiedCampaignJourney(journeyId: string | null, personId: string) {
   const requested = parseAcquisitionJourneyId(journeyId);
   if (!requested) return null;
@@ -2263,6 +2489,7 @@ export async function noteAcquisitionTrial(args: {
   subscriptionId: string;
   eventId: string;
   journeyId?: string | null;
+  campaignId?: string | null;
 }): Promise<void> {
   const email = normalizeAcquisitionEmail(args.email);
   let person = email ? await findPersonByEmail(email) : null;
@@ -2274,47 +2501,68 @@ export async function noteAcquisitionTrial(args: {
       .maybeSingle();
     person = asPerson(data as PersonRow | null);
   }
-  if (!person) return;
-  const prior = await subscriptionLifecycleEvent({
-    personId: person.id,
-    eventType: "trial_started",
-    subscriptionId: args.subscriptionId,
+  const linkable = Boolean(person) && (person?.stripe_subscription_id == null || person.stripe_subscription_id === args.subscriptionId);
+  const verified = linkable && person ? await verifiedCampaignJourney(args.journeyId ?? null, person.id) : null;
+  const credit = acquisitionSubscriptionCredit({
+    verifiedJourney: verified,
+    campaignLinkId: parseAcquisitionCampaignId(args.campaignId),
   });
-  const verified = prior === "present" ? null : await verifiedCampaignJourney(args.journeyId ?? null, person.id);
-  const stored = prior === "present"
-    ? "duplicate"
-    : await insertEvent({
+  if (linkable && person) {
+    const prior = await subscriptionLifecycleEvent({
       personId: person.id,
-      provider: "stripe",
-      providerEventId: `trial:subscription:${args.subscriptionId}`,
       eventType: "trial_started",
-      occurredAt: new Date().toISOString(),
-      campaignId: verified?.campaignId ?? null,
-      journeyId: verified?.journeyId ?? null,
-      metadata: {
-        subscription_id: args.subscriptionId,
-        stripe_event_id: args.eventId,
-        ...(verified ? { journey_id: verified.journeyId } : {}),
-      },
+      subscriptionId: args.subscriptionId,
     });
-  let blockUnconfirmed = false;
-  if (stored !== "failed") {
+    if (prior === "present") {
+      await recoverLinkedTrial(person, args);
+      return;
+    }
+  }
+  const providerEventId = `trial:subscription:${args.subscriptionId}`;
+  const outcome = await recordSubscriptionEvent({
+    providerEventId,
+    eventType: "trial_started",
+    email,
+    person,
+    linkable,
+    credit,
+    subscriptionId: args.subscriptionId,
+    eventId: args.eventId,
+  });
+  if ((outcome !== "linked" && outcome !== "already_linked") || !person) return;
+  await recoverLinkedTrial(person, args);
+}
+
+async function recoverLinkedTrial(person: PersonRow, args: {
+  clerkUserId: string | null;
+  customerId: string | null;
+  subscriptionId: string;
+  eventId: string;
+}): Promise<void> {
+  const effect = subscriptionRetryEffect({ signal: "trial_started", lifecycle: person.lifecycle_state });
+  if (effect.queueBlock) {
     const block = await ensureInstantlyBlock({
       email: person.email_normalized,
       personId: person.id,
       reason: "trial_started",
       sourceEventId: instantlyBlockSourceId("stripe:trial", args.eventId),
     });
-    blockUnconfirmed = block.outcome === "not_stored";
+    if (block.outcome === "not_stored") console.warn("[acquisition] instantly block intent remains unconfirmed");
   }
-  if (blockUnconfirmed) console.warn("[acquisition] instantly block intent remains unconfirmed");
-  if (stored === "duplicate") return;
-  await applySignal(person, "trial_started", {
-    clerk_user_id: args.clerkUserId ?? person.clerk_user_id,
-    stripe_customer_id: args.customerId ?? person.stripe_customer_id,
-    stripe_subscription_id: args.subscriptionId,
-  });
-  await cancelPending(person.id);
+  if (effect.applySignal) {
+    await applySignal(person, "trial_started", {
+      clerk_user_id: args.clerkUserId ?? person.clerk_user_id,
+      stripe_customer_id: args.customerId ?? person.stripe_customer_id,
+      ...(person.stripe_subscription_id ? {} : { stripe_subscription_id: args.subscriptionId }),
+    });
+  } else if (!person.stripe_subscription_id) {
+    await supabaseServer
+      .from("acquisition_people")
+      .update({ stripe_subscription_id: args.subscriptionId, updated_at: new Date().toISOString() })
+      .eq("id", person.id)
+      .is("stripe_subscription_id", null);
+  }
+  if (effect.cancelPending) await cancelPending(person.id);
 }
 
 export async function noteAcquisitionClerk(args: {
@@ -2343,52 +2591,99 @@ export async function noteAcquisitionPaid(args: {
   eventId: string;
   clerkUserId: string | null;
   journeyId?: string | null;
+  campaignId?: string | null;
+  email?: string | null;
 }): Promise<void> {
+  const email = normalizeAcquisitionEmail(args.email);
   const { data } = await supabaseServer
     .from("acquisition_people")
     .select(PERSON_COLUMNS)
     .eq("stripe_subscription_id", args.subscriptionId)
     .maybeSingle();
-  const person = asPerson(data as PersonRow | null);
-  if (!person) return;
-  const prior = await subscriptionLifecycleEvent({
-    personId: person.id,
-    eventType: "paid_member",
-    subscriptionId: args.subscriptionId,
+  let person = asPerson(data as PersonRow | null);
+  if (!person) person = email ? await findPersonByEmail(email) : null;
+  const linkable = Boolean(person) && (person?.stripe_subscription_id == null || person.stripe_subscription_id === args.subscriptionId);
+  const verified = linkable && person ? await verifiedCampaignJourney(args.journeyId ?? null, person.id) : null;
+  const credit = acquisitionSubscriptionCredit({
+    verifiedJourney: verified,
+    campaignLinkId: parseAcquisitionCampaignId(args.campaignId),
   });
-  const verified = prior === "present" ? null : await verifiedCampaignJourney(args.journeyId ?? null, person.id);
-  const stored = prior === "present"
-    ? "duplicate"
-    : await insertEvent({
+  if (linkable && person) {
+    const prior = await subscriptionLifecycleEvent({
       personId: person.id,
-      provider: "stripe",
-      providerEventId: `paid:subscription:${args.subscriptionId}`,
       eventType: "paid_member",
-      occurredAt: new Date().toISOString(),
-      campaignId: verified?.campaignId ?? null,
-      journeyId: verified?.journeyId ?? null,
-      metadata: {
-        subscription_id: args.subscriptionId,
-        stripe_event_id: args.eventId,
-        ...(verified ? { journey_id: verified.journeyId } : {}),
-      },
+      subscriptionId: args.subscriptionId,
     });
-  let blockUnconfirmed = false;
-  if (stored !== "failed") {
+    if (prior === "present") {
+      const current = email
+        ? await reconcileOpenTrial({
+          person,
+          email,
+          subscriptionId: args.subscriptionId,
+          clerkUserId: args.clerkUserId,
+          customerId: null,
+          credit,
+        })
+        : person;
+      await recoverLinkedPaid(current, args);
+      return;
+    }
+  }
+  const providerEventId = `paid:subscription:${args.subscriptionId}`;
+  const outcome = await recordSubscriptionEvent({
+    providerEventId,
+    eventType: "paid_member",
+    email,
+    person,
+    linkable,
+    credit,
+    subscriptionId: args.subscriptionId,
+    eventId: args.eventId,
+  });
+  let linkedPerson = person;
+  if (linkable && person && email) {
+    linkedPerson = await reconcileOpenTrial({
+      person,
+      email,
+      subscriptionId: args.subscriptionId,
+      clerkUserId: args.clerkUserId,
+      customerId: null,
+      credit,
+    });
+  }
+  if ((outcome !== "linked" && outcome !== "already_linked") || !linkedPerson) return;
+  await recoverLinkedPaid(linkedPerson, args);
+}
+
+async function recoverLinkedPaid(person: PersonRow, args: {
+  clerkUserId: string | null;
+  subscriptionId: string;
+  eventId: string;
+}): Promise<void> {
+  const effect = subscriptionRetryEffect({ signal: "paid_member", lifecycle: person.lifecycle_state });
+  if (effect.queueBlock) {
     const block = await ensureInstantlyBlock({
       email: person.email_normalized,
       personId: person.id,
       reason: "paid_member",
       sourceEventId: instantlyBlockSourceId("stripe:paid", args.eventId),
     });
-    blockUnconfirmed = block.outcome === "not_stored";
+    if (block.outcome === "not_stored") console.warn("[acquisition] instantly block intent remains unconfirmed");
   }
-  if (blockUnconfirmed) console.warn("[acquisition] instantly block intent remains unconfirmed");
-  if (stored === "duplicate") return;
-  await applySignal(person, "paid_member", {
-    clerk_user_id: args.clerkUserId ?? person.clerk_user_id,
-  });
-  await cancelPending(person.id);
+  if (effect.applySignal) {
+    const subscriptionPatch = person.stripe_subscription_id ? {} : { stripe_subscription_id: args.subscriptionId };
+    await applySignal(person, "paid_member", {
+      clerk_user_id: args.clerkUserId ?? person.clerk_user_id,
+      ...subscriptionPatch,
+    });
+  } else if (!person.stripe_subscription_id) {
+    await supabaseServer
+      .from("acquisition_people")
+      .update({ stripe_subscription_id: args.subscriptionId, updated_at: new Date().toISOString() })
+      .eq("id", person.id)
+      .is("stripe_subscription_id", null);
+  }
+  if (effect.cancelPending) await cancelPending(person.id);
 }
 
 export async function noteAcquisitionClosed(args: { subscriptionId: string; eventId: string }): Promise<void> {

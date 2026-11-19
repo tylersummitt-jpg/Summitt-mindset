@@ -2,7 +2,7 @@ import "server-only";
 
 import Stripe from "stripe";
 
-import { journeyIdFromStripeMetadata } from "@/lib/acquisition/email-acquired-member-notice";
+import { campaignIdFromStripeMetadata, journeyIdFromStripeMetadata } from "@/lib/acquisition/email-acquired-member-notice";
 import { maybeNotifyEmailAcquiredMember } from "@/lib/acquisition/email-acquired-member-notice.server";
 import { noteAcquisitionTrial } from "@/lib/acquisition/store";
 import { META_CAPI_STRIPE_FIRST_SOURCE_URL } from "@/lib/meta-capi";
@@ -212,6 +212,7 @@ export async function reconcileStripeFirstFromCheckoutSession(
           subscriptionId: proof.subscriptionId,
           eventId: session.id,
           journeyId: journeyIdFromStripeMetadata(proof.subscription.metadata) ?? journeyIdFromStripeMetadata(session.metadata),
+          campaignId: campaignIdFromStripeMetadata(proof.subscription.metadata) ?? campaignIdFromStripeMetadata(session.metadata),
         });
       } catch {
         console.warn("[stripe-first] acquisition trial link isolated failure");

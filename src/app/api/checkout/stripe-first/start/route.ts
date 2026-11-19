@@ -15,7 +15,7 @@ import {
   beginHostedCheckout,
   resumeOrReplacePublicCheckout,
 } from "@/lib/stripe-first-checkout/activate";
-import { verifiedAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice.server";
+import { verifiedAcquisitionCampaignId, verifiedAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice.server";
 import { CHECKOUT_BINDING_COOKIE } from "@/lib/stripe-first-checkout/constants";
 import { parsePartnerChannel, parsePartnerKey } from "@/lib/partner-landing";
 
@@ -39,6 +39,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as {
     plan?: unknown;
     acquisitionJourneyToken?: unknown;
+    acquisitionCampaignToken?: unknown;
     partner?: unknown;
     partnerChannel?: unknown;
   } | null;
@@ -58,6 +59,7 @@ export async function POST(req: Request) {
   }
 
   const acquisitionJourneyId = await verifiedAcquisitionJourneyId(body?.acquisitionJourneyToken).catch(() => null);
+  const acquisitionCampaignId = verifiedAcquisitionCampaignId(body?.acquisitionCampaignToken);
   const { userId } = await auth();
   const jar = await cookies();
   const assignment = parseProudTestAssignment(jar.get(PROUD_TEST_COOKIE)?.value);
@@ -71,6 +73,7 @@ export async function POST(req: Request) {
       request: req,
       displaceOpenSession: Boolean(userId),
       acquisitionJourneyId,
+      acquisitionCampaignId,
     });
     if (prior.action === "keep") {
       return NextResponse.json(
@@ -114,6 +117,8 @@ export async function POST(req: Request) {
       experimentVariant: assignment?.variant ?? null,
       acquisitionJourneyId,
       acquisitionJourneyToken: typeof body?.acquisitionJourneyToken === "string" ? body.acquisitionJourneyToken : null,
+      acquisitionCampaignId,
+      acquisitionCampaignToken: typeof body?.acquisitionCampaignToken === "string" ? body.acquisitionCampaignToken : null,
       attribution: marketing?.attribution
         ? {
             utmSource: marketing.attribution.utm_source,

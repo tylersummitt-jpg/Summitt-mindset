@@ -75,13 +75,16 @@ export function publicCheckoutOfferMatches(args: {
   sessionPartner?: string | null;
   sessionChannel?: string | null;
   sessionJourney: string | null;
+  sessionCampaign?: string | null;
   plan: string;
   partner?: string | null;
   channel?: string | null;
   journey: string | null;
+  campaign?: string | null;
 }): boolean {
   if (args.sessionPlan !== args.plan) return false;
   if (args.sessionJourney !== args.journey) return false;
+  if ((args.sessionCampaign ?? null) !== (args.campaign ?? null)) return false;
   if (args.plan !== PARTNER_ANNUAL_PLAN) return true;
   return (
     args.sessionPartner === args.partner &&

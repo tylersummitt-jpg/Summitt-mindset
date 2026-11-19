@@ -2,8 +2,12 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 export const ACQUISITION_JOURNEY_METADATA_KEY = "acquisitionJourneyId";
 export const ACQUISITION_JOURNEY_QUERY = "aj";
+export const ACQUISITION_CAMPAIGN_METADATA_KEY = "acquisitionCampaignId";
+export const ACQUISITION_CAMPAIGN_QUERY = "ac";
 
 const JOURNEY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const CAMPAIGN_ID = /^[A-Za-z0-9_-]{1,80}$/;
+const SIGNATURE = /^[A-Za-z0-9_-]{43}$/;
 
 export function parseAcquisitionJourneyId(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -57,6 +61,144 @@ export function journeyIdFromStripeMetadata(
   metadata: { [key: string]: string | undefined } | null | undefined
 ): string | null {
   return parseAcquisitionJourneyId(metadata?.[ACQUISITION_JOURNEY_METADATA_KEY]);
+}
+
+export function parseAcquisitionCampaignId(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const id = value.trim();
+  return CAMPAIGN_ID.test(id) ? id : null;
+}
+
+export function acquisitionCampaignTokenShape(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const token = value.trim();
+  const dot = token.lastIndexOf(".");
+  if (dot <= 0) return null;
+  const id = parseAcquisitionCampaignId(token.slice(0, dot));
+  const mac = token.slice(dot + 1);
+  if (!id || !SIGNATURE.test(mac)) return null;
+  return `${id}.${mac}`;
+}
+
+export function signAcquisitionCampaignId(campaignId: string, secret: string): string | null {
+  const id = parseAcquisitionCampaignId(campaignId);
+  const key = secret.trim();
+  if (!id || key.length < 16) return null;
+  const mac = createHmac("sha256", key).update(`acquisition-campaign:${id}`).digest("base64url");
+  return `${id}.${mac}`;
+}
+
+export function readSignedAcquisitionCampaignId(token: unknown, secret: string): string | null {
+  const shaped = acquisitionCampaignTokenShape(token);
+  const key = secret.trim();
+  if (!shaped || key.length < 16) return null;
+  const dot = shaped.lastIndexOf(".");
+  const id = shaped.slice(0, dot);
+  const mac = shaped.slice(dot + 1);
+  const expected = createHmac("sha256", key).update(`acquisition-campaign:${id}`).digest("base64url");
+  const left = Buffer.from(mac);
+  const right = Buffer.from(expected);
+  if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
+  return id;
+}
+
+export function acquisitionCampaignTrialUrl(campaignId: string, secret: string): string | null {
+  const token = signAcquisitionCampaignId(campaignId, secret);
+  if (!token) return null;
+  return `https://summittmindset.com/checkout/start?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
+}
+
+export function campaignIdFromStripeMetadata(
+  metadata: { [key: string]: string | undefined } | null | undefined
+): string | null {
+  return parseAcquisitionCampaignId(metadata?.[ACQUISITION_CAMPAIGN_METADATA_KEY]);
+}
+
+export type AcquisitionSubscriptionCredit = {
+  attribution: "journey" | "campaign_link" | "unattributed";
+  campaignId: string | null;
+  journeyId: string | null;
+};
+
+/** A verified journey wins. A signed campaign link is used only when no journey verifies. */
+export function acquisitionSubscriptionCredit(args: {
+  verifiedJourney: { journeyId: string; campaignId: string } | null;
+  campaignLinkId: string | null;
+}): AcquisitionSubscriptionCredit {
+  if (args.verifiedJourney) {
+    return {
+      attribution: "journey",
+      campaignId: args.verifiedJourney.campaignId,
+      journeyId: args.verifiedJourney.journeyId,
+    };
+  }
+  const campaignId = parseAcquisitionCampaignId(args.campaignLinkId);
+  if (campaignId) return { attribution: "campaign_link", campaignId, journeyId: null };
+  return { attribution: "unattributed", campaignId: null, journeyId: null };
+}
+
+/**
+ * Email match may link the Stripe subscription to that person.
+ * A campaign link with no matching person is recorded without creating a person.
+ */
+export function directTrialIdentity(args: {
+  personFound: boolean;
+  credit: AcquisitionSubscriptionCredit;
+}): { record: boolean; linkPerson: boolean; credit: AcquisitionSubscriptionCredit } {
+  if (args.personFound) return { record: true, linkPerson: true, credit: args.credit };
+  if (args.credit.attribution === "campaign_link") {
+    return { record: true, linkPerson: false, credit: args.credit };
+  }
+  return {
+    record: false,
+    linkPerson: false,
+    credit: { attribution: "unattributed", campaignId: null, journeyId: null },
+  };
+}
+
+export type SubscriptionLedgerExisting = "absent" | "unlinked" | "linked";
+
+export type SubscriptionLedgerDecision =
+  | { action: "ignore" }
+  | { action: "insert"; linkPerson: boolean }
+  | { action: "attach" };
+
+/**
+ * The subscription event id is used once.
+ * A call with no email does not insert that event before a person can be established.
+ * An unlinked event is attached only when the later email is the same checkout email
+ * and that person can hold this subscription.
+ */
+export function subscriptionLedgerDecision(args: {
+  email: string | null;
+  personLinkable: boolean;
+  existing: SubscriptionLedgerExisting;
+  existingCheckoutEmail: string | null;
+  credit: AcquisitionSubscriptionCredit;
+}): SubscriptionLedgerDecision {
+  if (args.existing === "linked") return { action: "ignore" };
+  if (args.existing === "unlinked") {
+    const sameEmail = Boolean(
+      args.email && args.existingCheckoutEmail && args.email === args.existingCheckoutEmail,
+    );
+    return args.personLinkable && sameEmail ? { action: "attach" } : { action: "ignore" };
+  }
+  if (args.personLinkable) return { action: "insert", linkPerson: true };
+  if (!args.email) return { action: "ignore" };
+  if (args.credit.attribution === "campaign_link") return { action: "insert", linkPerson: false };
+  return { action: "ignore" };
+}
+
+/** A stored journey stays. A later verified journey may replace a campaign link. */
+export function mergeSubscriptionCredit(
+  stored: AcquisitionSubscriptionCredit,
+  incoming: AcquisitionSubscriptionCredit,
+): AcquisitionSubscriptionCredit {
+  if (stored.attribution === "journey") return stored;
+  if (incoming.attribution === "journey") return incoming;
+  if (stored.attribution === "campaign_link") return stored;
+  if (incoming.attribution === "campaign_link") return incoming;
+  return incoming;
 }
 
 /** Campaign credit exists only when the checkout journey belongs to this person. */

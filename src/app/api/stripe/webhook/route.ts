@@ -31,7 +31,7 @@ import {
   maybeEmitMetaSubscribeFromInvoicePaid,
   checkFirstPaidInvoiceForSubscription,
 } from "@/lib/meta-capi-stripe-conversions";
-import { journeyIdFromStripeMetadata } from "@/lib/acquisition/email-acquired-member-notice";
+import { campaignIdFromStripeMetadata, journeyIdFromStripeMetadata } from "@/lib/acquisition/email-acquired-member-notice";
 import { maybeNotifyEmailAcquiredMember } from "@/lib/acquisition/email-acquired-member-notice.server";
 import {
   noteAcquisitionClosed,
@@ -630,6 +630,7 @@ export async function POST(req: NextRequest) {
             subscriptionId,
             eventId: event.id,
             journeyId: journeyIdFromStripeMetadata(subscription.metadata) ?? journeyIdFromStripeMetadata(session.metadata),
+            campaignId: campaignIdFromStripeMetadata(subscription.metadata) ?? campaignIdFromStripeMetadata(session.metadata),
           });
         }
       } catch {
@@ -820,6 +821,7 @@ export async function POST(req: NextRequest) {
             subscriptionId: subscription.id,
             eventId: event.id,
             journeyId: journeyIdFromStripeMetadata(subscription.metadata),
+            campaignId: campaignIdFromStripeMetadata(subscription.metadata),
           });
         } else if (
           subscription.status === "canceled" ||
@@ -1028,6 +1030,8 @@ export async function POST(req: NextRequest) {
                 eventId: event.id,
                 clerkUserId: null,
                 journeyId: journeyIdFromStripeMetadata(subscription.metadata),
+                campaignId: campaignIdFromStripeMetadata(subscription.metadata),
+                email: invoice.customer_email ?? null,
               });
             }
           }
@@ -1129,6 +1133,8 @@ export async function POST(req: NextRequest) {
               eventId: event.id,
               clerkUserId: userId,
               journeyId: journeyIdFromStripeMetadata(subscription.metadata),
+              campaignId: campaignIdFromStripeMetadata(subscription.metadata),
+              email: invoice.customer_email ?? null,
             });
           }
         }

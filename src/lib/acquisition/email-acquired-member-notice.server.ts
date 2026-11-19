@@ -10,6 +10,7 @@ import {
   emailAcquiredMemberNotifyKey,
   groupHistoryByJourney,
   journeyIdFromStripeMetadata,
+  readSignedAcquisitionCampaignId,
   readSignedAcquisitionJourneyId,
   resendResourceCountsAsSent,
   type HistoryRow,
@@ -36,6 +37,12 @@ export function verifiedJourneyToken(token: unknown): string | null {
   const secret = journeyLinkSecret();
   if (!secret) return null;
   return readSignedAcquisitionJourneyId(token, secret);
+}
+
+export function verifiedAcquisitionCampaignId(token: unknown): string | null {
+  const secret = journeyLinkSecret();
+  if (!secret) return null;
+  return readSignedAcquisitionCampaignId(token, secret);
 }
 
 export async function verifiedAcquisitionJourneyId(token: unknown): Promise<string | null> {

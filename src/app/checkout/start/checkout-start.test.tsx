@@ -384,6 +384,42 @@ describe("/checkout/start hop", () => {
     });
   });
 
+  it("posts the signed campaign token to both checkout entry paths", async () => {
+    const token = "camp_pat.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ url: "https://checkout.stripe.test/campaign" }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign },
+    });
+    const { unmount } = render(<CheckoutStartClient acquisitionCampaignToken={token} />);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/stripe/create-checkout-session",
+        expect.objectContaining({
+          body: JSON.stringify({ plan: "monthly", acquisitionCampaignToken: token }),
+        })
+      );
+    });
+    unmount();
+    fetchMock.mockClear();
+    localStorage.clear();
+    userState = { isLoaded: true, isSignedIn: false };
+    render(<CheckoutStartClient acquisitionCampaignToken={token} />);
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/checkout/stripe-first/start",
+        expect.objectContaining({
+          body: JSON.stringify({ plan: "monthly", acquisitionCampaignToken: token }),
+        })
+      );
+    });
+  });
+
   it("coach funnel links remain on /subscribe?src=coach", () => {
     const coach = readFileSync(
       join(process.cwd(), "src/lib/coach-funnel-links.ts"),

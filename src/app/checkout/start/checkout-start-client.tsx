@@ -34,11 +34,13 @@ function releaseCheckoutStart(): void {
 export default function CheckoutStartClient({
   plan,
   acquisitionJourneyToken = null,
+  acquisitionCampaignToken = null,
   partnerKey = null,
   partnerChannel = "unknown",
 }: {
   plan?: string;
   acquisitionJourneyToken?: string | null;
+  acquisitionCampaignToken?: string | null;
   partnerKey?: PartnerKey | null;
   partnerChannel?: PartnerChannel;
 }) {
@@ -65,6 +67,7 @@ export default function CheckoutStartClient({
     function checkoutBody(): string {
       const payload: Record<string, string> = { plan: checkoutPlan };
       if (acquisitionJourneyToken) payload.acquisitionJourneyToken = acquisitionJourneyToken;
+      if (acquisitionCampaignToken) payload.acquisitionCampaignToken = acquisitionCampaignToken;
       if (checkoutPlan === "partner_annual" && partnerKey) {
         payload.partner = partnerKey;
         payload.partnerChannel = partnerChannel;
@@ -180,7 +183,7 @@ export default function CheckoutStartClient({
       clearTimeout(timeoutId);
       if (clerkWait !== undefined) window.clearTimeout(clerkWait);
     };
-  }, [acquisitionJourneyToken, checkoutPlan, isLoaded, isSignedIn, partnerChannel, partnerKey, router, retryNonce]);
+  }, [acquisitionCampaignToken, acquisitionJourneyToken, checkoutPlan, isLoaded, isSignedIn, partnerChannel, partnerKey, router, retryNonce]);
 
   function handleRetry() {
     startedRef.current = false;

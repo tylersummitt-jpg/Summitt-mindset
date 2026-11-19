@@ -120,6 +120,8 @@ export function DistributionCommandCenter({
           <Card label="PDFs confirmed delivered" value={showCount(report.fulfillment == null ? null : report.fulfillment["send_asset:delivered"] ?? 0, "actions")} trust={report.fulfillment == null ? "UNAVAILABLE" : "TRUSTWORTHY"} note="Current outbox, not the date range. Accepted by Resend is not delivered." />
           <Card label="Journey-verified trials" value={showCount(report.attributedTrialPeople, "people")} trust={report.attributedTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} note="Distinct people whose trial event stores the campaign from a journey that belongs to them. An email match is not included." />
           <Card label="Journey-verified paid members" value={showCount(report.attributedPaidPeople, "people")} trust={report.attributedPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} note="The first paid event for that subscription. A trial that later pays is counted here once, and it stays in the trial count." />
+          <Card label="Campaign-link trials" value={showCount(report.campaignLinkTrialPeople, "people")} trust={report.campaignLinkTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} note="Distinct people whose trial event stores a signed campaign and no journey. This is not a journey-verified trial." />
+          <Card label="Campaign-link paid members" value={showCount(report.campaignLinkPaidPeople, "people")} trust={report.campaignLinkPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} note="Distinct people whose paid event stores a signed campaign and no journey. A repeated webhook is not a second member." />
         </div>
       </section>
 
@@ -166,6 +168,10 @@ export function DistributionCommandCenter({
               <FunnelRow stage="Video events with no journey" count={showCount(report.unattributedVideoEvents, "events")} trust={report.unattributedVideoEvents == null ? "UNAVAILABLE" : "PARTIAL"} when="Not placed on a campaign" />
               <FunnelRow stage="Journey-verified trials" count={showCount(report.attributedTrialPeople, "people")} trust={report.attributedTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="This date range" />
               <FunnelRow stage="Journey-verified paid members" count={showCount(report.attributedPaidPeople, "people")} trust={report.attributedPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="This date range" />
+              <FunnelRow stage="Campaign-link trials" count={showCount(report.campaignLinkTrialPeople, "people")} trust={report.campaignLinkTrialPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="Signed campaign, no journey" />
+              <FunnelRow stage="Campaign-link paid members" count={showCount(report.campaignLinkPaidPeople, "people")} trust={report.campaignLinkPaidPeople == null ? "UNAVAILABLE" : "TRUSTWORTHY"} when="Signed campaign, no journey" />
+              <FunnelRow stage="Campaign-link trials with no matching person" count={showCount(report.unlinkedCampaignTrialEvents, "events")} trust={report.unlinkedCampaignTrialEvents == null ? "UNAVAILABLE" : "PARTIAL"} when="Not identified prospects" />
+              <FunnelRow stage="Campaign-link payments with no matching person" count={showCount(report.unlinkedCampaignPaidEvents, "events")} trust={report.unlinkedCampaignPaidEvents == null ? "UNAVAILABLE" : "PARTIAL"} when="Not identified prospects" />
               <FunnelRow stage="Email-only trials, not campaign credit" count={showCount(report.emailOnlyTrialPeople, "people")} trust={report.emailOnlyTrialPeople == null ? "UNAVAILABLE" : "PARTIAL"} when="This date range" />
               <FunnelRow stage="Collected revenue" count="Unavailable" trust="UNAVAILABLE" when="Not stored" />
             </tbody>
@@ -255,6 +261,8 @@ export function DistributionCommandCenter({
                     <th className="px-3 py-2">CTA clicks</th>
                     <th className="px-3 py-2">Verified trials</th>
                     <th className="px-3 py-2">Verified paid</th>
+                    <th className="px-3 py-2">Campaign-link trials</th>
+                    <th className="px-3 py-2">Campaign-link paid</th>
                   </>
                 ) : (
                   <>
@@ -295,6 +303,8 @@ export function DistributionCommandCenter({
                         <td className="px-3 py-2">{showCount(campaign.videoCtaPeople, "")}</td>
                         <td className="px-3 py-2">{campaign.attributedTrials}</td>
                         <td className="px-3 py-2">{campaign.attributedPaid}</td>
+                        <td className="px-3 py-2">{campaign.campaignLinkTrials}</td>
+                        <td className="px-3 py-2">{campaign.campaignLinkPaid}</td>
                       </>
                     ) : (
                       <>
@@ -387,7 +397,7 @@ export function DistributionCommandCenter({
         <h2 className="text-lg font-semibold text-gray-900">Trials, paid members, and the next decision</h2>
         <p className="text-sm text-gray-800">{report.nextDecision}</p>
         <p className="text-sm text-gray-600">
-          Journey-verified trials in this range: {showCount(report.attributedTrialPeople, "people")}. Journey-verified paid members: {showCount(report.attributedPaidPeople, "people")}. Email-only trials, with no campaign credit: {showCount(report.emailOnlyTrialPeople, "people")}. Email-only paid members: {showCount(report.emailOnlyPaidPeople, "people")}. Collected revenue, MRR, and a first-touch guess are unavailable. Company trial counts stay in the website section below and are not added to these rows.
+          Journey-verified trials in this range: {showCount(report.attributedTrialPeople, "people")}. Journey-verified paid members: {showCount(report.attributedPaidPeople, "people")}. Campaign-link trials: {showCount(report.campaignLinkTrialPeople, "people")}. Campaign-link paid members: {showCount(report.campaignLinkPaidPeople, "people")}. Campaign-link checkouts with no matching person: {showCount(report.unlinkedCampaignTrialEvents, "trial events")} and {showCount(report.unlinkedCampaignPaidEvents, "paid events")}. Those are not identified prospects. Email-only trials, with no campaign credit: {showCount(report.emailOnlyTrialPeople, "people")}. Email-only paid members: {showCount(report.emailOnlyPaidPeople, "people")}. Collected revenue, MRR, and a first-touch guess are unavailable. Company trial counts stay in the website section below and are not added to these rows.
         </p>
       </section>
 
@@ -528,7 +538,7 @@ function CampaignDetail({
       <p>Reminders currently canceled: {showCount(campaign.remindersCanceled, "actions")}. Canceled by a recorded play: unavailable. The cancellation does not store a reason.</p>
       <p>Instantly bounced leads: {showCount(campaign.instantlyBouncedLeads, "leads")}. Instantly unsubscribed leads: {showCount(campaign.instantlyUnsubscribed, "leads")}. Those are Instantly's totals, separate from webhook history.</p>
       <p>Prepared video links: {showCount(campaign.linksPrepared, "people")}. Visits: {showCount(campaign.videoVisitPeople, "people")}. Player connected: {showCount(campaign.videoPlayerReadyPeople, "people")}. Plays: {showCount(campaign.videoPlayPeople, "people")}. 25% {showCount(campaign.videoWatched25People, "people")}, 50% {showCount(campaign.videoWatched50People, "people")}, 75% {showCount(campaign.videoWatched75People, "people")}, 95% or ended {showCount(campaign.videoWatched95People, "people")}. Trial-button clicks: {showCount(campaign.videoCtaPeople, "people")}. {watchMeasurementNote(campaign)} Counts are verified journeys only. Videos: {campaign.videoIds.length > 0 ? campaign.videoIds.join(", ") : "none stored on these events"}.</p>
-      <p>Journey-verified trials: {campaign.attributedTrials}. Journey-verified paid members: {campaign.attributedPaid}. Video-first journeys among them: {campaign.videoFirstTrials} trials and {campaign.videoFirstPaid} paid members. Earlier journeys on this campaign stay in the first pair. An email match is not included.</p>
+      <p>Journey-verified trials: {campaign.attributedTrials}. Journey-verified paid members: {campaign.attributedPaid}. Campaign-link trials: {campaign.campaignLinkTrials}. Campaign-link paid members: {campaign.campaignLinkPaid}. Campaign-link checkouts with no matching person: {campaign.unlinkedCampaignTrialEvents} trial events and {campaign.unlinkedCampaignPaidEvents} paid events. Those are not identified prospects. Video-first journeys among the journey-verified rows: {campaign.videoFirstTrials} trials and {campaign.videoFirstPaid} paid members. Earlier journeys on this campaign stay in the journey-verified pair. An email match is not included.</p>
       <p>Webhook steps in this range, partial:</p>
       <ul className="list-disc pl-5">
         {campaign.steps.length === 0 ? <li>No recorded step on a send webhook in this range.</li> : campaign.steps.map((step) => (

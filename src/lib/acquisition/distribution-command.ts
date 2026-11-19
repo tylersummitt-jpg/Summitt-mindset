@@ -115,6 +115,12 @@ export type CampaignView = {
   interestedWebhookPeople: number | null;
   attributedTrials: number;
   attributedPaid: number;
+  /** Distinct people on a signed campaign link, with no journey. */
+  campaignLinkTrials: number;
+  campaignLinkPaid: number;
+  /** Campaign-link checkouts that did not match an acquisition person. Events, not people. */
+  unlinkedCampaignTrialEvents: number;
+  unlinkedCampaignPaidEvents: number;
   /** Trials and payments whose journey has a prepared video link. Earlier journeys stay in the totals above. */
   videoFirstTrials: number;
   videoFirstPaid: number;
@@ -236,6 +242,12 @@ export type DistributionCommandReport = {
   attributedPaidPeople: number | null;
   emailOnlyTrialPeople: number | null;
   emailOnlyPaidPeople: number | null;
+  /** Distinct people whose Stripe event has a campaign link and no journey. */
+  campaignLinkTrialPeople: number | null;
+  campaignLinkPaidPeople: number | null;
+  /** Campaign-link Stripe events with no matching person. Not identified prospects. */
+  unlinkedCampaignTrialEvents: number | null;
+  unlinkedCampaignPaidEvents: number | null;
   unknownWebhookTypes: Array<{ type: string; events: number }>;
   suppressedPeople: number | null;
   sportFilled: number | null;
@@ -329,6 +341,10 @@ export function unreadableDistributionCommand(note: string, rangeLabel: string):
     attributedPaidPeople: null,
     emailOnlyTrialPeople: null,
     emailOnlyPaidPeople: null,
+    campaignLinkTrialPeople: null,
+    campaignLinkPaidPeople: null,
+    unlinkedCampaignTrialEvents: null,
+    unlinkedCampaignPaidEvents: null,
     unknownWebhookTypes: [],
     suppressedPeople: null,
     sportFilled: null,
@@ -387,6 +403,8 @@ type MutableCampaign = CampaignView & {
   observedPeople: Set<string>;
   trialPeople: Set<string>;
   paidPeople: Set<string>;
+  campaignLinkTrialPeople: Set<string>;
+  campaignLinkPaidPeople: Set<string>;
   videoFirstTrialPeople: Set<string>;
   videoFirstPaidPeople: Set<string>;
   requestPeople: Set<string>;
@@ -418,6 +436,10 @@ function blankCampaign(id: string): MutableCampaign {
     interestedWebhookPeople: 0,
     attributedTrials: 0,
     attributedPaid: 0,
+    campaignLinkTrials: 0,
+    campaignLinkPaid: 0,
+    unlinkedCampaignTrialEvents: 0,
+    unlinkedCampaignPaidEvents: 0,
     videoFirstTrials: 0,
     videoFirstPaid: 0,
     sequenceFinishedEvents: 0,
@@ -475,6 +497,8 @@ function blankCampaign(id: string): MutableCampaign {
     observedPeople: new Set(),
     trialPeople: new Set(),
     paidPeople: new Set(),
+    campaignLinkTrialPeople: new Set(),
+    campaignLinkPaidPeople: new Set(),
     videoFirstTrialPeople: new Set(),
     videoFirstPaidPeople: new Set(),
     requestPeople: new Set(),
@@ -681,6 +705,10 @@ export function buildDistributionCommand(args: {
   const attributedPaidPeople = new Set<string>();
   const emailOnlyTrialPeople = new Set<string>();
   const emailOnlyPaidPeople = new Set<string>();
+  const campaignLinkTrialPeople = new Set<string>();
+  const campaignLinkPaidPeople = new Set<string>();
+  let unlinkedCampaignTrialEvents = 0;
+  let unlinkedCampaignPaidEvents = 0;
   const videoVisitPeople = new Set<string>();
   const videoPlayPeople = new Set<string>();
   const videoCtaPeople = new Set<string>();
@@ -791,24 +819,44 @@ export function buildDistributionCommand(args: {
       sequenceFinishedEvents += 1;
     }
     if (
-      event.personId &&
       event.provider === "stripe" &&
       (event.eventType === "trial_started" || event.eventType === "paid_member")
     ) {
-      const verifiedCampaign = event.campaignId && event.journeyId ? event.campaignId : null;
-      if (event.eventType === "trial_started") {
-        if (verifiedCampaign) {
+      const trial = event.eventType === "trial_started";
+      const journeyVerified = Boolean(event.personId && event.campaignId && event.journeyId);
+      const campaignLink = Boolean(event.campaignId && !event.journeyId);
+      if (journeyVerified && event.personId && event.campaignId) {
+        if (trial) {
           attributedTrialPeople.add(event.personId);
-          const campaign = ensure(verifiedCampaign);
+          const campaign = ensure(event.campaignId);
           campaign.trialPeople.add(event.personId);
-          if (event.journeyId && videoJourneyIds.has(event.journeyId)) campaign.videoFirstTrialPeople.add(event.personId);
-        } else emailOnlyTrialPeople.add(event.personId);
-      } else if (verifiedCampaign) {
-        attributedPaidPeople.add(event.personId);
-        const campaign = ensure(verifiedCampaign);
-        campaign.paidPeople.add(event.personId);
-        if (event.journeyId && videoJourneyIds.has(event.journeyId)) campaign.videoFirstPaidPeople.add(event.personId);
-      } else emailOnlyPaidPeople.add(event.personId);
+          if (videoJourneyIds.has(event.journeyId ?? "")) campaign.videoFirstTrialPeople.add(event.personId);
+        } else {
+          attributedPaidPeople.add(event.personId);
+          const campaign = ensure(event.campaignId);
+          campaign.paidPeople.add(event.personId);
+          if (videoJourneyIds.has(event.journeyId ?? "")) campaign.videoFirstPaidPeople.add(event.personId);
+        }
+      } else if (campaignLink && event.personId && event.campaignId) {
+        if (trial) {
+          campaignLinkTrialPeople.add(event.personId);
+          ensure(event.campaignId).campaignLinkTrialPeople.add(event.personId);
+        } else {
+          campaignLinkPaidPeople.add(event.personId);
+          ensure(event.campaignId).campaignLinkPaidPeople.add(event.personId);
+        }
+      } else if (campaignLink && event.campaignId) {
+        if (trial) {
+          unlinkedCampaignTrialEvents += 1;
+          ensure(event.campaignId).unlinkedCampaignTrialEvents += 1;
+        } else {
+          unlinkedCampaignPaidEvents += 1;
+          ensure(event.campaignId).unlinkedCampaignPaidEvents += 1;
+        }
+      } else if (event.personId) {
+        if (trial) emailOnlyTrialPeople.add(event.personId);
+        else emailOnlyPaidPeople.add(event.personId);
+      }
     }
     if (!event.campaignId) continue;
     const campaign = ensure(event.campaignId);
@@ -969,6 +1017,8 @@ export function buildDistributionCommand(args: {
     campaign.interestedWebhookPeople = campaign.interestPeople.size;
     campaign.attributedTrials = campaign.trialPeople.size;
     campaign.attributedPaid = campaign.paidPeople.size;
+    campaign.campaignLinkTrials = campaign.campaignLinkTrialPeople.size;
+    campaign.campaignLinkPaid = campaign.campaignLinkPaidPeople.size;
     campaign.videoFirstTrials = campaign.videoFirstTrialPeople.size;
     campaign.videoFirstPaid = campaign.videoFirstPaidPeople.size;
     campaign.steps = [...campaign.stepSends.entries()]
@@ -1069,7 +1119,7 @@ export function buildDistributionCommand(args: {
 
   const reportCampaigns = [...campaigns.values()]
     .map((campaign) => {
-      const { sendPeople: _s, replyPeople: _r, interestPeople: _i, observedPeople: _o, trialPeople: _trial, paidPeople: _paid, videoFirstTrialPeople: _videoTrial, videoFirstPaidPeople: _videoPaid, requestPeople: _request, mailboxSends: _m, stepSends: _t, sendsForAge: _a, repliesForAge: _p, videoIdSet, ...view } = campaign;
+      const { sendPeople: _s, replyPeople: _r, interestPeople: _i, observedPeople: _o, trialPeople: _trial, paidPeople: _paid, campaignLinkTrialPeople: _linkTrial, campaignLinkPaidPeople: _linkPaid, videoFirstTrialPeople: _videoTrial, videoFirstPaidPeople: _videoPaid, requestPeople: _request, mailboxSends: _m, stepSends: _t, sendsForAge: _a, repliesForAge: _p, videoIdSet, ...view } = campaign;
       return { ...view, videoIds: [...videoIdSet].sort() };
     })
     .sort((a, b) => (a.name ?? a.id).localeCompare(b.name ?? b.id));
@@ -1156,8 +1206,12 @@ export function buildDistributionCommand(args: {
     rates,
     attributedTrialPeople: attributedTrialPeople.size,
     attributedPaidPeople: attributedPaidPeople.size,
-    emailOnlyTrialPeople: [...emailOnlyTrialPeople].filter((id) => !attributedTrialPeople.has(id)).length,
-    emailOnlyPaidPeople: [...emailOnlyPaidPeople].filter((id) => !attributedPaidPeople.has(id)).length,
+    emailOnlyTrialPeople: [...emailOnlyTrialPeople].filter((id) => !attributedTrialPeople.has(id) && !campaignLinkTrialPeople.has(id)).length,
+    emailOnlyPaidPeople: [...emailOnlyPaidPeople].filter((id) => !attributedPaidPeople.has(id) && !campaignLinkPaidPeople.has(id)).length,
+    campaignLinkTrialPeople: campaignLinkTrialPeople.size,
+    campaignLinkPaidPeople: campaignLinkPaidPeople.size,
+    unlinkedCampaignTrialEvents,
+    unlinkedCampaignPaidEvents,
     unknownWebhookTypes: [...unknownTypes.entries()].map(([type, events]) => ({ type, events })).sort((a, b) => b.events - a.events),
     suppressedPeople,
     sportFilled,
@@ -1327,9 +1381,10 @@ export function distributionFactsText(report: DistributionCommandReport): string
     "A prepared video link is one recipient journey with a video_url. Preparing a link does not send email.",
     "A visit is a page open. A play is the first press of play. A play is not a completed watch.",
     "25%, 50%, 75%, and 95% are the first time observed playback progress reached that share of the video. Seeking ahead does not add watched time. These are not measures of attention. 95% also includes the player reporting that the video ended.",
-    "A campaign count includes only an event that stores the person, the journey, and the campaign.",
+    "A journey-verified campaign count includes only an event that stores the person, the journey, and the campaign.",
+    "A campaign-link count is a Stripe trial or payment with a signed campaign and no journey. A campaign-link event with no person is not an identified prospect.",
     "Unattributed video events are not placed on a campaign. A missing player report is not a verified zero watch.",
-    "A journey-verified trial or paid member comes from checkout that carried a signed journey for that person. An email match is not included. Revenue is unavailable.",
+    "A journey-verified trial or paid member comes from checkout that carried a signed journey for that person. A campaign-link trial or payment has a signed campaign and no journey. An email match with no campaign is not included. A campaign-link checkout with no matching person is not an identified prospect. Revenue is unavailable.",
     "Nothing here ranks a campaign or explains why someone subscribed.",
     "",
     `Unattributed video events: ${report.unattributedVideoEvents ?? "could not be read"}`,
@@ -1360,6 +1415,10 @@ export function distributionFactsText(report: DistributionCommandReport): string
         `cta ${showCount(campaign.videoCtaPeople, "")}`,
         `verified trials ${campaign.attributedTrials}`,
         `verified paid ${campaign.attributedPaid}`,
+        `campaign-link trials ${campaign.campaignLinkTrials}`,
+        `campaign-link paid ${campaign.campaignLinkPaid}`,
+        `unmatched campaign-link trial events ${campaign.unlinkedCampaignTrialEvents}`,
+        `unmatched campaign-link paid events ${campaign.unlinkedCampaignPaidEvents}`,
         `video-first trials ${campaign.videoFirstTrials}`,
         `video-first paid ${campaign.videoFirstPaid}`,
       ].join(" | "),

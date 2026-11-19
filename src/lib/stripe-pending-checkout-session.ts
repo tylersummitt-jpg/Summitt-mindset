@@ -178,6 +178,7 @@ function isCompatibleOpenCheckoutShape(
     expectedPriceId: string;
     partner?: string | null;
     partnerChannel?: string | null;
+    acquisitionCampaignId?: string | null;
   }
 ): boolean {
   if (session.status !== "open") return false;
@@ -185,6 +186,7 @@ function isCompatibleOpenCheckoutShape(
   if (!clerkIdentityMatchesCheckoutSession(session, args.userId)) return false;
   if (metadataPlan(session) !== args.plan) return false;
   if (sessionCheckoutChannel(session) !== args.channel) return false;
+  if ((session.metadata?.acquisitionCampaignId ?? null) !== (args.acquisitionCampaignId ?? null)) return false;
   if (!partnerOfferMatches(session, args)) return false;
   return hasExactExpectedMembershipPrice(session, args.expectedPriceId);
 }
@@ -198,6 +200,7 @@ export function isReusableOpenCheckoutSession(
     expectedPriceId: string;
     partner?: string | null;
     partnerChannel?: string | null;
+    acquisitionCampaignId?: string | null;
   }
 ): boolean {
   if (!isUsableOpenCheckoutUrl(session)) return false;
@@ -220,6 +223,7 @@ export function decidePendingCheckoutAction(
     recognizedPriceIds: Set<string>;
     partner?: string | null;
     partnerChannel?: string | null;
+    acquisitionCampaignId?: string | null;
   }
 ): PendingCheckoutDecision {
   if (sessions.some(checkoutSessionIdentityDisagrees)) {
@@ -241,6 +245,7 @@ export function decidePendingCheckoutAction(
       expectedPriceId: args.expectedPriceId,
       partner: args.partner,
       partnerChannel: args.partnerChannel,
+      acquisitionCampaignId: args.acquisitionCampaignId,
     })
   );
   const incompatible = owned.filter(
@@ -252,6 +257,7 @@ export function decidePendingCheckoutAction(
         expectedPriceId: args.expectedPriceId,
         partner: args.partner,
         partnerChannel: args.partnerChannel,
+        acquisitionCampaignId: args.acquisitionCampaignId,
       })
   );
 

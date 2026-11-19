@@ -448,15 +448,20 @@ describe("instantly subscriber stop", () => {
       store.indexOf("export async function noteAcquisitionTrial"),
       store.indexOf("export async function noteAcquisitionClerk"),
     );
-    expect(trial.indexOf("ensureInstantlyBlock")).toBeLessThan(trial.indexOf('stored === "duplicate"'));
+    expect(trial.indexOf('outcome !== "linked"')).toBeLessThan(trial.indexOf("ensureInstantlyBlock"));
     expect(trial).toContain("block.outcome === \"not_stored\"");
     expect(trial).toContain("instantly block intent remains unconfirmed");
     const paid = store.slice(
       store.indexOf("export async function noteAcquisitionPaid"),
       store.indexOf("export async function noteAcquisitionClosed"),
     );
-    expect(paid.indexOf("ensureInstantlyBlock")).toBeLessThan(paid.indexOf('stored === "duplicate"'));
-    expect(paid.indexOf("if (blockUnconfirmed)")).toBeLessThan(paid.indexOf('stored === "duplicate"'));
+    expect(paid.indexOf('outcome !== "linked"')).toBeLessThan(paid.indexOf("ensureInstantlyBlock"));
+    const recorder = store.slice(
+      store.indexOf("async function recordSubscriptionEvent"),
+      store.indexOf("async function linkTrialSignal"),
+    );
+    expect(recorder).toContain('stored === "duplicate"');
+    expect(recorder).not.toContain("ensureInstantlyBlock");
 
     const resend = store.slice(
       store.indexOf("export async function applyAcquisitionResendEvent"),

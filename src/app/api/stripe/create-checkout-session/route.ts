@@ -2,8 +2,8 @@
 
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
-import { ACQUISITION_JOURNEY_METADATA_KEY } from "@/lib/acquisition/email-acquired-member-notice";
-import { verifiedAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice.server";
+import { ACQUISITION_CAMPAIGN_METADATA_KEY, ACQUISITION_JOURNEY_METADATA_KEY } from "@/lib/acquisition/email-acquired-member-notice";
+import { verifiedAcquisitionCampaignId, verifiedAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice.server";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { maySetCoachAcquisitionSource } from "@/lib/coach-attribution";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
@@ -457,6 +457,9 @@ export async function POST(req: Request) {
     if (plan !== "monthly" && plan !== "annual" && plan !== "partner_annual") {
       return new NextResponse("Missing or invalid plan", { status: 400 });
     }
+    const acquisitionCampaignId = src === "coach"
+      ? null
+      : verifiedAcquisitionCampaignId(body?.acquisitionCampaignToken);
     const partnerKey = plan === "partner_annual" ? parsePartnerKey(body?.partner) : null;
     const partnerChannel =
       plan === "partner_annual" ? parsePartnerChannel(body?.partnerChannel) : "unknown";
@@ -791,6 +794,7 @@ export async function POST(req: Request) {
       recognizedPriceIds,
       partner: partnerKey,
       partnerChannel,
+      acquisitionCampaignId,
     };
     const pendingDecision = decidePendingCheckoutAction(openSessions, pendingArgs);
     if (pendingDecision.kind === "conflict") {
@@ -821,6 +825,7 @@ export async function POST(req: Request) {
           expectedPriceId: priceId,
           partner: partnerKey,
           partnerChannel,
+          acquisitionCampaignId,
         })
       ) {
         const reuseUrl = reusable.url;
@@ -847,6 +852,10 @@ export async function POST(req: Request) {
       if (journeyId) {
         sessionMetadata[ACQUISITION_JOURNEY_METADATA_KEY] = journeyId;
         subscriptionMetadata[ACQUISITION_JOURNEY_METADATA_KEY] = journeyId;
+      }
+      if (acquisitionCampaignId) {
+        sessionMetadata[ACQUISITION_CAMPAIGN_METADATA_KEY] = acquisitionCampaignId;
+        subscriptionMetadata[ACQUISITION_CAMPAIGN_METADATA_KEY] = acquisitionCampaignId;
       }
     }
     if (plan === "partner_annual" && partnerKey) {

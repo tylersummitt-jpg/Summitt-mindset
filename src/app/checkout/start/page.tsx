@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { acquisitionJourneyTokenShape } from "@/lib/acquisition/email-acquired-member-notice";
+import { acquisitionCampaignTokenShape, acquisitionJourneyTokenShape } from "@/lib/acquisition/email-acquired-member-notice";
 import { checkoutPlanFromSearchValue, isPartnerAnnualCheckoutPlan } from "@/lib/checkout-plan";
 import { parsePartnerChannel, parsePartnerKey } from "@/lib/partner-landing";
 import { linkMarketingVisitorToClerkUser } from "@/lib/marketing-account-link";
@@ -47,6 +47,8 @@ export default async function CheckoutStartPage({
       : "unknown";
   const rawJourney = Array.isArray(sp.aj) ? sp.aj[0] : sp.aj;
   const acquisitionJourneyToken = acquisitionJourneyTokenShape(rawJourney);
+  const rawCampaign = Array.isArray(sp.ac) ? sp.ac[0] : sp.ac;
+  const acquisitionCampaignToken = acquisitionCampaignTokenShape(rawCampaign);
 
   const user = await currentUser();
   if (user?.id) {
@@ -57,5 +59,5 @@ export default async function CheckoutStartPage({
     }
   }
 
-  return <CheckoutStartClient plan={plan} acquisitionJourneyToken={acquisitionJourneyToken} partnerKey={partnerKey} partnerChannel={partnerChannel} />;
+  return <CheckoutStartClient plan={plan} acquisitionJourneyToken={acquisitionJourneyToken} acquisitionCampaignToken={acquisitionCampaignToken} partnerKey={partnerKey} partnerChannel={partnerChannel} />;
 }
