@@ -56,6 +56,11 @@ const isPublicRoute = createRouteMatcher([
   "/about",
   "/become-proud",
   "/for/(.*)",
+  // Cold-email PDF pages. Exact paths only. Download handlers serve the catalog files.
+  "/free/basketball-playbook",
+  "/free/basketball-playbook/download",
+  "/free/definite-dozen",
+  "/free/definite-dozen/team/download",
   "/orange-mountain-designs",
   "/lady-vol-boost-her-club",
   // Retired URLs stay public so the permanent redirect is not sent to sign-in.

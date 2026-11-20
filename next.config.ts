@@ -28,6 +28,12 @@ const nextConfig: NextConfig = {
       "./data/acquisition-assets/pat-summitt-definite-dozen-team-discussion-guide.pdf",
       "./data/acquisition-assets/pat-summitt-definite-dozen-athletic-director-discussion-guide.pdf",
     ],
+    "/free/basketball-playbook/download": [
+      "./data/acquisition-assets/pat-summitt-basketball-special-situations-playbook.pdf",
+    ],
+    "/free/definite-dozen/team/download": [
+      "./data/acquisition-assets/pat-summitt-definite-dozen-team-discussion-guide.pdf",
+    ],
   },
 };
 
