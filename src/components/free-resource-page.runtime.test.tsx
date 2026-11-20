@@ -20,7 +20,11 @@ describe("free resource page", () => {
       />
     );
 
+    expect(screen.getByText("A gift from Summitt Mindset")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1, name: "Free Pat Summitt Playbook" })).toBeTruthy();
+    expect(screen.getByText("Yours to keep. No signup required.")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Want to take it a step further?" })).toBeTruthy();
+    expect(screen.getByText(/They were meant to be lived/)).toBeTruthy();
     expect(screen.queryByText(/free resource/i)).toBeNull();
     expect(screen.queryByText(/pat-summitt-basketball/i)).toBeNull();
     const download = screen.getByRole("link", { name: "Download the free basketball playbook PDF" });
@@ -42,9 +46,12 @@ describe("free resource page", () => {
       />
     );
 
+    expect(screen.getByText("A gift from Summitt Mindset")).toBeTruthy();
     expect(
       screen.getByRole("heading", { level: 1, name: "Free Definite Dozen Discussion Guide" })
     ).toBeTruthy();
+    expect(screen.getByText("Yours to keep. No signup required.")).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 2, name: "Want to take it a step further?" })).toBeTruthy();
     expect(screen.queryByText(/athletic director discussion guide/i)).toBeNull();
     const download = screen.getByRole("link", {
       name: "Download the free Definite Dozen discussion guide PDF",

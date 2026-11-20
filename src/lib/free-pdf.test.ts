@@ -100,6 +100,9 @@ describe("free PDF pages", () => {
     expect(dozen).toContain("Free Definite Dozen Discussion Guide");
     expect(dozen).not.toContain("CoachLeadershipKitMarketing");
     expect(view).toContain("Download Free PDF");
+    expect(view).toContain("A gift from Summitt Mindset");
+    expect(view).toContain("Yours to keep. No signup required.");
+    expect(view).toContain("Want to take it a step further?");
     expect(view).not.toContain("FREE RESOURCE");
     expect(view).not.toContain("payment card");
     expect(view).not.toMatch(/<form/);
