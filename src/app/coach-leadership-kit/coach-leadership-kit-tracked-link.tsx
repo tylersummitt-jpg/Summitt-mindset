@@ -15,7 +15,8 @@ function isCoachLeadershipKitFunnelPath(pathname: string | null): boolean {
   if (!pathname) return false;
   return (
     pathname === "/coach-leadership-kit" ||
-    pathname.startsWith("/coach-leadership-kit/")
+    pathname.startsWith("/coach-leadership-kit/") ||
+    pathname === "/free/basketball-playbook"
   );
 }
 

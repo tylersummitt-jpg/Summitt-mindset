@@ -119,7 +119,8 @@ describe("partner landing pages", () => {
   it("leaves the homepage, checkout, and first-touch merge untouched", () => {
     const homepage = read("src/app/page.tsx");
     expect(homepage).toContain('href={signInSubscribeHref}');
-    expect(homepage).toContain('href="/checkout/start?plan=annual"');
+    expect(homepage).toContain('const annualHref = "/checkout/start?plan=annual"');
+    expect(homepage).toContain("href={annualHref}");
     expect(homepage).toContain("Start My Free Trial");
     expect(homepage).not.toContain("Claim My Special Offer");
     expect(homepage).not.toContain("orange-mountain-designs");

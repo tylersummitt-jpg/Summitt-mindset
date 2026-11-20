@@ -3,12 +3,18 @@
 import { useMemo, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { useRouter, useSearchParams } from "next/navigation";
+import { acquisitionCampaignTokenShape } from "@/lib/acquisition/campaign-token-shape";
 import { trackCoachInitiateCheckout } from "@/lib/meta-pixel";
 import ResumeMembershipButton from "@/components/resume-membership-button";
 
 type Plan = "monthly" | "annual";
 
 const CHECKOUT_TIMEOUT_MS = 15000;
+
+function subscribePathWithCampaign(path: string, token: string | null): string {
+  if (!token) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}ac=${encodeURIComponent(token)}`;
+}
 
 export default function SubscribeCheckoutPanel() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -17,6 +23,7 @@ export default function SubscribeCheckoutPanel() {
 
   const srcParam = searchParams.get("src");
   const canceled = searchParams.get("canceled") === "1";
+  const acquisitionCampaignToken = acquisitionCampaignTokenShape(searchParams.get("ac"));
   const coachFromMeta =
     user?.publicMetadata &&
     typeof user.publicMetadata === "object" &&
@@ -24,9 +31,10 @@ export default function SubscribeCheckoutPanel() {
       "coach";
   const isCoachExperience =
     srcParam === "coach" || coachFromMeta === true;
-  const subscribeReturnPath = isCoachExperience
+  let subscribeReturnPath = isCoachExperience
     ? "/subscribe?src=coach"
     : "/subscribe";
+  subscribeReturnPath = subscribePathWithCampaign(subscribeReturnPath, acquisitionCampaignToken);
 
   const md =
     user?.publicMetadata && typeof user.publicMetadata === "object"
@@ -79,9 +87,11 @@ export default function SubscribeCheckoutPanel() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(
-          isCoachExperience ? { plan, src: "coach" as const } : { plan }
-        ),
+        body: JSON.stringify({
+          plan,
+          ...(isCoachExperience ? { src: "coach" as const } : {}),
+          ...(acquisitionCampaignToken ? { acquisitionCampaignToken } : {}),
+        }),
         signal: controller.signal,
       });
 

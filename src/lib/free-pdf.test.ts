@@ -6,9 +6,12 @@ import { describe, expect, it } from "vitest";
 import { ACQUISITION_ASSET_FILES } from "@/lib/acquisition/assets";
 import { GET as getPlaybook } from "@/app/free/basketball-playbook/download/route";
 import { GET as getTeamGuide } from "@/app/free/definite-dozen/team/download/route";
+import { COACH_SIGN_UP_HREF, COACH_SUBSCRIBE_PATH } from "@/lib/coach-funnel-links";
 import {
   BASKETBALL_PLAYBOOK_PAGE,
   DEFINITE_DOZEN_PAGE,
+  freePdfCheckoutHref,
+  freePdfCoachKitHref,
   freePdfTrialHref,
 } from "@/lib/free-pdf";
 
@@ -52,6 +55,24 @@ describe("free PDF pages", () => {
     );
     expect(freePdfTrialHref(shapedToken)).not.toContain("plan=");
     expect(freePdfTrialHref(shapedToken)).not.toContain("aj=");
+    expect(freePdfCheckoutHref("/checkout/start?plan=annual", undefined)).toBe(
+      "/checkout/start?plan=annual"
+    );
+    expect(freePdfCheckoutHref("/checkout/start?plan=annual", "not a token")).toBe(
+      "/checkout/start?plan=annual"
+    );
+    expect(freePdfCheckoutHref("/checkout/start?plan=annual", shapedToken)).toBe(
+      `/checkout/start?plan=annual&ac=${encodeURIComponent(shapedToken)}`
+    );
+    expect(freePdfCheckoutHref("/sign-in", shapedToken)).toBe("/sign-in");
+    expect(freePdfCoachKitHref(false, undefined)).toBe(COACH_SIGN_UP_HREF);
+    expect(freePdfCoachKitHref(true, "not a token")).toBe(COACH_SUBSCRIBE_PATH);
+    expect(freePdfCoachKitHref(true, shapedToken)).toBe(
+      `${COACH_SUBSCRIBE_PATH}&ac=${encodeURIComponent(shapedToken)}`
+    );
+    expect(freePdfCoachKitHref(false, shapedToken)).toBe(
+      `/sign-up?redirect_url=${encodeURIComponent(`${COACH_SUBSCRIBE_PATH}&ac=${encodeURIComponent(shapedToken)}`)}`
+    );
 
     const href = readSrc("src/lib/free-pdf.ts");
     expect(href).not.toContain("signAcquisitionCampaignId");
@@ -71,11 +92,16 @@ describe("free PDF pages", () => {
       "/free/definite-dozen/team/download",
     ]);
     expect(content + dozen + view).not.toMatch(/definite_dozen_ad|athletic-director\/download|Athletic Director Discussion Guide/i);
-    expect(basketball).toContain("freePdfTrialHref");
-    expect(dozen).toContain("freePdfTrialHref");
+    expect(basketball).toContain("CoachLeadershipKitMarketing");
+    expect(basketball).toContain("freePdfCoachKitHref");
+    expect(basketball).toContain("Free Pat Summitt Playbook");
+    expect(dozen).toContain("HomepageMarketing");
+    expect(dozen).toContain("freePdfCheckoutHref");
+    expect(dozen).toContain("Free Definite Dozen Discussion Guide");
+    expect(dozen).not.toContain("CoachLeadershipKitMarketing");
     expect(view).toContain("Download Free PDF");
-    expect(view).toContain("payment card");
-    expect(view).toContain("MEMBERSHIP_PUBLIC_OFFER.monthly");
+    expect(view).not.toContain("FREE RESOURCE");
+    expect(view).not.toContain("payment card");
     expect(view).not.toMatch(/<form/);
     expect(view + basketball + dozen).not.toMatch(/instantly|create-checkout-session|signAcquisition/i);
   });

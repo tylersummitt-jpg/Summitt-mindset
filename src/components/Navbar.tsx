@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { acquisitionCampaignTokenShape } from "@/lib/acquisition/campaign-token-shape";
 import { useUser } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { useIsNativeSummittMindsetApp } from "@/components/native-app/NativeAppProvider";
@@ -46,6 +47,7 @@ export function Navbar() {
   const pathname = usePathname();
   const { user, isSignedIn } = useUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [campaignToken, setCampaignToken] = useState<string | null>(null);
   const isNativeApp = useIsNativeSummittMindsetApp();
 
   const subscribedRaw = user?.publicMetadata?.summittSubscribed;
@@ -57,6 +59,15 @@ export function Navbar() {
     plan === "monthly" ||
     plan === "annual";
   const isPaused = plan === "paused";
+
+  useEffect(() => {
+    const onGiftPage = pathname === "/free/basketball-playbook" || pathname === "/free/definite-dozen";
+    if (!onGiftPage) {
+      setCampaignToken((current) => (current === null ? current : null));
+      return;
+    }
+    setCampaignToken(acquisitionCampaignTokenShape(new URLSearchParams(window.location.search).get("ac")));
+  }, [pathname]);
 
   // Close mobile menu when resizing to desktop
   useEffect(() => {
@@ -96,14 +107,26 @@ export function Navbar() {
     );
   }
 
-  const startFreeTrialHref = isCoachLeadershipKitPath(pathname)
-    ? SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT
-    : SIGN_UP_WITH_SUBSCRIBE_REDIRECT;
+  const onBasketballGift = pathname === "/free/basketball-playbook";
+  const onDozenGift = pathname === "/free/definite-dozen";
+  const coachSignUpHref = campaignToken
+    ? `/sign-up?redirect_url=${encodeURIComponent(`/subscribe?src=coach&ac=${encodeURIComponent(campaignToken)}`)}`
+    : SIGN_UP_WITH_COACH_SUBSCRIBE_REDIRECT;
+  const coachSignInHref = campaignToken
+    ? `/sign-in?redirect_url=${encodeURIComponent(`/subscribe?src=coach&ac=${encodeURIComponent(campaignToken)}`)}`
+    : SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT;
+  const useCoachNav = isCoachLeadershipKitPath(pathname) || onBasketballGift;
+
+  const startFreeTrialHref = useCoachNav
+    ? coachSignUpHref
+    : onDozenGift && campaignToken
+      ? `/checkout/start?ac=${encodeURIComponent(campaignToken)}`
+      : SIGN_UP_WITH_SUBSCRIBE_REDIRECT;
 
   const signInHref = isNativeApp
     ? APP_SIGN_IN_PATH
-    : isCoachLeadershipKitPath(pathname)
-      ? SIGN_IN_WITH_COACH_SUBSCRIBE_REDIRECT
+    : useCoachNav
+      ? coachSignInHref
       : "/sign-in";
 
   // --------------------------------------------------

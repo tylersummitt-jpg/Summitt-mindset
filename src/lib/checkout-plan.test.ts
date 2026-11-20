@@ -139,7 +139,8 @@ describe("consumer checkout plan wiring (source)", () => {
     expect(readSrc("src/lib/native-app/native-safe-marketing-cta.ts")).not.toContain(
       "plan=annual"
     );
-    expect(readSrc("src/app/page.tsx")).toContain('href="/checkout/start?plan=annual"');
+    expect(readSrc("src/app/page.tsx")).toContain('const annualHref = "/checkout/start?plan=annual"');
+    expect(readSrc("src/app/page.tsx")).toContain("href={annualHref}");
     expect(readSrc("src/app/page.tsx")).not.toContain("checkout-plan");
     expect(readSrc("src/components/Navbar.tsx")).not.toContain("plan=annual");
     expect(readSrc("src/lib/safe-redirect.ts")).not.toContain("plan=annual");

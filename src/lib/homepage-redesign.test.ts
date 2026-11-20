@@ -49,7 +49,8 @@ describe("homepage redesign phase 2", () => {
     expect(home).toContain('redirect("/post-sign-in")');
     expect(home).toContain("MEMBERSHIP_PUBLIC_OFFER");
     expect(home).toContain("Then {MEMBERSHIP_PUBLIC_OFFER.monthly}, or choose");
-    expect(home).toContain('href="/checkout/start?plan=annual"');
+    expect(home).toContain('const annualHref = "/checkout/start?plan=annual"');
+    expect(home).toContain("href={annualHref}");
     expect(home).toContain("{MEMBERSHIP_PUBLIC_OFFER.annual}");
     expect(home).toContain("$0 Today");
     expect(home).toContain("Try Summitt Mindset free for 7 days.");

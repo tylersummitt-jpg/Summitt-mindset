@@ -3,6 +3,8 @@
  * Prevents open redirects while allowing known internal paths.
  */
 
+import { acquisitionCampaignTokenShape } from "@/lib/acquisition/campaign-token-shape";
+
 const SUBSCRIBE_PATH = "/subscribe";
 
 const ALLOWED_FROM = new Set(["onboarding", "post-sign-in", "ask-pat"]);
@@ -60,7 +62,8 @@ function parseAsSameOriginPath(s: string): URL | null {
 }
 
 /**
- * Allows only /subscribe with optional whitelisted query (src=coach, from=*).
+ * Allows only /subscribe with optional whitelisted query (src=coach, from=*, shaped ac).
+ * A malformed campaign token is dropped. It does not reject the rest of a valid subscribe redirect.
  */
 export function sanitizeSubscribeRedirectUrl(
   raw: string | null | undefined
@@ -83,7 +86,7 @@ export function sanitizeSubscribeRedirectUrl(
   const keys = [...new Set([...params.keys()])].sort();
 
   for (const key of keys) {
-    if (key !== "src" && key !== "from") return null;
+    if (key !== "src" && key !== "from" && key !== "ac") return null;
   }
 
   if (params.has("src")) {
@@ -93,12 +96,14 @@ export function sanitizeSubscribeRedirectUrl(
     const v = params.get("from");
     if (!v || !ALLOWED_FROM.has(v)) return null;
   }
+  const campaignToken = params.has("ac") ? acquisitionCampaignTokenShape(params.get("ac")) : null;
 
   if (keys.length === 0) return SUBSCRIBE_PATH;
 
   const out = new URLSearchParams();
   if (params.has("from")) out.set("from", params.get("from")!);
   if (params.has("src")) out.set("src", params.get("src")!);
+  if (campaignToken) out.set("ac", campaignToken);
   const q = out.toString();
   return q ? `${SUBSCRIBE_PATH}?${q}` : SUBSCRIBE_PATH;
 }

@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
+import { currentUser } from "@clerk/nextjs/server";
 
+import { CoachLeadershipKitMarketing } from "@/app/coach-leadership-kit/page";
 import { FreeResourcePage } from "@/components/free-resource-page";
 import {
   BASKETBALL_PLAYBOOK_PAGE,
   campaignTokenFromSearch,
   FREE_PDF_SITE,
-  freePdfTrialHref,
+  freePdfCoachKitHref,
 } from "@/lib/free-pdf";
 
 export const metadata: Metadata = {
-  title: "Free Basketball Playbook",
+  title: "Free Pat Summitt Playbook",
   description: BASKETBALL_PLAYBOOK_PAGE.description,
   alternates: { canonical: `${FREE_PDF_SITE}${BASKETBALL_PLAYBOOK_PAGE.path}` },
   robots: { index: false, follow: false },
@@ -21,7 +23,23 @@ export default async function BasketballPlaybookPage({
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const sp = searchParams ? await searchParams : {};
-  const trialHref = freePdfTrialHref(campaignTokenFromSearch(sp.ac));
+  const user = await currentUser();
+  const download = BASKETBALL_PLAYBOOK_PAGE.downloads[0];
+  if (!download) throw new Error("Missing basketball playbook download");
 
-  return <FreeResourcePage page={BASKETBALL_PLAYBOOK_PAGE} trialHref={trialHref} />;
+  return (
+    <div>
+      <FreeResourcePage
+        title="Free Pat Summitt Playbook"
+        download={{
+          href: download.href,
+          filename: download.filename,
+          actionLabel: download.actionLabel,
+        }}
+      />
+      <CoachLeadershipKitMarketing
+        leadershipKitHref={freePdfCoachKitHref(Boolean(user), campaignTokenFromSearch(sp.ac))}
+      />
+    </div>
+  );
 }

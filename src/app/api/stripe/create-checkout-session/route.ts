@@ -2,6 +2,7 @@
 
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { acquisitionCampaignTokenShape } from "@/lib/acquisition/campaign-token-shape";
 import { ACQUISITION_CAMPAIGN_METADATA_KEY, ACQUISITION_JOURNEY_METADATA_KEY } from "@/lib/acquisition/email-acquired-member-notice";
 import { verifiedAcquisitionCampaignId, verifiedAcquisitionJourneyId } from "@/lib/acquisition/email-acquired-member-notice.server";
 import { auth, currentUser } from "@clerk/nextjs/server";
@@ -457,9 +458,10 @@ export async function POST(req: Request) {
     if (plan !== "monthly" && plan !== "annual" && plan !== "partner_annual") {
       return new NextResponse("Missing or invalid plan", { status: 400 });
     }
-    const acquisitionCampaignId = src === "coach"
-      ? null
-      : verifiedAcquisitionCampaignId(body?.acquisitionCampaignToken);
+    const acquisitionCampaignId = verifiedAcquisitionCampaignId(body?.acquisitionCampaignToken);
+    const acquisitionCampaignToken = acquisitionCampaignId
+      ? acquisitionCampaignTokenShape(body?.acquisitionCampaignToken)
+      : null;
     const partnerKey = plan === "partner_annual" ? parsePartnerKey(body?.partner) : null;
     const partnerChannel =
       plan === "partner_annual" ? parsePartnerChannel(body?.partnerChannel) : "unknown";
@@ -853,10 +855,10 @@ export async function POST(req: Request) {
         sessionMetadata[ACQUISITION_JOURNEY_METADATA_KEY] = journeyId;
         subscriptionMetadata[ACQUISITION_JOURNEY_METADATA_KEY] = journeyId;
       }
-      if (acquisitionCampaignId) {
-        sessionMetadata[ACQUISITION_CAMPAIGN_METADATA_KEY] = acquisitionCampaignId;
-        subscriptionMetadata[ACQUISITION_CAMPAIGN_METADATA_KEY] = acquisitionCampaignId;
-      }
+    }
+    if (acquisitionCampaignId) {
+      sessionMetadata[ACQUISITION_CAMPAIGN_METADATA_KEY] = acquisitionCampaignId;
+      subscriptionMetadata[ACQUISITION_CAMPAIGN_METADATA_KEY] = acquisitionCampaignId;
     }
     if (plan === "partner_annual" && partnerKey) {
       sessionMetadata.partner = partnerKey;
@@ -880,8 +882,8 @@ export async function POST(req: Request) {
       success_url: `${appUrl}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:
         src === "coach"
-          ? `${appUrl}/subscribe?canceled=1&src=coach`
-          : `${appUrl}/subscribe?canceled=1`,
+          ? `${appUrl}/subscribe?canceled=1&src=coach${acquisitionCampaignToken ? `&ac=${encodeURIComponent(acquisitionCampaignToken)}` : ""}`
+          : `${appUrl}/subscribe?canceled=1${acquisitionCampaignToken ? `&ac=${encodeURIComponent(acquisitionCampaignToken)}` : ""}`,
     };
 
     // Presentation-only. Consumer web Checkout — not coach.

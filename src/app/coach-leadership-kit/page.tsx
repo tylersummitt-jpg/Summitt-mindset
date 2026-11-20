@@ -56,6 +56,14 @@ export default async function CoachLeadershipKitPage() {
   const user = await currentUser();
   const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_UP_HREF;
 
+  return <CoachLeadershipKitMarketing leadershipKitHref={leadershipKitHref} />;
+}
+
+export function CoachLeadershipKitMarketing({
+  leadershipKitHref,
+}: {
+  leadershipKitHref: string;
+}) {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       {/* 1. Hero — image-led, live HTML overlay */}

@@ -31,6 +31,17 @@ describe("isCoachSubscribeRedirectUrl", () => {
   it("is false for null", () => {
     expect(isCoachSubscribeRedirectUrl(null)).toBe(false);
   });
+
+  it("keeps a shaped campaign token on the coach subscribe redirect and drops a bad one", () => {
+    const token = `camp_1.${"a".repeat(43)}`;
+    expect(sanitizeInternalRedirectUrl(`/subscribe?src=coach&ac=${token}`)).toBe(
+      `/subscribe?src=coach&ac=${token}`
+    );
+    expect(sanitizeInternalRedirectUrl("/subscribe?src=coach&ac=not-a-token")).toBe(
+      "/subscribe?src=coach"
+    );
+    expect(sanitizeInternalRedirectUrl(`/subscribe?src=coach&ac=${token}&next=/admin`)).toBeNull();
+  });
 });
 
 describe("sanitizeInternalRedirectUrl checkout hop", () => {

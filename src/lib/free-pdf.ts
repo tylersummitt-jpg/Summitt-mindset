@@ -1,11 +1,10 @@
-import {
-  ACQUISITION_CAMPAIGN_QUERY,
-  acquisitionCampaignTokenShape,
-} from "@/lib/acquisition/email-acquired-member-notice";
+import { acquisitionCampaignTokenShape } from "@/lib/acquisition/campaign-token-shape";
+import { ACQUISITION_CAMPAIGN_QUERY } from "@/lib/acquisition/email-acquired-member-notice";
 import {
   ACQUISITION_ASSET_FILES,
   type AcquisitionFileKey,
 } from "@/lib/acquisition/assets";
+import { COACH_SIGN_UP_HREF, COACH_SUBSCRIBE_PATH } from "@/lib/coach-funnel-links";
 
 export const FREE_PDF_SITE = "https://summittmindset.com";
 
@@ -85,9 +84,25 @@ export const DEFINITE_DOZEN_PAGE: FreePdfPageContent = {
 
 /** Existing checkout hop. A campaign token is forwarded only when it already has the signed-token shape. Checkout verifies the signature before any campaign credit. */
 export function freePdfTrialHref(campaignToken: unknown): string {
+  return freePdfCheckoutHref("/checkout/start", campaignToken);
+}
+
+export function freePdfCheckoutHref(href: string, campaignToken: unknown): string {
   const token = acquisitionCampaignTokenShape(campaignToken);
-  if (!token) return "/checkout/start";
-  return `/checkout/start?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
+  if (!token || !href.startsWith("/checkout/start")) return href;
+  const join = href.includes("?") ? "&" : "?";
+  return `${href}${join}${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
+}
+
+/** Leadership Kit enrollment. No token leaves the existing coach signup and subscribe URLs unchanged. */
+export function freePdfCoachKitHref(signedIn: boolean, campaignToken: unknown): string {
+  const token = acquisitionCampaignTokenShape(campaignToken);
+  const subscribe = token
+    ? `${COACH_SUBSCRIBE_PATH}&${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`
+    : COACH_SUBSCRIBE_PATH;
+  if (signedIn) return subscribe;
+  if (!token) return COACH_SIGN_UP_HREF;
+  return `/sign-up?redirect_url=${encodeURIComponent(subscribe)}`;
 }
 
 export function campaignTokenFromSearch(value: string | string[] | undefined): unknown {

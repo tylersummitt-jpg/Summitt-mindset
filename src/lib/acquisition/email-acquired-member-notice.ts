@@ -1,13 +1,18 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import {
+  acquisitionCampaignTokenShape,
+  parseAcquisitionCampaignId,
+} from "@/lib/acquisition/campaign-token-shape";
+
+export { acquisitionCampaignTokenShape, parseAcquisitionCampaignId };
+
 export const ACQUISITION_JOURNEY_METADATA_KEY = "acquisitionJourneyId";
 export const ACQUISITION_JOURNEY_QUERY = "aj";
 export const ACQUISITION_CAMPAIGN_METADATA_KEY = "acquisitionCampaignId";
 export const ACQUISITION_CAMPAIGN_QUERY = "ac";
 
 const JOURNEY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-const CAMPAIGN_ID = /^[A-Za-z0-9_-]{1,80}$/;
-const SIGNATURE = /^[A-Za-z0-9_-]{43}$/;
 
 export function parseAcquisitionJourneyId(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -61,23 +66,6 @@ export function journeyIdFromStripeMetadata(
   metadata: { [key: string]: string | undefined } | null | undefined
 ): string | null {
   return parseAcquisitionJourneyId(metadata?.[ACQUISITION_JOURNEY_METADATA_KEY]);
-}
-
-export function parseAcquisitionCampaignId(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const id = value.trim();
-  return CAMPAIGN_ID.test(id) ? id : null;
-}
-
-export function acquisitionCampaignTokenShape(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const token = value.trim();
-  const dot = token.lastIndexOf(".");
-  if (dot <= 0) return null;
-  const id = parseAcquisitionCampaignId(token.slice(0, dot));
-  const mac = token.slice(dot + 1);
-  if (!id || !SIGNATURE.test(mac)) return null;
-  return `${id}.${mac}`;
 }
 
 export function signAcquisitionCampaignId(campaignId: string, secret: string): string | null {

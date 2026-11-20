@@ -113,14 +113,69 @@ export default async function HomePage() {
       : trialCtaLabel
     : "Start My Free Trial";
 
+  const annualHref = "/checkout/start?plan=annual";
+
+  return (
+    <HomepageMarketing
+      user={user ? { firstName: user.firstName } : null}
+      showContinue={showContinue}
+      showResumeOnboarding={showResumeOnboarding}
+      showSubscribe={showSubscribe}
+      signInSubscribeHref={signInSubscribeHref}
+      subscribeCtaHref={subscribeCtaHref}
+      subscribeCtaLabel={subscribeCtaLabel}
+      trialCtaLabel={trialCtaLabel}
+      showPricingCopy={showPricingCopy}
+      isNativeApp={isNativeApp}
+      finalHref={finalHref}
+      finalLabel={finalLabel}
+      annualHref={annualHref}
+      includeBrandSchema
+    />
+  );
+}
+
+export function HomepageMarketing({
+  user,
+  showContinue,
+  showResumeOnboarding,
+  showSubscribe,
+  signInSubscribeHref,
+  subscribeCtaHref,
+  subscribeCtaLabel,
+  trialCtaLabel,
+  showPricingCopy,
+  isNativeApp,
+  finalHref,
+  finalLabel,
+  annualHref,
+  includeBrandSchema = false,
+}: {
+  user: { firstName: string | null } | null;
+  showContinue: boolean;
+  showResumeOnboarding: boolean;
+  showSubscribe: boolean;
+  signInSubscribeHref: string;
+  subscribeCtaHref: string;
+  subscribeCtaLabel: string;
+  trialCtaLabel: string;
+  showPricingCopy: boolean;
+  isNativeApp: boolean;
+  finalHref: string;
+  finalLabel: string;
+  annualHref: string;
+  includeBrandSchema?: boolean;
+}) {
   return (
     <div>
+      {includeBrandSchema ? (
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(brandSchema).replace(/</g, "\\u003c"),
         }}
       />
+      ) : null}
       <section data-exp-section="home_hero" className="overflow-hidden border-b border-[var(--border)] bg-neutral-950">
         <div className="grid w-full min-w-0 md:grid-cols-2 md:items-stretch">
           <div className="relative z-10 flex min-w-0 items-center px-4 pb-6 pt-8 sm:px-6 sm:pt-10 md:py-12 md:pl-[max(1.5rem,calc((100vw-72rem)/2+2.5rem))] md:pr-10 lg:py-14 lg:pr-14">
@@ -273,7 +328,7 @@ export default async function HomePage() {
               </p>
               <p className="text-lg leading-relaxed text-white sm:text-xl">
                 Then {MEMBERSHIP_PUBLIC_OFFER.monthly}, or choose{" "}
-                <Link href="/checkout/start?plan=annual" className="underline underline-offset-4">
+                <Link href={annualHref} className="underline underline-offset-4">
                   {MEMBERSHIP_PUBLIC_OFFER.annual}
                 </Link>
                 .
