@@ -92,6 +92,16 @@ export function VideoFirstLeadPanel({
   const ready = videos.filter((video) => video.status === "ready");
   const [videoId, setVideoId] = useState(ready[0]?.id ?? "");
   const [sourceCampaignId, setSourceCampaignId] = useState(campaignId);
+  const [pairCampaignId, setPairCampaignId] = useState("");
+  const [playbookUrl, setPlaybookUrl] = useState<string | null>(null);
+  const [letterNote, setLetterNote] = useState<string | null>(null);
+  const [letter, setLetter] = useState<{
+    eligible: number;
+    excluded: number;
+    unverified: number;
+    groups: Array<{ campaignId: string; count: number; csv: string }>;
+    skips: Array<{ email: string; reason: string; kind?: "excluded" | "unverified" }>;
+  } | null>(null);
   const [prospects, setProspects] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [result, setResult] = useState<PrepareResult | null>(null);
@@ -99,7 +109,7 @@ export function VideoFirstLeadPanel({
   const [existingNote, setExistingNote] = useState<string | null>(null);
   const [clearance, setClearance] = useState<ClearanceTotals | null>(null);
   const [clearanceNote, setClearanceNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"file" | "existing" | "clearance" | null>(null);
+  const [busy, setBusy] = useState<"file" | "existing" | "clearance" | "link" | "letter" | null>(null);
 
   useEffect(() => {
     setSourceCampaignId(campaignId);
@@ -184,6 +194,62 @@ export function VideoFirstLeadPanel({
     setExistingNote("The update stopped at the page limit. Run it again to continue. Completed leads keep the same link.");
   }
 
+  async function copyPlaybookLink() {
+    setBusy("link");
+    setMessage(null);
+    const res = await fetch("/api/admin/acquisition/playbook-link", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ campaignId }),
+    });
+    const body = await res.json().catch(() => null) as { ok: true; url: string } | { ok: false; error?: string } | null;
+    setBusy(null);
+    if (!body || body.ok !== true) {
+      setPlaybookUrl(null);
+      setMessage(body && "error" in body ? body.error ?? "The signed link was not created." : "The signed link was not created.");
+      return;
+    }
+    setPlaybookUrl(body.url);
+    setMessage("Signed playbook link is ready. No email was sent.");
+  }
+
+  async function checkLetterEligibility() {
+    setBusy("letter");
+    setLetter(null);
+    setLetterNote(null);
+    const res = await fetch("/api/admin/acquisition/letter-audience", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        sourceCampaignId,
+        launchCampaignId: campaignId,
+        pairCampaignId: pairCampaignId || null,
+      }),
+    });
+    const body = await res.json().catch(() => null) as {
+      ok: true;
+      eligible: number;
+      excluded: number;
+      unverified: number;
+      groups: Array<{ campaignId: string; count: number; csv: string }>;
+      skips: Array<{ email: string; reason: string; kind?: "excluded" | "unverified" }>;
+      note: string;
+    } | { ok: false; error?: string } | null;
+    setBusy(null);
+    if (!body || body.ok !== true) {
+      setLetterNote(body && "error" in body ? body.error ?? "Eligibility check stopped." : "Eligibility check stopped.");
+      return;
+    }
+    setLetter({
+      eligible: body.eligible,
+      excluded: body.excluded,
+      unverified: body.unverified,
+      groups: body.groups,
+      skips: body.skips,
+    });
+    setLetterNote(body.note);
+  }
+
   async function checkAndPrepare() {
     setBusy("clearance");
     setMessage(null);
@@ -259,6 +325,38 @@ export function VideoFirstLeadPanel({
   return (
     <section className="space-y-3 rounded border border-gray-200 p-4 text-sm text-gray-800">
       <h2 className="font-medium">Prepare video links for {campaignName}</h2>
+      <div className="space-y-2 border-b border-gray-200 pb-3">
+        <h3 className="font-medium">Personal letter</h3>
+        <p>Check eligibility without a video. This does not import leads or send email. A signed link is created only for a campaign whose saved playbook has sending off.</p>
+        <button className="rounded bg-gray-900 px-3 py-2 text-sm text-white disabled:opacity-50" type="button" disabled={busy !== null} onClick={() => void copyPlaybookLink()}>
+          {busy === "link" ? "Signing" : "Copy signed playbook link"}
+        </button>
+        {playbookUrl ? <input aria-label="Signed playbook link" className="mt-2 w-full rounded border border-gray-300 px-2 py-1" readOnly value={playbookUrl} /> : null}
+        <label className="block">Source audience
+          <select aria-label="Letter source audience" className="mt-1 w-full rounded border border-gray-300 px-2 py-1" value={sourceCampaignId} onChange={(event) => setSourceCampaignId(event.target.value)}>
+            {sourceOptions.map((option) => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">Split eligible coaches with
+          <select aria-label="Pair campaign" className="mt-1 w-full rounded border border-gray-300 px-2 py-1" value={pairCampaignId} onChange={(event) => setPairCampaignId(event.target.value)}>
+            <option value="">Do not split</option>
+            {sourceOptions.filter((option) => option.id !== campaignId).map((option) => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
+          </select>
+        </label>
+        <button className="rounded bg-gray-900 px-3 py-2 text-sm text-white disabled:opacity-50" type="button" disabled={busy !== null || !sourceCampaignId} onClick={() => void checkLetterEligibility()}>
+          {busy === "letter" ? "Checking eligibility" : "Check eligibility"}
+        </button>
+        {letter ? <p>Eligible {letter.eligible}. Excluded {letter.excluded}. Unverified {letter.unverified}.</p> : null}
+        {letterNote ? <p>{letterNote}</p> : null}
+        {letter?.groups.map((group) => group.count > 0 ? (
+          <Download key={group.campaignId} label={`Download cleared list for ${group.campaignId}`} filename={`letter-${group.campaignId}.csv`} text={group.csv} />
+        ) : null)}
+        {letter && letter.skips.length > 0 ? <Download label="Download excluded and unverified" filename="letter-left-out.csv" text={reasonCsv(letter.skips)} /> : null}
+      </div>
       <label className="block">Video
         <select aria-label="Personal video" className="mt-1 w-full rounded border border-gray-300 px-2 py-1" value={videoId} onChange={(event) => setVideoId(event.target.value)}>
           {ready.length === 0 ? <option value="">No ready video</option> : null}

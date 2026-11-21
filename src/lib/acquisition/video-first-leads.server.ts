@@ -105,6 +105,19 @@ export async function currentQuietVideoPlaybook(
   return { id: current.id, name: current.name };
 }
 
+/** A saved playbook with sending off. A video is not required. */
+export async function currentQuietPlaybook(
+  campaignId: string,
+): Promise<{ id: string; name: string } | { error: string }> {
+  const current = await currentPlaybook(campaignId);
+  if (current === "unavailable") return { error: "The playbook could not be read. Nothing was written." };
+  if (!current) return { error: "This campaign has no saved playbook. Nothing was written." };
+  if (current.permittedActions.length !== 0 || (current.fulfillment !== "none" && current.fulfillment !== "manual")) {
+    return { error: "Automatic sending has to stay off. Nothing was written." };
+  }
+  return { id: current.id, name: current.name };
+}
+
 export async function issueVideoFirstLinks(args: {
   campaignId: string;
   personalVideoId: string;

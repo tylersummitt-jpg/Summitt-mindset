@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  acquisitionCampaignPlaybookUrl,
   acquisitionCampaignTrialUrl,
   acquisitionSubscriptionCredit,
   campaignIdFromStripeMetadata,
@@ -35,6 +36,16 @@ describe("direct trial campaign attribution", () => {
     const journey = signAcquisitionJourneyId(JOURNEY, SECRET);
     expect(readSignedAcquisitionCampaignId(journey, SECRET)).toBeNull();
     expect(readSignedAcquisitionJourneyId(token, SECRET)).toBeNull();
+  });
+
+  it("signs the basketball playbook for a campaign without using a journey link", () => {
+    const pat = "3d63c904-1c4f-4bd2-bc95-52f9a996318d";
+    const url = acquisitionCampaignPlaybookUrl(pat, SECRET);
+    const token = signAcquisitionCampaignId(pat, SECRET);
+    expect(url).toBe(`https://summittmindset.com/free/basketball-playbook?ac=${encodeURIComponent(token ?? "")}`);
+    expect(readSignedAcquisitionCampaignId(token, SECRET)).toBe(pat);
+    expect(url).not.toContain("aj=");
+    expect(acquisitionCampaignPlaybookUrl(pat, "short")).toBeNull();
   });
 
   it("credits a valid campaign link as a trial and the later payment", () => {

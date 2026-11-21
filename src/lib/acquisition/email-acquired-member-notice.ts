@@ -96,6 +96,13 @@ export function acquisitionCampaignTrialUrl(campaignId: string, secret: string):
   return `https://summittmindset.com/checkout/start?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
 }
 
+/** Signed attribution for the public basketball playbook. The secret never leaves the signer. */
+export function acquisitionCampaignPlaybookUrl(campaignId: string, secret: string): string | null {
+  const token = signAcquisitionCampaignId(campaignId, secret);
+  if (!token) return null;
+  return `https://summittmindset.com/free/basketball-playbook?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
+}
+
 export function campaignIdFromStripeMetadata(
   metadata: { [key: string]: string | undefined } | null | undefined
 ): string | null {
