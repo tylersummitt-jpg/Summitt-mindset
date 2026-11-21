@@ -9,9 +9,11 @@ import {
   readSignedAcquisitionCampaignId,
   signAcquisitionCampaignId,
 } from "@/lib/acquisition/email-acquired-member-notice";
+import { classifyHistoricalAccount, type HistoricalDecision } from "@/lib/historical-never-subscriber";
 import {
   campaignHistoryContact,
   emailsWithClearHistory,
+  letterMembershipVerdict,
   reviewLetterAudience,
   splitLetterAudience,
   type LetterLocalFacts,
@@ -53,7 +55,23 @@ function clearLocal(): LetterLocalFacts {
     hasJourney: false,
     recordedOutreach: false,
     membership: "clear",
+    historicalMembership: "clear",
   };
+}
+
+function decision(overrides: Partial<Parameters<typeof classifyHistoricalAccount>[0]> = {}): HistoricalDecision {
+  return classifyHistoricalAccount({
+    email: "coach@school.edu",
+    createdAtMs: Date.UTC(2026, 0, 1),
+    metadataClaimsMembership: false,
+    identity: "no_customer",
+    stripeCustomerFound: false,
+    subscriptionListComplete: true,
+    sessionListComplete: true,
+    stripeFinding: "none",
+    apple: "none",
+    ...overrides,
+  });
 }
 
 describe("personal letter audience", () => {
@@ -91,6 +109,53 @@ describe("personal letter audience", () => {
     const missing = reviewLetterAudience({ sourceCampaignId: SOURCE, leads, localByEmail: null });
     expect(missing.eligible).toEqual([]);
     expect(missing.skips.some((skip) => skip.email === "new@school.edu" && skip.kind === "unverified")).toBe(true);
+  });
+
+  it("excludes current and former members and refuses an incomplete membership read", () => {
+    expect(letterMembershipVerdict({
+      decision: decision({ stripeFinding: "active", identity: "resolved_customer", stripeCustomerFound: true }),
+    })).toBe("member");
+    expect(letterMembershipVerdict({
+      decision: decision({ stripeFinding: "former", identity: "resolved_customer", stripeCustomerFound: true }),
+    })).toBe("member");
+    expect(letterMembershipVerdict({
+      decision: decision({ stripeFinding: "none", identity: "resolved_customer", stripeCustomerFound: true, createdAtMs: Date.UTC(2024, 0, 1) }),
+      subscriptions: [{ status: "canceled" }],
+    })).toBe("member");
+    expect(letterMembershipVerdict({
+      decision: decision({ stripeFinding: "abandoned_incomplete", identity: "resolved_customer", stripeCustomerFound: true }),
+      subscriptions: [{ status: "incomplete_expired" }],
+    })).toBe("member");
+    const verified = letterMembershipVerdict({
+      decision: decision({ stripeFinding: "none", identity: "resolved_customer", stripeCustomerFound: true, createdAtMs: Date.UTC(2024, 0, 1) }),
+    });
+    expect(verified).toBe("clear");
+    expect(letterMembershipVerdict({ decision: null })).toBe("unverified");
+    expect(letterMembershipVerdict({
+      decision: decision({ identity: "lookup_failed", subscriptionListComplete: false, sessionListComplete: false, stripeFinding: "unreadable" }),
+    })).toBe("unverified");
+
+    const reviewed = reviewLetterAudience({
+      sourceCampaignId: SOURCE,
+      leads: [
+        lead({ id: "current", email: "current@school.edu" }),
+        lead({ id: "former", email: "canceled@school.edu" }),
+        lead({ id: "never", email: "never@school.edu" }),
+        lead({ id: "unknown", email: "unknown@school.edu" }),
+      ],
+      localByEmail: new Map([
+        ["current@school.edu", { ...clearLocal(), historicalMembership: "member" }],
+        ["canceled@school.edu", { ...clearLocal(), lifecycle: null, historicalMembership: "member" }],
+        ["never@school.edu", clearLocal()],
+        ["unknown@school.edu", { ...clearLocal(), historicalMembership: "unverified" }],
+      ]),
+    });
+    expect(reviewed.eligible.map((row) => row.email)).toEqual(["never@school.edu"]);
+    expect(reviewed.skips).toEqual(expect.arrayContaining([
+      expect.objectContaining({ email: "current@school.edu", kind: "excluded" }),
+      expect.objectContaining({ email: "canceled@school.edu", kind: "excluded" }),
+      expect.objectContaining({ email: "unknown@school.edu", kind: "unverified" }),
+    ]));
   });
 
   it("splits the same cleared list into stable nonoverlapping groups", () => {
@@ -137,9 +202,14 @@ describe("personal letter audience", () => {
     expect(videoRoute).toContain("personalVideoId");
     expect(letter).not.toContain("issueVideoFirstLinks");
     expect(letter).not.toContain("writeAndVerifyVideoUrl");
+    expect(letter).toContain("readHistoricalLetterDecisions");
+    expect(letter).toContain("letterMembershipVerdict");
     expect(letter).not.toContain(".insert(");
     expect(letter).not.toContain(".update(");
     expect(letter).not.toContain(".delete(");
+    const historical = readFileSync(new URL("../historical-never-subscriber.server.ts", import.meta.url), "utf8");
+    expect(historical).toContain("classifyHistoricalAccount");
+    expect(historical).toContain("customers.list");
     expect(letterRoute).toContain("isTylerOwnerSession");
     expect(linkRoute).toContain("isTylerOwnerSession");
     expect(linkRoute).not.toContain("CRON_SECRET");

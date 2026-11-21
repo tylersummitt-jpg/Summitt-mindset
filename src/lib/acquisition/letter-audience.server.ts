@@ -7,10 +7,16 @@ import { liveMembershipByEmail } from "@/lib/acquisition/audience-membership.ser
 import {
   emailsWithClearHistory,
   letterLeadCsv,
+  letterMembershipVerdict,
   reviewLetterAudience,
   splitLetterAudience,
   type LetterLocalFacts,
 } from "@/lib/acquisition/letter-audience";
+import { getClerkUserOrNull, listClerkUsersByEmail } from "@/lib/clerk-rest";
+import {
+  readHistoricalLetterDecisions,
+  type LetterHistoricalAccount,
+} from "@/lib/historical-never-subscriber.server";
 import { isAcquisitionLifecycle, type AcquisitionLifecycle } from "@/lib/acquisition/model";
 import { currentQuietPlaybook } from "@/lib/acquisition/video-first-leads.server";
 import { supabaseServer } from "@/lib/supabase-server";
@@ -181,9 +187,30 @@ async function localFacts(emails: string[]): Promise<Map<string, LetterLocalFact
     }
   }
 
+  const accounts: LetterHistoricalAccount[] = [];
+  const clerkUnread = new Set<string>();
+  for (const email of emails) {
+    const account = await clerkAccount(email, people.get(email)?.clerkUserId ?? null, people.get(email)?.stripeSubscriptionId ?? null);
+    if (!account) clerkUnread.add(email);
+    else accounts.push(account);
+  }
+  let historical = new Map<string, { decision: Parameters<typeof letterMembershipVerdict>[0]["decision"]; statuses: string[] } | null>();
+  try {
+    historical = await readHistoricalLetterDecisions(accounts);
+  } catch {
+    historical = new Map();
+  }
+
   const facts = new Map<string, LetterLocalFacts>();
   for (const email of emails) {
     const person = people.get(email);
+    const history = historical.get(email);
+    const historicalMembership = clerkUnread.has(email) || history == null
+      ? "unverified"
+      : letterMembershipVerdict({
+          decision: history.decision,
+          subscriptions: history.statuses.map((status) => ({ status })),
+        });
     facts.set(email, {
       lifecycle: person?.lifecycle ?? null,
       suppressed: suppressed.has(email),
@@ -191,9 +218,38 @@ async function localFacts(emails: string[]): Promise<Map<string, LetterLocalFact
       hasJourney: person ? journeyPeople.has(person.id) : false,
       recordedOutreach: person ? outreachPeople.has(person.id) : false,
       membership: membership.get(email) ?? "unverified",
+      historicalMembership,
     });
   }
   return facts;
+}
+
+async function clerkAccount(
+  email: string,
+  clerkUserId: string | null,
+  stripeSubscriptionId: string | null,
+): Promise<LetterHistoricalAccount | null> {
+  try {
+    const linked = clerkUserId ? await getClerkUserOrNull(clerkUserId) : null;
+    const user = linked ?? (await listClerkUsersByEmail(email))[0] ?? null;
+    const metadata = user?.public_metadata ?? {};
+    const createdAt = typeof user?.created_at === "number" ? new Date(user.created_at).toISOString() : "";
+    return {
+      email,
+      clerkId: user?.id ?? "",
+      createdAt,
+      summittSubscribed: metadataText(metadata.summittSubscribed),
+      summittPlan: metadataText(metadata.summittPlan),
+      stripeSubscriptionId: metadataText(metadata.stripeSubscriptionId) || stripeSubscriptionId || "",
+      stripeCustomerId: metadataText(metadata.stripeCustomerId),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function metadataText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
 }
 
 function chunks<T>(items: readonly T[], size: number): T[][] {

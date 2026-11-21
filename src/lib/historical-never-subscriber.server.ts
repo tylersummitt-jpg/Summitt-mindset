@@ -157,7 +157,9 @@ async function resolveLiveCustomer(
   if (emailCustomers.data.some((customer) => "deleted" in customer && customer.deleted)) {
     return { identity: "unresolved", customerIds: [], stripeCustomerFound: true };
   }
-  const userIdCustomers = await searchCustomersByUserId(stripe, row.clerkId);
+  const userIdCustomers = row.clerkId.trim()
+    ? await searchCustomersByUserId(stripe, row.clerkId)
+    : { complete: true, data: [] as Stripe.Customer[] };
 
   let storedCustomer: CustomerIdentityView | null = null;
   let storedLookupFailed = false;
@@ -198,8 +200,9 @@ async function stripeFindingForAccount(
   row: ClerkExportRow,
   customerIds: readonly string[],
   recognized: Set<string>
-): Promise<{ finding: HistoricalStripeFinding; subscriptionListComplete: boolean; sessionListComplete: boolean }> {
+): Promise<{ finding: HistoricalStripeFinding; subscriptionListComplete: boolean; sessionListComplete: boolean; statuses: string[] }> {
   const findings: HistoricalStripeFinding[] = [];
+  const statuses: string[] = [];
   const seen = new Set<string>();
   let subscriptionListComplete = true;
   let sessionListComplete = true;
@@ -207,6 +210,7 @@ async function stripeFindingForAccount(
   const consider = (sub: Stripe.Subscription) => {
     if (!sub.id || seen.has(sub.id)) return;
     seen.add(sub.id);
+    statuses.push(sub.status);
     findings.push(findingFromSubscription(subscriptionView(sub, row.clerkId, recognized)));
   };
 
@@ -255,6 +259,7 @@ async function stripeFindingForAccount(
     finding: mergeStripeFindings(findings),
     subscriptionListComplete,
     sessionListComplete,
+    statuses,
   };
 }
 
@@ -312,6 +317,102 @@ async function reconcileRow(
     stripeFinding: lists.finding,
     apple,
   });
+}
+
+export type LetterHistoricalAccount = {
+  email: string;
+  clerkId: string;
+  createdAt: string;
+  summittSubscribed: string;
+  summittPlan: string;
+  stripeSubscriptionId: string;
+  stripeCustomerId: string;
+};
+
+/** Read-only historical membership for letter candidates. A thrown lookup is null. */
+export async function readHistoricalLetterDecisions(
+  accounts: readonly LetterHistoricalAccount[],
+  now = new Date(),
+): Promise<Map<string, { decision: ReturnType<typeof classifyHistoricalAccount>; statuses: string[] } | null>> {
+  const result = new Map<string, { decision: ReturnType<typeof classifyHistoricalAccount>; statuses: string[] } | null>();
+  const key = process.env.STRIPE_SECRET_KEY;
+  const stripe = key ? new Stripe(key) : null;
+  const recognized = getRecognizedSummittPriceIds();
+  const apple = await loadAppleHistory(
+    accounts.map((account) => account.clerkId.trim()).filter((id) => id.length > 0),
+    now,
+  );
+
+  for (let i = 0; i < accounts.length; i += CONCURRENCY) {
+    const chunk = accounts.slice(i, i + CONCURRENCY);
+    await Promise.all(chunk.map(async (account) => {
+      try {
+        const row: ClerkExportRow = {
+          name: "",
+          email: account.email,
+          createdAt: account.createdAt,
+          clerkId: account.clerkId,
+          summittSubscribed: account.summittSubscribed,
+          summittPlan: account.summittPlan,
+          stripeSubscriptionId: account.stripeSubscriptionId,
+          stripeCustomerId: account.stripeCustomerId,
+          classification: "Unknown",
+          reason: "",
+        };
+        if (!stripe) {
+          result.set(account.email, {
+            decision: classifyHistoricalAccount({
+              email: account.email,
+              createdAtMs: Number.isFinite(Date.parse(account.createdAt)) ? Date.parse(account.createdAt) : null,
+              metadataClaimsMembership: metadataClaimsMembership(row),
+              identity: "lookup_failed",
+              stripeCustomerFound: false,
+              subscriptionListComplete: false,
+              sessionListComplete: false,
+              stripeFinding: "unreadable",
+              apple: account.clerkId.trim() ? (apple.get(account.clerkId) ?? "unreadable") : "unreadable",
+            }),
+            statuses: [],
+          });
+          return;
+        }
+        const appleFinding = account.clerkId.trim() ? (apple.get(account.clerkId) ?? "none") : "none";
+        let identity: Awaited<ReturnType<typeof resolveLiveCustomer>>;
+        try {
+          identity = await resolveLiveCustomer(stripe, row);
+        } catch {
+          identity = { identity: "lookup_failed", customerIds: [], stripeCustomerFound: false };
+        }
+        const lists = await stripeFindingForAccount(
+          stripe,
+          row,
+          identity.identity === "resolved_customer" ? identity.customerIds : [],
+          recognized,
+        );
+        if (identity.identity === "lookup_failed") {
+          lists.subscriptionListComplete = false;
+          lists.sessionListComplete = false;
+        }
+        result.set(account.email, {
+          decision: classifyHistoricalAccount({
+            email: account.email,
+            createdAtMs: Number.isFinite(Date.parse(account.createdAt)) ? Date.parse(account.createdAt) : null,
+            metadataClaimsMembership: metadataClaimsMembership(row),
+            identity: identity.identity,
+            stripeCustomerFound: identity.stripeCustomerFound,
+            subscriptionListComplete: lists.subscriptionListComplete,
+            sessionListComplete: lists.sessionListComplete,
+            stripeFinding: lists.finding,
+            apple: appleFinding,
+          }),
+          statuses: lists.statuses,
+        });
+      } catch {
+        result.set(account.email, null);
+      }
+    }));
+  }
+  return result;
 }
 
 export async function buildHistoricalNeverSubscriberCsvExport(now = new Date()): Promise<{

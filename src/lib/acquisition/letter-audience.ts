@@ -1,5 +1,10 @@
 import type { InstantlyLeadSnapshot } from "@/lib/acquisition/backfill";
+import type { HistoricalDecision } from "@/lib/historical-never-subscriber";
 import { normalizeAcquisitionEmail, type AcquisitionLifecycle } from "@/lib/acquisition/model";
+import {
+  classifySummittMembership,
+  type SummittSubscriptionLike,
+} from "@/lib/summitt-subscription-membership";
 import type { MembershipClearance } from "@/lib/acquisition/video-first-prep";
 
 export type LetterContact = "never" | "contacted" | "unknown";
@@ -11,6 +16,8 @@ export type LetterLocalFacts = {
   hasJourney: boolean;
   recordedOutreach: boolean;
   membership: MembershipClearance;
+  /** Historical Stripe/Apple membership. Only "clear" can become eligible. */
+  historicalMembership: "member" | "clear" | "unverified";
 };
 
 export type LetterLead = {
@@ -127,7 +134,47 @@ export function reviewLetterAudience(args: {
   return { eligible, skips };
 }
 
+/**
+ * Current and former members are excluded. A missing, failed, or incomplete
+ * historical read stays unverified and cannot become eligible.
+ */
+export function letterMembershipVerdict(args: {
+  decision: HistoricalDecision | null;
+  subscriptions?: readonly SummittSubscriptionLike[];
+}): "member" | "clear" | "unverified" {
+  for (const subscription of args.subscriptions ?? []) {
+    const classification = classifySummittMembership(subscription);
+    if (
+      classification === "entitled" ||
+      classification === "past_due_recoverable" ||
+      classification === "paused_recoverable" ||
+      classification === "ended"
+    ) {
+      return "member";
+    }
+    if (classification !== "other_non_blocking") return "unverified";
+  }
+  if (!args.decision) return "unverified";
+  if (
+    args.decision.classification === "Active membership" ||
+    args.decision.classification === "Confirmed former subscriber" ||
+    args.decision.classification === "Test/internal account"
+  ) {
+    return "member";
+  }
+  if (args.decision.classification !== "Strong never-subscriber candidate" || !args.decision.outreachCandidate) {
+    return "unverified";
+  }
+  return "clear";
+}
+
 function localBlock(local: LetterLocalFacts): { kind: "excluded" | "unverified"; reason: string } | null {
+  if (local.historicalMembership === "member") {
+    return { kind: "excluded", reason: "This person is a current or former member, or is already in a trial." };
+  }
+  if (local.historicalMembership !== "clear") {
+    return { kind: "unverified", reason: "Historical membership could not be confirmed. They were left unverified." };
+  }
   if (local.membership === "unverified") {
     return { kind: "unverified", reason: "Live membership could not be confirmed. They were left unverified." };
   }
