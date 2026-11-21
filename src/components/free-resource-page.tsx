@@ -10,8 +10,8 @@ export function FreeResourcePage({
 }) {
   return (
     <>
-      <section className="bg-white px-4 py-10 text-center text-[var(--text)] sm:px-6 sm:py-14">
-        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-5">
+      <section className="bg-white px-4 py-7 text-center text-[var(--text)] sm:px-6 sm:py-9">
+        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-3.5">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand)]">
             A gift from Summitt Mindset
           </p>
@@ -22,13 +22,13 @@ export function FreeResourcePage({
           <p className="text-sm text-[var(--muted)]">Yours to keep. No signup required.</p>
         </div>
       </section>
-      <section className="bg-neutral-100 px-4 py-12 text-center text-[var(--text)] sm:px-6 sm:py-16">
+      <section className="bg-neutral-100 px-4 py-8 text-center text-[var(--text)] sm:px-6 sm:py-10">
         <div className="mx-auto flex w-full max-w-2xl flex-col items-center">
           <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Want to take it a step further?</h2>
           <p className="mt-4 text-base leading-7 text-[var(--muted)] sm:text-lg">
             Pat Summitt&apos;s principles weren&apos;t just meant to be read. They were meant to be lived. That&apos;s why we created Summitt Mindset.
           </p>
-          <p aria-hidden="true" className="mt-8 text-2xl leading-none text-neutral-400">
+          <p aria-hidden="true" className="mt-6 text-2xl leading-none text-neutral-400">
             ↓
           </p>
         </div>
