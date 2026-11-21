@@ -12,10 +12,16 @@ import {
 import { classifyHistoricalAccount, type HistoricalDecision } from "@/lib/historical-never-subscriber";
 import { emailBlockedByDomain } from "@/lib/acquisition/instantly-block-import";
 import {
+  classifyLetterHistory,
+  decideLetterFacts,
   emailsWithClearHistory,
+  finishLetterClearance,
+  LETTER_FACT_BATCH,
   letterInstantlyHistory,
   letterMembershipVerdict,
   reviewLetterAudience,
+  signLetterBatch,
+  signLetterOutcomes,
   splitLetterAudience,
   type LetterLocalFacts,
 } from "@/lib/acquisition/letter-audience";
@@ -294,6 +300,114 @@ describe("personal letter audience", () => {
     expect(href).not.toContain("aj=");
   });
 
+  it("clears a large overlapping roster without treating a partial batch as final", () => {
+    const original = "tennessee-original";
+    const video = "tennessee-video";
+    const leads = [];
+    for (let index = 0; index < 3000; index += 1) {
+      leads.push(lead({ id: `a-${index}`, email: `coach${index}@school.edu`, campaignId: original }));
+    }
+    for (let index = 2800; index < 3200; index += 1) {
+      leads.push(lead({ id: `b-${index}`, email: `coach${index}@school.edu`, campaignId: video }));
+    }
+    leads.push(lead({ id: "sent-row", email: "coach0@school.edu", campaignId: "other-campaign", sent: true }));
+    leads.push(lead({ id: "blocked-row", email: "coach1@wcs.edu", campaignId: original }));
+    const activity = new Map<string, "active" | "inactive">([
+      [original, "inactive"],
+      [video, "inactive"],
+      ["other-campaign", "inactive"],
+    ]);
+    const classified = classifyLetterHistory({
+      sourceCampaignIds: [original, video],
+      leads,
+      campaignActivity: activity,
+    });
+    const emails = new Set([...classified.pending.map((row) => row.email), ...classified.skips.map((row) => row.email)]);
+    expect(emails.size).toBe(3201);
+    expect(classified.pending.some((row) => row.email === "coach0@school.edu")).toBe(false);
+    expect(classified.skips.find((row) => row.email === "coach0@school.edu")?.reason).toMatch(/verified Instantly send/);
+    const locals = new Map(classified.pending.map((row) => [row.email, clearLocal()]));
+    const blocked = classified.pending.find((row) => row.email === "coach1@wcs.edu");
+    const uncertain = classified.pending.find((row) => row.email === "coach2@school.edu");
+    expect(blocked && uncertain).toBeTruthy();
+    locals.set(blocked!.email, { ...clearLocal(), domainBlocked: true, historicalMembership: "unverified" });
+    locals.set(uncertain!.email, { ...clearLocal(), historicalMembership: "unverified" });
+    const facts = decideLetterFacts(classified.pending, locals);
+    expect(facts.eligible.some((row) => row.email === "coach0@school.edu" || row.email === "coach1@wcs.edu" || row.email === "coach2@school.edu")).toBe(false);
+    const signed = signLetterBatch({
+      secret: SECRET,
+      sourceCampaignIds: [original, video],
+      launchCampaignId: PAT,
+      pairCampaignId: TRY,
+      pending: classified.pending,
+      historySkips: classified.skips,
+    });
+    expect(signed).not.toBeNull();
+    const outcomes = signLetterOutcomes({
+      secret: SECRET,
+      manifest: signed!.manifest,
+      eligible: facts.eligible,
+      skips: facts.skips,
+    });
+    expect(outcomes).not.toBeNull();
+    expect(LETTER_FACT_BATCH).toBe(20);
+    const partial = finishLetterClearance({
+      secret: SECRET,
+      manifest: signed!.manifest,
+      sourceCampaignIds: [original, video],
+      launchCampaignId: PAT,
+      pairCampaignId: TRY,
+      pending: classified.pending,
+      historySkips: classified.skips,
+      outcomes: outcomes!.slice(1),
+    });
+    expect(partial.ok).toBe(false);
+    if (!partial.ok) expect(partial.error).toMatch(/no import file was created/i);
+    const forged = outcomes!.map((outcome, index) => index === 0 ? { ...outcome, token: `${outcome.token}x` } : outcome);
+    const forgedResult = finishLetterClearance({
+      secret: SECRET,
+      manifest: signed!.manifest,
+      sourceCampaignIds: [original, video],
+      launchCampaignId: PAT,
+      pairCampaignId: TRY,
+      pending: classified.pending,
+      historySkips: classified.skips,
+      outcomes: forged,
+    });
+    expect(forgedResult.ok).toBe(false);
+    const finished = finishLetterClearance({
+      secret: SECRET,
+      manifest: signed!.manifest,
+      sourceCampaignIds: [original, video],
+      launchCampaignId: PAT,
+      pairCampaignId: TRY,
+      pending: classified.pending,
+      historySkips: classified.skips,
+      outcomes: outcomes!,
+    });
+    const again = finishLetterClearance({
+      secret: SECRET,
+      manifest: signed!.manifest,
+      sourceCampaignIds: [original, video],
+      launchCampaignId: PAT,
+      pairCampaignId: TRY,
+      pending: classified.pending,
+      historySkips: classified.skips,
+      outcomes: outcomes!,
+    });
+    expect(finished.ok).toBe(true);
+    expect(again).toEqual(finished);
+    if (finished.ok) {
+      expect(finished.eligible + finished.excluded + finished.unverified).toBe(finished.unique);
+      expect(finished.unique).toBe(3201);
+      const allocated = finished.groups.flatMap((group) => group.leads.map((row) => row.email));
+      expect(new Set(allocated).size).toBe(allocated.length);
+      expect(allocated).not.toContain("coach0@school.edu");
+      expect(allocated).not.toContain("coach1@wcs.edu");
+      expect(allocated).not.toContain("coach2@school.edu");
+    }
+  });
+
   it("keeps video preparation unchanged and keeps letter clearance read-only", () => {
     const video = readFileSync(new URL("./video-first-leads.server.ts", import.meta.url), "utf8");
     const videoRoute = readFileSync(new URL("./audience-clearance.server.ts", import.meta.url), "utf8");
@@ -308,6 +422,8 @@ describe("personal letter audience", () => {
     expect(letter).not.toContain("writeAndVerifyVideoUrl");
     expect(letter).toContain("readHistoricalLetterDecisions");
     expect(letter).toContain("letterMembershipVerdict");
+    expect(letter).toContain("LETTER_FACT_BATCH");
+    expect(letter).toContain("This is not a cleared audience");
     expect(letter).not.toContain(".insert(");
     expect(letter).not.toContain(".update(");
     expect(letter).not.toContain(".delete(");
@@ -319,6 +435,8 @@ describe("personal letter audience", () => {
     expect(linkRoute).not.toContain("CRON_SECRET");
     expect(panel).toContain("Check and Prepare Audience");
     expect(panel).toContain("Check eligibility");
+    expect(panel).toContain("No import file was created");
+    expect(panel).toContain("Additional letter audiences");
     expect(panel).toContain("/api/admin/acquisition/letter-audience");
     expect(panel).toContain("/api/admin/acquisition/playbook-link");
   });

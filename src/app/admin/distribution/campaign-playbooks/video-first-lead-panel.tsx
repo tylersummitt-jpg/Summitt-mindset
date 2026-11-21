@@ -92,6 +92,7 @@ export function VideoFirstLeadPanel({
   const ready = videos.filter((video) => video.status === "ready");
   const [videoId, setVideoId] = useState(ready[0]?.id ?? "");
   const [sourceCampaignId, setSourceCampaignId] = useState(campaignId);
+  const [extraSourceIds, setExtraSourceIds] = useState<string[]>([]);
   const [pairCampaignId, setPairCampaignId] = useState("");
   const [playbookUrl, setPlaybookUrl] = useState<string | null>(null);
   const [letterNote, setLetterNote] = useState<string | null>(null);
@@ -213,41 +214,92 @@ export function VideoFirstLeadPanel({
     setMessage("Signed playbook link is ready. No email was sent.");
   }
 
+  async function postLetter(payload: Record<string, unknown>) {
+    let res: Response;
+    try {
+      res = await fetch("/api/admin/acquisition/letter-audience", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      return { ok: false as const, error: "Eligibility check stopped before the server responded. No import file was created. Nothing was written." };
+    }
+    const body = await res.json().catch(() => null) as { ok?: boolean; error?: string } | null;
+    if (!body || body.ok !== true) {
+      const reported = body && typeof body.error === "string" ? body.error : "";
+      return {
+        ok: false as const,
+        error: reported || `Eligibility check stopped (HTTP ${res.status}). No import file was created. Nothing was written.`,
+      };
+    }
+    return body as { ok: true } & Record<string, unknown>;
+  }
+
   async function checkLetterEligibility() {
     setBusy("letter");
     setLetter(null);
     setLetterNote(null);
-    const res = await fetch("/api/admin/acquisition/letter-audience", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        sourceCampaignId,
-        launchCampaignId: campaignId,
-        pairCampaignId: pairCampaignId || null,
-      }),
-    });
-    const body = await res.json().catch(() => null) as {
-      ok: true;
-      eligible: number;
-      excluded: number;
-      unverified: number;
-      groups: Array<{ campaignId: string; count: number; csv: string }>;
-      skips: Array<{ email: string; reason: string; reasons?: string[]; kind?: "excluded" | "unverified" }>;
-      note: string;
-    } | { ok: false; error?: string } | null;
-    setBusy(null);
-    if (!body || body.ok !== true) {
-      setLetterNote(body && "error" in body ? body.error ?? "Eligibility check stopped." : "Eligibility check stopped.");
+    const sourceCampaignIds = [...new Set([sourceCampaignId, ...extraSourceIds].filter(Boolean))];
+    const shared = {
+      sourceCampaignIds,
+      launchCampaignId: campaignId,
+      pairCampaignId: pairCampaignId || null,
+    };
+    const history = await postLetter({ phase: "history", ...shared });
+    if (!history.ok) {
+      setBusy(null);
+      setLetterNote(history.error);
       return;
     }
-    setLetter({
-      eligible: body.eligible,
-      excluded: body.excluded,
-      unverified: body.unverified,
-      groups: body.groups,
-      skips: body.skips,
+    if (history.complete === true) {
+      setBusy(null);
+      setLetter(letterFromBody(history));
+      setLetterNote(typeof history.note === "string" ? history.note : null);
+      return;
+    }
+    const manifest = typeof history.manifest === "string" ? history.manifest : "";
+    const tickets = Array.isArray(history.tickets) ? history.tickets : [];
+    const historySkips = Array.isArray(history.skips) ? history.skips : [];
+    const pending = tickets.flatMap((ticket) => {
+      const row = ticket as { lead?: unknown };
+      return row.lead ? [row.lead] : [];
     });
-    setLetterNote(body.note);
+    const batchSize = typeof history.batchSize === "number" && history.batchSize > 0 ? history.batchSize : 20;
+    const outcomes = [];
+    for (let index = 0; index < tickets.length; index += batchSize) {
+      const checked = Math.min(index, tickets.length);
+      setLetterNote(`Membership checks: ${checked} of ${tickets.length}. This is not a cleared audience. Nothing was written.`);
+      const facts = await postLetter({
+        phase: "facts",
+        ...shared,
+        manifest,
+        tickets: tickets.slice(index, index + batchSize),
+      });
+      if (!facts.ok) {
+        setBusy(null);
+        setLetter(null);
+        setLetterNote(facts.error);
+        return;
+      }
+      if (Array.isArray(facts.outcomes)) outcomes.push(...facts.outcomes);
+    }
+    const finished = await postLetter({
+      phase: "finish",
+      ...shared,
+      manifest,
+      pending,
+      historySkips,
+      outcomes,
+    });
+    setBusy(null);
+    if (!finished.ok || finished.complete !== true) {
+      setLetter(null);
+      setLetterNote(finished.ok ? "Clearance is incomplete, so no import file was created. Nothing was written." : finished.error);
+      return;
+    }
+    setLetter(letterFromBody(finished));
+    setLetterNote(typeof finished.note === "string" ? finished.note : null);
   }
 
   async function checkAndPrepare() {
@@ -339,6 +391,14 @@ export function VideoFirstLeadPanel({
             ))}
           </select>
         </label>
+        <label className="block">Additional letter audiences
+          <select aria-label="Additional letter audiences" className="mt-1 w-full rounded border border-gray-300 px-2 py-1" multiple size={4} value={extraSourceIds} onChange={(event) => setExtraSourceIds(Array.from(event.target.selectedOptions).map((option) => option.value))}>
+            {sourceOptions.filter((option) => option.id !== sourceCampaignId).map((option) => (
+              <option key={option.id} value={option.id}>{option.name}</option>
+            ))}
+          </select>
+        </label>
+        <p>Coaches who appear on more than one selected list are counted once. Downloads appear only after every coach in that combined list is checked.</p>
         <label className="block">Split eligible coaches with
           <select aria-label="Pair campaign" className="mt-1 w-full rounded border border-gray-300 px-2 py-1" value={pairCampaignId} onChange={(event) => setPairCampaignId(event.target.value)}>
             <option value="">Do not split</option>
@@ -454,6 +514,22 @@ function mergeCsvParts(parts: string[]): string {
     for (const line of lines.slice(1)) rows.push(line);
   }
   return rows.length > 0 ? `${rows.join("\n")}\n` : "";
+}
+
+function letterFromBody(body: Record<string, unknown>): {
+  eligible: number;
+  excluded: number;
+  unverified: number;
+  groups: Array<{ campaignId: string; count: number; csv: string }>;
+  skips: Array<{ email: string; reason: string; reasons?: string[]; kind?: "excluded" | "unverified" }>;
+} {
+  return {
+    eligible: typeof body.eligible === "number" ? body.eligible : 0,
+    excluded: typeof body.excluded === "number" ? body.excluded : 0,
+    unverified: typeof body.unverified === "number" ? body.unverified : 0,
+    groups: Array.isArray(body.groups) ? body.groups as Array<{ campaignId: string; count: number; csv: string }> : [],
+    skips: Array.isArray(body.skips) ? body.skips as Array<{ email: string; reason: string; reasons?: string[]; kind?: "excluded" | "unverified" }> : [],
+  };
 }
 
 function letterReasonCsv(rows: Array<{ email: string; reason: string; reasons?: string[]; kind?: string }>): string {

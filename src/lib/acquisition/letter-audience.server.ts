@@ -5,12 +5,21 @@ import { fetchInstantlyBackfillSource } from "@/lib/acquisition/store";
 import { membershipMapOrUnverified } from "@/lib/acquisition/audience-clearance";
 import { liveMembershipByEmail } from "@/lib/acquisition/audience-membership.server";
 import {
-  emailsWithClearHistory,
+  classifyLetterHistory,
+  decideLetterFacts,
+  finishLetterClearance,
+  LETTER_AUDIENCE_CAP,
+  LETTER_FACT_BATCH,
   letterLeadCsv,
   letterMembershipVerdict,
-  reviewLetterAudience,
-  splitLetterAudience,
+  signLetterBatch,
+  signLetterOutcomes,
+  verifyLetterPending,
+  type LetterFactTicket,
+  type LetterLead,
   type LetterLocalFacts,
+  type LetterPendingTicket,
+  type LetterSkip,
 } from "@/lib/acquisition/letter-audience";
 import { getClerkUserOrNull, listClerkUsersByEmail } from "@/lib/clerk-rest";
 import {
@@ -40,29 +49,56 @@ export type LetterAudienceResult =
   | { ok: false; error: string }
   | {
       ok: true;
-      sourceCampaignId: string;
-      scanned: number;
+      complete: false;
+      manifest: string;
+      tickets: LetterPendingTicket[];
+      skips: LetterSkip[];
+      unique: number;
+      pending: number;
+      batchSize: number;
+      note: string;
+    }
+  | {
+      ok: true;
+      complete: false;
+      outcomes: LetterFactTicket[];
+      note: string;
+    }
+  | {
+      ok: true;
+      complete: true;
+      unique: number;
       eligible: number;
       excluded: number;
       unverified: number;
       groups: Array<{ campaignId: string; count: number; csv: string }>;
-      skips: Array<{ email: string; reason: string; kind: "excluded" | "unverified" }>;
+      skips: LetterSkip[];
       note: string;
     };
 
+const NOT_CLEARED = "This is not a cleared audience. Nothing was written.";
+const LEDGER_UNREAD_BATCH = "Membership, blocks, or the acquisition ledger could not be read. The roster is not cleared. Nothing was written.";
+
 /**
  * Read-only clearance for a personal letter. No video, no Instantly import,
- * and no journey or fulfillment writes.
+ * and no journey or fulfillment writes. A finished import file is returned
+ * only after every unique coach has a verified result.
  */
 export async function checkLetterAudience(args: {
-  sourceCampaignId: string;
+  phase: "history" | "facts" | "finish";
+  sourceCampaignIds: readonly string[];
   launchCampaignId: string;
   pairCampaignId?: string | null;
+  manifest?: string;
+  tickets?: LetterPendingTicket[];
+  pending?: LetterLead[];
+  historySkips?: LetterSkip[];
+  outcomes?: LetterFactTicket[];
 }): Promise<LetterAudienceResult> {
-  const sourceCampaignId = args.sourceCampaignId.trim();
+  const sourceCampaignIds = [...new Set(args.sourceCampaignIds.map((id) => id.trim()).filter(Boolean))];
   const launchCampaignId = args.launchCampaignId.trim();
   const pairCampaignId = args.pairCampaignId?.trim() || null;
-  if (!CAMPAIGN_ID.test(sourceCampaignId) || !CAMPAIGN_ID.test(launchCampaignId)) {
+  if (sourceCampaignIds.length === 0 || sourceCampaignIds.length > 20 || sourceCampaignIds.some((id) => !CAMPAIGN_ID.test(id)) || !CAMPAIGN_ID.test(launchCampaignId)) {
     return { ok: false, error: "Choose a source audience and a campaign. Nothing was written." };
   }
   if (pairCampaignId && !CAMPAIGN_ID.test(pairCampaignId)) {
@@ -71,13 +107,58 @@ export async function checkLetterAudience(args: {
   if (pairCampaignId === launchCampaignId) {
     return { ok: false, error: "The two campaigns have to be different. Nothing was written." };
   }
-
   const launchIds = pairCampaignId ? [launchCampaignId, pairCampaignId] : [launchCampaignId];
   for (const id of launchIds) {
     const playbook = await currentQuietPlaybook(id);
     if ("error" in playbook) return { ok: false, error: playbook.error };
   }
+  const secret = process.env.CRON_SECRET?.trim() ?? "";
+  if (secret.length < 16) {
+    return { ok: false, error: "Eligibility could not be signed. Nobody was marked eligible. Nothing was written." };
+  }
 
+  if (args.phase === "history") return historyPhase({ sourceCampaignIds, launchCampaignId, pairCampaignId, secret });
+  if (args.phase === "facts") {
+    return factsPhase({
+      secret,
+      manifest: args.manifest ?? "",
+      tickets: args.tickets ?? [],
+    });
+  }
+  const finished = finishLetterClearance({
+    secret,
+    manifest: args.manifest ?? "",
+    sourceCampaignIds,
+    launchCampaignId,
+    pairCampaignId,
+    pending: args.pending ?? [],
+    historySkips: args.historySkips ?? [],
+    outcomes: args.outcomes ?? [],
+  });
+  if (!finished.ok) return finished;
+  return {
+    ok: true,
+    complete: true,
+    unique: finished.unique,
+    eligible: finished.eligible,
+    excluded: finished.excluded,
+    unverified: finished.unverified,
+    groups: finished.groups.map((group) => ({
+      campaignId: group.campaignId,
+      count: group.leads.length,
+      csv: letterLeadCsv(group.leads),
+    })),
+    skips: finished.skips,
+    note: `Unique coaches ${finished.unique}. Eligible ${finished.eligible}, excluded ${finished.excluded}, unverified ${finished.unverified}. Eligibility only. No leads were imported, no campaign was activated, and no email was sent.`,
+  };
+}
+
+async function historyPhase(args: {
+  sourceCampaignIds: string[];
+  launchCampaignId: string;
+  pairCampaignId: string | null;
+  secret: string;
+}): Promise<LetterAudienceResult> {
   const history = await fetchInstantlyBackfillSource();
   if (!history.paginationComplete || history.apiError) {
     return {
@@ -85,7 +166,6 @@ export async function checkLetterAudience(args: {
       error: "Instantly contact history across campaigns is incomplete. Nobody was marked eligible. Nothing was written.",
     };
   }
-
   const leads = [];
   for (const row of history.leads) {
     const lead = parseInstantlyLead(row);
@@ -94,33 +174,95 @@ export async function checkLetterAudience(args: {
     }
     leads.push(lead);
   }
-
-  const campaignActivity = history.campaignNamesLoaded ? campaignActivityMap(history.campaigns) : null;
-  const localByEmail = await localFacts(emailsWithClearHistory(sourceCampaignId, leads, campaignActivity));
-  if (!localByEmail) {
-    return { ok: false, error: "Membership, blocks, or the acquisition ledger could not be read. Nobody was marked eligible. Nothing was written." };
+  const classified = classifyLetterHistory({
+    sourceCampaignIds: args.sourceCampaignIds,
+    leads,
+    campaignActivity: history.campaignNamesLoaded ? campaignActivityMap(history.campaigns) : null,
+  });
+  const unique = classified.pending.length + classified.skips.length;
+  if (unique > LETTER_AUDIENCE_CAP) {
+    return { ok: false, error: "This audience is larger than the clearance limit. Nobody was marked eligible. Nothing was written." };
   }
-  const reviewed = reviewLetterAudience({ sourceCampaignId, leads, localByEmail, campaignActivity });
-  const excluded = reviewed.skips.filter((skip) => skip.kind === "excluded").length;
-  const unverified = reviewed.skips.filter((skip) => skip.kind === "unverified").length;
-  const groups = pairCampaignId
-    ? splitLetterAudience(reviewed.eligible, [launchCampaignId, pairCampaignId]).groups
-    : [{ campaignId: launchCampaignId, leads: reviewed.eligible }];
-
+  const signed = signLetterBatch({
+    secret: args.secret,
+    sourceCampaignIds: args.sourceCampaignIds,
+    launchCampaignId: args.launchCampaignId,
+    pairCampaignId: args.pairCampaignId,
+    pending: classified.pending,
+    historySkips: classified.skips,
+  });
+  if (!signed) {
+    return { ok: false, error: "Eligibility could not be signed. Nobody was marked eligible. Nothing was written." };
+  }
+  if (classified.pending.length === 0) {
+    const finished = finishLetterClearance({
+      secret: args.secret,
+      manifest: signed.manifest,
+      sourceCampaignIds: args.sourceCampaignIds,
+      launchCampaignId: args.launchCampaignId,
+      pairCampaignId: args.pairCampaignId,
+      pending: [],
+      historySkips: classified.skips,
+      outcomes: [],
+    });
+    if (!finished.ok) return finished;
+    return {
+      ok: true,
+      complete: true,
+      unique: finished.unique,
+      eligible: finished.eligible,
+      excluded: finished.excluded,
+      unverified: finished.unverified,
+      groups: finished.groups.map((group) => ({
+        campaignId: group.campaignId,
+        count: group.leads.length,
+        csv: letterLeadCsv(group.leads),
+      })),
+      skips: finished.skips,
+      note: `Unique coaches ${finished.unique}. Eligible ${finished.eligible}, excluded ${finished.excluded}, unverified ${finished.unverified}. Eligibility only. No leads were imported, no campaign was activated, and no email was sent.`,
+    };
+  }
   return {
     ok: true,
-    sourceCampaignId,
-    scanned: leads.length,
-    eligible: reviewed.eligible.length,
-    excluded,
-    unverified,
-    groups: groups.map((group) => ({
-      campaignId: group.campaignId,
-      count: group.leads.length,
-      csv: letterLeadCsv(group.leads),
-    })),
-    skips: reviewed.skips,
-    note: "Eligibility only. No leads were imported, no campaign was activated, and no email was sent.",
+    complete: false,
+    manifest: signed.manifest,
+    tickets: signed.tickets,
+    skips: classified.skips,
+    unique,
+    pending: classified.pending.length,
+    batchSize: LETTER_FACT_BATCH,
+    note: `Contact history is complete for ${unique} unique coaches. ${classified.pending.length} still need membership checks. ${NOT_CLEARED}`,
+  };
+}
+
+async function factsPhase(args: {
+  secret: string;
+  manifest: string;
+  tickets: readonly LetterPendingTicket[];
+}): Promise<LetterAudienceResult> {
+  if (!args.manifest || args.tickets.length === 0 || args.tickets.length > LETTER_FACT_BATCH) {
+    return { ok: false, error: `Eligibility checks membership for ${LETTER_FACT_BATCH} coaches at a time. ${NOT_CLEARED}` };
+  }
+  if (args.tickets.some((ticket) => !verifyLetterPending({ secret: args.secret, manifest: args.manifest, ticket }))) {
+    return { ok: false, error: "This eligibility batch could not be verified. The roster is not cleared. Nothing was written." };
+  }
+  const locals = await localFacts(args.tickets.map((ticket) => ticket.email));
+  if (!locals) return { ok: false, error: LEDGER_UNREAD_BATCH };
+  const decided = decideLetterFacts(args.tickets.map((ticket) => ticket.lead), locals);
+  const outcomes = signLetterOutcomes({
+    secret: args.secret,
+    manifest: args.manifest,
+    eligible: decided.eligible,
+    skips: decided.skips,
+  });
+  if (!outcomes || outcomes.length !== args.tickets.length) {
+    return { ok: false, error: "Eligibility could not be signed. The roster is not cleared. Nothing was written." };
+  }
+  return {
+    ok: true,
+    complete: false,
+    outcomes,
+    note: `Membership checked for ${args.tickets.length} coaches. ${NOT_CLEARED}`,
   };
 }
 
