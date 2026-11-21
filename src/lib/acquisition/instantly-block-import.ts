@@ -109,6 +109,18 @@ export function emailDomain(email: string): string | null {
   return blockDomain(email.slice(at + 1));
 }
 
+/** Exact domain or a real subdomain. `notwcs.edu` does not match `wcs.edu`. */
+export function emailBlockedByDomain(email: string, domains: readonly string[]): boolean {
+  const domain = emailDomain(email);
+  if (!domain) return false;
+  for (const value of domains) {
+    const blocked = blockDomain(value);
+    if (!blocked) continue;
+    if (domain === blocked || domain.endsWith(`.${blocked}`)) return true;
+  }
+  return false;
+}
+
 export function blockImportPlan(args: {
   entryId: string;
   person: { id: string; lifecycle: AcquisitionLifecycle } | null;

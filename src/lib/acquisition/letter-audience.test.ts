@@ -10,9 +10,10 @@ import {
   signAcquisitionCampaignId,
 } from "@/lib/acquisition/email-acquired-member-notice";
 import { classifyHistoricalAccount, type HistoricalDecision } from "@/lib/historical-never-subscriber";
+import { emailBlockedByDomain } from "@/lib/acquisition/instantly-block-import";
 import {
-  campaignHistoryContact,
   emailsWithClearHistory,
+  letterInstantlyHistory,
   letterMembershipVerdict,
   reviewLetterAudience,
   splitLetterAudience,
@@ -23,6 +24,10 @@ const SECRET = "test-secret-at-least-16";
 const PAT = "3d63c904-1c4f-4bd2-bc95-52f9a996318d";
 const TRY = "5c066c5d-733d-4003-928e-c6c38fe94abc";
 const SOURCE = "source-basketball";
+const QUIET = new Map<string, "active" | "inactive">([
+  [SOURCE, "inactive"],
+  ["other-campaign", "inactive"],
+]);
 
 function lead(patch: Partial<InstantlyLeadSnapshot> & Pick<InstantlyLeadSnapshot, "id" | "email">): InstantlyLeadSnapshot {
   return {
@@ -50,10 +55,16 @@ function lead(patch: Partial<InstantlyLeadSnapshot> & Pick<InstantlyLeadSnapshot
 function clearLocal(): LetterLocalFacts {
   return {
     lifecycle: null,
-    suppressed: false,
+    addressBlocked: false,
+    domainBlocked: false,
+    optedOut: false,
     outstandingFulfillment: false,
     hasJourney: false,
-    recordedOutreach: false,
+    ledgerEmailed: false,
+    ledgerReplied: false,
+    ledgerBounced: false,
+    ledgerStopped: false,
+    ledgerSequence: false,
     membership: "clear",
     historicalMembership: "clear",
   };
@@ -83,13 +94,27 @@ describe("personal letter audience", () => {
       lead({ id: "cross-source", email: "cross@school.edu" }),
       lead({ id: "odd", email: "odd@school.edu", leadStatus: "completed", sent: false }),
     ];
-    expect(campaignHistoryContact([leads[0]!], SOURCE)).toBe("never");
-    expect(campaignHistoryContact([leads[3]!, leads[2]!], SOURCE)).toBe("contacted");
-    expect(campaignHistoryContact([
+    expect(letterInstantlyHistory([leads[0]!], SOURCE, QUIET).outcome).toBe("never");
+    expect(letterInstantlyHistory([leads[3]!, leads[2]!], SOURCE, QUIET)).toMatchObject({
+      outcome: "excluded",
+      reason: expect.stringMatching(/verified Instantly send/),
+    });
+    expect(letterInstantlyHistory([
       lead({ id: "waiting", email: "waiting@school.edu" }),
       lead({ id: "waiting-other", email: "waiting@school.edu", campaignId: "other-campaign", sent: false }),
-    ], SOURCE)).toBe("contacted");
-    expect(emailsWithClearHistory(SOURCE, leads)).toEqual(["new@school.edu"]);
+    ], SOURCE, QUIET).outcome).toBe("never");
+    expect(letterInstantlyHistory([
+      lead({ id: "live", email: "live@school.edu" }),
+      lead({ id: "live-other", email: "live@school.edu", campaignId: "other-campaign", sent: false, leadStatus: "active" }),
+    ], SOURCE, new Map([[SOURCE, "inactive"], ["other-campaign", "active"]]))).toMatchObject({
+      outcome: "excluded",
+      reason: expect.stringMatching(/another active Instantly sequence/),
+    });
+    expect(letterInstantlyHistory([
+      lead({ id: "unknown-list", email: "unknown-list@school.edu" }),
+      lead({ id: "unknown-other", email: "unknown-list@school.edu", campaignId: "missing-campaign", sent: false }),
+    ], SOURCE, QUIET).outcome).toBe("unverified");
+    expect(emailsWithClearHistory(SOURCE, leads, QUIET)).toEqual(["new@school.edu"]);
     const local = new Map<string, LetterLocalFacts>([
       ["new@school.edu", clearLocal()],
       ["former@school.edu", { ...clearLocal(), lifecycle: "trial_expired" }],
@@ -98,6 +123,7 @@ describe("personal letter audience", () => {
       sourceCampaignId: SOURCE,
       leads: [...leads, lead({ id: "former", email: "former@school.edu" })],
       localByEmail: local,
+      campaignActivity: QUIET,
     });
     expect(reviewed.eligible.map((row) => row.email)).toEqual(["new@school.edu"]);
     expect(reviewed.skips).toEqual(expect.arrayContaining([
@@ -106,7 +132,7 @@ describe("personal letter audience", () => {
       expect.objectContaining({ email: "odd@school.edu", kind: "unverified" }),
       expect.objectContaining({ email: "former@school.edu", kind: "excluded" }),
     ]));
-    const missing = reviewLetterAudience({ sourceCampaignId: SOURCE, leads, localByEmail: null });
+    const missing = reviewLetterAudience({ sourceCampaignId: SOURCE, leads, localByEmail: null, campaignActivity: QUIET });
     expect(missing.eligible).toEqual([]);
     expect(missing.skips.some((skip) => skip.email === "new@school.edu" && skip.kind === "unverified")).toBe(true);
   });
@@ -149,6 +175,7 @@ describe("personal letter audience", () => {
         ["never@school.edu", clearLocal()],
         ["unknown@school.edu", { ...clearLocal(), historicalMembership: "unverified" }],
       ]),
+      campaignActivity: QUIET,
     });
     expect(reviewed.eligible.map((row) => row.email)).toEqual(["never@school.edu"]);
     expect(reviewed.skips).toEqual(expect.arrayContaining([
@@ -156,6 +183,83 @@ describe("personal letter audience", () => {
       expect.objectContaining({ email: "canceled@school.edu", kind: "excluded" }),
       expect.objectContaining({ email: "unknown@school.edu", kind: "unverified" }),
     ]));
+  });
+
+  it("never treats a blocked domain, including wcs.edu subdomains, as eligible", () => {
+    expect(emailBlockedByDomain("coach@wcs.edu", ["wcs.edu"])).toBe(true);
+    expect(emailBlockedByDomain("coach@mail.wcs.edu", ["WCS.EDU"])).toBe(true);
+    expect(emailBlockedByDomain("coach@notwcs.edu", ["wcs.edu"])).toBe(false);
+    expect(emailBlockedByDomain("coach@wcs.edu.example.com", ["wcs.edu"])).toBe(false);
+    const reviewed = reviewLetterAudience({
+      sourceCampaignId: SOURCE,
+      leads: [
+        lead({ id: "blocked", email: "coach@wcs.edu" }),
+        lead({ id: "child", email: "coach@mail.wcs.edu" }),
+        lead({ id: "open", email: "coach@other.edu" }),
+      ],
+      localByEmail: new Map([
+        ["coach@wcs.edu", { ...clearLocal(), domainBlocked: true, historicalMembership: "unverified" }],
+        ["coach@mail.wcs.edu", { ...clearLocal(), domainBlocked: true, addressBlocked: true }],
+        ["coach@other.edu", clearLocal()],
+      ]),
+      campaignActivity: QUIET,
+    });
+    expect(reviewed.eligible.map((row) => row.email)).toEqual(["coach@other.edu"]);
+    const blocked = reviewed.skips.find((skip) => skip.email === "coach@wcs.edu");
+    expect(blocked).toMatchObject({ kind: "excluded", reason: "Instantly has this email domain blocked." });
+    expect(blocked?.reasons).toEqual(expect.arrayContaining([
+      "Instantly has this email domain blocked.",
+      "Historical membership could not be confirmed. They were left unverified.",
+    ]));
+    expect(reviewed.skips.find((skip) => skip.email === "coach@mail.wcs.edu")?.reasons[0]).toBe(
+      "Instantly has this email domain blocked.",
+    );
+  });
+
+  it("keeps unsent leads out of the previously-contacted label and separates ledger reasons", () => {
+    const quiet = new Map([[SOURCE, "inactive" as const], ["other-campaign", "inactive" as const]]);
+    const live = new Map([[SOURCE, "inactive" as const], ["other-campaign", "active" as const]]);
+    expect(letterInstantlyHistory([
+      lead({ id: "paused-source", email: "paused@school.edu" }),
+      lead({ id: "paused-other", email: "paused@school.edu", campaignId: "other-campaign", sent: false, leadStatus: "paused" }),
+    ], SOURCE, live)).toMatchObject({
+      outcome: "excluded",
+      reason: "This address is enrolled in another active Instantly sequence. Nothing was sent.",
+    });
+    expect(letterInstantlyHistory([
+      lead({ id: "paused-quiet", email: "quiet-paused@school.edu" }),
+      lead({ id: "paused-quiet-other", email: "quiet-paused@school.edu", campaignId: "other-campaign", sent: false, leadStatus: "paused" }),
+    ], SOURCE, quiet).outcome).toBe("never");
+    const both = letterInstantlyHistory([
+      lead({ id: "bounce", email: "both@school.edu", leadStatus: "bounced", sent: false }),
+      lead({ id: "sent-too", email: "both@school.edu", campaignId: "other-campaign", sent: true }),
+    ], SOURCE, quiet);
+    expect(both.outcome).toBe("excluded");
+    if (both.outcome === "excluded") {
+      expect(both.reasons[0]).toMatch(/bounced/);
+      expect(both.reasons.some((reason) => reason.includes("verified Instantly send"))).toBe(true);
+    }
+    const reviewed = reviewLetterAudience({
+      sourceCampaignId: SOURCE,
+      leads: [
+        lead({ id: "seq", email: "seq@school.edu" }),
+        lead({ id: "mailed", email: "mailed@school.edu" }),
+        lead({ id: "stopped", email: "stopped@school.edu" }),
+      ],
+      localByEmail: new Map([
+        ["seq@school.edu", { ...clearLocal(), lifecycle: "cold_active" }],
+        ["mailed@school.edu", { ...clearLocal(), ledgerEmailed: true, ledgerSequence: true }],
+        ["stopped@school.edu", { ...clearLocal(), optedOut: true, ledgerEmailed: true }],
+      ]),
+      campaignActivity: quiet,
+    });
+    expect(reviewed.eligible).toEqual([]);
+    expect(reviewed.skips.find((skip) => skip.email === "seq@school.edu")?.reason).toMatch(/acquisition sequence/);
+    expect(reviewed.skips.find((skip) => skip.email === "mailed@school.edu")?.reasons).toEqual([
+      "The acquisition ledger shows a previous email.",
+      "This person is already in an acquisition sequence. Nothing was sent from this check.",
+    ]);
+    expect(reviewed.skips.find((skip) => skip.email === "stopped@school.edu")?.reason).toMatch(/suppressed or opted out/);
   });
 
   it("splits the same cleared list into stable nonoverlapping groups", () => {

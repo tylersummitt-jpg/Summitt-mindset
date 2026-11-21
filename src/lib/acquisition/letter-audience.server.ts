@@ -17,23 +17,24 @@ import {
   readHistoricalLetterDecisions,
   type LetterHistoricalAccount,
 } from "@/lib/historical-never-subscriber.server";
+import { emailBlockedByDomain } from "@/lib/acquisition/instantly-block-import";
 import { isAcquisitionLifecycle, type AcquisitionLifecycle } from "@/lib/acquisition/model";
 import { currentQuietPlaybook } from "@/lib/acquisition/video-first-leads.server";
 import { supabaseServer } from "@/lib/supabase-server";
 
 const CAMPAIGN_ID = /^[A-Za-z0-9_-]{1,80}$/;
 const CHUNK = 100;
-const OUTREACH_EVENTS = [
-  "email_sent",
-  "reply_received",
-  "interested",
-  "not_interested",
-  "unsubscribed",
-  "bounced",
-  "complained",
-  "campaign_completed",
-  "wrong_person",
-];
+const LEDGER_EVENT = {
+  email_sent: "emailed",
+  reply_received: "replied",
+  interested: "replied",
+  bounced: "bounced",
+  unsubscribed: "stopped",
+  not_interested: "stopped",
+  complained: "stopped",
+  wrong_person: "stopped",
+  campaign_completed: "sequence",
+} as const;
 
 export type LetterAudienceResult =
   | { ok: false; error: string }
@@ -94,11 +95,12 @@ export async function checkLetterAudience(args: {
     leads.push(lead);
   }
 
-  const localByEmail = await localFacts(emailsWithClearHistory(sourceCampaignId, leads));
+  const campaignActivity = history.campaignNamesLoaded ? campaignActivityMap(history.campaigns) : null;
+  const localByEmail = await localFacts(emailsWithClearHistory(sourceCampaignId, leads, campaignActivity));
   if (!localByEmail) {
-    return { ok: false, error: "Membership and the acquisition ledger could not be read. Nobody was marked eligible. Nothing was written." };
+    return { ok: false, error: "Membership, blocks, or the acquisition ledger could not be read. Nobody was marked eligible. Nothing was written." };
   }
-  const reviewed = reviewLetterAudience({ sourceCampaignId, leads, localByEmail });
+  const reviewed = reviewLetterAudience({ sourceCampaignId, leads, localByEmail, campaignActivity });
   const excluded = reviewed.skips.filter((skip) => skip.kind === "excluded").length;
   const unverified = reviewed.skips.filter((skip) => skip.kind === "unverified").length;
   const groups = pairCampaignId
@@ -141,33 +143,46 @@ async function localFacts(emails: string[]): Promise<Map<string, LetterLocalFact
     }
   }
 
-  const suppressed = new Set<string>();
+  const optedOut = new Set<string>();
+  const addressBlocked = new Set<string>();
   for (const chunk of chunks(emails, CHUNK)) {
     const [stops, blocks] = await Promise.all([
       supabaseServer.from("recovery_suppressions").select("email_normalized").in("email_normalized", chunk),
       supabaseServer.from("acquisition_instantly_blocks").select("email_normalized").in("email_normalized", chunk),
     ]);
     if (stops.error || blocks.error) return null;
-    for (const row of [...(stops.data ?? []), ...(blocks.data ?? [])]) {
-      if (typeof row.email_normalized === "string") suppressed.add(row.email_normalized);
+    for (const row of stops.data ?? []) {
+      if (typeof row.email_normalized === "string") optedOut.add(row.email_normalized);
+    }
+    for (const row of blocks.data ?? []) {
+      if (typeof row.email_normalized === "string") addressBlocked.add(row.email_normalized);
     }
   }
+  const domains = await blockedDomains();
+  if (!domains) return null;
 
   const ids = [...people.values()].map((person) => person.id);
   const journeyPeople = new Set<string>();
   const heldPeople = new Set<string>();
-  const outreachPeople = new Set<string>();
+  const ledger = new Map<string, { emailed: boolean; replied: boolean; bounced: boolean; stopped: boolean; sequence: boolean }>();
   for (const chunk of chunks(ids, CHUNK)) {
     if (chunk.length === 0) continue;
     const [journeys, actions, events] = await Promise.all([
       supabaseServer.from("acquisition_journeys").select("person_id").in("person_id", chunk),
       supabaseServer.from("acquisition_actions").select("person_id").in("person_id", chunk).in("status", ["scheduled", "claimed"]),
-      supabaseServer.from("acquisition_events").select("person_id").in("person_id", chunk).in("event_type", OUTREACH_EVENTS),
+      supabaseServer.from("acquisition_events").select("person_id, event_type").in("person_id", chunk).in("event_type", Object.keys(LEDGER_EVENT)),
     ]);
     if (journeys.error || actions.error || events.error) return null;
     for (const row of journeys.data ?? []) if (typeof row.person_id === "string") journeyPeople.add(row.person_id);
     for (const row of actions.data ?? []) if (typeof row.person_id === "string") heldPeople.add(row.person_id);
-    for (const row of events.data ?? []) if (typeof row.person_id === "string") outreachPeople.add(row.person_id);
+    for (const row of events.data ?? []) {
+      if (typeof row.person_id !== "string" || typeof row.event_type !== "string") continue;
+      const kind = LEDGER_EVENT[row.event_type as keyof typeof LEDGER_EVENT];
+      if (!kind) continue;
+      const current = ledger.get(row.person_id) ?? { emailed: false, replied: false, bounced: false, stopped: false, sequence: false };
+      current[kind] = true;
+      ledger.set(row.person_id, current);
+    }
   }
 
   const membership = membershipMapOrUnverified(
@@ -211,14 +226,26 @@ async function localFacts(emails: string[]): Promise<Map<string, LetterLocalFact
           decision: history.decision,
           subscriptions: history.statuses.map((status) => ({ status })),
         });
+    const historicalDetail = historicalMembership === "clear"
+      ? null
+      : clerkUnread.has(email) || history == null
+        ? "Historical membership could not be read."
+        : history.decision?.reason || "Historical membership could not be read.";
     facts.set(email, {
       lifecycle: person?.lifecycle ?? null,
-      suppressed: suppressed.has(email),
+      addressBlocked: addressBlocked.has(email),
+      domainBlocked: emailBlockedByDomain(email, [...domains]),
+      optedOut: optedOut.has(email),
       outstandingFulfillment: person ? heldPeople.has(person.id) : false,
       hasJourney: person ? journeyPeople.has(person.id) : false,
-      recordedOutreach: person ? outreachPeople.has(person.id) : false,
+      ledgerEmailed: person ? ledger.get(person.id)?.emailed === true : false,
+      ledgerReplied: person ? ledger.get(person.id)?.replied === true : false,
+      ledgerBounced: person ? ledger.get(person.id)?.bounced === true : false,
+      ledgerStopped: person ? ledger.get(person.id)?.stopped === true : false,
+      ledgerSequence: person ? ledger.get(person.id)?.sequence === true : false,
       membership: membership.get(email) ?? "unverified",
       historicalMembership,
+      historicalDetail,
     });
   }
   return facts;
@@ -250,6 +277,35 @@ async function clerkAccount(
 
 function metadataText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+async function blockedDomains(): Promise<string[] | null> {
+  const domains: string[] = [];
+  const page = 1000;
+  for (let from = 0; from < 20000; from += page) {
+    const { data, error } = await supabaseServer
+      .from("acquisition_blocked_domains")
+      .select("domain")
+      .range(from, from + page - 1);
+    if (error) return null;
+    const rows = data ?? [];
+    for (const row of rows) {
+      if (typeof row.domain === "string" && row.domain.trim()) domains.push(row.domain);
+    }
+    if (rows.length < page) return domains;
+  }
+  return null;
+}
+
+function campaignActivityMap(
+  campaigns: readonly { id: string; status: number | null }[],
+): Map<string, "active" | "inactive"> {
+  const activity = new Map<string, "active" | "inactive">();
+  for (const campaign of campaigns) {
+    if (!campaign.id || campaign.status === null) continue;
+    activity.set(campaign.id, campaign.status === 1 || campaign.status === 4 ? "active" : "inactive");
+  }
+  return activity;
 }
 
 function chunks<T>(items: readonly T[], size: number): T[][] {

@@ -7,17 +7,31 @@ import {
 } from "@/lib/summitt-subscription-membership";
 import type { MembershipClearance } from "@/lib/acquisition/video-first-prep";
 
-export type LetterContact = "never" | "contacted" | "unknown";
-
 export type LetterLocalFacts = {
   lifecycle: AcquisitionLifecycle | null;
-  suppressed: boolean;
+  /** Exact address on the imported Instantly block list. */
+  addressBlocked: boolean;
+  /** Domain or subdomain on the imported Instantly domain block list. */
+  domainBlocked: boolean;
+  /** Recovery suppression or opt-out. */
+  optedOut: boolean;
   outstandingFulfillment: boolean;
   hasJourney: boolean;
-  recordedOutreach: boolean;
+  /** Ledger event `email_sent`, or a lifecycle that is only reached after a send. */
+  ledgerEmailed: boolean;
+  /** Ledger reply or interest, separate from an Instantly reply row. */
+  ledgerReplied: boolean;
+  /** Ledger bounce, separate from an Instantly bounced lead. */
+  ledgerBounced: boolean;
+  /** Ledger opt-out, complaint, or wrong-person event. */
+  ledgerStopped: boolean;
+  /** Ledger sequence state or campaign completion without a verified send. */
+  ledgerSequence: boolean;
   membership: MembershipClearance;
   /** Historical Stripe/Apple membership. Only "clear" can become eligible. */
   historicalMembership: "member" | "clear" | "unverified";
+  /** Present when the historical read failed or was incomplete. */
+  historicalDetail?: string | null;
 };
 
 export type LetterLead = {
@@ -33,21 +47,14 @@ export type LetterLead = {
 export type LetterSkip = {
   email: string;
   reason: string;
+  reasons: string[];
   kind: "excluded" | "unverified";
 };
 
-const OUTREACH: ReadonlySet<AcquisitionLifecycle> = new Set([
-  "cold_active",
-  "cold_no_response",
-  "reply_needs_review",
-  "asset_requested",
-  "asset_sent",
-  "warm_video_sent",
-  "trial_invited",
-  "not_interested",
-  "unsubscribed",
-  "suppressed",
-]);
+const STOP_LIFE: ReadonlySet<AcquisitionLifecycle> = new Set(["unsubscribed", "suppressed", "not_interested"]);
+const REPLY_LIFE: ReadonlySet<AcquisitionLifecycle> = new Set(["reply_needs_review", "asset_requested"]);
+const EMAIL_LIFE: ReadonlySet<AcquisitionLifecycle> = new Set(["asset_sent", "warm_video_sent", "trial_invited"]);
+const SEQUENCE_LIFE: ReadonlySet<AcquisitionLifecycle> = new Set(["cold_active", "cold_no_response"]);
 
 const MEMBER: ReadonlySet<AcquisitionLifecycle> = new Set([
   "trial_started",
@@ -55,31 +62,76 @@ const MEMBER: ReadonlySet<AcquisitionLifecycle> = new Set([
   "trial_expired",
 ]);
 
-/** One address across every Instantly campaign row we could read. */
-export function campaignHistoryContact(
+const SENT = "This address has a verified Instantly send. The earlier record was left unchanged.";
+const REPLY = "Instantly has a reply from this address.";
+const BOUNCE = "Instantly has this lead as bounced.";
+const UNSUBSCRIBED = "Instantly has this lead as unsubscribed.";
+const ENROLLED = "This address is enrolled in another active Instantly sequence. Nothing was sent.";
+const UNPROVEN = "Contact history across campaigns could not be proven. They were left unverified.";
+
+export type LetterInstantlyHistory =
+  | { outcome: "never" }
+  | { outcome: "unverified"; reason: string; reasons: string[] }
+  | { outcome: "excluded"; reason: string; reasons: string[] };
+
+/**
+ * Campaign membership alone is not a send. A null activity map means the
+ * campaign list could not be read. A missing id means that campaign's status
+ * is unknown. Only status "active" is another live sequence.
+ */
+export function letterInstantlyHistory(
   rows: readonly InstantlyLeadSnapshot[],
   sourceCampaignId: string,
-): LetterContact {
-  if (rows.length === 0) return "unknown";
+  campaignActivity: ReadonlyMap<string, "active" | "inactive"> | null,
+): LetterInstantlyHistory {
+  if (rows.length === 0) return { outcome: "unverified", reason: UNPROVEN, reasons: [UNPROVEN] };
+  const exclusions = new Set<string>();
+  let unclear = false;
+  let enrolled = false;
   for (const row of rows) {
-    if (!row.campaignId) return "unknown";
-    if (row.campaignId !== sourceCampaignId) return "contacted";
-    if (row.sent || row.replied || row.interestLabel) return "contacted";
-    if (row.leadStatus === "bounced" || row.leadStatus === "unsubscribed") return "contacted";
-    if (row.leadStatus === "completed") return "unknown";
-    if (row.leadStatus !== "active" && row.leadStatus !== "paused" && row.leadStatus !== "skipped") return "unknown";
+    if (row.leadStatus === "bounced") exclusions.add(BOUNCE);
+    if (row.leadStatus === "unsubscribed") exclusions.add(UNSUBSCRIBED);
+    if (row.replied || row.interestLabel) exclusions.add(REPLY);
+    if (row.sent) exclusions.add(SENT);
+    const stopped = row.leadStatus === "bounced"
+      || row.leadStatus === "unsubscribed"
+      || row.replied
+      || Boolean(row.interestLabel)
+      || row.sent;
+    if (stopped) continue;
+    if (!row.campaignId || row.leadStatus === "completed") {
+      unclear = true;
+      continue;
+    }
+    if (row.leadStatus !== "active" && row.leadStatus !== "paused" && row.leadStatus !== "skipped") {
+      unclear = true;
+      continue;
+    }
+    if (row.campaignId !== sourceCampaignId && (row.leadStatus === "active" || row.leadStatus === "paused")) {
+      const activity = campaignActivity?.get(row.campaignId);
+      if (campaignActivity === null || !activity) unclear = true;
+      else if (activity === "active") enrolled = true;
+    }
   }
-  return "never";
+  const reasons = [BOUNCE, UNSUBSCRIBED, REPLY, SENT].filter((reason) => exclusions.has(reason));
+  if (reasons.length > 0) return { outcome: "excluded", reason: reasons[0] ?? BOUNCE, reasons };
+  if (unclear) return { outcome: "unverified", reason: UNPROVEN, reasons: [UNPROVEN] };
+  if (enrolled) return { outcome: "excluded", reason: ENROLLED, reasons: [ENROLLED] };
+  return { outcome: "never" };
 }
 
-/** Addresses on the source campaign whose Instantly rows show no prior send. */
-export function emailsWithClearHistory(sourceCampaignId: string, leads: readonly InstantlyLeadSnapshot[]): string[] {
+/** Addresses on the source campaign with no verified send and no other stop. */
+export function emailsWithClearHistory(
+  sourceCampaignId: string,
+  leads: readonly InstantlyLeadSnapshot[],
+  campaignActivity: ReadonlyMap<string, "active" | "inactive"> | null,
+): string[] {
   const byEmail = groupByEmail(leads);
   const clear: string[] = [];
   for (const email of [...byEmail.keys()].sort()) {
     const rows = byEmail.get(email) ?? [];
     if (!rows.some((row) => row.campaignId === sourceCampaignId)) continue;
-    if (campaignHistoryContact(rows, sourceCampaignId) === "never") clear.push(email);
+    if (letterInstantlyHistory(rows, sourceCampaignId, campaignActivity).outcome === "never") clear.push(email);
   }
   return clear;
 }
@@ -88,6 +140,7 @@ export function reviewLetterAudience(args: {
   sourceCampaignId: string;
   leads: readonly InstantlyLeadSnapshot[];
   localByEmail: ReadonlyMap<string, LetterLocalFacts> | null;
+  campaignActivity: ReadonlyMap<string, "active" | "inactive"> | null;
 }): { eligible: LetterLead[]; skips: LetterSkip[] } {
   const byEmail = groupByEmail(args.leads);
 
@@ -97,27 +150,23 @@ export function reviewLetterAudience(args: {
   for (const email of emails) {
     const rows = byEmail.get(email) ?? [];
     if (!rows.some((row) => row.campaignId === args.sourceCampaignId)) continue;
-    const history = campaignHistoryContact(rows, args.sourceCampaignId);
-    if (history === "contacted") {
-      skips.push({ email, kind: "excluded", reason: "This address was already contacted in Instantly. The earlier record was left unchanged." });
-      continue;
-    }
-    if (history === "unknown") {
-      skips.push({ email, kind: "unverified", reason: "Contact history across campaigns could not be proven. They were left unverified." });
+    const history = letterInstantlyHistory(rows, args.sourceCampaignId, args.campaignActivity);
+    if (history.outcome === "excluded" || history.outcome === "unverified") {
+      skips.push({ email, kind: history.outcome, reason: history.reason, reasons: history.reasons });
       continue;
     }
     if (!args.localByEmail) {
-      skips.push({ email, kind: "unverified", reason: "Membership and the acquisition ledger could not be read. They were left unverified." });
+      skips.push(skip(email, "unverified", ["Membership and the acquisition ledger could not be read. They were left unverified."]));
       continue;
     }
     const local = args.localByEmail.get(email);
     if (!local) {
-      skips.push({ email, kind: "unverified", reason: "Membership and the acquisition ledger could not be read. They were left unverified." });
+      skips.push(skip(email, "unverified", ["Membership and the acquisition ledger could not be read. They were left unverified."]));
       continue;
     }
     const blocked = localBlock(local);
     if (blocked) {
-      skips.push({ email, kind: blocked.kind, reason: blocked.reason });
+      skips.push(skip(email, blocked.kind, blocked.reasons));
       continue;
     }
     const source = rows.find((row) => row.campaignId === args.sourceCampaignId) ?? rows[0];
@@ -168,29 +217,43 @@ export function letterMembershipVerdict(args: {
   return "clear";
 }
 
-function localBlock(local: LetterLocalFacts): { kind: "excluded" | "unverified"; reason: string } | null {
-  if (local.historicalMembership === "member") {
-    return { kind: "excluded", reason: "This person is a current or former member, or is already in a trial." };
+const DOMAIN_BLOCK = "Instantly has this email domain blocked.";
+const ADDRESS_BLOCK = "Instantly has this exact address blocked.";
+const OPT_OUT = "This address is suppressed or opted out.";
+const MEMBER_REASON = "This person is a current or former member, or is already in a trial.";
+const LEDGER_EMAIL = "The acquisition ledger shows a previous email.";
+const LEDGER_REPLY = "The acquisition ledger shows a reply.";
+const LEDGER_BOUNCE = "The acquisition ledger shows a bounce.";
+const LEDGER_SEQUENCE = "This person is already in an acquisition sequence. Nothing was sent from this check.";
+const JOURNEY = "This person already has a journey. It was left unchanged.";
+const HELD = "This person still has a scheduled or claimed fulfillment action. It was left in place.";
+const MEMBERSHIP_UNREAD = "Historical membership could not be confirmed. They were left unverified.";
+const LIVE_MEMBERSHIP_UNREAD = "Live membership could not be confirmed. They were left unverified.";
+
+function localBlock(local: LetterLocalFacts): { kind: "excluded" | "unverified"; reasons: string[] } | null {
+  const excluded: string[] = [];
+  if (local.domainBlocked) excluded.push(DOMAIN_BLOCK);
+  if (local.addressBlocked) excluded.push(ADDRESS_BLOCK);
+  if (local.optedOut || local.ledgerStopped || (local.lifecycle && STOP_LIFE.has(local.lifecycle))) excluded.push(OPT_OUT);
+  if (local.ledgerBounced) excluded.push(LEDGER_BOUNCE);
+  if (local.ledgerReplied || (local.lifecycle && REPLY_LIFE.has(local.lifecycle))) excluded.push(LEDGER_REPLY);
+  if (local.historicalMembership === "member" || local.membership === "member" || (local.lifecycle && MEMBER.has(local.lifecycle))) {
+    excluded.push(MEMBER_REASON);
   }
-  if (local.historicalMembership !== "clear") {
-    return { kind: "unverified", reason: "Historical membership could not be confirmed. They were left unverified." };
-  }
-  if (local.membership === "unverified") {
-    return { kind: "unverified", reason: "Live membership could not be confirmed. They were left unverified." };
-  }
-  if (local.membership === "member" || (local.lifecycle && MEMBER.has(local.lifecycle))) {
-    return { kind: "excluded", reason: "This person is a current or former member, or is already in a trial." };
-  }
-  if (local.suppressed || (local.lifecycle && OUTREACH.has(local.lifecycle)) || local.recordedOutreach) {
-    return { kind: "excluded", reason: "This person is already in the acquisition ledger, suppressed, or previously emailed." };
-  }
-  if (local.hasJourney) {
-    return { kind: "excluded", reason: "This person already has a journey. It was left unchanged." };
-  }
-  if (local.outstandingFulfillment) {
-    return { kind: "excluded", reason: "This person still has a scheduled or claimed fulfillment action. It was left in place." };
-  }
+  if (local.ledgerEmailed || (local.lifecycle && EMAIL_LIFE.has(local.lifecycle))) excluded.push(LEDGER_EMAIL);
+  if (local.ledgerSequence || (local.lifecycle && SEQUENCE_LIFE.has(local.lifecycle))) excluded.push(LEDGER_SEQUENCE);
+  if (local.hasJourney) excluded.push(JOURNEY);
+  if (local.outstandingFulfillment) excluded.push(HELD);
+  const reasons = [...excluded];
+  if (local.historicalMembership !== "clear") reasons.push(local.historicalDetail?.trim() || MEMBERSHIP_UNREAD);
+  if (local.membership === "unverified") reasons.push(LIVE_MEMBERSHIP_UNREAD);
+  if (excluded.length > 0) return { kind: "excluded", reasons };
+  if (reasons.length > 0) return { kind: "unverified", reasons };
   return null;
+}
+
+function skip(email: string, kind: "excluded" | "unverified", reasons: string[]): LetterSkip {
+  return { email, kind, reason: reasons[0] ?? "They were left unverified.", reasons };
 }
 
 function coachRole(title: string | null): string {
@@ -277,8 +340,10 @@ export function letterLeadCsv(leads: readonly LetterLead[]): string {
 }
 
 export function letterSkipCsv(skips: readonly LetterSkip[]): string {
-  const lines = ["email,reason,kind"];
-  for (const skip of skips) lines.push([skip.email, skip.reason, skip.kind].map(csvCell).join(","));
+  const lines = ["email,reason,all_reasons,kind"];
+  for (const skipRow of skips) {
+    lines.push([skipRow.email, skipRow.reason, skipRow.reasons.join("; "), skipRow.kind].map(csvCell).join(","));
+  }
   return `${lines.join("\n")}\n`;
 }
 

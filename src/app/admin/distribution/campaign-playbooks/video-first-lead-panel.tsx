@@ -100,7 +100,7 @@ export function VideoFirstLeadPanel({
     excluded: number;
     unverified: number;
     groups: Array<{ campaignId: string; count: number; csv: string }>;
-    skips: Array<{ email: string; reason: string; kind?: "excluded" | "unverified" }>;
+    skips: Array<{ email: string; reason: string; reasons?: string[]; kind?: "excluded" | "unverified" }>;
   } | null>(null);
   const [prospects, setProspects] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -232,7 +232,7 @@ export function VideoFirstLeadPanel({
       excluded: number;
       unverified: number;
       groups: Array<{ campaignId: string; count: number; csv: string }>;
-      skips: Array<{ email: string; reason: string; kind?: "excluded" | "unverified" }>;
+      skips: Array<{ email: string; reason: string; reasons?: string[]; kind?: "excluded" | "unverified" }>;
       note: string;
     } | { ok: false; error?: string } | null;
     setBusy(null);
@@ -355,7 +355,7 @@ export function VideoFirstLeadPanel({
         {letter?.groups.map((group) => group.count > 0 ? (
           <Download key={group.campaignId} label={`Download cleared list for ${group.campaignId}`} filename={`letter-${group.campaignId}.csv`} text={group.csv} />
         ) : null)}
-        {letter && letter.skips.length > 0 ? <Download label="Download excluded and unverified" filename="letter-left-out.csv" text={reasonCsv(letter.skips)} /> : null}
+        {letter && letter.skips.length > 0 ? <Download label="Download excluded and unverified" filename="letter-left-out.csv" text={letterReasonCsv(letter.skips)} /> : null}
       </div>
       <label className="block">Video
         <select aria-label="Personal video" className="mt-1 w-full rounded border border-gray-300 px-2 py-1" value={videoId} onChange={(event) => setVideoId(event.target.value)}>
@@ -454,6 +454,16 @@ function mergeCsvParts(parts: string[]): string {
     for (const line of lines.slice(1)) rows.push(line);
   }
   return rows.length > 0 ? `${rows.join("\n")}\n` : "";
+}
+
+function letterReasonCsv(rows: Array<{ email: string; reason: string; reasons?: string[]; kind?: string }>): string {
+  const lines = ["email,reason,all_reasons,kind"];
+  for (const row of rows) {
+    const all = row.reasons?.join("; ") || row.reason;
+    const kind = row.kind ?? "";
+    lines.push([row.email, row.reason, all, kind].map((value) => /[",\n]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value).join(","));
+  }
+  return `${lines.join("\n")}\n`;
 }
 
 function reasonCsv(rows: Array<{ email: string; reason: string }>): string {
