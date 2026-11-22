@@ -17,7 +17,10 @@ import {
   emailsWithClearHistory,
   finishLetterClearance,
   LETTER_FACT_BATCH,
+  letterActionIsOutstanding,
   letterInstantlyHistory,
+  letterJourneyEffect,
+  letterMessageEffect,
   letterMembershipVerdict,
   reviewLetterAudience,
   signLetterBatch,
@@ -71,6 +74,8 @@ function clearLocal(): LetterLocalFacts {
     ledgerBounced: false,
     ledgerStopped: false,
     ledgerSequence: false,
+    journeyMember: false,
+    journeyUnreadable: false,
     membership: "clear",
     historicalMembership: "clear",
   };
@@ -259,13 +264,70 @@ describe("personal letter audience", () => {
       ]),
       campaignActivity: quiet,
     });
-    expect(reviewed.eligible).toEqual([]);
-    expect(reviewed.skips.find((skip) => skip.email === "seq@school.edu")?.reason).toMatch(/acquisition sequence/);
+    expect(reviewed.eligible.map((row) => row.email)).toEqual(["seq@school.edu"]);
     expect(reviewed.skips.find((skip) => skip.email === "mailed@school.edu")?.reasons).toEqual([
       "The acquisition ledger shows a previous email.",
-      "This person is already in an acquisition sequence. Nothing was sent from this check.",
     ]);
     expect(reviewed.skips.find((skip) => skip.email === "stopped@school.edu")?.reason).toMatch(/suppressed or opted out/);
+  });
+
+  it("releases a dormant unsent journey and keeps operative work excluded", () => {
+    expect(letterJourneyEffect({ lifecycle: "cold_active", closed: false })).toMatchObject({ operative: false, emailed: false, unreadable: false });
+    expect(letterJourneyEffect({ lifecycle: "cold_no_response", closed: false }).operative).toBe(false);
+    expect(letterJourneyEffect({ lifecycle: "asset_sent", closed: false })).toMatchObject({ operative: true, emailed: true });
+    expect(letterJourneyEffect({ lifecycle: "asset_sent", closed: true })).toMatchObject({ operative: false, emailed: true });
+    expect(letterJourneyEffect({ lifecycle: "reply_needs_review", closed: false })).toMatchObject({ operative: true, replied: true });
+    expect(letterJourneyEffect({ lifecycle: "not_interested", closed: true }).stopped).toBe(true);
+    expect(letterJourneyEffect({ lifecycle: "paid_member", closed: false }).member).toBe(true);
+    expect(letterJourneyEffect({ lifecycle: null, closed: false }).unreadable).toBe(true);
+    expect(letterJourneyEffect({ lifecycle: "mystery", closed: false }).unreadable).toBe(true);
+    expect(letterMessageEffect("outbound")).toBe("email");
+    expect(letterMessageEffect("inbound")).toBe("reply");
+    expect(letterMessageEffect("sideways")).toBe("unreadable");
+    expect(letterActionIsOutstanding("scheduled")).toBe(true);
+    expect(letterActionIsOutstanding("claimed")).toBe(true);
+    expect(letterActionIsOutstanding("accepted")).toBe(false);
+    expect(letterActionIsOutstanding("canceled")).toBe(false);
+
+    const reviewed = reviewLetterAudience({
+      sourceCampaignId: SOURCE,
+      sourceCampaignIds: ["tennessee-video"],
+      leads: [
+        lead({ id: "dormant-a", email: "dormant@school.edu", campaignId: SOURCE }),
+        lead({ id: "dormant-b", email: "dormant@school.edu", campaignId: "tennessee-video" }),
+        lead({ id: "active-j", email: "active-journey@school.edu" }),
+        lead({ id: "paused-j", email: "paused-journey@school.edu" }),
+        lead({ id: "held-j", email: "held@school.edu" }),
+        lead({ id: "sent-j", email: "sent-journey@school.edu" }),
+        lead({ id: "stop-j", email: "optout@school.edu" }),
+        lead({ id: "block-j", email: "coach@wcs.edu" }),
+        lead({ id: "member-j", email: "member@school.edu" }),
+        lead({ id: "unread-j", email: "unread@school.edu" }),
+      ],
+      localByEmail: new Map([
+        ["dormant@school.edu", { ...clearLocal(), lifecycle: "cold_active", ledgerSequence: true, hasJourney: false }],
+        ["active-journey@school.edu", { ...clearLocal(), lifecycle: "cold_active", hasJourney: true }],
+        ["paused-journey@school.edu", { ...clearLocal(), lifecycle: "cold_active", outstandingFulfillment: true }],
+        ["held@school.edu", { ...clearLocal(), outstandingFulfillment: true }],
+        ["sent-journey@school.edu", { ...clearLocal(), ledgerEmailed: true }],
+        ["optout@school.edu", { ...clearLocal(), optedOut: true }],
+        ["coach@wcs.edu", { ...clearLocal(), domainBlocked: true }],
+        ["member@school.edu", { ...clearLocal(), historicalMembership: "member" }],
+        ["unread@school.edu", { ...clearLocal(), journeyUnreadable: true }],
+      ]),
+      campaignActivity: QUIET,
+    });
+    expect(reviewed.eligible.map((row) => row.email)).toEqual(["dormant@school.edu"]);
+    expect(reviewed.skips.find((skip) => skip.email === "active-journey@school.edu")?.reason).toMatch(/open acquisition journey/);
+    expect(reviewed.skips.find((skip) => skip.email === "paused-journey@school.edu")?.reason).toMatch(/scheduled or claimed/);
+    expect(reviewed.skips.find((skip) => skip.email === "held@school.edu")?.reason).toMatch(/scheduled or claimed/);
+    expect(reviewed.skips.find((skip) => skip.email === "sent-journey@school.edu")?.reason).toMatch(/previous email/);
+    expect(reviewed.skips.find((skip) => skip.email === "optout@school.edu")?.reason).toMatch(/opted out/);
+    expect(reviewed.skips.find((skip) => skip.email === "coach@wcs.edu")?.reason).toMatch(/domain blocked/);
+    expect(reviewed.skips.find((skip) => skip.email === "member@school.edu")?.kind).toBe("excluded");
+    expect(reviewed.skips.find((skip) => skip.email === "unread@school.edu")?.kind).toBe("unverified");
+    const dormant = reviewed.eligible.find((row) => row.email === "dormant@school.edu");
+    expect(dormant).toBeTruthy();
   });
 
   it("splits the same cleared list into stable nonoverlapping groups", () => {

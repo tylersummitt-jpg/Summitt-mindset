@@ -10,8 +10,11 @@ import {
   finishLetterClearance,
   LETTER_AUDIENCE_CAP,
   LETTER_FACT_BATCH,
+  letterActionIsOutstanding,
+  letterJourneyEffect,
   letterLeadCsv,
   letterMembershipVerdict,
+  letterMessageEffect,
   signLetterBatch,
   signLetterOutcomes,
   verifyLetterPending,
@@ -305,24 +308,57 @@ async function localFacts(emails: string[]): Promise<Map<string, LetterLocalFact
 
   const ids = [...people.values()].map((person) => person.id);
   const journeyPeople = new Set<string>();
+  const journeyMembers = new Set<string>();
+  const journeyUnreadable = new Set<string>();
   const heldPeople = new Set<string>();
   const ledger = new Map<string, { emailed: boolean; replied: boolean; bounced: boolean; stopped: boolean; sequence: boolean }>();
   for (const chunk of chunks(ids, CHUNK)) {
     if (chunk.length === 0) continue;
-    const [journeys, actions, events] = await Promise.all([
-      supabaseServer.from("acquisition_journeys").select("person_id").in("person_id", chunk),
-      supabaseServer.from("acquisition_actions").select("person_id").in("person_id", chunk).in("status", ["scheduled", "claimed"]),
+    const [journeys, actions, events, messages] = await Promise.all([
+      supabaseServer.from("acquisition_journeys").select("person_id, lifecycle_state, closed_at").in("person_id", chunk),
+      supabaseServer.from("acquisition_actions").select("person_id, status").in("person_id", chunk).in("status", ["scheduled", "claimed"]),
       supabaseServer.from("acquisition_events").select("person_id, event_type").in("person_id", chunk).in("event_type", Object.keys(LEDGER_EVENT)),
+      supabaseServer.from("acquisition_messages").select("person_id, direction").in("person_id", chunk),
     ]);
-    if (journeys.error || actions.error || events.error) return null;
-    for (const row of journeys.data ?? []) if (typeof row.person_id === "string") journeyPeople.add(row.person_id);
-    for (const row of actions.data ?? []) if (typeof row.person_id === "string") heldPeople.add(row.person_id);
+    if (journeys.error || actions.error || events.error || messages.error) return null;
+    for (const row of journeys.data ?? []) {
+      if (typeof row.person_id !== "string") continue;
+      const effect = letterJourneyEffect({
+        lifecycle: typeof row.lifecycle_state === "string" ? row.lifecycle_state : null,
+        closed: row.closed_at != null && row.closed_at !== "",
+      });
+      const current = ledger.get(row.person_id) ?? { emailed: false, replied: false, bounced: false, stopped: false, sequence: false };
+      if (effect.emailed) current.emailed = true;
+      if (effect.replied) current.replied = true;
+      if (effect.stopped) current.stopped = true;
+      ledger.set(row.person_id, current);
+      if (effect.member) journeyMembers.add(row.person_id);
+      if (effect.operative) journeyPeople.add(row.person_id);
+      if (effect.unreadable) journeyUnreadable.add(row.person_id);
+    }
+    for (const row of actions.data ?? []) {
+      if (typeof row.person_id === "string" && typeof row.status === "string" && letterActionIsOutstanding(row.status)) {
+        heldPeople.add(row.person_id);
+      }
+    }
     for (const row of events.data ?? []) {
       if (typeof row.person_id !== "string" || typeof row.event_type !== "string") continue;
       const kind = LEDGER_EVENT[row.event_type as keyof typeof LEDGER_EVENT];
       if (!kind) continue;
       const current = ledger.get(row.person_id) ?? { emailed: false, replied: false, bounced: false, stopped: false, sequence: false };
       current[kind] = true;
+      ledger.set(row.person_id, current);
+    }
+    for (const row of messages.data ?? []) {
+      if (typeof row.person_id !== "string" || typeof row.direction !== "string") continue;
+      const effect = letterMessageEffect(row.direction);
+      if (effect === "unreadable") {
+        journeyUnreadable.add(row.person_id);
+        continue;
+      }
+      const current = ledger.get(row.person_id) ?? { emailed: false, replied: false, bounced: false, stopped: false, sequence: false };
+      if (effect === "email") current.emailed = true;
+      if (effect === "reply") current.replied = true;
       ledger.set(row.person_id, current);
     }
   }
@@ -385,6 +421,8 @@ async function localFacts(emails: string[]): Promise<Map<string, LetterLocalFact
       ledgerBounced: person ? ledger.get(person.id)?.bounced === true : false,
       ledgerStopped: person ? ledger.get(person.id)?.stopped === true : false,
       ledgerSequence: person ? ledger.get(person.id)?.sequence === true : false,
+      journeyMember: person ? journeyMembers.has(person.id) : false,
+      journeyUnreadable: person ? journeyUnreadable.has(person.id) : false,
       membership: membership.get(email) ?? "unverified",
       historicalMembership,
       historicalDetail,

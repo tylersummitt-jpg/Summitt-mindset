@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 import type { InstantlyLeadSnapshot } from "@/lib/acquisition/backfill";
 import type { HistoricalDecision } from "@/lib/historical-never-subscriber";
-import { normalizeAcquisitionEmail, type AcquisitionLifecycle } from "@/lib/acquisition/model";
+import { isAcquisitionLifecycle, normalizeAcquisitionEmail, type AcquisitionLifecycle } from "@/lib/acquisition/model";
 import {
   classifySummittMembership,
   type SummittSubscriptionLike,
@@ -18,6 +18,7 @@ export type LetterLocalFacts = {
   /** Recovery suppression or opt-out. */
   optedOut: boolean;
   outstandingFulfillment: boolean;
+  /** Open journey in a state that can still continue. A cold open journey is not this. */
   hasJourney: boolean;
   /** Ledger event `email_sent`, or a lifecycle that is only reached after a send. */
   ledgerEmailed: boolean;
@@ -27,8 +28,12 @@ export type LetterLocalFacts = {
   ledgerBounced: boolean;
   /** Ledger opt-out, complaint, or wrong-person event. */
   ledgerStopped: boolean;
-  /** Ledger sequence state or campaign completion without a verified send. */
+  /** Ledger sequence state or campaign completion without a verified send. Not an exclusion by itself. */
   ledgerSequence: boolean;
+  /** Journey lifecycle shows current or former membership. */
+  journeyMember: boolean;
+  /** Journey row could not be classified. */
+  journeyUnreadable: boolean;
   membership: MembershipClearance;
   /** Historical Stripe/Apple membership. Only "clear" can become eligible. */
   historicalMembership: "member" | "clear" | "unverified";
@@ -56,7 +61,6 @@ export type LetterSkip = {
 const STOP_LIFE: ReadonlySet<AcquisitionLifecycle> = new Set(["unsubscribed", "suppressed", "not_interested"]);
 const REPLY_LIFE: ReadonlySet<AcquisitionLifecycle> = new Set(["reply_needs_review", "asset_requested"]);
 const EMAIL_LIFE: ReadonlySet<AcquisitionLifecycle> = new Set(["asset_sent", "warm_video_sent", "trial_invited"]);
-const SEQUENCE_LIFE: ReadonlySet<AcquisitionLifecycle> = new Set(["cold_active", "cold_no_response"]);
 
 const MEMBER: ReadonlySet<AcquisitionLifecycle> = new Set([
   "trial_started",
@@ -231,6 +235,57 @@ export function letterMembershipVerdict(args: {
   return "clear";
 }
 
+const OPERATIVE_JOURNEY: ReadonlySet<AcquisitionLifecycle> = new Set([
+  "reply_needs_review",
+  "asset_requested",
+  "asset_sent",
+  "warm_video_sent",
+  "trial_invited",
+]);
+
+export type LetterJourneyEffect = {
+  emailed: boolean;
+  replied: boolean;
+  stopped: boolean;
+  member: boolean;
+  /** Open journey that can still continue. Cold open rows are not operative. */
+  operative: boolean;
+  unreadable: boolean;
+};
+
+/** A cold or completed journey is historical. It does not by itself keep a coach out. */
+export function letterJourneyEffect(args: { lifecycle: string | null; closed: boolean }): LetterJourneyEffect {
+  const none: LetterJourneyEffect = {
+    emailed: false,
+    replied: false,
+    stopped: false,
+    member: false,
+    operative: false,
+    unreadable: false,
+  };
+  if (!args.lifecycle || !isAcquisitionLifecycle(args.lifecycle)) return { ...none, unreadable: true };
+  if (args.lifecycle === "cold_active" || args.lifecycle === "cold_no_response") return none;
+  if (STOP_LIFE.has(args.lifecycle)) return { ...none, stopped: true };
+  if (MEMBER.has(args.lifecycle)) return { ...none, member: true };
+  if (REPLY_LIFE.has(args.lifecycle)) return { ...none, replied: true, operative: !args.closed };
+  if (EMAIL_LIFE.has(args.lifecycle) || OPERATIVE_JOURNEY.has(args.lifecycle)) {
+    return { ...none, emailed: EMAIL_LIFE.has(args.lifecycle), replied: REPLY_LIFE.has(args.lifecycle), operative: !args.closed };
+  }
+  return { ...none, unreadable: true };
+}
+
+/** Outbound is an attempted send. Inbound is a reply. Anything else is unreadable. */
+export function letterMessageEffect(direction: string): "email" | "reply" | "unreadable" {
+  if (direction === "outbound") return "email";
+  if (direction === "inbound") return "reply";
+  return "unreadable";
+}
+
+/** Scheduled and claimed work can still send or fulfill. Accepted, canceled, and failed work cannot. */
+export function letterActionIsOutstanding(status: string): boolean {
+  return status === "scheduled" || status === "claimed";
+}
+
 const DOMAIN_BLOCK = "Instantly has this email domain blocked.";
 const ADDRESS_BLOCK = "Instantly has this exact address blocked.";
 const OPT_OUT = "This address is suppressed or opted out.";
@@ -238,8 +293,8 @@ const MEMBER_REASON = "This person is a current or former member, or is already 
 const LEDGER_EMAIL = "The acquisition ledger shows a previous email.";
 const LEDGER_REPLY = "The acquisition ledger shows a reply.";
 const LEDGER_BOUNCE = "The acquisition ledger shows a bounce.";
-const LEDGER_SEQUENCE = "This person is already in an acquisition sequence. Nothing was sent from this check.";
-const JOURNEY = "This person already has a journey. It was left unchanged.";
+const JOURNEY = "This person has an open acquisition journey that can still continue. Nothing was sent.";
+const JOURNEY_UNREAD = "Acquisition journey history could not be classified. They were left unverified.";
 const HELD = "This person still has a scheduled or claimed fulfillment action. It was left in place.";
 const MEMBERSHIP_UNREAD = "Historical membership could not be confirmed. They were left unverified.";
 const LIVE_MEMBERSHIP_UNREAD = "Live membership could not be confirmed. They were left unverified.";
@@ -251,14 +306,14 @@ function localBlock(local: LetterLocalFacts): { kind: "excluded" | "unverified";
   if (local.optedOut || local.ledgerStopped || (local.lifecycle && STOP_LIFE.has(local.lifecycle))) excluded.push(OPT_OUT);
   if (local.ledgerBounced) excluded.push(LEDGER_BOUNCE);
   if (local.ledgerReplied || (local.lifecycle && REPLY_LIFE.has(local.lifecycle))) excluded.push(LEDGER_REPLY);
-  if (local.historicalMembership === "member" || local.membership === "member" || (local.lifecycle && MEMBER.has(local.lifecycle))) {
+  if (local.journeyMember || local.historicalMembership === "member" || local.membership === "member" || (local.lifecycle && MEMBER.has(local.lifecycle))) {
     excluded.push(MEMBER_REASON);
   }
   if (local.ledgerEmailed || (local.lifecycle && EMAIL_LIFE.has(local.lifecycle))) excluded.push(LEDGER_EMAIL);
-  if (local.ledgerSequence || (local.lifecycle && SEQUENCE_LIFE.has(local.lifecycle))) excluded.push(LEDGER_SEQUENCE);
   if (local.hasJourney) excluded.push(JOURNEY);
   if (local.outstandingFulfillment) excluded.push(HELD);
   const reasons = [...excluded];
+  if (local.journeyUnreadable) reasons.push(JOURNEY_UNREAD);
   if (local.historicalMembership !== "clear") reasons.push(local.historicalDetail?.trim() || MEMBERSHIP_UNREAD);
   if (local.membership === "unverified") reasons.push(LIVE_MEMBERSHIP_UNREAD);
   if (excluded.length > 0) return { kind: "excluded", reasons };
