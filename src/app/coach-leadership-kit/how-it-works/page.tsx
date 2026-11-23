@@ -5,9 +5,10 @@ import { currentUser } from "@clerk/nextjs/server";
 import { CoachLeadershipKitTrackedLink } from "@/app/coach-leadership-kit/coach-leadership-kit-tracked-link";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
-  COACH_SIGN_UP_HREF,
-  COACH_SUBSCRIBE_PATH,
-} from "@/lib/coach-funnel-links";
+  campaignTokenFromSearch,
+  freePdfCoachKitHref,
+  freePdfCoachKitPageHref,
+} from "@/lib/free-pdf";
 import { buildVimeoPlayerEmbedUrl } from "@/lib/vimeo-player-embed";
 
 const COACH_HOW_PATH = "/coach-leadership-kit/how-it-works";
@@ -34,9 +35,16 @@ type CoachExplainerRow = {
   vimeo_video_id: string | null;
 };
 
-export default async function CoachHowItWorksPage() {
+export default async function CoachHowItWorksPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = searchParams ? await searchParams : {};
+  const campaignToken = campaignTokenFromSearch(sp.ac);
   const user = await currentUser();
-  const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_UP_HREF;
+  const leadershipKitHref = freePdfCoachKitHref(Boolean(user), campaignToken);
+  const overviewHref = freePdfCoachKitPageHref("/coach-leadership-kit", campaignToken);
 
   const { data, error } = await supabaseServer
     .from("film_videos")
@@ -135,7 +143,7 @@ export default async function CoachHowItWorksPage() {
                 Start Membership + Unlock Kit
               </CoachLeadershipKitTrackedLink>
               <Link
-                href="/coach-leadership-kit"
+                href={overviewHref}
                 className={ctaSecondaryClass}
               >
                 Back to Coach Leadership Kit overview

@@ -2,9 +2,10 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { freePdfCheckoutHref } from "@/lib/free-pdf";
+import { freePdfCheckoutHref, freePdfCoachKitHref, freePdfCoachKitPageHref } from "@/lib/free-pdf";
 import {
   acquisitionCampaignDefiniteDozenUrl,
+  acquisitionCampaignLeadershipKitUrl,
   acquisitionCampaignPlaybookUrl,
   acquisitionCampaignTrialUrl,
   acquisitionSubscriptionCredit,
@@ -101,6 +102,68 @@ describe("direct trial campaign attribution", () => {
       ok: false,
       reason: "unsigned",
     });
+  });
+
+  it("signs a separate Leadership Kit offer link for each letter campaign", () => {
+    const campaigns = [
+      "f8081c58-a0bf-46b6-9ad2-49d9456fe10d",
+      "3be02e5e-6ffc-4521-a6ba-6568d6030783",
+      "1825a4e6-9f9f-4e50-b1ca-f1ac52f3fa98",
+      "674a4089-4df0-46c9-9e91-a3e06f257b5c",
+    ];
+    const urls = campaigns.map((id) => {
+      const url = acquisitionCampaignLeadershipKitUrl(id, SECRET);
+      const token = signAcquisitionCampaignId(id, SECRET);
+      expect(url).toBe(`https://summittmindset.com/coach-leadership-kit?ac=${encodeURIComponent(token ?? "")}`);
+      expect(url).not.toContain("basketball-playbook");
+      expect(url).not.toContain("definite-dozen");
+      expect(readSignedAcquisitionCampaignId(new URL(url ?? "").searchParams.get("ac"), SECRET)).toBe(id);
+      expect(freePdfCoachKitHref(false, token)).toBe(
+        `/sign-up?redirect_url=${encodeURIComponent(`/subscribe?src=coach&ac=${encodeURIComponent(token ?? "")}`)}`,
+      );
+      expect(freePdfCoachKitHref(true, token)).toBe(`/subscribe?src=coach&ac=${encodeURIComponent(token ?? "")}`);
+      expect(freePdfCoachKitPageHref("/coach-leadership-kit/how-it-works", token)).toBe(
+        `/coach-leadership-kit/how-it-works?ac=${encodeURIComponent(token ?? "")}`,
+      );
+      expect(readSignedAcquisitionCampaignId(`${id}.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, SECRET)).toBeNull();
+      return url;
+    });
+    expect(new Set(urls).size).toBe(4);
+    expect(acquisitionCampaignLeadershipKitUrl(campaigns[0]!, "short")).toBeNull();
+    expect(freePdfCoachKitHref(false, "not a token")).toBe("/sign-up?redirect_url=%2Fsubscribe%3Fsrc%3Dcoach");
+    expect(freePdfCoachKitPageHref("/coach-leadership-kit", "not a token")).toBe("/coach-leadership-kit");
+
+    const basketball = "3d63c904-1c4f-4bd2-bc95-52f9a996318d";
+    expect(acquisitionCampaignPlaybookUrl(basketball, SECRET)).toBe(
+      `https://summittmindset.com/free/basketball-playbook?ac=${encodeURIComponent(signAcquisitionCampaignId(basketball, SECRET) ?? "")}`,
+    );
+    expect(acquisitionCampaignDefiniteDozenUrl(campaigns[0]!, SECRET)).toContain("/free/definite-dozen?ac=");
+
+    const kitPage = readFileSync("src/app/coach-leadership-kit/page.tsx", "utf8");
+    const how = readFileSync("src/app/coach-leadership-kit/how-it-works/page.tsx", "utf8");
+    const subscribe = readFileSync("src/app/subscribe/page.tsx", "utf8");
+    const panel = readFileSync("src/app/subscribe/subscribe-checkout-panel.tsx", "utf8");
+    const session = readFileSync("src/app/api/stripe/create-checkout-session/route.ts", "utf8");
+    const shipping = readFileSync("src/app/api/coach/shipping/route.ts", "utf8");
+    expect(kitPage).toContain("freePdfCoachKitHref");
+    expect(kitPage).toContain("Pat Summitt Leadership Kit");
+    expect(kitPage).toContain("Shipping is covered.");
+    expect(how).toContain("The Leadership Kit is a coach bonus");
+    expect(subscribe).toContain("isSubscribedFromPublicMetadata");
+    expect(subscribe).toContain('redirect("/post-sign-in")');
+    expect(panel).toContain("7-day free trial");
+    expect(panel).toContain("Then $29/month");
+    expect(panel).toContain("We reach out to ship your Leadership Kit");
+    expect(panel).toContain("src: \"coach\"");
+    expect(panel).toContain("acquisitionCampaignToken");
+    expect(session).toContain('sessionMetadata.summittAcquisition = "coach"');
+    expect(session.indexOf('if (src === "coach")')).toBeLessThan(session.indexOf("if (acquisitionCampaignId)"));
+    expect(session).toContain("You already have an active Summitt Mindset membership.");
+    expect(shipping).toContain('md?.acquisitionSource !== "coach"');
+    expect(shipping).toContain("Finish onboarding before submitting Kit shipping.");
+    expect(shipping).toContain("Address already submitted");
+    expect(readFileSync("src/app/free/basketball-playbook/page.tsx", "utf8")).not.toContain("acquisitionCampaignLeadershipKitUrl");
+    expect(readFileSync("src/app/api/admin/acquisition/playbook-link/route.ts", "utf8")).toContain('body?.kind === "kit"');
   });
 
   it("credits a valid campaign link as a trial and the later payment", () => {

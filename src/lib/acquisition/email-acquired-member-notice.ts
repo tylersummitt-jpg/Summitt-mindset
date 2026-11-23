@@ -103,6 +103,13 @@ export function acquisitionCampaignPlaybookUrl(campaignId: string, secret: strin
   return `https://summittmindset.com/free/basketball-playbook?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
 }
 
+/** Signed attribution for the existing Coach Leadership Kit offer. Same token, separate page. */
+export function acquisitionCampaignLeadershipKitUrl(campaignId: string, secret: string): string | null {
+  const token = signAcquisitionCampaignId(campaignId, secret);
+  if (!token) return null;
+  return `https://summittmindset.com/coach-leadership-kit?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
+}
+
 /** Signed attribution for the public Definite Dozen guide. Same token as the playbook link. */
 export function acquisitionCampaignDefiniteDozenUrl(campaignId: string, secret: string): string | null {
   const token = signAcquisitionCampaignId(campaignId, secret);

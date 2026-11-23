@@ -4,9 +4,10 @@ import Link from "next/link";
 import { currentUser } from "@clerk/nextjs/server";
 import { CoachLeadershipKitTrackedLink } from "@/app/coach-leadership-kit/coach-leadership-kit-tracked-link";
 import {
-  COACH_SIGN_UP_HREF,
-  COACH_SUBSCRIBE_PATH,
-} from "@/lib/coach-funnel-links";
+  campaignTokenFromSearch,
+  freePdfCoachKitHref,
+  freePdfCoachKitPageHref,
+} from "@/lib/free-pdf";
 
 const COACH_LANDING_PATH = "/coach-leadership-kit";
 const COACH_OG_IMAGE_URL =
@@ -52,18 +53,27 @@ const ctaHeroPrimaryClass =
 const howItWorksVideoButtonClass =
   "inline-flex w-full min-w-0 items-center justify-center rounded-xl bg-[var(--brand)] px-6 py-3 text-sm font-semibold text-neutral-950 shadow-md shadow-orange-500/20 transition hover:-translate-y-0.5 hover:bg-orange-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950 sm:w-auto";
 
-export default async function CoachLeadershipKitPage() {
+export default async function CoachLeadershipKitPage({
+  searchParams,
+}: {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = searchParams ? await searchParams : {};
+  const campaignToken = campaignTokenFromSearch(sp.ac);
   const user = await currentUser();
-  const leadershipKitHref = user ? COACH_SUBSCRIBE_PATH : COACH_SIGN_UP_HREF;
+  const leadershipKitHref = freePdfCoachKitHref(Boolean(user), campaignToken);
 
-  return <CoachLeadershipKitMarketing leadershipKitHref={leadershipKitHref} />;
+  return <CoachLeadershipKitMarketing leadershipKitHref={leadershipKitHref} campaignToken={campaignToken} />;
 }
 
 export function CoachLeadershipKitMarketing({
   leadershipKitHref,
+  campaignToken,
 }: {
   leadershipKitHref: string;
+  campaignToken?: unknown;
 }) {
+  const howItWorksHref = freePdfCoachKitPageHref("/coach-leadership-kit/how-it-works", campaignToken);
   return (
     <div className="min-h-screen bg-[var(--bg)]">
       {/* 1. Hero — image-led, live HTML overlay */}
@@ -205,7 +215,7 @@ export function CoachLeadershipKitMarketing({
               </p>
               <div className="flex w-full min-w-0 max-w-md pt-1">
                 <Link
-                  href="/coach-leadership-kit/how-it-works"
+                  href={howItWorksHref}
                   className={howItWorksVideoButtonClass}
                 >
                   Watch the Video

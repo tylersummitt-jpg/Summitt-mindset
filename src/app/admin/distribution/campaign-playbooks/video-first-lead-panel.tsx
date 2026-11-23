@@ -95,6 +95,7 @@ export function VideoFirstLeadPanel({
   const [extraSourceIds, setExtraSourceIds] = useState<string[]>([]);
   const [pairCampaignId, setPairCampaignId] = useState("");
   const [playbookUrl, setPlaybookUrl] = useState<string | null>(null);
+  const [kitUrl, setKitUrl] = useState<string | null>(null);
   const [letterNote, setLetterNote] = useState<string | null>(null);
   const [letter, setLetter] = useState<{
     eligible: number;
@@ -110,7 +111,7 @@ export function VideoFirstLeadPanel({
   const [existingNote, setExistingNote] = useState<string | null>(null);
   const [clearance, setClearance] = useState<ClearanceTotals | null>(null);
   const [clearanceNote, setClearanceNote] = useState<string | null>(null);
-  const [busy, setBusy] = useState<"file" | "existing" | "clearance" | "link" | "letter" | null>(null);
+  const [busy, setBusy] = useState<"file" | "existing" | "clearance" | "link" | "kit" | "letter" | null>(null);
 
   useEffect(() => {
     setSourceCampaignId(campaignId);
@@ -212,6 +213,25 @@ export function VideoFirstLeadPanel({
     }
     setPlaybookUrl(body.url);
     setMessage("Signed playbook link is ready. No email was sent.");
+  }
+
+  async function copyLeadershipKitLink() {
+    setBusy("kit");
+    setMessage(null);
+    const res = await fetch("/api/admin/acquisition/playbook-link", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ campaignId, kind: "kit" }),
+    });
+    const body = await res.json().catch(() => null) as { ok: true; url: string } | { ok: false; error?: string } | null;
+    setBusy(null);
+    if (!body || body.ok !== true) {
+      setKitUrl(null);
+      setMessage(body && "error" in body ? body.error ?? "The signed link was not created." : "The signed link was not created.");
+      return;
+    }
+    setKitUrl(body.url);
+    setMessage("Signed Leadership Kit offer link is ready. No email was sent.");
   }
 
   async function postLetter(payload: Record<string, unknown>) {
@@ -380,10 +400,16 @@ export function VideoFirstLeadPanel({
       <div className="space-y-2 border-b border-gray-200 pb-3">
         <h3 className="font-medium">Personal letter</h3>
         <p>Check eligibility without a video. This does not import leads or send email. A signed link is created only for a campaign whose saved playbook has sending off.</p>
-        <button className="rounded bg-gray-900 px-3 py-2 text-sm text-white disabled:opacity-50" type="button" disabled={busy !== null} onClick={() => void copyPlaybookLink()}>
-          {busy === "link" ? "Signing" : "Copy signed playbook link"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button className="rounded bg-gray-900 px-3 py-2 text-sm text-white disabled:opacity-50" type="button" disabled={busy !== null} onClick={() => void copyPlaybookLink()}>
+            {busy === "link" ? "Signing" : "Copy signed playbook link"}
+          </button>
+          <button className="rounded bg-gray-900 px-3 py-2 text-sm text-white disabled:opacity-50" type="button" disabled={busy !== null} onClick={() => void copyLeadershipKitLink()}>
+            {busy === "kit" ? "Signing" : "Copy signed Leadership Kit offer link"}
+          </button>
+        </div>
         {playbookUrl ? <input aria-label="Signed playbook link" className="mt-2 w-full rounded border border-gray-300 px-2 py-1" readOnly value={playbookUrl} /> : null}
+        {kitUrl ? <input aria-label="Signed Leadership Kit offer link" className="mt-2 w-full rounded border border-gray-300 px-2 py-1" readOnly value={kitUrl} /> : null}
         <label className="block">Source audience
           <select aria-label="Letter source audience" className="mt-1 w-full rounded border border-gray-300 px-2 py-1" value={sourceCampaignId} onChange={(event) => setSourceCampaignId(event.target.value)}>
             {sourceOptions.map((option) => (

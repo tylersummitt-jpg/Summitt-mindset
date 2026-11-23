@@ -12,6 +12,7 @@ import {
   DEFINITE_DOZEN_PAGE,
   freePdfCheckoutHref,
   freePdfCoachKitHref,
+  freePdfCoachKitPageHref,
   freePdfTrialHref,
 } from "@/lib/free-pdf";
 
@@ -72,6 +73,10 @@ describe("free PDF pages", () => {
     );
     expect(freePdfCoachKitHref(false, shapedToken)).toBe(
       `/sign-up?redirect_url=${encodeURIComponent(`${COACH_SUBSCRIBE_PATH}&ac=${encodeURIComponent(shapedToken)}`)}`
+    );
+    expect(freePdfCoachKitPageHref("/coach-leadership-kit", undefined)).toBe("/coach-leadership-kit");
+    expect(freePdfCoachKitPageHref("/coach-leadership-kit", shapedToken)).toBe(
+      `/coach-leadership-kit?ac=${encodeURIComponent(shapedToken)}`
     );
 
     const href = readSrc("src/lib/free-pdf.ts");

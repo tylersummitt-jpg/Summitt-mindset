@@ -62,7 +62,8 @@ export function Navbar() {
 
   useEffect(() => {
     const onGiftPage = pathname === "/free/basketball-playbook" || pathname === "/free/definite-dozen";
-    if (!onGiftPage) {
+    const onKitPage = isCoachLeadershipKitPath(pathname ?? "");
+    if (!onGiftPage && !onKitPage) {
       setCampaignToken((current) => (current === null ? current : null));
       return;
     }

@@ -94,6 +94,13 @@ export function freePdfCheckoutHref(href: string, campaignToken: unknown): strin
   return `${href}${join}${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
 }
 
+/** Keep a shaped campaign token on the existing Leadership Kit pages. An invalid token is dropped. */
+export function freePdfCoachKitPageHref(path: "/coach-leadership-kit" | "/coach-leadership-kit/how-it-works", campaignToken: unknown): string {
+  const token = acquisitionCampaignTokenShape(campaignToken);
+  if (!token) return path;
+  return `${path}?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
+}
+
 /** Leadership Kit enrollment. No token leaves the existing coach signup and subscribe URLs unchanged. */
 export function freePdfCoachKitHref(signedIn: boolean, campaignToken: unknown): string {
   const token = acquisitionCampaignTokenShape(campaignToken);

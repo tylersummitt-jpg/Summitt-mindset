@@ -1,7 +1,7 @@
 import "server-only";
 
 import { parseAcquisitionCampaignId } from "@/lib/acquisition/campaign-token-shape";
-import { signedCampaignGuideUrl } from "@/lib/acquisition/email-acquired-member-notice";
+import { acquisitionCampaignLeadershipKitUrl, signedCampaignGuideUrl } from "@/lib/acquisition/email-acquired-member-notice";
 import { supabaseServer } from "@/lib/supabase-server";
 import { currentQuietPlaybook } from "@/lib/acquisition/video-first-leads.server";
 
@@ -36,4 +36,18 @@ export async function signedPlaybookLink(
   }
   if (!signed.ok) return { ok: false, error: "Signed links cannot be created right now. No link was created." };
   return { ok: true, url: signed.url, campaignName: playbook.name };
+}
+
+/** A separate membership-offer link. It does not replace the free-resource link. */
+export async function signedLeadershipKitLink(
+  campaignId: string,
+): Promise<{ ok: true; url: string; campaignName: string } | { ok: false; error: string }> {
+  const id = parseAcquisitionCampaignId(campaignId);
+  if (!id) return { ok: false, error: "Choose a campaign from the list. No link was created." };
+  const playbook = await currentQuietPlaybook(id);
+  if ("error" in playbook) return { ok: false, error: playbook.error };
+  const secret = process.env.CRON_SECRET?.trim() ?? "";
+  const url = acquisitionCampaignLeadershipKitUrl(id, secret);
+  if (!url) return { ok: false, error: "Signed links cannot be created right now. No link was created." };
+  return { ok: true, url, campaignName: playbook.name };
 }
