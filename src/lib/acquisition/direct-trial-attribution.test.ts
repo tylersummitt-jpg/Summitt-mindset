@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
+import { freePdfCheckoutHref } from "@/lib/free-pdf";
 import {
+  acquisitionCampaignDefiniteDozenUrl,
   acquisitionCampaignPlaybookUrl,
   acquisitionCampaignTrialUrl,
   acquisitionSubscriptionCredit,
@@ -13,6 +15,7 @@ import {
   readSignedAcquisitionJourneyId,
   signAcquisitionCampaignId,
   signAcquisitionJourneyId,
+  signedCampaignGuideUrl,
   subscriptionLedgerDecision,
   type AcquisitionSubscriptionCredit,
 } from "@/lib/acquisition/email-acquired-member-notice";
@@ -46,6 +49,58 @@ describe("direct trial campaign attribution", () => {
     expect(readSignedAcquisitionCampaignId(token, SECRET)).toBe(pat);
     expect(url).not.toContain("aj=");
     expect(acquisitionCampaignPlaybookUrl(pat, "short")).toBeNull();
+  });
+
+  it("signs the Definite Dozen page for coaches and athletic directors", () => {
+    const director = "camp_director";
+    const soccer = "camp_soccer";
+    const basketballId = "3d63c904-1c4f-4bd2-bc95-52f9a996318d";
+    const token = signAcquisitionCampaignId(director, SECRET);
+    const dozen = acquisitionCampaignDefiniteDozenUrl(director, SECRET);
+    expect(dozen).toBe(`https://summittmindset.com/free/definite-dozen?ac=${encodeURIComponent(token ?? "")}`);
+    expect(dozen).not.toContain("basketball-playbook");
+    expect(dozen).not.toContain("athletic-director");
+    expect(readSignedAcquisitionCampaignId(token, SECRET)).toBe(director);
+    expect(readSignedAcquisitionCampaignId(`${director}.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`, SECRET)).toBeNull();
+    expect(freePdfCheckoutHref("/checkout/start", token)).toBe(
+      `/checkout/start?ac=${encodeURIComponent(token ?? "")}`,
+    );
+    expect(freePdfCheckoutHref("/checkout/start?plan=annual", token)).toBe(
+      `/checkout/start?plan=annual&ac=${encodeURIComponent(token ?? "")}`,
+    );
+    expect(freePdfCheckoutHref("/checkout/start", "not a token")).toBe("/checkout/start");
+
+    const directorLink = signedCampaignGuideUrl(director, SECRET, [
+      { resources: [] },
+      { resources: ["definite_dozen_ad"] },
+    ]);
+    const coachLink = signedCampaignGuideUrl(soccer, SECRET, [
+      { resources: ["definite_dozen"] },
+    ]);
+    expect(directorLink).toEqual({ ok: true, url: acquisitionCampaignDefiniteDozenUrl(director, SECRET) });
+    expect(coachLink).toEqual({ ok: true, url: acquisitionCampaignDefiniteDozenUrl(soccer, SECRET) });
+
+    expect(signedCampaignGuideUrl(basketballId, SECRET, [
+      { resources: ["playbook"] },
+      { resources: ["definite_dozen"] },
+    ])).toEqual({ ok: true, url: acquisitionCampaignPlaybookUrl(basketballId, SECRET) });
+    expect(signedCampaignGuideUrl(basketballId, SECRET, [{ resources: [] }, { resources: ["playbook"] }])).toEqual({
+      ok: true,
+      url: acquisitionCampaignPlaybookUrl(basketballId, SECRET),
+    });
+    expect(signedCampaignGuideUrl(basketballId, SECRET, [])).toEqual({
+      ok: true,
+      url: acquisitionCampaignPlaybookUrl(basketballId, SECRET),
+    });
+    expect(signedCampaignGuideUrl(director, SECRET, [{ resources: ["playbook", "definite_dozen_ad"] }])).toEqual({
+      ok: false,
+      reason: "ambiguous",
+    });
+    expect(acquisitionCampaignDefiniteDozenUrl(director, "short")).toBeNull();
+    expect(signedCampaignGuideUrl(director, "short", [{ resources: ["definite_dozen"] }])).toEqual({
+      ok: false,
+      reason: "unsigned",
+    });
   });
 
   it("credits a valid campaign link as a trial and the later payment", () => {

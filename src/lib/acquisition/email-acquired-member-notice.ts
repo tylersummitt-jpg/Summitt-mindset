@@ -103,6 +103,45 @@ export function acquisitionCampaignPlaybookUrl(campaignId: string, secret: strin
   return `https://summittmindset.com/free/basketball-playbook?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
 }
 
+/** Signed attribution for the public Definite Dozen guide. Same token as the playbook link. */
+export function acquisitionCampaignDefiniteDozenUrl(campaignId: string, secret: string): string | null {
+  const token = signAcquisitionCampaignId(campaignId, secret);
+  if (!token) return null;
+  return `https://summittmindset.com/free/definite-dozen?${ACQUISITION_CAMPAIGN_QUERY}=${encodeURIComponent(token)}`;
+}
+
+/**
+ * Newest saved guide wins. A Definite Dozen or athletic-director resource uses the
+ * public Definite Dozen page. A playbook resource keeps the basketball page.
+ * A version with no guide is skipped. No saved guide keeps the basketball page.
+ * Two guides on one version produce no link.
+ */
+export function signedCampaignGuideUrl(
+  campaignId: string,
+  secret: string,
+  versionsNewestFirst: readonly { resources: readonly string[] }[],
+): { ok: true; url: string } | { ok: false; reason: "unsigned" | "ambiguous" } {
+  for (const version of versionsNewestFirst) {
+    let playbook = false;
+    let dozen = false;
+    for (const resource of version.resources) {
+      if (resource === "playbook") playbook = true;
+      else if (resource === "definite_dozen" || resource === "definite_dozen_ad") dozen = true;
+    }
+    if (playbook && dozen) return { ok: false, reason: "ambiguous" };
+    if (dozen) {
+      const url = acquisitionCampaignDefiniteDozenUrl(campaignId, secret);
+      return url ? { ok: true, url } : { ok: false, reason: "unsigned" };
+    }
+    if (playbook) {
+      const url = acquisitionCampaignPlaybookUrl(campaignId, secret);
+      return url ? { ok: true, url } : { ok: false, reason: "unsigned" };
+    }
+  }
+  const url = acquisitionCampaignPlaybookUrl(campaignId, secret);
+  return url ? { ok: true, url } : { ok: false, reason: "unsigned" };
+}
+
 export function campaignIdFromStripeMetadata(
   metadata: { [key: string]: string | undefined } | null | undefined
 ): string | null {
