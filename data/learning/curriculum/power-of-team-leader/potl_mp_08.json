@@ -17,7 +17,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "It’s a fact of life: Not all people communicate in the same way, and it's important to understand different personality types and adjust your own communication style accordingly. Each personality type has its own style, preferences, and tendencies, and if you fail to adjust your approach, you may end up inadvertently alienating a team member.\n\nFor example, let's say you’re very direct and assertive, and you’re communicating with someone who is more reserved. If you come on too strong and don't take the time to listen to their perspective, you may make them feel intimidated. On the other hand, if you’re too passive and don't express your opinions clearly, the other person may perceive you as indecisive.\n\nCommunicating differently to different types can help you build stronger relationships and encourage greater understanding. When you tailor your approach to fit another person’s needs, you can help them feel valued and respected.\n\nIn another example, let's say you’re working on a team project with someone who is very detail-oriented and analytical. You may find that they prefer to receive information in a highly structured and organized format, even though this isn’t your style. By taking the time to present your ideas in a clear and logical way, you can help them feel more comfortable and engaged in the process.\n\nIt’s a question of personalities and finding the most effective language to use with a player. Some people, you can rip their heads off, and they still won’t give you their full attention. Others will break at a single word.”"
+          "markdown": "It’s a fact of life: Not all people communicate in the same way, and it's important to understand different personality types and adjust your own communication style accordingly. Each personality type has its own style, preferences, and tendencies, and if you fail to adjust your approach, you may end up inadvertently alienating a team member.\n\nFor example, let's say you’re very direct and assertive, and you’re communicating with someone who is more reserved. If you come on too strong and don't take the time to listen to their perspective, you may make them feel intimidated. On the other hand, if you’re too passive and don't express your opinions clearly, the other person may perceive you as indecisive."
         },
         {
           "type": "image",
@@ -25,9 +25,17 @@
           "alt": ""
         },
         {
+          "type": "markdown",
+          "markdown": "Communicating differently to different types can help you build stronger relationships and encourage greater understanding. When you tailor your approach to fit another person’s needs, you can help them feel valued and respected."
+        },
+        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_08_st_001_image_02.jpg",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "In another example, let's say you’re working on a team project with someone who is very detail-oriented and analytical. You may find that they prefer to receive information in a highly structured and organized format, even though this isn’t your style. By taking the time to present your ideas in a clear and logical way, you can help them feel more comfortable and engaged in the process.\n\nIt’s a question of personalities and finding the most effective language to use with a player. Some people, you can rip their heads off, and they still won’t give you their full attention. Others will break at a single word.”"
         },
         {
           "type": "image",
@@ -604,7 +612,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Pick two new tests to research for potential use with your team.\n\nSources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
+          "markdown": "Pick two new tests to research for potential use with your team.\n\nSources:"
         },
         {
           "type": "video",

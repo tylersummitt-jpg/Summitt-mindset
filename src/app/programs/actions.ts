@@ -72,7 +72,7 @@ export async function saveLearningReflection(input: unknown): Promise<
   const block = step?.blocks.find(
     (candidate) => candidate.type === "reflection" && candidate.question_id === parsed.questionId
   );
-  if (!step || !block || block.type !== "reflection" || block.persist === false) {
+  if (!step || !block || block.type !== "reflection") {
     return { ok: false, message: PROGRAMS_COPY.unavailable };
   }
 

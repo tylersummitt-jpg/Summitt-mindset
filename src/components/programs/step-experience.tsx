@@ -36,6 +36,7 @@ import {
   programsAccentRule,
   programsBody,
   programsGroupLabel,
+  programsInstructionHeading,
   programsMissPanel,
   programsSectionCard,
   programsSortActivityTitle,
@@ -52,8 +53,8 @@ import {
   sortCompleteMessage,
 } from "@/lib/learning/programs-copy";
 import { nativeSortDirections, proseBesideReveal } from "@/lib/learning/programs-presentation";
+import { presentScenarioChoiceResponse } from "@/lib/learning/scenario-feedback";
 
-const SAVE_DELAY_MS = 700;
 const QUIZ_ADVANCE_MS = 800;
 
 function nearbySectionTitles(blocks: PublicLearningBlock[], index: number): string[] {
@@ -106,25 +107,10 @@ export function StepExperience({
     () =>
       step.blocks.filter(
         (block): block is Extract<PublicLearningBlock, { type: "reflection" }> =>
-          block.type === "reflection" && block.persist !== false
+          block.type === "reflection"
       ),
     [step.blocks]
   );
-  const unsavedReflections = useMemo(
-    () =>
-      step.blocks.filter(
-        (block): block is Extract<PublicLearningBlock, { type: "reflection" }> =>
-          block.type === "reflection" && block.persist === false
-      ),
-    [step.blocks]
-  );
-  const revealGates = useMemo(() => {
-    const gates = new Set<string>();
-    for (const block of step.blocks) {
-      if ("reveal_after" in block && block.reveal_after) gates.add(block.reveal_after);
-    }
-    return gates;
-  }, [step.blocks]);
   const [texts, setTexts] = useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {};
     for (const block of reflectionBlocks) {
@@ -137,15 +123,28 @@ export function StepExperience({
   const [sortFeedback, setSortFeedback] = useState<"wrong" | "right" | "complete" | null>(null);
   const [checkingCardId, setCheckingCardId] = useState<string | null>(null);
   const [choiceId, setChoiceId] = useState<string | null>(null);
-  const [ephemeral, setEphemeral] = useState<Record<string, string>>({});
-  const [revealed, setRevealed] = useState<Record<string, boolean>>({});
+  const [revealed, setRevealed] = useState<Record<string, boolean>>(() => {
+    const initial: Record<string, boolean> = {};
+    for (const block of step.blocks) {
+      if (block.type !== "reflection") continue;
+      if ((initialAnswers[block.question_id] ?? "").trim()) initial[block.question_id] = true;
+    }
+    return initial;
+  });
+  const [submittedTexts, setSubmittedTexts] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {};
+    for (const block of step.blocks) {
+      if (block.type !== "reflection") continue;
+      const saved = initialAnswers[block.question_id] ?? "";
+      if (saved.trim()) initial[block.question_id] = saved;
+    }
+    return initial;
+  });
   const [phase, setPhase] = useState<"idle" | "saving" | "advancing">("idle");
   const [quizResult, setQuizResult] = useState<QuizResult | null>(null);
   const [showCompletion, setShowCompletion] = useState(false);
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const savedSnapshot = useRef(texts);
-  const generation = useRef(0);
   const advanceTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -169,46 +168,41 @@ export function StepExperience({
     setQuizAnswers({});
   }, [releaseQuizHold]);
 
-  const persistReflections = useCallback(
-    async (current: Record<string, string>): Promise<boolean> => {
-      const token = ++generation.current;
-      const pendingWrites = reflectionBlocks.filter((block) => current[block.question_id]?.trim());
-      if (pendingWrites.length === 0) return true;
-
-      setSaveState("saving");
-      for (const block of pendingWrites) {
-        const result = await saveLearningReflection({
-          miniProgramId,
-          stepId: step.id,
-          questionId: block.question_id,
-          answerText: current[block.question_id] ?? "",
-        });
-        if (generation.current !== token) return true;
-        if (!result.ok) {
-          setSaveState("error");
-          setFormError(result.message);
-          return false;
-        }
-      }
-      savedSnapshot.current = { ...current };
-      setSaveState("saved");
-      setFormError(null);
-      return true;
+  const reflectionReady = useCallback(
+    (questionId: string) => {
+      const current = texts[questionId] ?? "";
+      const submitted = submittedTexts[questionId];
+      return submitted !== undefined && current === submitted && current.trim().length > 0;
     },
-    [miniProgramId, reflectionBlocks, step.id]
+    [submittedTexts, texts]
   );
+  const reflectionsReady = reflectionBlocks.every((block) => reflectionReady(block.question_id));
 
-  useEffect(() => {
-    if (phase !== "idle") return;
-    const dirty = reflectionBlocks.some(
-      (block) => (texts[block.question_id] ?? "") !== (savedSnapshot.current[block.question_id] ?? "")
-    );
-    if (!dirty) return;
-    const handle = window.setTimeout(() => {
-      void persistReflections(texts);
-    }, SAVE_DELAY_MS);
-    return () => window.clearTimeout(handle);
-  }, [phase, persistReflections, reflectionBlocks, texts]);
+  const submitReflection = useCallback(
+    async (questionId: string) => {
+      if (phase !== "idle") return;
+      const answerText = texts[questionId] ?? "";
+      if (!answerText.trim()) return;
+      setPhase("saving");
+      setSavingQuestionId(questionId);
+      setFormError(null);
+      const result = await saveLearningReflection({
+        miniProgramId,
+        stepId: step.id,
+        questionId,
+        answerText,
+      });
+      setSavingQuestionId(null);
+      setPhase("idle");
+      if (!result.ok) {
+        setFormError(result.message);
+        return;
+      }
+      setSubmittedTexts((current) => ({ ...current, [questionId]: answerText }));
+      setRevealed((current) => ({ ...current, [questionId]: true }));
+    },
+    [miniProgramId, phase, step.id, texts]
+  );
 
   async function onCheckResults() {
     if (phase !== "idle" || quizResult) return;
@@ -233,17 +227,12 @@ export function StepExperience({
   async function onContinue() {
     if (phase !== "idle") return;
     if (hasQuiz && quizResult === null) return;
-    if (unsavedReflections.some((block) => !revealed[block.question_id])) {
+    if (!reflectionsReady) {
       setFormError(PROGRAMS_COPY.unsavedReflectionRequired);
       return;
     }
     setPhase("saving");
     setFormError(null);
-    const saved = await persistReflections(texts);
-    if (!saved) {
-      setPhase("idle");
-      return;
-    }
     const result = await continueLearningStep({
       miniProgramId,
       stepId: step.id,
@@ -276,13 +265,6 @@ export function StepExperience({
 
   async function onPrevious() {
     if (!previousHref || phase !== "idle") return;
-    setPhase("saving");
-    setFormError(null);
-    const saved = await persistReflections(texts);
-    if (!saved) {
-      setPhase("idle");
-      return;
-    }
     router.push(previousHref);
   }
 
@@ -345,8 +327,6 @@ export function StepExperience({
     enforceRequirements,
   });
 
-  const lastReflectionId = reflectionBlocks.at(-1)?.question_id ?? null;
-
   function blockVisible(block: PublicLearningBlock): boolean {
     if (!("reveal_after" in block) || !block.reveal_after) return true;
     if (block.reveal_after === "quiz") return quizResult !== null;
@@ -376,7 +356,6 @@ export function StepExperience({
             texts={texts}
             onText={(questionId, value) => {
               setTexts((current) => ({ ...current, [questionId]: value }));
-              if (saveState === "error") setSaveState("idle");
             }}
             quizAnswers={quizAnswers}
             quizResult={quizResult}
@@ -389,19 +368,13 @@ export function StepExperience({
             onReplaySort={replaySort}
             choiceId={choiceId}
             onChoice={setChoiceId}
-            ephemeral={ephemeral}
-            onEphemeral={(questionId, value) =>
-              setEphemeral((current) => ({ ...current, [questionId]: value }))
+            reflectionReady={
+              block.type === "reflection" ? reflectionReady(block.question_id) : false
             }
-            revealed={revealed}
-            onReveal={(questionId) => setRevealed((current) => ({ ...current, [questionId]: true }))}
-            gatesFollowing={
-              block.type === "reflection" ? revealGates.has(block.question_id) : false
+            reflectionSaving={
+              block.type === "reflection" && savingQuestionId === block.question_id
             }
-            saveState={saveState}
-            showSave={
-              block.type === "reflection" && block.question_id === lastReflectionId
-            }
+            onSubmitReflection={(questionId) => void submitReflection(questionId)}
             showBanner={showCompletion || (isLastStep && !enforceRequirements)}
             nearbySectionTitles={nearbySectionTitles(step.blocks, index)}
           />
@@ -459,7 +432,7 @@ export function StepExperience({
               type="button"
               className={`${utPrimaryBtn} w-full sm:w-auto`}
               onClick={() => void onContinue()}
-              disabled={phase !== "idle"}
+              disabled={phase !== "idle" || !reflectionsReady}
             >
               {continueLabel}
             </button>
@@ -486,13 +459,9 @@ function BlockView({
   onReplaySort,
   choiceId,
   onChoice,
-  ephemeral,
-  onEphemeral,
-  revealed,
-  onReveal,
-  gatesFollowing,
-  saveState,
-  showSave,
+  reflectionReady,
+  reflectionSaving,
+  onSubmitReflection,
   showBanner,
   nearbySectionTitles,
 }: {
@@ -511,13 +480,9 @@ function BlockView({
   onReplaySort: () => void;
   choiceId: string | null;
   onChoice: (choiceId: string | null) => void;
-  ephemeral: Record<string, string>;
-  onEphemeral: (questionId: string, value: string) => void;
-  revealed: Record<string, boolean>;
-  onReveal: (questionId: string) => void;
-  gatesFollowing: boolean;
-  saveState: "idle" | "saving" | "saved" | "error";
-  showSave: boolean;
+  reflectionReady: boolean;
+  reflectionSaving: boolean;
+  onSubmitReflection: (questionId: string) => void;
   showBanner: boolean;
   nearbySectionTitles: string[];
 }) {
@@ -636,7 +601,7 @@ function BlockView({
                   sizes="(min-width: 768px) 28rem, 100vw"
                 />
               </div>
-              <ProgramsProse text={selected.response} />
+              <ProgramsProse text={presentScenarioChoiceResponse(selected.response)} />
             </div>
           ) : null}
         </div>
@@ -660,7 +625,7 @@ function BlockView({
         </div>
         {selected ? (
           <div className="space-y-4">
-            <ProgramsProse text={selected.response} />
+            <ProgramsProse text={presentScenarioChoiceResponse(selected.response)} />
             <p className={programsSuccessPanel} role="status">
               {PROGRAMS_COPY.scenarioComplete}
             </p>
@@ -685,77 +650,44 @@ function BlockView({
   }
 
   if (block.type === "reflection") {
-    if (block.persist === false) {
-      const submitted = Boolean(revealed[block.question_id]);
-      const draft = ephemeral[block.question_id] ?? "";
-      return (
-        <div className={programsSectionCard}>
-          <label className="block space-y-3">
-            <span className={programsGroupLabel}>Reflection</span>
-            <span className={`${programsBody} block font-medium`}>{block.prompt}</span>
-            <textarea
-              className={`${utFormField} min-h-36`}
-              rows={6}
-              value={draft}
-              maxLength={4000}
-              autoComplete="off"
-              disabled={submitted}
-              onChange={(event) => onEphemeral(block.question_id, event.target.value)}
-            />
-          </label>
-          <p className={`mt-3 ${utBodyMuted}`}>This response is not saved.</p>
-          {submitted ? (
-            block.confirmation ? (
-              <p className={`mt-4 ${programsSuccessPanel}`} role="status">
-                {block.confirmation}
-              </p>
-            ) : null
-          ) : (
-            <button
-              type="button"
-              className={`${utPrimaryBtn} mt-4`}
-              disabled={draft.trim().length === 0}
-              onClick={() => onReveal(block.question_id)}
-            >
-              Submit
-            </button>
-          )}
-        </div>
-      );
-    }
     const draft = texts[block.question_id] ?? "";
-    const opened = Boolean(revealed[block.question_id]);
+    const promptClass =
+      block.prompt_role === "accent"
+        ? `${programsInstructionHeading} block`
+        : `${programsBody} block font-medium`;
     return (
       <div className={programsSectionCard}>
         <label className="block space-y-3">
           <span className={programsGroupLabel}>Reflection</span>
-          <span className={`${programsBody} block font-medium`}>{block.prompt}</span>
+          <span className={promptClass}>{block.prompt}</span>
           <textarea
             className={`${utFormField} min-h-36`}
             rows={6}
-            value={texts[block.question_id] ?? ""}
+            value={draft}
             maxLength={4000}
             autoComplete="off"
             onChange={(event) => onText(block.question_id, event.target.value)}
           />
         </label>
-        {showSave ? (
-          <p className={utBodyMuted} aria-live="polite">
-            {saveState === "saving" ? "Saving…" : null}
-            {saveState === "saved" ? "Saved" : null}
-            {saveState === "error" ? "Couldn't save" : null}
+        {reflectionSaving ? (
+          <p className={`mt-3 ${utBodyMuted}`} aria-live="polite">
+            Saving…
           </p>
         ) : null}
-        {gatesFollowing && !opened ? (
+        {reflectionReady ? (
+          <p className={`mt-3 ${utBodyMuted}`} role="status">
+            Saved
+          </p>
+        ) : (
           <button
             type="button"
-            className={`${utSecondaryBtn} mt-4`}
-            disabled={draft.trim().length === 0}
-            onClick={() => onReveal(block.question_id)}
+            className={`${utPrimaryBtn} mt-4`}
+            disabled={draft.trim().length === 0 || reflectionSaving}
+            onClick={() => onSubmitReflection(block.question_id)}
           >
-            Show what comes next
+            Submit
           </button>
-        ) : null}
+        )}
       </div>
     );
   }

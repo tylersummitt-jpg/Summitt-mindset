@@ -44,17 +44,37 @@
               "id": "being_in_every_meeting",
               "title": "Being in every meeting",
               "body": "Approving every marketing asset"
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "being_copied_on_every_email",
               "title": "Being copied on every email",
               "body": "Weighing in on every problem"
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "making_every_decision",
               "title": "Making every decision",
               "body": "Sitting in on every new hire interview"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_04_st_002_image_01.png",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "approving_every_purchase",
               "title": "Approving every purchase",
@@ -73,12 +93,27 @@
               "id": "if_you_have_a_company_of_10_people_total",
               "title": "If you have a company of 10 people total, maybe some of these responsibilities d",
               "body": "If you have a company of 10 people total, maybe some of these responsibilities do fall on you. Chances are, though, you’re not in that category. Or maybe you started in that category and grew out of it long ago, but you’re still operating like you’re a one-person band."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "and_know_what_s_worse_it_starts_to_crush",
               "title": "And know what’s worse?",
               "body": "And know what’s worse? It starts to crush those you lead. With your fingers in every pie, the team never learns how to cook, metaphorically speaking. People either gravitate toward two areas: They don’t think for themselves (why would they, if you’re going to wind up making every decision for the group?) or they’re so terrified to make a mistake they can’t do anything without approval. They default to order-takers, and any unique characteristics or skills you hired them for in the first place get buried."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_04_st_002_image_02.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "if_your_time_had_a_dollar_amount_of_what",
               "title": "If your time had a dollar amount of what you’re worth to the company (not your l",
@@ -95,16 +130,6 @@
               "body": "Which of these is an unintended outcome of micromanaging?\nDrag and drop each card to complete this element."
             }
           ]
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_04_st_002_image_01.png",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_04_st_002_image_02.jpg",
-          "alt": ""
         },
         {
           "type": "sort",
@@ -181,12 +206,16 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "When leaders realize that wearing themselves out over details like the above is not only making them tired, but squashing their team, it can be a freeing revelation. So, how do you hold yourself responsible for all the things that can go right or wrong without being involved in the day-to-day operations? Part of it goes back to the classic definition of leadership. You may have heard it before:\nYou manage things, and you lead people.\n\nThe people as a team do the thing, whether it’s running a company or winning a national championship, and you lead them to do it well, like Pat did. Their achievement is your achievement, the team’s achievement, so you train them to do it well. Then get out of the way.\n\nThat’s it. That doesn’t mean you don’t step in in an emergency. That doesn’t mean you’re always in the dark. You don’t do it for them, you don’t do it with them. You hire smart people, people who are a good fit, and make sure they have what they need to do their job well."
+          "markdown": "When leaders realize that wearing themselves out over details like the above is not only making them tired, but squashing their team, it can be a freeing revelation. So, how do you hold yourself responsible for all the things that can go right or wrong without being involved in the day-to-day operations? Part of it goes back to the classic definition of leadership. You may have heard it before:\nYou manage things, and you lead people.\n\nThe people as a team do the thing, whether it’s running a company or winning a national championship, and you lead them to do it well, like Pat did. Their achievement is your achievement, the team’s achievement, so you train them to do it well. Then get out of the way."
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_04_st_003_image_01.jpg",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "That’s it. That doesn’t mean you don’t step in in an emergency. That doesn’t mean you’re always in the dark. You don’t do it for them, you don’t do it with them. You hire smart people, people who are a good fit, and make sure they have what they need to do their job well."
         },
         {
           "type": "image",
@@ -203,12 +232,16 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "What Does It Take to Be \"Hands-Off\"?\n\nUnderstanding the importance of being “hands off” is one of the most fundamental (and often overlooked) tenets of good leadership.\n\nSometimes as a leader, we think our strength lies in getting the team to produce a certain level of output — after all, it’s what we’re all responsible for. You may even be tempted to jump in and help them. But at the end of the day, you can’t make people do things. You have to lead them. All you can really do is hire well.\n\nWe’ll say it again. All you can really do is get the right people in the right seat on the bus and lead them well to do their jobs. You can’t force them to do it with excellence, innovation, positivity, super-service, or creativity. All you can do is fire them if they don’t and replace them with someone else who will. Then the cycle starts again.\n\nAs the leader, you have to lead them in attitude, vision, excellence, motivation — all the principles Pat championed in the Definite Dozen — guiding them to the level of self-discipline, autonomy, or ingenuity you want. They will know what that level is because it will be modeled by you. Not done by you on behalf of the team or for the team but encouraged by the level of leadership you provide.\n\nExercise"
+          "markdown": "What Does It Take to Be \"Hands-Off\"?\n\nUnderstanding the importance of being “hands off” is one of the most fundamental (and often overlooked) tenets of good leadership.\n\nSometimes as a leader, we think our strength lies in getting the team to produce a certain level of output — after all, it’s what we’re all responsible for. You may even be tempted to jump in and help them. But at the end of the day, you can’t make people do things. You have to lead them. All you can really do is hire well."
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_04_st_004_image_01.jpg",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "We’ll say it again. All you can really do is get the right people in the right seat on the bus and lead them well to do their jobs. You can’t force them to do it with excellence, innovation, positivity, super-service, or creativity. All you can do is fire them if they don’t and replace them with someone else who will. Then the cycle starts again.\n\nAs the leader, you have to lead them in attitude, vision, excellence, motivation — all the principles Pat championed in the Definite Dozen — guiding them to the level of self-discipline, autonomy, or ingenuity you want. They will know what that level is because it will be modeled by you. Not done by you on behalf of the team or for the team but encouraged by the level of leadership you provide.\n\nExercise"
         },
         {
           "type": "image",
@@ -483,10 +516,6 @@
       "sequence": 7,
       "title": "Personal Reflections",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
-        },
         {
           "type": "reflection",
           "question_id": "potl_mp_04_st_007_reflection_01",

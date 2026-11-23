@@ -254,14 +254,9 @@
           "alt": "Original bonding-experiences lesson image."
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_09_st_003_reflection_01",
-          "prompt": "Think about people in your life whom you consider family members by choice. What shared experiences led you to the emotional bond that holds you close to them? In your team, what experiences can you create to help the team develop emotional bond?",
-          "persist": false
+          "prompt": "Think about people in your life whom you consider family members by choice. What shared experiences led you to the emotional bond that holds you close to them? In your team, what experiences can you create to help the team develop emotional bond?"
         },
         {
           "type": "heading",
@@ -275,17 +270,17 @@
             {
               "id": "c1",
               "label": "Team members never have conflicts.",
-              "response": "Incorrect. Correct answer: Team members have occasional conflicts. Your answer: Team members never have conflicts."
+              "response": "Incorrect. Correct answer: Team members have occasional conflicts."
             },
             {
               "id": "c2",
               "label": "Team members have occasional conflicts.",
-              "response": "Correct. Correct answer: Team members have occasional conflicts. Your answer: Team members have occasional conflicts."
+              "response": "Correct!"
             },
             {
               "id": "c3",
               "label": "Team members always have conflicts.",
-              "response": "Incorrect. Correct answer: Team members have occasional conflicts. Your answer: Team members always have conflicts."
+              "response": "Incorrect. Correct answer: Team members have occasional conflicts."
             }
           ]
         },
@@ -465,8 +460,10 @@
       "title": "Leadership Reflections: We Are Family",
       "blocks": [
         {
-          "type": "markdown",
-          "markdown": "As you heard Coach Pat Summitt and others describe teams coming together as a family, how did it make you feel? Based on what you learned about the family paradigm for teams within an organization, is your organization living and working together like a family?"
+          "type": "reflection",
+          "question_id": "dd_mp_09_st_005_reflection_01",
+          "prompt": "As you heard Coach Pat Summitt and others describe teams coming together as a family, how did it make you feel? Based on what you learned about the family paradigm for teams within an organization, is your organization living and working together like a family?",
+          "prompt_role": "accent"
         },
         {
           "type": "image",
@@ -474,8 +471,10 @@
           "alt": "Original instructional image accompanying the first reflection prompt."
         },
         {
-          "type": "markdown",
-          "markdown": "What steps could your organization or team take to operate more like a family?\n\nWhat specific things could be done to create more of a family bond?"
+          "type": "reflection",
+          "question_id": "dd_mp_09_st_005_reflection_02",
+          "prompt": "What steps could your organization or team take to operate more like a family?\n\nWhat specific things could be done to create more of a family bond?",
+          "prompt_role": "accent"
         },
         {
           "type": "image",
@@ -483,8 +482,10 @@
           "alt": "The Lady Vols celebrate their AIAW semifinal win in 1981."
         },
         {
-          "type": "markdown",
-          "markdown": "Finally, if you took those steps, what would be the outcome for your organization?\n\nWhat could be some potentially powerful results if you were to make this commitment?"
+          "type": "reflection",
+          "question_id": "dd_mp_09_st_005_reflection_03",
+          "prompt": "Finally, if you took those steps, what would be the outcome for your organization?\n\nWhat could be some potentially powerful results if you were to make this commitment?",
+          "prompt_role": "accent"
         }
       ]
     },
@@ -571,14 +572,9 @@
           "markdown": "Even the most selfless team member becomes more dedicated to the team family when they begin to enjoy the individual benefits of being part of a team. Some of those benefits include extra levels of support, emotional engagement, and the closeness and positive stimulation that comes from having team members who are there to encourage them. The combination of social support and technical engagement makes team membership unbelievably valuable to individual team members. Leaders should support these benefits and illustrate them on a regular basis."
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_09_st_006_reflection_01",
-          "prompt": "In your organization, how do the individuals benefit from team membership? As a leader, how would you make them aware of these benefits?",
-          "persist": false
+          "prompt": "In your organization, how do the individuals benefit from team membership? As a leader, how would you make them aware of these benefits?"
         },
         {
           "type": "image",
@@ -848,8 +844,10 @@
           "alt": "Original instructional image accompanying the team-effectiveness reflection."
         },
         {
-          "type": "markdown",
-          "markdown": "From what you have learned so far, how effective are the teams in your organization?"
+          "type": "reflection",
+          "question_id": "dd_mp_09_st_010_reflection_01",
+          "prompt": "From what you have learned so far, how effective are the teams in your organization?",
+          "prompt_role": "accent"
         },
         {
           "type": "image",
@@ -857,8 +855,10 @@
           "alt": "Original instructional image accompanying the team-improvement reflection."
         },
         {
-          "type": "markdown",
-          "markdown": "Furthermore, what could be done in your organization to improve and enhance the team process?\n\nWhat specific things could you do to get people working together as teams and operating like a family?"
+          "type": "reflection",
+          "question_id": "dd_mp_09_st_010_reflection_02",
+          "prompt": "Furthermore, what could be done in your organization to improve and enhance the team process?\n\nWhat specific things could you do to get people working together as teams and operating like a family?",
+          "prompt_role": "accent"
         }
       ]
     },
@@ -893,34 +893,19 @@
           "markdown": "Longstanding managerial theory has reflected on the role of \"carrots and sticks\" in motivating people to perform at higher levels. It was understood under this theory that carrots served to lead and motivate people, and sticks were there to threaten, poke, and cajole others into behaving in a way that was expected or preferred."
         },
         {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_09_st_011_image_03.jpg",
+          "alt": "When Carrots Work"
+        },
+        {
           "type": "process",
           "steps": [
             {
               "title": "When Carrots Work",
-              "body": "Carrots tend to work in motivating people when the task is relatively simple, or when used as team-building motivation, as opposed to being the ultimate reward."
-            },
-            {
-              "title": "When Carrots Don't Work",
-              "body": "Carrots have been seen as less effective over time because human beings tend to consume the carrot and then begin to be less motivated unless a bigger carrot is offered. When carrots are used to motivate people in their work, people may end up working for carrots rather than for each other. Ultimately, this keeps us from being as connected as possible to our purpose, and it doesn't lead to long-term growth that might otherwise be achieved."
-            },
-            {
-              "title": "When Sticks Work",
-              "body": "Sticks, or the threat of punishment, exist in many forms in our lives. Does the fear of punishment keep us from driving too fast on the highway or in front of a school? Probably so. You might be genuinely concerned about the cost and the inconvenience of getting a ticket.\n\nThe Stick as Positional Power\n\nIn reflecting on this concept, think about the stick as positional power. If you are a leader in the organization, you likely have some positional authority over those you work with. You may have the right or authority to provide them with a raise or to even fire them from their position. You might control key elements of their working conditions that matter a lot to them. As a result, you have a \"stick\" to control them in terms of your positional power.\n\nBecause of this power, you could start making demands on those you work with by letting them know that by failing to comply with your expectations, they could run the risk of losing your favor and miss out on some of the opportunities that you hold over their heads. This is the very definition of getting your \"power\" from the position you hold, or using a \"stick\" to motivate others. So, is this effective? To some degree, the answer is \"yes.\" Some individuals will respond to this."
-            },
-            {
-              "title": "When Sticks Don't Work",
-              "body": "In terms of motivation, sticks don't work. Why? Because the person with the stick is generally the \"enemy\" and one's performance is driven by the desire to avoid pain rather than trying to ascend towards something positive or affirming.\n\nDoes having a stick over your head motivate you to work at your most connected, heartfelt, team-based best? The answer is no. Avoiding the slings and arrows of punishment isn't as powerful as locking arms with a teammate and racing toward a better outcome."
-            },
-            {
-              "title": "The Stick Comes From Behind",
-              "body": "Lastly, in thinking about the stick, remember it tends to come from behind. This means the leader tends to watch the progress, and if progress isn't demonstrated to their liking, the stick is either used or threatened in order to create the conditions the leader wants. When the stick is delivered from behind it is entirely transactional and reactionary. Of course, the best leaders understand that planning for higher performance is much better than waiting for the exception and threatening or delivering a punishment."
+              "body": "Carrots tend to work in motivating people when the task is relatively simple, or when used as team-building motivation, as opposed to being the ultimate reward.",
+              "number": 1
             }
           ]
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_09_st_011_image_03.jpg",
-          "alt": "When Carrots Work"
         },
         {
           "type": "image",
@@ -928,9 +913,29 @@
           "alt": "When Carrots Don't Work"
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "When Carrots Don't Work",
+              "body": "Carrots have been seen as less effective over time because human beings tend to consume the carrot and then begin to be less motivated unless a bigger carrot is offered. When carrots are used to motivate people in their work, people may end up working for carrots rather than for each other. Ultimately, this keeps us from being as connected as possible to our purpose, and it doesn't lead to long-term growth that might otherwise be achieved.",
+              "number": 2
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_09_st_011_image_05.jpg",
           "alt": "When Sticks Work"
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "When Sticks Work",
+              "body": "Sticks, or the threat of punishment, exist in many forms in our lives. Does the fear of punishment keep us from driving too fast on the highway or in front of a school? Probably so. You might be genuinely concerned about the cost and the inconvenience of getting a ticket.\n\nThe Stick as Positional Power\n\nIn reflecting on this concept, think about the stick as positional power. If you are a leader in the organization, you likely have some positional authority over those you work with. You may have the right or authority to provide them with a raise or to even fire them from their position. You might control key elements of their working conditions that matter a lot to them. As a result, you have a \"stick\" to control them in terms of your positional power.\n\nBecause of this power, you could start making demands on those you work with by letting them know that by failing to comply with your expectations, they could run the risk of losing your favor and miss out on some of the opportunities that you hold over their heads. This is the very definition of getting your \"power\" from the position you hold, or using a \"stick\" to motivate others. So, is this effective? To some degree, the answer is \"yes.\" Some individuals will respond to this.",
+              "number": 3
+            }
+          ]
         },
         {
           "type": "image",
@@ -938,9 +943,29 @@
           "alt": "When Sticks Don't Work"
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "When Sticks Don't Work",
+              "body": "In terms of motivation, sticks don't work. Why? Because the person with the stick is generally the \"enemy\" and one's performance is driven by the desire to avoid pain rather than trying to ascend towards something positive or affirming.\n\nDoes having a stick over your head motivate you to work at your most connected, heartfelt, team-based best? The answer is no. Avoiding the slings and arrows of punishment isn't as powerful as locking arms with a teammate and racing toward a better outcome.",
+              "number": 4
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_09_st_011_image_07.jpg",
           "alt": "The Stick Comes From Behind"
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "The Stick Comes From Behind",
+              "body": "Lastly, in thinking about the stick, remember it tends to come from behind. This means the leader tends to watch the progress, and if progress isn't demonstrated to their liking, the stick is either used or threatened in order to create the conditions the leader wants. When the stick is delivered from behind it is entirely transactional and reactionary. Of course, the best leaders understand that planning for higher performance is much better than waiting for the exception and threatening or delivering a punishment.",
+              "number": 5
+            }
+          ]
         },
         {
           "type": "heading",
@@ -1296,8 +1321,10 @@
       "title": "Leadership Reflections: Is That a Carrot or a Stick?",
       "blocks": [
         {
-          "type": "markdown",
-          "markdown": "In this module, we examined how organizations rather famously have used either carrots or sticks to motivate or cajole certain levels of performance from workers. In reflecting on the concept of carrots as a motivator, what does your organization do to use this type of motivation to elicit desired behaviors?"
+          "type": "reflection",
+          "question_id": "dd_mp_09_st_015_reflection_01",
+          "prompt": "In this module, we examined how organizations rather famously have used either carrots or sticks to motivate or cajole certain levels of performance from workers. In reflecting on the concept of carrots as a motivator, what does your organization do to use this type of motivation to elicit desired behaviors?",
+          "prompt_role": "accent"
         },
         {
           "type": "image",
@@ -1305,8 +1332,10 @@
           "alt": "Original instructional image accompanying the first carrot-and-stick reflection."
         },
         {
-          "type": "markdown",
-          "markdown": "What examples can you think of where sticks and carrots are used in your organization?\n\nReflect on their effectiveness and reflect on what Coach Summitt said about the relevance of going beyond carrots and sticks."
+          "type": "reflection",
+          "question_id": "dd_mp_09_st_015_reflection_02",
+          "prompt": "What examples can you think of where sticks and carrots are used in your organization?\n\nReflect on their effectiveness and reflect on what Coach Summitt said about the relevance of going beyond carrots and sticks.",
+          "prompt_role": "accent"
         },
         {
           "type": "image",
@@ -1314,8 +1343,10 @@
           "alt": "Original instructional image accompanying the commitment-to-growth reflection."
         },
         {
-          "type": "markdown",
-          "markdown": "Are there opportunities in your organization to go beyond the simple carrot-and-stick theory and get people working at higher levels?\n\nAs always, reflect with your heart and headspace wide open!\n\nWhat would you get from this commitment to growth in an area that may be difficult for you currently?"
+          "type": "reflection",
+          "question_id": "dd_mp_09_st_015_reflection_03",
+          "prompt": "Are there opportunities in your organization to go beyond the simple carrot-and-stick theory and get people working at higher levels?\n\nAs always, reflect with your heart and headspace wide open!\n\nWhat would you get from this commitment to growth in an area that may be difficult for you currently?",
+          "prompt_role": "accent"
         },
         {
           "type": "image",

@@ -109,8 +109,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_07_st_001_reflection_01",
-          "prompt": "Reflect on your choices. Do you work, or do you work hard? It’s important to see the difference.",
-          "persist": false
+          "prompt": "Reflect on your choices. Do you work, or do you work hard? It’s important to see the difference."
         },
         {
           "type": "image",
@@ -409,8 +408,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_07_st_005_reflection_01",
-          "prompt": "What work efforts do you consistently engage with that helped lead to your success? Which routines demonstrate hard work, and what positive things does dedication to hard work bring?",
-          "persist": false
+          "prompt": "What work efforts do you consistently engage with that helped lead to your success? Which routines demonstrate hard work, and what positive things does dedication to hard work bring?"
         },
         {
           "type": "image",
@@ -496,8 +494,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_07_st_006_reflection_01",
-          "prompt": "Think of the people on your team. Do they share your work ethic, desire for success, and commitment to improvement and hard work? How do they encourage you to work harder?",
-          "persist": false
+          "prompt": "Think of the people on your team. Do they share your work ethic, desire for success, and commitment to improvement and hard work? How do they encourage you to work harder?"
         }
       ]
     },
@@ -617,12 +614,12 @@
             {
               "id": "yes",
               "label": "Yes",
-              "response": "Incorrect. Correct answer: No. Even if the challenge is entirely novel, a CEO who is always prepared will respond to this novel challenge as they responded in \"practice\" throughout their career. They had many seasons of experience planning and trying out innovative ways of dealing with unexpected situations."
+              "response": "Incorrect. Correct answer: No.\n\nEven if the challenge is entirely novel, a CEO who is always prepared will respond to this novel challenge as they responded in \"practice\" throughout their career. They had many seasons of experience planning and trying out innovative ways of dealing with unexpected situations."
             },
             {
               "id": "no",
               "label": "No",
-              "response": "Correct. Correct answer: No. Even if the challenge is entirely novel, a CEO who is always prepared will respond to this novel challenge as they responded in \"practice\" throughout their career. They had many seasons of experience planning and trying out innovative ways of dealing with unexpected situations."
+              "response": "Correct!\n\nEven if the challenge is entirely novel, a CEO who is always prepared will respond to this novel challenge as they responded in \"practice\" throughout their career. They had many seasons of experience planning and trying out innovative ways of dealing with unexpected situations."
             }
           ]
         },
@@ -658,7 +655,8 @@
           "steps": [
             {
               "title": "Career/Lifetime Goals",
-              "body": "Having goals for a career or lifetime are equally helpful. As is the case with any goal-setting, being specific matters. For example, if someone came to you and said they had a lifetime goal of being rich, you would need more information to provide counsel. If, to that person, \"being rich\" means \"being a millionaire,\" working a modest job and saving $1,000 a month for three decades with a modest return on investment might make them \"rich.\" If it's their desire to be a billionaire, however, and if that's the definition of \"rich,\" that strategy won't be enough. The same is true with almost any goal. The desire to own your own business versus the desire to be the CEO of a major company represent very different goals and very different steps along the way."
+              "body": "Having goals for a career or lifetime are equally helpful. As is the case with any goal-setting, being specific matters. For example, if someone came to you and said they had a lifetime goal of being rich, you would need more information to provide counsel. If, to that person, \"being rich\" means \"being a millionaire,\" working a modest job and saving $1,000 a month for three decades with a modest return on investment might make them \"rich.\" If it's their desire to be a billionaire, however, and if that's the definition of \"rich,\" that strategy won't be enough. The same is true with almost any goal. The desire to own your own business versus the desire to be the CEO of a major company represent very different goals and very different steps along the way.",
+              "number": 1
             }
           ]
         },
@@ -672,7 +670,8 @@
           "steps": [
             {
               "title": "Annual/Quarterly Goals",
-              "body": "You can't reach lifetime goals without creating annual goals. The best leaders establish annual goals and commit to achieving them en route to their overall career or life goals. Sometimes quarterly goals are even needed to enhance motivation and momentum in smaller chunks."
+              "body": "You can't reach lifetime goals without creating annual goals. The best leaders establish annual goals and commit to achieving them en route to their overall career or life goals. Sometimes quarterly goals are even needed to enhance motivation and momentum in smaller chunks.",
+              "number": 2
             }
           ]
         },
@@ -686,7 +685,8 @@
           "steps": [
             {
               "title": "Monthly/Weekly Goals",
-              "body": "By establishing monthly and weekly goals, effective leaders and peak performers can then drill down even further and make plans for every day, built around these expectations. With these goals in mind, it's helpful to create a list of potential tasks for the day. Group these activities in terms of their priority and their relationship to other tasks of the day. As discussed earlier, the most important and intense tasks of the day should be put towards the front of the day so they will be attended to with high levels of energy and commitment."
+              "body": "By establishing monthly and weekly goals, effective leaders and peak performers can then drill down even further and make plans for every day, built around these expectations. With these goals in mind, it's helpful to create a list of potential tasks for the day. Group these activities in terms of their priority and their relationship to other tasks of the day. As discussed earlier, the most important and intense tasks of the day should be put towards the front of the day so they will be attended to with high levels of energy and commitment.",
+              "number": 3
             }
           ]
         },
@@ -810,8 +810,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_07_st_010_reflection_01",
-          "prompt": "Reflect on something really hard at your work and how it had an impact on your commitment to seeing it come to fruition. Maybe you're working on a project now. Maybe you have put in a lot of effort and you're starting to feel like achieving the goal is painstakingly paramount!",
-          "persist": false
+          "prompt": "Reflect on something really hard at your work and how it had an impact on your commitment to seeing it come to fruition. Maybe you're working on a project now. Maybe you have put in a lot of effort and you're starting to feel like achieving the goal is painstakingly paramount!"
         },
         {
           "type": "image",
@@ -821,8 +820,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_07_st_010_reflection_02",
-          "prompt": "Reflect on how that feels and reflect on how that hard work builds up your commitment. Working hard and making hard work your passion actually make winning and achieving feel better, and they will likely make you absolutely detest losing and/or missing the mark. Take the time and reflect!",
-          "persist": false
+          "prompt": "Reflect on how that feels and reflect on how that hard work builds up your commitment. Working hard and making hard work your passion actually make winning and achieving feel better, and they will likely make you absolutely detest losing and/or missing the mark. Take the time and reflect!"
         },
         {
           "type": "image",

@@ -94,22 +94,62 @@
               "id": "what_steps_did_you_take_to_advance_in_yo",
               "title": "What steps did you take to advance in your career, and are there specific skills",
               "body": "What steps did you take to advance in your career, and are there specific skills or experiences you recommend I focus on?"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_13_st_002_image_01.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "how_do_you_approach_setting_career_goals",
-              "title": "How do you approach setting career goals, and are there specific milestones you ",
+              "title": "How do you approach setting career goals, and are there specific milestones you",
               "body": "How do you approach setting career goals, and are there specific milestones you recommend I aim for in my current role and beyond?"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_13_st_002_image_02.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "how_did_you_build_and_leverage_your_prof",
               "title": "How did you build and leverage your professional network throughout your career?",
               "body": "How did you build and leverage your professional network throughout your career? Any tips for effective networking?"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_11_st_002_image_04.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "as_a_successful_professional_how_have_yo",
               "title": "As a successful professional, how have you managed to maintain a healthy work-li",
               "body": "As a successful professional, how have you managed to maintain a healthy work-life balance, and do you have any advice for finding that balance?"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_13_st_002_image_04.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "what_strategies_do_you_use_for_continuou",
               "title": "What strategies do you use for continuous professional development?",
@@ -118,33 +158,13 @@
           ]
         },
         {
-          "type": "markdown",
-          "markdown": "These are just a few. The sky’s the limit as to how much gold you can mine for with a mentor. If they’re female, for example, you may ask them, \"Have you faced gender-related challenges in your career, and if so, how did you overcome them? Any advice for navigating gender bias in the workplace?\"\nIf they hold/held a position of senior leadership you might ask, \"What leadership skills do you believe are essential for success in our industry today and how can I strengthen these skills?\" If they are a self-help junkie, ask, “What strategies do you use for continuous professional development?\" You get the picture. As one of the first in her industry to smash through the glass ceiling, many colleagues and team members considered Pat herself to be a mentor."
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_13_st_002_image_01.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_13_st_002_image_02.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_11_st_002_image_04.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_13_st_002_image_04.jpg",
-          "alt": ""
-        },
-        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_13_st_002_image_05.jpg",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "These are just a few. The sky’s the limit as to how much gold you can mine for with a mentor. If they’re female, for example, you may ask them, \"Have you faced gender-related challenges in your career, and if so, how did you overcome them? Any advice for navigating gender bias in the workplace?\"\nIf they hold/held a position of senior leadership you might ask, \"What leadership skills do you believe are essential for success in our industry today and how can I strengthen these skills?\" If they are a self-help junkie, ask, “What strategies do you use for continuous professional development?\" You get the picture. As one of the first in her industry to smash through the glass ceiling, many colleagues and team members considered Pat herself to be a mentor."
         },
         {
           "type": "image",
@@ -393,10 +413,6 @@
               "body": "Pat was a mentor to countless young women in her field. Listen to UT Athletic Director Emeritus Joan Cronan explain why everyone needs mentorship, and the importance of being coachable, even as a coach."
             }
           ]
-        },
-        {
-          "type": "markdown",
-          "markdown": "Sources in this course:\n1. Unless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York."
         },
         {
           "type": "video",

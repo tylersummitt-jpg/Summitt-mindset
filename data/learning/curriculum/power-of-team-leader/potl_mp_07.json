@@ -89,13 +89,13 @@
           ]
         },
         {
-          "type": "markdown",
-          "markdown": "Knowing how and when to use different tones appropriately can be the difference between coming off as authoritative or weak, sensitive or insensitive, excited, or unenthusiastic."
-        },
-        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_07_st_002_image_01.jpg",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "Knowing how and when to use different tones appropriately can be the difference between coming off as authoritative or weak, sensitive or insensitive, excited, or unenthusiastic."
         },
         {
           "type": "image",
@@ -286,10 +286,6 @@
       "sequence": 7,
       "title": "Personal Reflections",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
-        },
         {
           "type": "video",
           "vimeo_video_id": "1150877240",

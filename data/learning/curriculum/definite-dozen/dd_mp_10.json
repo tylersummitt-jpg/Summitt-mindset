@@ -175,12 +175,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_10_st_003_reflection_01",
-          "prompt": "What do you think could happen if a team is made up of members who have superior talent, but negative attitudes? Do any examples come to mind?",
-          "persist": false
-        },
-        {
-          "type": "markdown",
-          "markdown": "That team's negativity will likely result in the team being ill-prepared for tougher times."
+          "prompt": "What do you think could happen if a team is made up of members who have superior talent, but negative attitudes? Do any examples come to mind?"
         },
         {
           "type": "heading",
@@ -217,18 +212,18 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_10_st_003_reflection_02",
-          "prompt": "What does it mean to have a winning attitude? How does it manifest itself within a team or organization?",
-          "persist": false
+          "prompt": "What does it mean to have a winning attitude? How does it manifest itself within a team or organization?"
         },
         {
-          "type": "markdown",
-          "markdown": "Winning is a comprehensive attitude that a leader must first build for themselves, and then for everyone around them."
+          "type": "heading",
+          "level": 2,
+          "role": "instruction",
+          "text": "Winning is a comprehensive attitude that a leader must first build for themselves, and then for everyone around them."
         },
         {
           "type": "reflection",
           "question_id": "dd_mp_10_st_003_reflection_03",
-          "prompt": "Suppose your significant other or a close friend shares with you that they wake up each day, look in the mirror, and ask, \"What is wrong with me?\" What advice might you give that person and why?",
-          "persist": false
+          "prompt": "Suppose your significant other or a close friend shares with you that they wake up each day, look in the mirror, and ask, \"What is wrong with me?\" What advice might you give that person and why?"
         },
         {
           "type": "heading",
@@ -378,8 +373,9 @@
           "alt": "Instructional image for making winning a daily attitude"
         },
         {
-          "type": "markdown",
-          "markdown": "What are some specific things you can do to help make winning a daily attitude in your life?"
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_005_reflection_01",
+          "prompt": "What are some specific things you can do to help make winning a daily attitude in your life?"
         }
       ]
     },
@@ -416,8 +412,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_10_st_006_reflection_01",
-          "prompt": "If belief starts at the individual level, how do you think one might go from dreams or fanciful ideas to a heartfelt belief that leads to success?",
-          "persist": false
+          "prompt": "If belief starts at the individual level, how do you think one might go from dreams or fanciful ideas to a heartfelt belief that leads to success?"
         },
         {
           "type": "heading",
@@ -476,8 +471,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_10_st_006_reflection_02",
-          "prompt": "How can you handle adversity? As a leader, what approaches can you take to ensure your team overcomes adversity with the greatest chance of exceeding previous benchmarks?",
-          "persist": false
+          "prompt": "How can you handle adversity? As a leader, what approaches can you take to ensure your team overcomes adversity with the greatest chance of exceeding previous benchmarks?"
         },
         {
           "type": "heading",
@@ -489,26 +483,19 @@
           "markdown": "There are three steps you could take as a leader or individual performer when facing the negative forces of adversity. Remember, resiliency is the key, and the best leaders understand that learning is a continuous value proposition."
         },
         {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_10_st_006_image_02.jpg",
+          "alt": "Image illustrating making adversity personal"
+        },
+        {
           "type": "process",
           "steps": [
             {
               "title": "Make it personal",
-              "body": "Michael Jordan is one of the most celebrated winners of all time. He exemplifies nearly every concept covered in this leadership training program, but this idea of \"making it personal\" is perhaps one of his best-known attributes. As he has begun sharing more of his secrets to success, Jordan said that he consistently overcame adversity by making it personal and identifying adversaries he would devote to overcoming.\n\nThe two-time NBA champion Detroit Pistons team beat Jordan and his Chicago Bulls team numerous times, knocking Jordan around physically and sending him to the court repeatedly during games. Jordan says he took those behaviors personally and, in the off-season, he trained with renewed enthusiasm, refusing to allow those difficult moments to define him. He found the inspiration in his training to finally get past the Pistons on the way to winning multiple world championships.\n\nAs a leader, you can do this too. When the competition is fierce and your organization is losing ground while your competitors get all the positive publicity, these could be the battle cries that make it personal and lead to deeper commitment.\n\nA word of warning, however: the idea is to make it personal, not to make it toxic. Remember, Michael Jordan had to face a lot of other teams besides the Detroit Pistons. If he spent all of his time hating the Pistons, he wouldn't have been able to focus. It's a fine balance. You can make it personal while keeping a broad perspective and avoiding toxicity."
-            },
-            {
-              "title": "See every setback as an opportunity to learn",
-              "body": "While some high-profile winners have famously acted poorly when they lost, this is not necessarily a sign of strength. Disappointment is very real, and whenever you work at something and don't achieve it, a passionate person will feel deep pangs of disappointment. However, leaders and top performers who consistently stay in the winners' circle will often find themselves determined to use losses or setbacks as opportunities to grow.\n\nRather than being angry or pouting about the loss or setback, a smart leader might use these moments to self-scout—that is, take a look at what's being done well and what's being done poorly and evaluate what can be learned from these moments of truth:\n\n- “What can we come away with after losing?”\n- “What can we learn from coming away with less than we'd hoped?”\n- “What did we fail to do? What did we lack?”\n\nThese may sound like negative questions. Rather, they can be formative and strategic questions that will allow the team members to gather themselves and better prepare to win the next time."
-            },
-            {
-              "title": "Expect the extraordinary",
-              "body": "Those who expect the extraordinary are more likely to achieve it! This is not just hyperbole. If you have average expectations, you will achieve, at best, average results. As discussed earlier, athletes who do extraordinary things and break old paradigms get there because on a deep, emotional level, they expect to.\n\nBefore he turned 40, professional football player Tom Brady planned to keep playing well into his 40s, an extraordinary goal. Most people didn't believe it was possible, yet because he had such high expectations, he made it possible. Just wishing, as you know, isn't enough. However, setting extraordinary expectations can create opportunities where, even if those top goals aren't met, the overall landing spot might still be amazing.\n\nMany highly successful CEOs over the years famously made extraordinary demands and expected stellar results. They may have stretched the imagination for what's possible, but they likely broke records, even if they never reached the original goals. Even if you don't achieve the actual extraordinary outcome you expected, you will likely still be amazed at what you can accomplish along the journey. This is what leaders today need to think about as they reflect on just how aggressive their goals might be."
+              "body": "Michael Jordan is one of the most celebrated winners of all time. He exemplifies nearly every concept covered in this leadership training program, but this idea of \"making it personal\" is perhaps one of his best-known attributes. As he has begun sharing more of his secrets to success, Jordan said that he consistently overcame adversity by making it personal and identifying adversaries he would devote to overcoming.\n\nThe two-time NBA champion Detroit Pistons team beat Jordan and his Chicago Bulls team numerous times, knocking Jordan around physically and sending him to the court repeatedly during games. Jordan says he took those behaviors personally and, in the off-season, he trained with renewed enthusiasm, refusing to allow those difficult moments to define him. He found the inspiration in his training to finally get past the Pistons on the way to winning multiple world championships.\n\nAs a leader, you can do this too. When the competition is fierce and your organization is losing ground while your competitors get all the positive publicity, these could be the battle cries that make it personal and lead to deeper commitment.\n\nA word of warning, however: the idea is to make it personal, not to make it toxic. Remember, Michael Jordan had to face a lot of other teams besides the Detroit Pistons. If he spent all of his time hating the Pistons, he wouldn't have been able to focus. It's a fine balance. You can make it personal while keeping a broad perspective and avoiding toxicity.",
+              "number": 1
             }
           ]
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_10_st_006_image_02.jpg",
-          "alt": "Image illustrating making adversity personal"
         },
         {
           "type": "image",
@@ -516,9 +503,29 @@
           "alt": "Image illustrating learning from setbacks"
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "See every setback as an opportunity to learn",
+              "body": "While some high-profile winners have famously acted poorly when they lost, this is not necessarily a sign of strength. Disappointment is very real, and whenever you work at something and don't achieve it, a passionate person will feel deep pangs of disappointment. However, leaders and top performers who consistently stay in the winners' circle will often find themselves determined to use losses or setbacks as opportunities to grow.\n\nRather than being angry or pouting about the loss or setback, a smart leader might use these moments to self-scout—that is, take a look at what's being done well and what's being done poorly and evaluate what can be learned from these moments of truth:\n\n- “What can we come away with after losing?”\n- “What can we learn from coming away with less than we'd hoped?”\n- “What did we fail to do? What did we lack?”\n\nThese may sound like negative questions. Rather, they can be formative and strategic questions that will allow the team members to gather themselves and better prepare to win the next time.",
+              "number": 2
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_10_st_006_image_04.jpg",
           "alt": "Image illustrating expecting the extraordinary"
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Expect the extraordinary",
+              "body": "Those who expect the extraordinary are more likely to achieve it! This is not just hyperbole. If you have average expectations, you will achieve, at best, average results. As discussed earlier, athletes who do extraordinary things and break old paradigms get there because on a deep, emotional level, they expect to.\n\nBefore he turned 40, professional football player Tom Brady planned to keep playing well into his 40s, an extraordinary goal. Most people didn't believe it was possible, yet because he had such high expectations, he made it possible. Just wishing, as you know, isn't enough. However, setting extraordinary expectations can create opportunities where, even if those top goals aren't met, the overall landing spot might still be amazing.\n\nMany highly successful CEOs over the years famously made extraordinary demands and expected stellar results. They may have stretched the imagination for what's possible, but they likely broke records, even if they never reached the original goals. Even if you don't achieve the actual extraordinary outcome you expected, you will likely still be amazed at what you can accomplish along the journey. This is what leaders today need to think about as they reflect on just how aggressive their goals might be.",
+              "number": 3
+            }
+          ]
         }
       ]
     },
@@ -684,8 +691,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_10_st_008_reflection_01",
-          "prompt": "Think about your team right now. What kind of energy is present and what kind of energy is needed? What might you do to help maintain or improve that energy? What might you look for in any future hires in terms of energy?",
-          "persist": false
+          "prompt": "Think about your team right now. What kind of energy is present and what kind of energy is needed? What might you do to help maintain or improve that energy? What might you look for in any future hires in terms of energy?"
         },
         {
           "type": "markdown",
@@ -830,8 +836,9 @@
           "alt": "Instructional image for making winning a daily attitude"
         },
         {
-          "type": "markdown",
-          "markdown": "As you consider the essential attitudes for peak performance, do you see yourself? Or do you see a version of yourself that you could aspire to? What could you do to put forth a winning attitude more consistently? What could you do to spread that kind of attitude, and what impact would it have on others? How would it make you feel to consistently act this way? Get specific."
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_010_reflection_01",
+          "prompt": "As you consider the essential attitudes for peak performance, do you see yourself? Or do you see a version of yourself that you could aspire to? What could you do to put forth a winning attitude more consistently? What could you do to spread that kind of attitude, and what impact would it have on others? How would it make you feel to consistently act this way? Get specific."
         }
       ]
     },
@@ -1285,8 +1292,9 @@
           "alt": "Illustration beside the reflection on losses"
         },
         {
-          "type": "markdown",
-          "markdown": "Most of us don't handle losses perfectly in our personal and/or professional lives. For this reflection, think back on a time when you were unsuccessful. How did you process that loss and what could you have done differently based on what you know now? How might this impact future losses that might come your way?"
+          "type": "reflection",
+          "question_id": "dd_mp_10_st_015_reflection_01",
+          "prompt": "Most of us don't handle losses perfectly in our personal and/or professional lives. For this reflection, think back on a time when you were unsuccessful. How did you process that loss and what could you have done differently based on what you know now? How might this impact future losses that might come your way?"
         },
         {
           "type": "image",

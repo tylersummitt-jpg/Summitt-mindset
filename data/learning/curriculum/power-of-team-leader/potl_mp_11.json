@@ -54,22 +54,52 @@
               "id": "everyone_a_star",
               "title": "Everyone a Star",
               "body": "The simplest way to show loyalty is to start by letting people do their jobs. In other words, a certain level of trust comes with the job. The message is clear: “We hired you. We believe in you.”\nThis sounds obvious, but many well-meaning organizations are crippled by inadvertent traditions of micromanagement or unreasonable expectations of seniority.\nLet’s look at a few examples of what this can look like."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "summary",
               "title": "Summary",
               "body": "There are nuances to every story, but the one thing all these examples have in common is that the companies who hired Tyson, Shelby, and Juan didn’t have much initial loyalty to them as they tried to perform in their roles. There’s an old saying, “See everyone as a star.” In the workplace, this means remembering why you hired someone and looking for the ways they shine. It means celebrating what makes them unique, rather than trying to force them into the mold of their counterparts or predecessors.\nPat asked herself, What do my athletes need to deliver? So, ask yourself: What do my employees need to deliver in their roles?, How can I help?, and sometimes, How can I get out of their way?"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_01.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "tyson",
               "title": "Tyson",
               "body": "Let’s say Tyson, a highly skilled, associate-level marketer, has been hired  to create a marketing funnel for a new division of the company. The problem is, the director of marketing doesn’t really trust Tyson to execute.\nTyson patiently sits in meeting after meeting while the director explains what he would do. Tyson tries his best to follow through, including giving a few additional ideas that are new and innovative. The marketing director sends them to the board of directors for review, but they’re quickly shot down in an email. Six months later, Tyson is still struggling to build a funnel that will appease everyone. Tyson was hired to do a specific job, but the very people who hired him don’t show much loyalty to the expertise they hired him for. After 10 more months, he gets frustrated and quits."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "shelby",
               "title": "Shelby",
               "body": "In another example, Shelby has been working as an entry-level graphic designer for three years, eagerly accepting every new project and working on improving the company’s brand standards. She helps her colleagues out consistently and is always willing to take on extra work. Her designs are well-received by stakeholders and have improved the customer experience on the website dramatically.\nWhen it comes time to hire an associate design director, the company looks at outside candidates, settling on someone the same age and skill level as Shelby but who came highly recommended from a competitor. Shelby is crushed. It will be years until the department is big enough to hire another associate design director. She quietly starts putting in resumes elsewhere."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_02.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "juan",
               "title": "Juan",
@@ -78,23 +108,13 @@
           ]
         },
         {
-          "type": "markdown",
-          "markdown": "Exercise"
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_01.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_02.jpg",
-          "alt": ""
-        },
-        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_002_image_03.jpg",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "Exercise"
         },
         {
           "type": "sort",
@@ -181,7 +201,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "The second step in showing loyalty is a fairly obvious one: To show loyalty to your team, you have to invest in the growth of your team members. What does this look like specifically? For Pat and her players, it started with increasing levels of responsibility, as we discussed in the previous module on Responsibility. For your organization, it may mean delegating freely and giving team members a chance to increase their influence or responsibilities in their current roles, before being promoted.\n\nMany times, this involves providing training and continuing education opportunities on the job to help people grow in their skills. A person who is on the cutting edge of a particular industry will quickly grow stale five to eight years later (through no character flaw of their own) if not given the opportunity to further their skills and stay current with the latest trends and technology. Don’t inadvertently punish talented and loyal employees for staying at your company for years by hiring someone from the outside solely because they know the latest trends. Give current employees the opportunity to further their skills on the job.\n\nA large part of employee growth is providing opportunities for advancement. As we saw in Shelby’s example, nothing erodes loyalty faster than competent employees who have been with the company for several years being passed over for internal positions. Internal promotions may not always be feasible, but it’s worth taking a firm look at what the career paths are for your current employees. First, decide if ample opportunities exist. Then look around your own department or ask your HR team for what percentage of promotions are being hired externally and what percentage are being promoted from within — are those opportunities being realized?"
+          "markdown": "The second step in showing loyalty is a fairly obvious one: To show loyalty to your team, you have to invest in the growth of your team members. What does this look like specifically? For Pat and her players, it started with increasing levels of responsibility, as we discussed in the previous module on Responsibility. For your organization, it may mean delegating freely and giving team members a chance to increase their influence or responsibilities in their current roles, before being promoted."
         },
         {
           "type": "image",
@@ -189,9 +209,17 @@
           "alt": "Pat Summitt speaking to seated players in front of a whiteboard"
         },
         {
+          "type": "markdown",
+          "markdown": "Many times, this involves providing training and continuing education opportunities on the job to help people grow in their skills. A person who is on the cutting edge of a particular industry will quickly grow stale five to eight years later (through no character flaw of their own) if not given the opportunity to further their skills and stay current with the latest trends and technology. Don’t inadvertently punish talented and loyal employees for staying at your company for years by hiring someone from the outside solely because they know the latest trends. Give current employees the opportunity to further their skills on the job."
+        },
+        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_003_image_02.jpg",
           "alt": "A person reading a document on a laptop"
+        },
+        {
+          "type": "markdown",
+          "markdown": "A large part of employee growth is providing opportunities for advancement. As we saw in Shelby’s example, nothing erodes loyalty faster than competent employees who have been with the company for several years being passed over for internal positions. Internal promotions may not always be feasible, but it’s worth taking a firm look at what the career paths are for your current employees. First, decide if ample opportunities exist. Then look around your own department or ask your HR team for what percentage of promotions are being hired externally and what percentage are being promoted from within — are those opportunities being realized?"
         },
         {
           "type": "image",
@@ -324,32 +352,92 @@
               "id": "verbal_praise_and_appreciation",
               "title": "Verbal Praise and Appreciation",
               "body": "One of the simplest yet most effective ways is through sincere verbal praise. Acknowledge their accomplishments and express gratitude for their efforts."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_01.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "public_recognition",
               "title": "Public Recognition",
               "body": "Publicly recognizing employees' achievements during team meetings, company-wide announcements, or newsletters can amplify the recognition… and inspire others to strive for excellence as well."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_02.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "written_recognition",
               "title": "Written Recognition",
               "body": "It sounds traditional, but a handwritten note, an email, or a personalized message can have a significant impact. Some people keep cards of appreciation at their desk for years! Seize the opportunity to provide detailed feedback, and express appreciation in writing."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_03.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "awards",
               "title": "Awards",
               "body": "To standardize recognition efforts, many companies choose to institute a series of weekly, monthly or annual awards to recognize outstanding achievement in a certain area."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_04.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "reward_programs",
               "title": "Reward Programs",
               "body": "Consider implementing reward programs that provide tangible incentives for exceptional performance. These can include gift cards, bonuses, extra time off or other rewards."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_05.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "peer_to_peer_recognition",
               "title": "Peer-to-Peer Recognition",
               "body": "Encourage a culture of peer-to-peer recognition where employees can acknowledge and appreciate each other's contributions."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_06.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "celebrate_ordinary_accomplishments",
               "title": "Celebrate Ordinary Accomplishments",
@@ -358,43 +446,13 @@
           ]
         },
         {
-          "type": "markdown",
-          "markdown": "With just a little intentionality, you can make your team members feel valued and appreciated on a regular basis."
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_01.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_02.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_03.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_04.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_05.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_06.jpg",
-          "alt": ""
-        },
-        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_005_image_07.jpg",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "With just a little intentionality, you can make your team members feel valued and appreciated on a regular basis."
         },
         {
           "type": "image",
@@ -582,12 +640,16 @@
         },
         {
           "type": "markdown",
-          "markdown": "It sounds like a no-brainer, but very few businesses manage to do all of the above. Some only do two or three and try to make up for a deficiency in one area by giving away free sports tickets or adding a gym plan. Such perks are appreciated – but do not mistake the small things for big things. Employees won’t work for a company with subpar health insurance simply because they get a discount on live event tickets.\n\nYour company benefits may or may not be directly up to you as a leader, but as a member of the leadership team, encourage upper management to consistently reevaluate what’s being offered and how to show employees that the company is dedicated to their long-term growth. By championing your team members, publicly recognizing them, encouraging their growth, and providing first-class benefits, you’ll cultivate a culture of loyalty that’s hard to beat."
+          "markdown": "It sounds like a no-brainer, but very few businesses manage to do all of the above. Some only do two or three and try to make up for a deficiency in one area by giving away free sports tickets or adding a gym plan. Such perks are appreciated – but do not mistake the small things for big things. Employees won’t work for a company with subpar health insurance simply because they get a discount on live event tickets."
         },
         {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_11_st_007_image_01.png",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "Your company benefits may or may not be directly up to you as a leader, but as a member of the leadership team, encourage upper management to consistently reevaluate what’s being offered and how to show employees that the company is dedicated to their long-term growth. By championing your team members, publicly recognizing them, encouraging their growth, and providing first-class benefits, you’ll cultivate a culture of loyalty that’s hard to beat."
         },
         {
           "type": "image",

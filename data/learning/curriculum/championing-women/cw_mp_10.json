@@ -63,42 +63,19 @@
           ]
         },
         {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_10_st_002_image_01.jpg",
+          "alt": ""
+        },
+        {
           "type": "process",
           "steps": [
             {
               "title": "Nonverbal Communication",
-              "body": "Nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions. Here are a few tips for doing just that:"
-            },
-            {
-              "title": "Summary",
-              "body": "To summarize, nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions."
-            },
-            {
-              "title": "Maintain Eye Contact",
-              "body": "Eye contact is a large part of nonverbal communication. It signifies confidence, attentiveness, and sincerity. However, it's essential to strike a balance. Too much eye contact may come across as intimidating, while too little might suggest disinterest. A powerful gaze like Pat Summitt’s “Summitt Stare,” for example, communicated strength and assertiveness as part of her personal brand."
-            },
-            {
-              "title": "Confident Posture",
-              "body": "A strong and confident posture can significantly impact how others perceive you. A straight posture exudes self-assurance and professionalism. Stand tall with your shoulders back and head held high. Avoid slouching or crossing your arms, as these gestures may convey insecurity. It can be helpful in this area to film yourself or get feedback from friends. Plus, there are all types of devices on the market nowadays to help you work on your posture."
-            },
-            {
-              "title": "Gesture with Purpose",
-              "body": "Gestures can enhance verbal communication, but they should be purposeful and not distracting. Use gestures that complement your speech, emphasizing key points. Avoid excessive or erratic movements, as they can be distracting or detract from your message.\nUse your hands purposefully to enhance your verbal communication. Some individuals have nervous habits that can detract from their nonverbal communication. Whether it's playing with hair, tapping fingers, or fidgeting, being aware of and minimizing these habits is crucial for professionalism."
-            },
-            {
-              "title": "Facial Expressions",
-              "body": "Pay attention to your facial expressions, ensuring they align with the context of the conversation. A genuine smile or look of interested attention in what is happening at the moment can instantly create a positive atmosphere."
-            },
-            {
-              "title": "Active Listening",
-              "body": "Nonverbal cues are equally essential in demonstrating active listening. Nodding, maintaining eye contact, and mirroring the speaker's expressions show that you are fully engaged. Avoid distractions and give your full attention to the person speaking."
+              "body": "Nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions. Here are a few tips for doing just that:",
+              "number": 1
             }
           ]
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_10_st_002_image_01.jpg",
-          "alt": ""
         },
         {
           "type": "image",
@@ -106,9 +83,29 @@
           "alt": ""
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Summary",
+              "body": "To summarize, nonverbal communication plays a significant role in conveying messages, feelings, and intentions. Mastering the art of nonverbal communication can enhance your professional and personal interactions.",
+              "number": 2
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_03.jpg",
           "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Maintain Eye Contact",
+              "body": "Eye contact is a large part of nonverbal communication. It signifies confidence, attentiveness, and sincerity. However, it's essential to strike a balance. Too much eye contact may come across as intimidating, while too little might suggest disinterest. A powerful gaze like Pat Summitt’s “Summitt Stare,” for example, communicated strength and assertiveness as part of her personal brand.",
+              "number": 3
+            }
+          ]
         },
         {
           "type": "image",
@@ -116,9 +113,29 @@
           "alt": ""
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Confident Posture",
+              "body": "A strong and confident posture can significantly impact how others perceive you. A straight posture exudes self-assurance and professionalism. Stand tall with your shoulders back and head held high. Avoid slouching or crossing your arms, as these gestures may convey insecurity. It can be helpful in this area to film yourself or get feedback from friends. Plus, there are all types of devices on the market nowadays to help you work on your posture.",
+              "number": 4
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_05.jpg",
           "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Gesture with Purpose",
+              "body": "Gestures can enhance verbal communication, but they should be purposeful and not distracting. Use gestures that complement your speech, emphasizing key points. Avoid excessive or erratic movements, as they can be distracting or detract from your message.\nUse your hands purposefully to enhance your verbal communication. Some individuals have nervous habits that can detract from their nonverbal communication. Whether it's playing with hair, tapping fingers, or fidgeting, being aware of and minimizing these habits is crucial for professionalism.",
+              "number": 5
+            }
+          ]
         },
         {
           "type": "image",
@@ -126,9 +143,29 @@
           "alt": ""
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Facial Expressions",
+              "body": "Pay attention to your facial expressions, ensuring they align with the context of the conversation. A genuine smile or look of interested attention in what is happening at the moment can instantly create a positive atmosphere.",
+              "number": 6
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_10_st_002_image_07.jpg",
           "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Active Listening",
+              "body": "Nonverbal cues are equally essential in demonstrating active listening. Nodding, maintaining eye contact, and mirroring the speaker's expressions show that you are fully engaged. Avoid distractions and give your full attention to the person speaking.",
+              "number": 7
+            }
+          ]
         }
       ]
     },
@@ -388,10 +425,6 @@
       "sequence": 6,
       "title": "Personal Reflections",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Sources in this course:\n1. Unless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York."
-        },
         {
           "type": "reflection",
           "question_id": "cw_mp_10_st_007_reflection_03",

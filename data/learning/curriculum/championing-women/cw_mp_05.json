@@ -148,22 +148,47 @@
               "id": "it_s_hard_to_imagine_saying_this_to_a_ma",
               "title": "It’s hard to imagine saying this to a man, as it implies a parent-child-like relationship.",
               "body": "It’s hard to imagine saying this to a man, as it implies a parent-child-like relationship. The same critique to a man would probably be delivered as “let’s work on your communication,” or “your communication is coming off as forceful, etc.”"
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "i_don_t_like_your_tone",
               "title": "\"I don't like your tone.\"",
               "body": "Unless the men in the office are also being told they should smile more, women shouldn’t be singled out as having to look perpetually happy."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "you_should_smile_more",
               "title": "\"You should smile more.\"",
               "body": "A man might get a critique on his presentation, but probably wouldn’t be told it looks too manly. He would get specific feedback like “the PowerPoint fonts are too boxy,” or “you need more graphics,” etc."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "your_presentation_is_too_girly",
               "title": "\"Your presentation is too girly.\"",
               "body": "Men are rarely accused of being emotional, even when angry. Instead, try: “I can see that you’re frustrated, but let’s take a step back.”"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_01.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "don_t_be_so_emotional",
               "title": "\"Don't be so emotional.\"",
@@ -182,12 +207,27 @@
               "id": "avoid_terms_of_endearment",
               "title": "Avoid terms of endearment.",
               "body": "Avoid terms of endearment (honey, sweetie, darling) the same way you would avoid similar terms for men (like junior or buddy)."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_02.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "stay_away_from_anything_with_sexual_unde",
               "title": "Stay away from anything with sexual undertones.",
               "body": "Stay away from anything with sexual undertones, such as commenting on appearance. When in doubt, avoid commenting. But if you do, keep comments to a neutral statement, rather than something you might say to a significant other. For example, “That blouse looks nice on you” vs. “Hey, Steve, looking sharp today.”\nThe latter merely indicates someone looks professional.  Or “Dig the new haircut!” (acknowledging someone’s drastic new do) instead of “That haircut brings out your eyes” or “You have such pretty hair.”"
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "don_t_reference_hormones",
               "title": "Don't reference hormones.",
@@ -206,12 +246,27 @@
               "id": "interrupting_a_woman_multiple_times_whil",
               "title": "Interrupting a woman multiple times (while letting long-winded male counterparts",
               "body": "Interrupting a woman multiple times (while letting long-winded male counterparts drone on)."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_03.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "making_eye_contact_in_a_meeting_with_onl",
               "title": "Making eye contact in a meeting with only the men, ignoring the women.",
               "body": "Asking women to hang back and clean up after the meeting, while the men are excused to go to their next appointment."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "talking_in_a_huddle_stopping_abruptly_wh",
               "title": "Talking in a huddle, stopping abruptly when someone of the opposite gender walks",
@@ -230,28 +285,58 @@
           ]
         },
         {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_04.jpg",
+          "alt": ""
+        },
+        {
           "type": "sections",
           "sections": [
             {
               "id": "example_1",
               "title": "Example 1",
               "body": "Job postings listed with gender-biased language like “able to have direct, man-to-man conversations” or “must be pleasant and friendly” or “you’re a sales superman.”"
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "example_2",
               "title": "Example 2",
               "body": "Bias seen in the dress code, such as women can have earrings, but men can’t, or men can wear comfortable shoes like sneakers while women must wear heels, etc."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "example_3",
               "title": "Example 3",
               "body": "The company sends men to sexual harassment training, but not women."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "example_4",
               "title": "Example 4",
               "body": "Team-building events like hockey games or ax-throwing that lean toward one gender (ask yourself: How might men respond to a pedicure afternoon or jewelry-making class?)."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_05_st_004_image_05.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "example_5",
               "title": "Example 5",
@@ -262,31 +347,6 @@
         {
           "type": "markdown",
           "markdown": "Summitt herself ran into several institutional microaggressions during her tenure as a head coach. As mentioned in the intro, women were allowed to play high school basketball in the 1970s, but relegated to only a half-court game. In her very first year at the University of Tennessee, her team finished with 16 wins and three losses. The prize for such a winning season was an invitation to attend the men’s awards banquet as guests. The men’s team had three wins and 20 losses, by comparison.\n\n1974 - Pat's First Team"
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_05_st_004_image_01.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_05_st_004_image_02.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_05_st_004_image_03.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_05_st_004_image_04.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_05_st_004_image_05.jpg",
-          "alt": ""
         }
       ]
     },
@@ -652,10 +712,6 @@
       "sequence": 8,
       "title": "Personal Reflections",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Sources used for this course:\nUnless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York."
-        },
         {
           "type": "reflection",
           "question_id": "cw_mp_05_st_009_reflection_01",

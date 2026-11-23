@@ -38,42 +38,19 @@
           "markdown": "Scroll through to complete this element."
         },
         {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_01.jpg",
+          "alt": ""
+        },
+        {
           "type": "process",
           "steps": [
             {
               "title": "How to Build Trust",
-              "body": "When it comes to loyalty, the first thing a leader can do is create a culture of trust.\nThere are five basic principles to creating a culture of trust:\nTrust is automatically assumed.\nTeam members are defended.\nTeam members are allowed to do their jobs.\nTeam members are allowed to give feedback.\nGood stewards are rewarded.\nLet’s look at each of these in a little more detail."
-            },
-            {
-              "title": "Conclusion",
-              "body": "By putting these principles into action, you too can be a leader no one will ever want to leave."
-            },
-            {
-              "title": "Trust is automatically assumed.",
-              "body": "Assuming you’re hiring adults over the age of 21, everyone who works for your company is essentially an adult. And not just any adult — an adult with a sought-after skill. Otherwise, they wouldn’t be working at your great organization, right? You’d be surprised at how often leaders fail to recognize this, treating employees like they’re teenagers looking for any excuse to misbehave when the boss turns their head. Team members pick up on a vibe of management distrust quicker than almost anything. Most of the time they don’t have to imagine it — it’s outlined in a dense set of departmental rules aimed at the lowest common denominator.\nThis distrust is the first layer of loyalty that threatens to unravel. Ask any employee and they’ll tell you it’s hard to be loyal to an organization that doesn’t trust you to be on time, avoid gossip, work throughout the workday, communicate clearly, adhere to deadlines, etc. Truth be told, you may have 20 highly skilled, high-functioning employees, and two that you… well, have to keep an eye on. But we humbly recommend dealing with discipline violations or performance pitfalls individually, not with blanket policy or a culture of intense scrutiny. A certain amount of trust should be assumed upon hire, not “earned.”"
-            },
-            {
-              "title": "Team members are defended.",
-              "body": "Part of being loyal to people is defending them in public and disciplining them in private. Any parent with children has probably seen this principle play out over and over. It’s no different in a work family. When a team member makes a visible mistake, are they chastised publicly for it? If someone criticizes one of your employees, are you quick to join in, or do you defend the team member? Even the most loyal team member will waver if they learn they will be publicly crucified when they make a mistake. After all, it’s hard to show loyalty to someone who won’t be loyal to you when it counts."
-            },
-            {
-              "title": "Team members are allowed to do their job.",
-              "body": "We talked about this briefly in the previous lesson, but it’s worth stating again. Pat advised, “If you are both strong and selective, if you seek out quality people and convince them to be loyal to your organization, then you will succeed, and you will eliminate a lot of trouble, mistakes and wasted energy along the way. But you must be willing to acknowledge their talents and let them do their jobs.”1"
-            },
-            {
-              "title": "Team members are allowed to give feedback.",
-              "body": "A lack of feedback always keeps a relationship one-sided. It takes a certain level of maturity and trust to be prepared for whatever that feedback might be. But the highest-functioning teams have a high level of trust that allows for feedback to be given when necessary — for the overall good of the team or organization.\nPat put it this way: “When I say surround yourself with loyal people, I don’t mean ‘yes people.’ I want to make that clear. In fact, it’s a crucial distinction… You have to allow for differences and entertain the opinions of others, without accusing them of disloyalty.”\n“People who say yes to you all the time are, in my opinion, insulting you. They assume you are either too immature or unstable or egotistical to handle the truth,” she said.\nEmployees must have a safe place to voice their concerns and give feedback so they feel like they’re part of a team.\nNote: A key distinction here is “feedback,” not “complaints.” Assuming the feedback is constructive and given in the right spirit, never criticize an employee for giving feedback when it’s been encouraged or solicited."
-            },
-            {
-              "title": "Good stewards are rewarded.",
-              "body": "Nothing increases loyalty like rewarding competent people for a job well done. When team members see a direct relationship between work and reward, it makes them more motivated and more loyal to an organization.\nWith a little intentionality, you can use the steps above to help lay a foundation of trust as a leader. Think back on the best leaders you’ve had over the course of your own career. What made them so great? Most likely, the common denominator was that you felt like they trusted you. They earned your loyalty by first giving you trust and/or loyalty in return."
+              "body": "When it comes to loyalty, the first thing a leader can do is create a culture of trust.\nThere are five basic principles to creating a culture of trust:\nTrust is automatically assumed.\nTeam members are defended.\nTeam members are allowed to do their jobs.\nTeam members are allowed to give feedback.\nGood stewards are rewarded.\nLet’s look at each of these in a little more detail.",
+              "number": 1
             }
           ]
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_01.jpg",
-          "alt": ""
         },
         {
           "type": "image",
@@ -81,9 +58,29 @@
           "alt": ""
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Conclusion",
+              "body": "By putting these principles into action, you too can be a leader no one will ever want to leave.",
+              "number": 2
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_03.jpg",
           "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Trust is automatically assumed.",
+              "body": "Assuming you’re hiring adults over the age of 21, everyone who works for your company is essentially an adult. And not just any adult — an adult with a sought-after skill. Otherwise, they wouldn’t be working at your great organization, right? You’d be surprised at how often leaders fail to recognize this, treating employees like they’re teenagers looking for any excuse to misbehave when the boss turns their head. Team members pick up on a vibe of management distrust quicker than almost anything. Most of the time they don’t have to imagine it — it’s outlined in a dense set of departmental rules aimed at the lowest common denominator.\nThis distrust is the first layer of loyalty that threatens to unravel. Ask any employee and they’ll tell you it’s hard to be loyal to an organization that doesn’t trust you to be on time, avoid gossip, work throughout the workday, communicate clearly, adhere to deadlines, etc. Truth be told, you may have 20 highly skilled, high-functioning employees, and two that you… well, have to keep an eye on. But we humbly recommend dealing with discipline violations or performance pitfalls individually, not with blanket policy or a culture of intense scrutiny. A certain amount of trust should be assumed upon hire, not “earned.”",
+              "number": 3
+            }
+          ]
         },
         {
           "type": "image",
@@ -91,9 +88,49 @@
           "alt": ""
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Team members are defended.",
+              "body": "Part of being loyal to people is defending them in public and disciplining them in private. Any parent with children has probably seen this principle play out over and over. It’s no different in a work family. When a team member makes a visible mistake, are they chastised publicly for it? If someone criticizes one of your employees, are you quick to join in, or do you defend the team member? Even the most loyal team member will waver if they learn they will be publicly crucified when they make a mistake. After all, it’s hard to show loyalty to someone who won’t be loyal to you when it counts.",
+              "number": 4
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_12_st_002_image_05.jpg",
           "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Team members are allowed to do their job.",
+              "body": "We talked about this briefly in the previous lesson, but it’s worth stating again. Pat advised, “If you are both strong and selective, if you seek out quality people and convince them to be loyal to your organization, then you will succeed, and you will eliminate a lot of trouble, mistakes and wasted energy along the way. But you must be willing to acknowledge their talents and let them do their jobs.”1",
+              "number": 5
+            }
+          ]
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Team members are allowed to give feedback.",
+              "body": "A lack of feedback always keeps a relationship one-sided. It takes a certain level of maturity and trust to be prepared for whatever that feedback might be. But the highest-functioning teams have a high level of trust that allows for feedback to be given when necessary — for the overall good of the team or organization.\nPat put it this way: “When I say surround yourself with loyal people, I don’t mean ‘yes people.’ I want to make that clear. In fact, it’s a crucial distinction… You have to allow for differences and entertain the opinions of others, without accusing them of disloyalty.”\n“People who say yes to you all the time are, in my opinion, insulting you. They assume you are either too immature or unstable or egotistical to handle the truth,” she said.\nEmployees must have a safe place to voice their concerns and give feedback so they feel like they’re part of a team.\nNote: A key distinction here is “feedback,” not “complaints.” Assuming the feedback is constructive and given in the right spirit, never criticize an employee for giving feedback when it’s been encouraged or solicited.",
+              "number": 6
+            }
+          ]
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Good stewards are rewarded.",
+              "body": "Nothing increases loyalty like rewarding competent people for a job well done. When team members see a direct relationship between work and reward, it makes them more motivated and more loyal to an organization.\nWith a little intentionality, you can use the steps above to help lay a foundation of trust as a leader. Think back on the best leaders you’ve had over the course of your own career. What made them so great? Most likely, the common denominator was that you felt like they trusted you. They earned your loyalty by first giving you trust and/or loyalty in return.",
+              "number": 7
+            }
+          ]
         }
       ]
     },
@@ -210,14 +247,6 @@
       "sequence": 4,
       "title": "Personal Reflections & Exercise",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "On a scale of 1 to 10, rate yourself and/or your department in the five core areas of trust. Be honest.Trust is automatically assumed: __________________\nTeam members are defended: __________________\nTeam members are allowed to do their jobs: __________________\nTeam members are allowed to give feedback: __________________\nGood stewards are rewarded: __________________"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
-        },
         {
           "type": "video",
           "vimeo_video_id": "1150877954",

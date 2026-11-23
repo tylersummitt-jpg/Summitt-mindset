@@ -59,14 +59,9 @@
           "markdown": "One of the most important elements of developing a comprehensive awareness of personality types is to \"avoid arrival.\" The best leaders understand that the only way to remain competitive is to ensure that no one in the organization ever feels they have learned all they need to know in a particular area. It's quite the opposite, in fact. The best organizations understand that situations and personalities evolve, and they are on a never-ending journey of growth and discovery."
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_08_st_001_reflection_01",
-          "prompt": "What are the potential risks involved with a leader getting the sense they have \"arrived\" and have no more to learn? What could happen if you, as a leader, have team members who have this sense of arrival? How might you address them?",
-          "persist": false
+          "prompt": "What are the potential risks involved with a leader getting the sense they have \"arrived\" and have no more to learn? What could happen if you, as a leader, have team members who have this sense of arrival? How might you address them?"
         }
       ]
     },
@@ -194,35 +189,30 @@
           "steps": [
             {
               "title": "Maria is the VP of Strategy at her corporation.",
-              "body": "Maria is the VP of Strategy at her corporation."
+              "body": ""
             },
             {
               "title": "The company has been losing ground to its competition.",
-              "body": "The company has been losing ground to its competition."
+              "body": ""
             },
             {
               "title": "Maria's expertise is in strategy, certainly.",
-              "body": "Maria's expertise is in strategy, certainly. And she knows her company's existing products and services pretty well."
+              "body": "And she knows her company's existing products and services pretty well."
             },
             {
               "title": "However, she hasn't kept up with the latest emerging technologies — while the competition has.",
-              "body": "However, she hasn't kept up with the latest emerging technologies — while the competition has. It turns out that their losses to the competition are due to a technological deficit."
+              "body": "It turns out that their losses to the competition are due to a technological deficit."
             },
             {
               "title": "Still, Maria is working hard to revamp their strategies and figure out how to make a strong comeback.",
-              "body": "Still, Maria is working hard to revamp their strategies and figure out how to make a strong comeback."
+              "body": ""
             }
           ]
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_08_st_003_reflection_01",
-          "prompt": "What could Maria have done differently to be better-positioned to help resolve this issue?",
-          "persist": false
+          "prompt": "What could Maria have done differently to be better-positioned to help resolve this issue?"
         },
         {
           "type": "markdown",
@@ -270,10 +260,6 @@
         {
           "type": "markdown",
           "markdown": "Receiving a degree from a university is a wonderful blessing. It indicates the conclusion of a learning journey. However, we live in a world today where the commitment to learning is continuous. With so much changing so fast, it's clear that the commitment to continuous learning is a non-negotiable, not just to be excellent, but to even remain competitive. The most competitive systems and teams understand that they must remain open to the opportunity to learn and grow, and grow and learn continuously both on their own and through the hearts and efforts of others around them if they're going to be at their best, and help the organization to perform at its best."
-        },
-        {
-          "type": "callout",
-          "text": "Coach Pat Summitt poses for a photograph with former Lady Vols players Laurie Milligan and Brynae Laxton following their graduation from the University of Tennessee. (c. 1998)"
         }
       ]
     },
@@ -395,8 +381,9 @@
           "alt": "Illustration between the working-smart principles and the reflection."
         },
         {
-          "type": "markdown",
-          "markdown": "For this reflection, think about the education or new skills that you're going to need over the next 18 months. What skills or knowledge do you need to develop if you're going to achieve the goals you have set?"
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_005_reflection_01",
+          "prompt": "For this reflection, think about the education or new skills that you're going to need over the next 18 months. What skills or knowledge do you need to develop if you're going to achieve the goals you have set?"
         },
         {
           "type": "image",
@@ -404,8 +391,9 @@
           "alt": "Illustration beside the second working-smart reflection."
         },
         {
-          "type": "markdown",
-          "markdown": "For this reflection, lay out at least three essential learning objectives in your life and identify how you might pursue expanding your expertise in these areas. Maybe you need to know more about web optimization and you decide to read a book or take an online class. Maybe you need to pursue a degree from a formal university, or simply commit to intensively reading a handful of important publications. Whatever it may be, lay out your plan here for helping expand your knowledge so you can work smart as a result.\n\nLay out at least three essential learning goals for yourself."
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_005_reflection_02",
+          "prompt": "For this reflection, lay out at least three essential learning objectives in your life and identify how you might pursue expanding your expertise in these areas. Maybe you need to know more about web optimization and you decide to read a book or take an online class. Maybe you need to pursue a degree from a formal university, or simply commit to intensively reading a handful of important publications. Whatever it may be, lay out your plan here for helping expand your knowledge so you can work smart as a result.\n\nLay out at least three essential learning goals for yourself."
         }
       ]
     },
@@ -461,8 +449,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_08_st_006_reflection_01",
-          "prompt": "In this sports example, would it be appropriate for these two teams to define success based on the number of wins and losses? Why or why not? What other success measures might be possible?",
-          "persist": false
+          "prompt": "In this sports example, would it be appropriate for these two teams to define success based on the number of wins and losses? Why or why not? What other success measures might be possible?"
         },
         {
           "type": "markdown",
@@ -489,8 +476,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_08_st_006_reflection_02",
-          "prompt": "What might a strong leader do in this situation?",
-          "persist": false
+          "prompt": "What might a strong leader do in this situation?"
         },
         {
           "type": "markdown",
@@ -621,14 +607,9 @@
           "markdown": "Leaders must establish shared values within the organization. While every individual in the organization may have their own learning style and learning preference, it is important that organizations establish the values that they will live by collectively."
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_08_st_008_reflection_01",
-          "prompt": "What values does your organization collectively share? How do they impact your approach to your work?",
-          "persist": false
+          "prompt": "What values does your organization collectively share? How do they impact your approach to your work?"
         },
         {
           "type": "markdown",
@@ -683,14 +664,9 @@
           "markdown": "One of the most powerful ways to determine whether or not an organization will be successful is to evaluate the degree to which ownership exists."
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_08_st_008_reflection_02",
-          "prompt": "What comes to mind when you think about ownership within a team or organization? What does ownership look like in an organization?",
-          "persist": false
+          "prompt": "What comes to mind when you think about ownership within a team or organization? What does ownership look like in an organization?"
         },
         {
           "type": "markdown",
@@ -784,22 +760,22 @@
             {
               "id": "c1",
               "label": "Technological advances",
-              "response": "Incorrect. Correct answer: Innovation of the human spirit. Your answer: Technological advances. Not quite. All of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
+              "response": "Incorrect. Correct answer: Innovation of the human spirit.\n\nAll of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
             },
             {
               "id": "c2",
               "label": "Historic performance data",
-              "response": "Incorrect. Correct answer: Innovation of the human spirit. Your answer: Historic performance data. Not quite. All of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
+              "response": "Incorrect. Correct answer: Innovation of the human spirit.\n\nAll of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
             },
             {
               "id": "c3",
               "label": "A strong mission statement",
-              "response": "Incorrect. Correct answer: Innovation of the human spirit. Your answer: A strong mission statement. Not quite. All of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
+              "response": "Incorrect. Correct answer: Innovation of the human spirit.\n\nAll of these can play a role in corporate success and profitability, but in a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
             },
             {
               "id": "c4",
               "label": "Innovation of the human spirit",
-              "response": "Correct. Correct answer: Innovation of the human spirit. Your answer: Innovation of the human spirit. That's right! In a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
+              "response": "Correct!\n\nIn a world today that has been flattened and made ultimately more competitive with technology, the value of people has never been so great. One of the many reasons CEOs are paid more today as a percentage of profit than ever before is because arguably, in a world where technology makes anything possible, the innovation of the human spirit has the greatest impact on corporate success and profitability."
             }
           ]
         },
@@ -959,8 +935,9 @@
           "alt": "A roadside sign reading Success Ahead"
         },
         {
-          "type": "markdown",
-          "markdown": "For this reflection, we want you to get clear about what success means to you. Set aside a career path you might have read about, or a lifestyle that you are imagining, and define what success looks like. What will you look back on someday and be proud of in terms of accomplishment and priorities? What does \"success\" mean to you?"
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_010_reflection_01",
+          "prompt": "For this reflection, we want you to get clear about what success means to you. Set aside a career path you might have read about, or a lifestyle that you are imagining, and define what success looks like. What will you look back on someday and be proud of in terms of accomplishment and priorities? What does \"success\" mean to you?"
         },
         {
           "type": "image",
@@ -968,8 +945,9 @@
           "alt": "An arrow aimed at the center of a target"
         },
         {
-          "type": "markdown",
-          "markdown": "Leaders and peak performers who understand this factor usually become far more successful. This is because people are usually far more accomplished when they are pursuing their own success rather than being locked in to a moment-by-moment perspective on what's next. For this reflection, allow yourself the flexibility to pause and get in touch with what makes you satisfied."
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_010_reflection_02",
+          "prompt": "Leaders and peak performers who understand this factor usually become far more successful. This is because people are usually far more accomplished when they are pursuing their own success rather than being locked in to a moment-by-moment perspective on what's next. For this reflection, allow yourself the flexibility to pause and get in touch with what makes you satisfied."
         }
       ]
     },
@@ -992,11 +970,8 @@
         {
           "type": "heading",
           "level": 2,
-          "text": "Solicit (a.k.a. Demand) Feedback and the Declaration of Blind Spots"
-        },
-        {
-          "type": "markdown",
-          "markdown": "When it comes to feedback, weak leaders tend to:"
+          "role": "instruction",
+          "text": "When it comes to feedback, weak leaders tend to:"
         },
         {
           "type": "list",
@@ -1008,8 +983,10 @@
           ]
         },
         {
-          "type": "markdown",
-          "markdown": "Conversely, strong leaders tend to actively solicit honest feedback from others. This feedback might be:"
+          "type": "heading",
+          "level": 2,
+          "role": "instruction",
+          "text": "Conversely, strong leaders tend to actively solicit honest feedback from others. This feedback might be:"
         },
         {
           "type": "list",
@@ -1024,15 +1001,15 @@
           "steps": [
             {
               "title": "Amparo is a relatively new CEO who is trying to turn around her organization.",
-              "body": "Amparo is a relatively new CEO who is trying to turn around her organization."
+              "body": ""
             },
             {
               "title": "She has several high-achieving vice presidents on her team.",
-              "body": "She has several high-achieving vice presidents on her team. She's come to rely on them while working through her first year."
+              "body": "She's come to rely on them while working through her first year."
             },
             {
               "title": "In that time, the vice presidents have gotten to know Amparo and have begun building relationships with her.",
-              "body": "In that time, the vice presidents have gotten to know Amparo and have begun building relationships with her. They know her well enough to observe her strengths, as well as some weak spots."
+              "body": "They know her well enough to observe her strengths, as well as some weak spots."
             }
           ]
         },
@@ -1043,27 +1020,18 @@
             {
               "id": "c1",
               "label": "Continue operating as she has been, since it seems to be working well",
-              "response": "Incorrect. Correct answer: Collect feedback from her team on weak spots and blind spots. Your answer: Continue operating as she has been, since it seems to be working well. Not quite! If Amparo has developed enough of a relationship with the vice presidents, the goal would be to collect feedback on weak spots and blind spots."
+              "response": "Incorrect. Correct answer: Collect feedback from her team on weak spots and blind spots.\n\nThis is because it would show a desire to have an intimate conversation with executives on a similar level. And by letting them know that you are deeply committed to growth and are willing to listen to their feedback, you're sending a clear message to everybody that growth is not negotiable and everyone is fallible. Finally, if handled with integrity, the relationship between the CEO and vice presidents could likely improve, as honest feedback was shared."
             },
             {
               "id": "c2",
               "label": "Collect feedback from her team on weak spots and blind spots",
-              "response": "Correct. Correct answer: Collect feedback from her team on weak spots and blind spots. Your answer: Collect feedback from her team on weak spots and blind spots. Yes, that's correct! If Amparo has developed enough of a relationship with the vice presidents, the goal would be to collect feedback on weak spots and blind spots."
+              "response": "Correct.\n\nThis is because it would show a desire to have an intimate conversation with executives on a similar level. And by letting them know that you are deeply committed to growth and are willing to listen to their feedback, you're sending a clear message to everybody that growth is not negotiable and everyone is fallible. Finally, if handled with integrity, the relationship between the CEO and vice presidents could likely improve, as honest feedback was shared."
             },
             {
               "id": "c3",
               "label": "Lead a team workshop on identifying and fixing blind spots",
-              "response": "Incorrect. Correct answer: Collect feedback from her team on weak spots and blind spots. Your answer: Lead a team workshop on identifying and fixing blind spots. Not quite! If Amparo has developed enough of a relationship with the vice presidents, the goal would be to collect feedback on weak spots and blind spots."
+              "response": "Incorrect. Correct answer: Collect feedback from her team on weak spots and blind spots.\n\nThis is because it would show a desire to have an intimate conversation with executives on a similar level. And by letting them know that you are deeply committed to growth and are willing to listen to their feedback, you're sending a clear message to everybody that growth is not negotiable and everyone is fallible. Finally, if handled with integrity, the relationship between the CEO and vice presidents could likely improve, as honest feedback was shared."
             }
-          ]
-        },
-        {
-          "type": "list",
-          "ordered": false,
-          "items": [
-            "It shows a desire to have an intimate conversation with executives on a similar level.",
-            "By letting them know that you are deeply committed to growth and are willing to listen to their feedback, you're sending a clear message to everybody that growth is not negotiable and everyone is fallible.",
-            "If handled with integrity, the relationship between the CEO and vice presidents could likely improve, as honest feedback was shared."
           ]
         },
         {
@@ -1110,14 +1078,9 @@
           "markdown": "Suppose the auto maker has been in business for more than 100 years. They've been dealing with a particular problem for several decades. Leaders expect it will take at least five years to address the problem, but the outcome would be game-changing for the company. Strong leaders in this company would have to decide if this long-term problem should be a priority. Since it will take at least five years, these leaders may need to break the problem down into shorter-term challenges that will lead to progress toward solving that longer-term problem. This is the stuff of leadership — reflecting on these different possibilities to better understand how to strategically solve problems and help their organization win."
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_08_st_011_reflection_01",
-          "prompt": "What are some strategies you use for prioritizing problems in your organization? Do you plan to optimize your approach in any way based on what we've covered so far?",
-          "persist": false
+          "prompt": "What are some strategies you use for prioritizing problems in your organization? Do you plan to optimize your approach in any way based on what we've covered so far?"
         },
         {
           "type": "choice_prompt",
@@ -1126,22 +1089,22 @@
             {
               "id": "c1",
               "label": "They show strength and confidence by will and absolute rigidity.",
-              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise. Your answer: They show strength and confidence by will and absolute rigidity."
+              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise."
             },
             {
               "id": "c2",
               "label": "They are flexible when it comes to their values, ethics, and commitments.",
-              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise. Your answer: They are flexible when it comes to their values, ethics, and commitments."
+              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise."
             },
             {
               "id": "c3",
               "label": "They are steadfast when it comes to business strategies and approaches.",
-              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise. Your answer: They are steadfast when it comes to business strategies and approaches."
+              "response": "Incorrect. Correct answer: They show strength and confidence through learning, growth, and compromise."
             },
             {
               "id": "c4",
               "label": "They show strength and confidence through learning, growth, and compromise.",
-              "response": "Correct. Correct answer: They show strength and confidence through learning, growth, and compromise. Your answer: They show strength and confidence through learning, growth, and compromise."
+              "response": "Correct!"
             }
           ]
         },
@@ -1325,14 +1288,9 @@
           "markdown": "A happy culture is not solely dedicated to having fun. A happy culture is a content culture, and that contentment can come from the predictability of working under conditions that everyone knows. For example, Coach Summitt expected nothing less than rigorous engagement from everyone who ever played basketball at the University of Tennessee. Because everyone knew and shared in those ideas and expectations, the culture was established and excellence emerged as a result."
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_08_st_013_reflection_01",
-          "prompt": "What comes to mind when you think of the phrase happy culture? Does your organization or team have a happy culture? How so?",
-          "persist": false
+          "prompt": "What comes to mind when you think of the phrase happy culture? Does your organization or team have a happy culture? How so?"
         },
         {
           "type": "image",
@@ -1378,22 +1336,22 @@
             {
               "id": "c1",
               "label": "Compromise values that get in the way of productivity.",
-              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example. Your answer: Compromise values that get in the way of productivity. Of these options, a leader can capitalize on influence and being an example of working both hard and smart."
+              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example.\n\nOf these options, a leader can capitalize on influence and being an example of working both hard and smart."
             },
             {
               "id": "c2",
               "label": "Publish policies requiring employees to work both hard and smart.",
-              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example. Your answer: Publish policies requiring employees to work both hard and smart. Of these options, a leader can capitalize on influence and being an example of working both hard and smart."
+              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example.\n\nOf these options, a leader can capitalize on influence and being an example of working both hard and smart."
             },
             {
               "id": "c3",
               "label": "Fill your team with people with less talent than you.",
-              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example. Your answer: Fill your team with people with less talent than you. Of these options, a leader can capitalize on influence and being an example of working both hard and smart."
+              "response": "Incorrect. Correct answer: Influence a hard and smart working culture by being an example.\n\nOf these options, a leader can capitalize on influence and being an example of working both hard and smart."
             },
             {
               "id": "c4",
               "label": "Influence a hard and smart working culture by being an example.",
-              "response": "Correct. Correct answer: Influence a hard and smart working culture by being an example. Your answer: Influence a hard and smart working culture by being an example. Of these options, a leader can capitalize on influence and being an example of working both hard and smart."
+              "response": "Correct!\n\nOf these options, a leader can capitalize on influence and being an example of working both hard and smart."
             }
           ]
         },
@@ -1437,14 +1395,9 @@
           "markdown": "That negativity is just as contagious as the positivity in the earlier example, isn't it? Perhaps it is even more contagious. Others will likely start operating this way and bring more of the same to the organization. Positively or negatively, no matter what a leader does, their leadership style, preferences, and habits will create influence and serve as examples. As such, leaders must be very thoughtful and self-aware of their actions and the messages they send to those around them."
         },
         {
-          "type": "markdown",
-          "markdown": "Note: Your response to the following question is for self-reflection only and will not be saved or graded."
-        },
-        {
           "type": "reflection",
           "question_id": "dd_mp_08_st_013_reflection_02",
-          "prompt": "How have you seen the power of influence and example play out in your team or organization, or in the world? What can you do to replicate that positivity or prevent that negativity in your own leadership practices?",
-          "persist": false
+          "prompt": "How have you seen the power of influence and example play out in your team or organization, or in the world? What can you do to replicate that positivity or prevent that negativity in your own leadership practices?"
         }
       ]
     },
@@ -1582,8 +1535,9 @@
           "alt": "Eyeglasses resting on an open book"
         },
         {
-          "type": "markdown",
-          "markdown": "For this reflection exercise, spend some time honestly reflecting on your weaknesses and blind spots.\n\nIdentify several weak areas or blind spots. Be honest with yourself about things you just aren't very good at. Think about what each weakness might mean for you professionally.\n\nFor each weakness or blind spot, identify some simple habits or strategies you could employ that would allow you to live with this weakness and keep it from hindering your ability to perform. How might you adjust your strategies so that your blind spots don't keep you from being successful?"
+          "type": "reflection",
+          "question_id": "dd_mp_08_st_015_reflection_01",
+          "prompt": "For this reflection exercise, spend some time honestly reflecting on your weaknesses and blind spots.\n\nIdentify several weak areas or blind spots. Be honest with yourself about things you just aren't very good at. Think about what each weakness might mean for you professionally.\n\nFor each weakness or blind spot, identify some simple habits or strategies you could employ that would allow you to live with this weakness and keep it from hindering your ability to perform. How might you adjust your strategies so that your blind spots don't keep you from being successful?"
         }
       ]
     }

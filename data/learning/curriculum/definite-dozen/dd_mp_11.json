@@ -234,19 +234,8 @@
           "steps": [
             {
               "title": "Don't Seek Out Weak Competition. Compete Against the Best",
-              "body": "Coach Pat Summitt said, \"If you want to be the best, you have to compete against the best, even if it means risking a loss. Why seek out weak competition?\" Rigorous competition makes competitors stronger and brings the winners more valuable rewards. Hoping for the competitors' failure or weakness is a sign of weakness. Rather than praying for weakness within a competitor, develop your own strength and skill that is capable of beating even the most formidable competition."
-            },
-            {
-              "title": "Identify the Rival",
-              "body": "The rival, or the competition, is absolutely key in this formula. Can you identify a rival in your business? We all have rivals in our lives. Maybe you are in line for a promotion at work. Is there a rival for that position? Maybe you and your team are trying to break a sales record, and the rival company just opened a new office in your area. Recognizing the presence of a rival — small or large — is key to igniting that sense of competition."
-            },
-            {
-              "title": "Keep Your Rival in Sight to Motivate You",
-              "body": "One of the most motivating things you can do to help maintain your discipline and focus is to picture your rival and imagine that they are one step ahead of you. When businesses are run poorly or teams are poorly led, there is a habit of forgetting about the rival. For example, if you own a restaurant and your staff members are embroiled in a number of internal battles, those problems could negatively impact the service to your diners. In this context, instead of focusing on your business and staying ahead of your rival, you might forget about your rival, allowing it to go after your most important asset...your diners. If you're a competitive person, what are you going to do? Keep your rival in sight."
-            },
-            {
-              "title": "Appreciate Your Rival",
-              "body": "Our rivals make us better. The most competitive leaders and peak performers have come to realize that appreciating your rival is one of the healthiest, most forward-thinking, competitive things you can do. Rather than being driven crazy by the achievements of your rival, appreciate their grace and strength, admire what they are doing to stay competitive, and then recognize that they are there in your life to, indeed, make you better. The presence of your rival will force you to raise your standard and improve your game."
+              "body": "Coach Pat Summitt said, \"If you want to be the best, you have to compete against the best, even if it means risking a loss. Why seek out weak competition?\" Rigorous competition makes competitors stronger and brings the winners more valuable rewards. Hoping for the competitors' failure or weakness is a sign of weakness. Rather than praying for weakness within a competitor, develop your own strength and skill that is capable of beating even the most formidable competition.",
+              "number": 1
             }
           ]
         },
@@ -256,14 +245,44 @@
           "alt": "Compete Against the Best process image"
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Identify the Rival",
+              "body": "The rival, or the competition, is absolutely key in this formula. Can you identify a rival in your business? We all have rivals in our lives. Maybe you are in line for a promotion at work. Is there a rival for that position? Maybe you and your team are trying to break a sales record, and the rival company just opened a new office in your area. Recognizing the presence of a rival — small or large — is key to igniting that sense of competition.",
+              "number": 2
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_003_image_06.jpg",
           "alt": "Identify the Rival process image"
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Keep Your Rival in Sight to Motivate You",
+              "body": "One of the most motivating things you can do to help maintain your discipline and focus is to picture your rival and imagine that they are one step ahead of you. When businesses are run poorly or teams are poorly led, there is a habit of forgetting about the rival. For example, if you own a restaurant and your staff members are embroiled in a number of internal battles, those problems could negatively impact the service to your diners. In this context, instead of focusing on your business and staying ahead of your rival, you might forget about your rival, allowing it to go after your most important asset...your diners. If you're a competitive person, what are you going to do? Keep your rival in sight.",
+              "number": 3
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/definite-dozen/dd_mp_11_st_003_image_07.jpg",
           "alt": "Keep Your Rival in Sight process image"
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Appreciate Your Rival",
+              "body": "Our rivals make us better. The most competitive leaders and peak performers have come to realize that appreciating your rival is one of the healthiest, most forward-thinking, competitive things you can do. Rather than being driven crazy by the achievements of your rival, appreciate their grace and strength, admire what they are doing to stay competitive, and then recognize that they are there in your life to, indeed, make you better. The presence of your rival will force you to raise your standard and improve your game.",
+              "number": 4
+            }
+          ]
         },
         {
           "type": "image",
@@ -389,8 +408,9 @@
           ]
         },
         {
-          "type": "markdown",
-          "markdown": "Take some time in this reflection to identify what you can learn from your competition and clarify what you will do with this information!"
+          "type": "reflection",
+          "question_id": "dd_mp_11_st_005_reflection_01",
+          "prompt": "Take some time in this reflection to identify what you can learn from your competition and clarify what you will do with this information!"
         }
       ]
     },
@@ -408,11 +428,11 @@
         },
         {
           "type": "callout",
-          "text": "You have to set high goals in order to achieve. That's why we routinely require overachievement at Tennessee. We don't always get it. But my experience is that when you ask for a lot, you just might get some of it."
+          "text": "You have to set high goals in order to achieve. That's why we routinely require overachievement at Tennessee. We don't always get it. But my experience is that when you ask for a lot, you just might get some of it.\n\n— Pat Summitt"
         },
         {
           "type": "callout",
-          "text": "At Tennessee, we expect to go to the Final Four. ... The reason we get there so often is because we demand it, and we say it out loud."
+          "text": "At Tennessee, we expect to go to the Final Four. ... The reason we get there so often is because we demand it, and we say it out loud.\n\n— Pat Summitt"
         },
         {
           "type": "image",
@@ -625,15 +645,32 @@
           "markdown": "Once again, the key to getting better in this space is to compete more often. None of us are born in a perfect, competitive condition until we learn how to compete and get used to it. This is why participating in sports at a young age plays such an important role in the lives of youth. They learn what it's like to face competition at an early age and what to do in those high-pressure situations. The opportunity to grow never ends, and the best leaders understand that the best way to get their team to be more competitive is to compete, adjust, reflect, and compete again.\n\nTo be competitive, leaders and peak performers must get good at answering a call to compete. Here are two strategies to consider."
         },
         {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_11_st_008_image_03.jpg",
+          "alt": "Posting the Bulletin-Board Material process image"
+        },
+        {
           "type": "process",
           "steps": [
             {
               "title": "Two Strategies for a Call to Compete",
-              "body": "Posting the Bulletin-Board Material: One strategy is the presence of \"bulletin-board\" material. You don't have to wait for a competitor to say something negative about you or your work to create that material. If you are a software designer trying to compete with another designer, and you post articles in your workspace reminding you of their latest innovation, it may motivate you to rise up, compete, and win. Seeing an accolade your competitor won within view of your workspace may inspire you to keep working when fatigue sets in."
-            },
+              "body": "Posting the Bulletin-Board Material: One strategy is the presence of \"bulletin-board\" material. You don't have to wait for a competitor to say something negative about you or your work to create that material. If you are a software designer trying to compete with another designer, and you post articles in your workspace reminding you of their latest innovation, it may motivate you to rise up, compete, and win. Seeing an accolade your competitor won within view of your workspace may inspire you to keep working when fatigue sets in.",
+              "number": 1
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/definite-dozen/dd_mp_11_st_008_image_04.jpg",
+          "alt": "Identifying a Rival process image"
+        },
+        {
+          "type": "process",
+          "steps": [
             {
               "title": "Identifying a Rival: In some cases, a rival may not be as easy to identify.",
-              "body": "Identifying a Rival: In some cases, a rival may not be as easy to identify. For example, if you work in a large corporation doing quality control, you may not have the day-to-day \"wins and losses vs. the competitor\" that other departments may experience. On this note, leaders may need to get creative and find existing metrics that would allow for competition. In some cases, companies are big enough for internal departments to compete with each other for some level of excellence. Who is your rival? Identify it and keep it in front of you."
+              "body": "Identifying a Rival: In some cases, a rival may not be as easy to identify. For example, if you work in a large corporation doing quality control, you may not have the day-to-day \"wins and losses vs. the competitor\" that other departments may experience. On this note, leaders may need to get creative and find existing metrics that would allow for competition. In some cases, companies are big enough for internal departments to compete with each other for some level of excellence. Who is your rival? Identify it and keep it in front of you.",
+              "number": 2
             }
           ]
         },
@@ -645,16 +682,6 @@
         {
           "type": "markdown",
           "markdown": "There is an old adage that competition doesn't build character, it reveals it. It's likely that competition does both. By consistently competing, you learn what it means to compete and how to improve your readiness to match wits and energy with whomever you're up against. On the other hand, competition indeed reveals our character. As we continue to face competition, we ultimately unlock an ancient potential within us. The reason you are here reading these words at this moment is because countless ancestors who came before you had the agility to survive. Human beings have been very successful at meeting challenges, rising to the competition, and evolving. Our bodies have literally learned to grow and change in order to compete."
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_11_st_008_image_03.jpg",
-          "alt": "Posting the Bulletin-Board Material process image"
-        },
-        {
-          "type": "image",
-          "src": "/learning/definite-dozen/dd_mp_11_st_008_image_04.jpg",
-          "alt": "Identifying a Rival process image"
         },
         {
           "type": "reflection",

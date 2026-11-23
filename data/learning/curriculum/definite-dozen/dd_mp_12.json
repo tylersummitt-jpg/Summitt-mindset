@@ -783,14 +783,12 @@
         },
         {
           "type": "markdown",
-          "markdown": "Equilibrium is the status quo. It's what we are used to — normal habits and patterns that allow us to pretty much keep things the same. When we challenge ourselves and add new levels of intensity to what we do, it creates a sense of disequilibrium. Although it isn't necessarily described this way in personal training, your muscles go through a state of disequilibrium when you push them with heavy weights. Once your body recovers and you have a new level of strength, equilibrium is restored. When you've reached this new level of equilibrium and you challenge yourself with even heavier weights, the disequilibrium emerges again.\n\nNote: Your response to the following question is for self-reflection only and will not be saved or graded."
+          "markdown": "Equilibrium is the status quo. It's what we are used to — normal habits and patterns that allow us to pretty much keep things the same. When we challenge ourselves and add new levels of intensity to what we do, it creates a sense of disequilibrium. Although it isn't necessarily described this way in personal training, your muscles go through a state of disequilibrium when you push them with heavy weights. Once your body recovers and you have a new level of strength, equilibrium is restored. When you've reached this new level of equilibrium and you challenge yourself with even heavier weights, the disequilibrium emerges again."
         },
         {
           "type": "reflection",
           "question_id": "dd_mp_12_st_011_reflection_01",
-          "prompt": "Given how good disequilibrium is for our growth, why do you think we tend to avoid it?",
-          "persist": false,
-          "confirmation": "Thank you! You might also save this response in your workbook."
+          "prompt": "Given how good disequilibrium is for our growth, why do you think we tend to avoid it?"
         },
         {
           "type": "image",

@@ -101,7 +101,7 @@ describe("new human-QA findings", () => {
     }
   });
 
-  it("does not persist responses that promise they will not be saved", () => {
+  it("persists every reflection and removes not-saved workbook promises", () => {
     for (const [programId, stepId] of [
       ["dd_mp_12", "dd_mp_12_st_011"],
       ["dd_mp_13", "dd_mp_13_st_006"],
@@ -113,16 +113,30 @@ describe("new human-QA findings", () => {
       expect(reflections.length).toBeGreaterThan(0);
       for (const block of reflections) {
         if (block.type !== "reflection") continue;
-        expect(block.persist).toBe(false);
-        expect(block.confirmation).toContain("Thank you");
+        expect(block.persist).not.toBe(false);
+        expect(block.confirmation).toBeUndefined();
+        expect(block.prompt.toLowerCase()).not.toContain("will not be saved");
       }
-      const skipped = validateStepRequirements(found, {
-        reflections: { leaked: "should not be required" },
+      const missing = validateStepRequirements(found, {
+        reflections: {},
         quizAnswers: {},
         sortPlacements: {},
       });
-      expect(skipped.ok).toBe(true);
+      expect(missing.ok).toBe(false);
+      const answers = Object.fromEntries(
+        reflections.map((block) => [
+          block.type === "reflection" ? block.question_id : "",
+          "A saved answer.",
+        ])
+      );
+      const ready = validateStepRequirements(found, {
+        reflections: answers,
+        quizAnswers: {},
+        sortPlacements: {},
+      });
+      expect(ready.ok).toBe(true);
     }
+    expect(textOf("dd_mp_13", "dd_mp_13_st_006")).not.toContain("will not be saved");
     expect(textOf("dd_mp_13", "dd_mp_13_st_006")).not.toContain("{'front'");
     const intro = step("dd_mp_13", "dd_mp_13_st_003").step;
     expect(intro.blocks.some((block) => block.type === "reflection")).toBe(false);

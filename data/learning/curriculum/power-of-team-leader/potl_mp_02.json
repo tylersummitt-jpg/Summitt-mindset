@@ -16,34 +16,19 @@
       "title": "The Big Chair",
       "blocks": [
         {
+          "type": "video",
+          "vimeo_video_id": "1150875025",
+          "visible_title": "The Big Chair",
+          "speaker": "Dr. Roberto Fernandez-Romero"
+        },
+        {
           "type": "markdown",
           "markdown": "If you don’t want responsibility, don’t sit in the big chair.”\n\nIn Reach for the Summitt, Coach Summitt is famous for saying, “If you don’t want responsibility, don’t sit in the big chair.”1 Whether it’s a corner office, an executive board room, or a mere cubicle away from the people you manage, “the big chair” comes in all shapes and sizes nowadays.\n\n“Here’s part two,” Pat said. “The most successful you are, the more responsibility you must assume. Responsibility never ends… you don’t finish it and move on to something more interesting. Responsibility is a constant state of being.”\n\n“You want to talk about responsibility, let’s talk about [college] kids,” she quipped. “You really want to talk about responsibility, let’s talk about being in charge of 12 kids at a time, a dozen young women from all over the country, each with their own varying dispositions, backgrounds, problems, quarrels, and love interests. Some of them with cars.”\n\nPat once famously told a story about her friends deciding to throw her a 16th birthday party at a country club in Ashland City when she was in high school. Thrilled, she told her dad she needed the day off from her chores around the farm, but he told her she couldn’t go because they needed to load hay bales. “I spent that birthday sitting on the tractor. There were about 1,000 bales of hay that needed loading,” she recalled. “My father’s point was, you can’t pick and choose the days you feel like being responsible. It’s not something that disappears when you’re tired.”\n\nYou can’t pick and choose the days you feel like being responsible. It’s not something that disappears when you’re tired.\""
         },
         {
           "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_01.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_02.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_03.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_02_st_001_image_04.jpg",
           "alt": ""
-        },
-        {
-          "type": "video",
-          "vimeo_video_id": "1150875025",
-          "visible_title": "The Big Chair",
-          "speaker": "Dr. Roberto Fernandez-Romero"
         }
       ]
     },
@@ -146,31 +131,93 @@
       "title": "Sitting in the Chair",
       "blocks": [
         {
+          "type": "video",
+          "vimeo_video_id": "1150875059",
+          "visible_title": "Pat's Legacy",
+          "speaker": "Dr. Roberto Fernandez-Romero"
+        },
+        {
           "type": "process",
           "steps": [
             {
               "title": "Sitting in the Chair",
-              "body": "In a nutshell, Pat believed that to have responsibility and overall success as a leader, you had to consider these main elements.\n(Scroll through to complete this element)"
-            },
+              "body": "In a nutshell, Pat believed that to have responsibility and overall success as a leader, you had to consider these main elements.\n(Scroll through to complete this element)",
+              "number": 1
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_01.jpg",
+          "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
             {
               "title": "Conclusion:",
-              "body": "Consider how you can implement these main points with your team in order to cultivate increasing levels of responsibility."
-            },
+              "body": "Consider how you can implement these main points with your team in order to cultivate increasing levels of responsibility.",
+              "number": 2
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_02.jpg",
+          "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
             {
               "title": "You have to have responsibility. For everything.",
-              "body": "Pat’s message was simple: You have to have responsibility. For everything. “To be successful, you must accept full responsibility,” she said. “For everything. Headaches, problems, crises. Even when it doesn’t seem fair.”"
-            },
+              "body": "Pat’s message was simple: You have to have responsibility. For everything. “To be successful, you must accept full responsibility,” she said. “For everything. Headaches, problems, crises. Even when it doesn’t seem fair.”",
+              "number": 3
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_03.jpg",
+          "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
             {
               "title": "You have to instill responsibility in your team.",
-              "body": "Pat believed the best way to do this was bit by bit, one task at a time, rather than projecting a lot of responsibility on one person overnight. At the University of Tennessee, she famously increased her players’ responsibilities to each other slowly and incrementally over four years. By the time each player was a senior, they were assigned mentoring roles and had personal charge of an incoming freshman."
-            },
+              "body": "Pat believed the best way to do this was bit by bit, one task at a time, rather than projecting a lot of responsibility on one person overnight. At the University of Tennessee, she famously increased her players’ responsibilities to each other slowly and incrementally over four years. By the time each player was a senior, they were assigned mentoring roles and had personal charge of an incoming freshman.",
+              "number": 4
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_04.jpg",
+          "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
             {
               "title": "You have to clearly define who is responsible for what.",
-              "body": "“I must make sure that the responsibilities of our players and staff are clearly delineated and that everyone understands them. That way, when there is a breakdown, we know what happened,” Pat once said. If you don’t know who is responsible for what, when there’s a problem in a particular area, you won’t know who the clear, “wringable neck” is for that area."
-            },
+              "body": "“I must make sure that the responsibilities of our players and staff are clearly delineated and that everyone understands them. That way, when there is a breakdown, we know what happened,” Pat once said. If you don’t know who is responsible for what, when there’s a problem in a particular area, you won’t know who the clear, “wringable neck” is for that area.",
+              "number": 5
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_05.jpg",
+          "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
             {
               "title": "You have to actively cultivate different levels of responsibility.",
-              "body": "Granting your team responsibility doesn’t have to be like switching a faucet on and off, or delegating entire areas at a time. This sounds like common sense, but it’s amazing how many companies do just that — take a team member with little responsibility and abruptly thrust them into the spotlight where all or most of the responsibility for a particular area now falls on them. Pat would argue that responsibility should be like gradually watering a plant, whereas weeks of drought followed by a deluge of water is overwhelming. Sometimes “too much too fast” even sinks team members with the most potential."
+              "body": "Granting your team responsibility doesn’t have to be like switching a faucet on and off, or delegating entire areas at a time. This sounds like common sense, but it’s amazing how many companies do just that — take a team member with little responsibility and abruptly thrust them into the spotlight where all or most of the responsibility for a particular area now falls on them. Pat would argue that responsibility should be like gradually watering a plant, whereas weeks of drought followed by a deluge of water is overwhelming. Sometimes “too much too fast” even sinks team members with the most potential.",
+              "number": 6
             }
           ]
         },
@@ -187,37 +234,6 @@
         {
           "type": "markdown",
           "markdown": "In the video above, listen to neurologist Dr. Roberto Fernandez-Romero talk about Pat and the impact she made in “The Big Chair.”"
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_01.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_02.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_03.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_04.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_02_st_003_image_05.jpg",
-          "alt": ""
-        },
-        {
-          "type": "video",
-          "vimeo_video_id": "1150875059",
-          "visible_title": "Pat's Legacy",
-          "speaker": "Dr. Roberto Fernandez-Romero"
         }
       ]
     },
@@ -331,10 +347,6 @@
       "sequence": 5,
       "title": "Personal Reflections",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
-        },
         {
           "type": "video",
           "vimeo_video_id": "1150875089",

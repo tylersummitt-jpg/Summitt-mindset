@@ -87,9 +87,9 @@ describe("standalone lesson images", () => {
   });
 
   it("caps a square and centers it", () => {
-    renderImage(imageBlock("potl_mp_01", "potl_mp_01_st_002", "potl_mp_01_st_002_image_02.png"));
+    renderImage(imageBlock("dd_mp_05", "dd_mp_05_st_010", "dd_mp_05_st_010_image_01.jpg"));
     const image = screen.getByRole("img", {
-      name: "Good teams are built on skills, great teams are built on trust.",
+      name: "Stock photograph embedded in the authenticity reflection",
     });
     expect(document.querySelector("[data-image-frame='square']")).toBeTruthy();
     expect(image.getAttribute("style")).toContain("max-width: 28rem");

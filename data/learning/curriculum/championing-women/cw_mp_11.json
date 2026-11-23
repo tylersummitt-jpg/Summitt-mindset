@@ -40,7 +40,21 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Sometimes great communication with your leader may come naturally (if it does, great!). Other times it may be a challenge, especially if your leader has a different personality type or communication style than you do. As a female leader, there are a few things you can do to optimize interactions with your leader.\n\nKnow your leader's communication style. This can be summed up in three parts:"
+          "markdown": "Sometimes great communication with your leader may come naturally (if it does, great!). Other times it may be a challenge, especially if your leader has a different personality type or communication style than you do. As a female leader, there are a few things you can do to optimize interactions with your leader."
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_11_st_002_image_01.png",
+          "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "Know your leader's communication style. This can be summed up in three parts:"
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_11_st_002_image_02.jpg",
+          "alt": ""
         },
         {
           "type": "sections",
@@ -49,12 +63,27 @@
               "id": "right_channel",
               "title": "Right channel",
               "body": "What medium do they prefer most (email, phone, text, Teams or Slack chats, etc.)?"
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "right_timing",
               "title": "Right timing",
               "body": "How often do they prefer communications? Leaders are busy, and some managers prefer frequent updates, while some prefer consolidated updates. Some prefer to receive news/information as it happens in real time, while some prefer to hold items to be discussed in a one-on-one or meeting. Take a minute to think about your leader’s overall preferences. (When in doubt, just ask them!)"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/championing-women/cw_mp_11_st_002_image_03.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "right_message",
               "title": "Right message",
@@ -69,53 +98,18 @@
               "id": "optimizing_sustaining_communication",
               "title": "Optimizing & Sustaining Communication",
               "body": "Let's review some ways to optimize your communication with your leader."
-            },
-            {
-              "id": "in_conclusion",
-              "title": "In Conclusion",
-              "body": "In review, here are some of the ways we've suggested to sustain an open and communicative environment with your leader:\nOptimize Your 1:1s\nBe positive\nBe prepared\nBring solutions\nBe open to feedback"
-            },
-            {
-              "id": "optimize_your_1_1s_with_your_leader",
-              "title": "Optimize your 1:1s with your leader.",
-              "body": "Don’t overlook the rapport that can be formed in regular one-on-ones with your leader. Many times this is the foundation for trust that will help your career sink or swim."
-            },
-            {
-              "id": "be_positive",
-              "title": "Be Positive",
-              "body": "This should be a given, but it’s not. Employees who bring a sense of positivity to work are rarer than you think, and in the world of leadership it can be a breath of fresh air. It doesn’t matter how talented you are—if your attitude is negative (or perceived as negative), your relationship with your leader will eventually suffer. Make positivity a part of your personal brand. Not all conversations will be positive in themselves, but when faced with something negative to communicate, try your best to frame it in a positive way.\n“No one ever got anywhere, accomplished anything, or survived any amount of ill luck by being negative… With attitude you can determine your own performance.”\n– Pat Summitt"
-            },
-            {
-              "id": "be_prepared",
-              "title": "Be Prepared",
-              "body": "A little preparation goes a long way. Whenever you take up your leader’s time, even in a standing meeting or one-on-one, come prepared with a list of items to discuss or an agenda for the meeting, in addition to any information or data that may be needed."
-            },
-            {
-              "id": "bring_solutions",
-              "title": "Bring Solutions",
-              "body": "This one is important! Leaders often feel like their office is a revolving door of problems to solve. Whenever bringing an issue to your leader, also present some options for solving the problem. Your leader may have thoughts of their own on the matter, but the fact that you took the time to think through solutions will go a long way in displaying your own leadership abilities. Depending on the issue and vantage point, sometimes you may be even more qualified to solve the problem than your leader."
-            },
-            {
-              "id": "be_open_to_feedback",
-              "title": "Be Open to Feedback",
-              "body": "Finally, be open to feedback and take any constructive criticism with an open mind. Remember, there’s usually a grain of truth in every bit of feedback, even if the feedback seems severe at the time.\nGiving feedback is a sign of respect and care. Your leader cares enough to offer it to you and believes you have the maturity to receive it. Try not to get defensive about critiques or criticism, but instead use it to propel your best work forward."
             }
           ]
         },
         {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_11_st_002_image_01.png",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_11_st_002_image_02.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/championing-women/cw_mp_11_st_002_image_03.jpg",
-          "alt": ""
+          "type": "sections",
+          "sections": [
+            {
+              "id": "in_conclusion",
+              "title": "In Conclusion",
+              "body": "In review, here are some of the ways we've suggested to sustain an open and communicative environment with your leader:\nOptimize Your 1:1s\nBe positive\nBe prepared\nBring solutions\nBe open to feedback"
+            }
+          ]
         },
         {
           "type": "image",
@@ -123,14 +117,64 @@
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "optimize_your_1_1s_with_your_leader",
+              "title": "Optimize your 1:1s with your leader.",
+              "body": "Don’t overlook the rapport that can be formed in regular one-on-ones with your leader. Many times this is the foundation for trust that will help your career sink or swim."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "be_positive",
+              "title": "Be Positive",
+              "body": "This should be a given, but it’s not. Employees who bring a sense of positivity to work are rarer than you think, and in the world of leadership it can be a breath of fresh air. It doesn’t matter how talented you are—if your attitude is negative (or perceived as negative), your relationship with your leader will eventually suffer. Make positivity a part of your personal brand. Not all conversations will be positive in themselves, but when faced with something negative to communicate, try your best to frame it in a positive way.\n“No one ever got anywhere, accomplished anything, or survived any amount of ill luck by being negative… With attitude you can determine your own performance.”\n– Pat Summitt"
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_11_st_002_image_05.jpg",
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "be_prepared",
+              "title": "Be Prepared",
+              "body": "A little preparation goes a long way. Whenever you take up your leader’s time, even in a standing meeting or one-on-one, come prepared with a list of items to discuss or an agenda for the meeting, in addition to any information or data that may be needed."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "bring_solutions",
+              "title": "Bring Solutions",
+              "body": "This one is important! Leaders often feel like their office is a revolving door of problems to solve. Whenever bringing an issue to your leader, also present some options for solving the problem. Your leader may have thoughts of their own on the matter, but the fact that you took the time to think through solutions will go a long way in displaying your own leadership abilities. Depending on the issue and vantage point, sometimes you may be even more qualified to solve the problem than your leader."
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_11_st_002_image_06.jpg",
           "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "be_open_to_feedback",
+              "title": "Be Open to Feedback",
+              "body": "Finally, be open to feedback and take any constructive criticism with an open mind. Remember, there’s usually a grain of truth in every bit of feedback, even if the feedback seems severe at the time.\nGiving feedback is a sign of respect and care. Your leader cares enough to offer it to you and believes you have the maturity to receive it. Try not to get defensive about critiques or criticism, but instead use it to propel your best work forward."
+            }
+          ]
         }
       ]
     },
@@ -232,10 +276,6 @@
       "sequence": 4,
       "title": "Personal Reflections",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Sources in this course:\n1. Unless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York."
-        },
         {
           "type": "reflection",
           "question_id": "cw_mp_11_st_006_reflection_01",

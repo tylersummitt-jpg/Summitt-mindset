@@ -42,8 +42,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_001_reflection_01",
-          "prompt": "When it comes to work ethic in your team or organization, what aspects do you think are within your control and which are not?",
-          "persist": false
+          "prompt": "When it comes to work ethic in your team or organization, what aspects do you think are within your control and which are not?"
         },
         {
           "type": "markdown",
@@ -272,8 +271,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_003_reflection_01",
-          "prompt": "Pat rather famously (and loudly) confronted behaviors not aligned with her high performance standards and disciplined approach. Do you think these external forces of discipline were enough to produce her highly successful teams over the years? Why or why not?",
-          "persist": false
+          "prompt": "Pat rather famously (and loudly) confronted behaviors not aligned with her high performance standards and disciplined approach. Do you think these external forces of discipline were enough to produce her highly successful teams over the years? Why or why not?"
         },
         {
           "type": "markdown",
@@ -375,8 +373,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_003_reflection_02",
-          "prompt": "Before we give you our thoughts on these three areas, how would you describe what it means to be firm, fair, and consistent with discipline?",
-          "persist": false
+          "prompt": "Before we give you our thoughts on these three areas, how would you describe what it means to be firm, fair, and consistent with discipline?"
         },
         {
           "type": "sections",
@@ -619,8 +616,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_006_reflection_01",
-          "prompt": "How would other, less-talented and less-skilled team members likely feel about this situation?",
-          "persist": false
+          "prompt": "How would other, less-talented and less-skilled team members likely feel about this situation?"
         },
         {
           "type": "markdown",
@@ -629,8 +625,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_006_reflection_02",
-          "prompt": "If you were on a team where a talented member was allowed to slack, would you put in the extra effort? Would you continue to extend yourself?",
-          "persist": false
+          "prompt": "If you were on a team where a talented member was allowed to slack, would you put in the extra effort? Would you continue to extend yourself?"
         },
         {
           "type": "markdown",
@@ -667,8 +662,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_006_reflection_03",
-          "prompt": "How might a leader mistakenly apply situational leadership in a way that negatively impacts the team or organization? In other words, how do you think situational leadership might be misapplied?",
-          "persist": false
+          "prompt": "How might a leader mistakenly apply situational leadership in a way that negatively impacts the team or organization? In other words, how do you think situational leadership might be misapplied?"
         },
         {
           "type": "quiz",
@@ -815,8 +809,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_006_reflection_04",
-          "prompt": "What potential challenges do you see for a leader who wants to both crack down on those not meeting expectations, while also being encouraging and nurturing? What are some ways you might overcome these challenges as a leader?",
-          "persist": false
+          "prompt": "What potential challenges do you see for a leader who wants to both crack down on those not meeting expectations, while also being encouraging and nurturing? What are some ways you might overcome these challenges as a leader?"
         },
         {
           "type": "markdown",
@@ -950,8 +943,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_008_reflection_01",
-          "prompt": "As a leader, what are some ways you could help your team members see discipline as a benefit and a pathway to success, rather than a set of requirements and restrictions to endure?",
-          "persist": false
+          "prompt": "As a leader, what are some ways you could help your team members see discipline as a benefit and a pathway to success, rather than a set of requirements and restrictions to endure?"
         },
         {
           "type": "heading",
@@ -1001,8 +993,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_008_reflection_02",
-          "prompt": "What are the potential risks of establishing discipline and high standards without a clear, motivating mission?",
-          "persist": false
+          "prompt": "What are the potential risks of establishing discipline and high standards without a clear, motivating mission?"
         },
         {
           "type": "heading",
@@ -1192,8 +1183,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_011_reflection_01",
-          "prompt": "What impact — both positive and negative — might this leader's speech have on the organization? Do you think this approach is enough to create a disciplined culture of innovation at his company?",
-          "persist": false
+          "prompt": "What impact — both positive and negative — might this leader's speech have on the organization? Do you think this approach is enough to create a disciplined culture of innovation at his company?"
         },
         {
           "type": "markdown",
@@ -1202,8 +1192,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_06_st_011_reflection_02",
-          "prompt": "How might the leader’s new approach play out in his company? What specifically is different about this approach?",
-          "persist": false
+          "prompt": "How might the leader’s new approach play out in his company? What specifically is different about this approach?"
         },
         {
           "type": "markdown",

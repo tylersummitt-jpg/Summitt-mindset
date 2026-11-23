@@ -33,12 +33,6 @@ const program = {
           question_id: "fixture_saved",
           prompt: "Name one habit you will practice this week.",
         },
-        {
-          type: "reflection",
-          question_id: "fixture_unsaved",
-          prompt: "This response will not be saved or graded.",
-          persist: false,
-        },
       ],
     },
   ],
@@ -52,7 +46,6 @@ describe("explicit reflection contract", () => {
     const reflections = step.blocks.filter((block) => block.type === "reflection");
     expect(reflections.map((block) => (block.type === "reflection" ? block.question_id : ""))).toEqual([
       "fixture_saved",
-      "fixture_unsaved",
     ]);
     expect(step.title).toContain("?");
     expect(step.blocks[0]).toMatchObject({ type: "markdown" });

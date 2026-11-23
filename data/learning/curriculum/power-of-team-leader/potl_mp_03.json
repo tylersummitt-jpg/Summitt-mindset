@@ -87,7 +87,21 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Put yourself in your employee’s shoes for a moment. Has the team been told super-serving is an expectation, for example, or are they simply going “by-the-book?” Are team members rewarded for going the extra mile, or are the consequences and rewards for average service and above-average service basically the same? Are there ways to step into greater levels of responsibility in each role before actually being promoted, or do you have to wait for the title? Are employees encouraged to speak up in a professional way with suggestions for improvement, or rebuked when they say anything?\n\nThere’s a famous saying, “You get what you promote.” The reverse can be true as well: “You get what you allow.” If you treat your team members like order-takers or pencil-pushers, that’s generally what you’ll get. If you teach them that they aren’t supposed to think for themselves … they won’t. If you allow mediocre behavior to be the norm, it will become the norm.\n\nOn the flip side, if you teach them that they are responsible for the outcome — that their actions have a direct effect on the outcomes of the business and their daily environment — they’re more likely to feel motivated to work hard. The elusive quality we’re talking about here is ownership."
+          "markdown": "Put yourself in your employee’s shoes for a moment. Has the team been told super-serving is an expectation, for example, or are they simply going “by-the-book?” Are team members rewarded for going the extra mile, or are the consequences and rewards for average service and above-average service basically the same? Are there ways to step into greater levels of responsibility in each role before actually being promoted, or do you have to wait for the title? Are employees encouraged to speak up in a professional way with suggestions for improvement, or rebuked when they say anything?\n\nThere’s a famous saying, “You get what you promote.” The reverse can be true as well: “You get what you allow.” If you treat your team members like order-takers or pencil-pushers, that’s generally what you’ll get. If you teach them that they aren’t supposed to think for themselves … they won’t. If you allow mediocre behavior to be the norm, it will become the norm."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_03_st_003_image_01.jpg",
+          "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "On the flip side, if you teach them that they are responsible for the outcome — that their actions have a direct effect on the outcomes of the business and their daily environment — they’re more likely to feel motivated to work hard. The elusive quality we’re talking about here is ownership."
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_03_st_003_image_02.jpg",
+          "alt": ""
         },
         {
           "type": "flashcard",
@@ -158,16 +172,6 @@
               "back": "Ownership! Owners are always thinking, “What more can I do?” to help the team."
             }
           ]
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_03_st_003_image_01.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_03_st_003_image_02.jpg",
-          "alt": ""
         },
         {
           "type": "image",
@@ -318,29 +322,10 @@
           "steps": [
             {
               "title": "Creating a Sense of Ownership Among Your Team",
-              "body": "When it comes to the formula above, Pat knew you couldn’t skip steps.\nCommanding people to simply be owners usually doesn’t work. Start where you are — meaning, cultivate responsibility first.\n(Scroll through to complete this element)"
-            },
-            {
-              "title": "Summary",
-              "body": "In a way, ownership forces team members to think about the big picture — and helps you think about the big picture in a way you may not have been able to before. You have a myriad of owners looking at the goals from a diversity of angles now, in a way that one department manager or leader couldn’t hope to cover alone. You don’t have to preach buy-in; you already have it. All by not being afraid to instill responsibility in your team … and committing to champion them as they step into it."
-            },
-            {
-              "title": "Does everyone on the team know what they’re responsible for?",
-              "body": "Not merely what they’re supposed to be doing or not doing with their time “on the clock,” but do they know what exact areas they’re responsible for?"
-            },
-            {
-              "title": "Is everyone uniquely responsible for something?",
-              "body": "This may vary by organization, but take a step back. Do you have six people responsible for steps 1, 2, and 5, for example, but no one responsible for steps 3 and 4? Sometimes articulating responsibility means making some corrections or implementing temporary duties to make sure every person is responsible for something that’s driving toward the bottom line, and no task or area is left without an owner."
-            },
-            {
-              "title": "Does everyone understand that they are not only responsible, but also accountable for the results of the tasks?",
-              "body": "Does the person stocking the grocery bags understand that they aren’t simply putting bags in holsters, but that if the registers run out, they are accountable? Being accountable prompts an entirely new level of thought: How many bags are we going through per day? Do we have enough in the back to last through the week? We went through bags much faster than expected yesterday; should I tell our supply purchaser? Such thoughts are well on their way to ownership.\nDoes the person responsible for running the social media account understand that they aren’t simply responsible for making posts, but accountable for how those posts are performing — and making the necessary adjustment if the results are subpar? Does the person designing the website know they will be held accountable for the bounce rate — how many customers visit the site and abandon the page without engaging or clicking on anything? Or are they too absorbed with slick graphics and a nice logo? You get the idea."
+              "body": "When it comes to the formula above, Pat knew you couldn’t skip steps.\nCommanding people to simply be owners usually doesn’t work. Start where you are — meaning, cultivate responsibility first.\n(Scroll through to complete this element)",
+              "number": 1
             }
           ]
-        },
-        {
-          "type": "markdown",
-          "markdown": "Listen to Corinne Milien, founder and CEO of WRK, recall an ownership lesson under Pat’s mentorship about “rebounding” and always thinking of the next play."
         },
         {
           "type": "image",
@@ -348,14 +333,58 @@
           "alt": ""
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Summary",
+              "body": "In a way, ownership forces team members to think about the big picture — and helps you think about the big picture in a way you may not have been able to before. You have a myriad of owners looking at the goals from a diversity of angles now, in a way that one department manager or leader couldn’t hope to cover alone. You don’t have to preach buy-in; you already have it. All by not being afraid to instill responsibility in your team … and committing to champion them as they step into it.",
+              "number": 2
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_006_image_02.jpg",
           "alt": ""
         },
         {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Does everyone on the team know what they’re responsible for?",
+              "body": "Not merely what they’re supposed to be doing or not doing with their time “on the clock,” but do they know what exact areas they’re responsible for?",
+              "number": 3
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_03_st_006_image_03.jpg",
           "alt": ""
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Is everyone uniquely responsible for something?",
+              "body": "This may vary by organization, but take a step back. Do you have six people responsible for steps 1, 2, and 5, for example, but no one responsible for steps 3 and 4? Sometimes articulating responsibility means making some corrections or implementing temporary duties to make sure every person is responsible for something that’s driving toward the bottom line, and no task or area is left without an owner.",
+              "number": 4
+            }
+          ]
+        },
+        {
+          "type": "process",
+          "steps": [
+            {
+              "title": "Does everyone understand that they are not only responsible, but also accountable for the results of the tasks?",
+              "body": "Does the person stocking the grocery bags understand that they aren’t simply putting bags in holsters, but that if the registers run out, they are accountable? Being accountable prompts an entirely new level of thought: How many bags are we going through per day? Do we have enough in the back to last through the week? We went through bags much faster than expected yesterday; should I tell our supply purchaser? Such thoughts are well on their way to ownership.\nDoes the person responsible for running the social media account understand that they aren’t simply responsible for making posts, but accountable for how those posts are performing — and making the necessary adjustment if the results are subpar? Does the person designing the website know they will be held accountable for the bounce rate — how many customers visit the site and abandon the page without engaging or clicking on anything? Or are they too absorbed with slick graphics and a nice logo? You get the idea.",
+              "number": 5
+            }
+          ]
+        },
+        {
+          "type": "markdown",
+          "markdown": "Listen to Corinne Milien, founder and CEO of WRK, recall an ownership lesson under Pat’s mentorship about “rebounding” and always thinking of the next play."
         },
         {
           "type": "video",
@@ -465,7 +494,7 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Of the reflections listed above, pick two areas you can work on this week to help team members assume more ownership.\n\nSources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
+          "markdown": "Of the reflections listed above, pick two areas you can work on this week to help team members assume more ownership.\n\nSources:"
         },
         {
           "type": "video",

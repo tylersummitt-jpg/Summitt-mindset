@@ -23,16 +23,6 @@
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_01.jpg",
           "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_02.png",
-          "alt": "Good teams are built on skills, great teams are built on trust."
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_01_st_002_image_04.jpg",
-          "alt": ""
         }
       ]
     },
@@ -267,14 +257,6 @@
       "sequence": 5,
       "title": "Personal Reflections",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "On a scale of 1 to 10, how well do you think they currently pull together as a team:\n\nHow well do you know your team outside of work: birthdays, hobbies, families, favorite sports teams, etc. 1 ----------------------------------------------- 5 ------------------------------------------------ 10\nNot very well                                       Somewhat                                             Pretty well"
-        },
-        {
-          "type": "markdown",
-          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
-        },
         {
           "type": "heading",
           "level": 2,

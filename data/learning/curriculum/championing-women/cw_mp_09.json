@@ -17,12 +17,16 @@
       "blocks": [
         {
           "type": "markdown",
-          "markdown": "Ever know an individual who tried to fight every battle? Maybe you’re thinking of someone in your office right now. You may even be thinking of yourself! As a woman, there are a few strategic principles to staying in it for the long haul and making your career go the distance when others before you have flamed out.\n\nBecome a Go-To Team Player\nThe first is, become a go-to team member. Remember the previous lesson about being your authentic self? Don’t wait for recognition or a promotion to become an ideal team player. As a coach, Pat intentionally looked for players who wanted the ball—those who had declared themselves competitors and felt confident enough in their skills to request the ball when the game was on the line. Their team knew they could count on them to perform so they became the go-to. This takes intentionality and sometimes going above and beyond in strategic areas. The key word is strategic. Learn how to best add value to your team without automatically accepting every assignment that comes your way."
+          "markdown": "Ever know an individual who tried to fight every battle? Maybe you’re thinking of someone in your office right now. You may even be thinking of yourself! As a woman, there are a few strategic principles to staying in it for the long haul and making your career go the distance when others before you have flamed out."
         },
         {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_001_image_01.jpg",
           "alt": ""
+        },
+        {
+          "type": "markdown",
+          "markdown": "Become a Go-To Team Player\nThe first is, become a go-to team member. Remember the previous lesson about being your authentic self? Don’t wait for recognition or a promotion to become an ideal team player. As a coach, Pat intentionally looked for players who wanted the ball—those who had declared themselves competitors and felt confident enough in their skills to request the ball when the game was on the line. Their team knew they could count on them to perform so they became the go-to. This takes intentionality and sometimes going above and beyond in strategic areas. The key word is strategic. Learn how to best add value to your team without automatically accepting every assignment that comes your way."
         },
         {
           "type": "image",
@@ -54,31 +58,6 @@
               "id": "strategic_decision_making",
               "title": "Strategic Decision-Making",
               "body": "Knowing when to pick your battles involves assessing the importance of an issue, understanding the potential impact on your career, and considering the long-term consequences of engaging in a particular issue."
-            },
-            {
-              "id": "preserving_energy_and_focus",
-              "title": "Preserving Energy and Focus",
-              "body": "Engaging in every battle can be exhausting and detract from your overall focus and productivity. Knowing when to pick your battles allows you to preserve your energy for the issues that truly matter."
-            },
-            {
-              "id": "demonstrating_emotional_intelligence",
-              "title": "Demonstrating Emotional Intelligence",
-              "body": "Emotional intelligence plays a big role in workplace dynamics. Choosing battles requires recognizing and managing emotions effectively, leading to more constructive interactions between you and your peers."
-            },
-            {
-              "id": "distinguishing_between_major_and_minor_i",
-              "title": "Distinguishing Between Major and Minor Issues",
-              "body": "Not every workplace issue requires the same level of your attention. Period. Major issues that align with your core values or significantly impact your work should be prioritized."
-            },
-            {
-              "id": "assessing_the_long_term_impact",
-              "title": "Assessing the Long-Term Impact",
-              "body": "Consider the long-term impact of a potential conflict. Will the issue at hand have lasting consequences on your career, relationships, or the overall work environment?"
-            },
-            {
-              "id": "evaluating_personal_investment",
-              "title": "Evaluating Personal Investment",
-              "body": "If the matter directly affects your responsibilities, well-being, or professional growth, it may be worth addressing. However, for issues that are more peripheral to your role, choosing to step back might be the wiser option."
             }
           ]
         },
@@ -88,9 +67,29 @@
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "preserving_energy_and_focus",
+              "title": "Preserving Energy and Focus",
+              "body": "Engaging in every battle can be exhausting and detract from your overall focus and productivity. Knowing when to pick your battles allows you to preserve your energy for the issues that truly matter."
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_02.jpg",
           "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "demonstrating_emotional_intelligence",
+              "title": "Demonstrating Emotional Intelligence",
+              "body": "Emotional intelligence plays a big role in workplace dynamics. Choosing battles requires recognizing and managing emotions effectively, leading to more constructive interactions between you and your peers."
+            }
+          ]
         },
         {
           "type": "image",
@@ -98,14 +97,44 @@
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "distinguishing_between_major_and_minor_i",
+              "title": "Distinguishing Between Major and Minor Issues",
+              "body": "Not every workplace issue requires the same level of your attention. Period. Major issues that align with your core values or significantly impact your work should be prioritized."
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_04.jpg",
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "assessing_the_long_term_impact",
+              "title": "Assessing the Long-Term Impact",
+              "body": "Consider the long-term impact of a potential conflict. Will the issue at hand have lasting consequences on your career, relationships, or the overall work environment?"
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_09_st_002_image_05.jpg",
           "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "evaluating_personal_investment",
+              "title": "Evaluating Personal Investment",
+              "body": "If the matter directly affects your responsibilities, well-being, or professional growth, it may be worth addressing. However, for issues that are more peripheral to your role, choosing to step back might be the wiser option."
+            }
+          ]
         },
         {
           "type": "image",
@@ -212,10 +241,6 @@
       "sequence": 4,
       "title": "Personal Reflections",
       "blocks": [
-        {
-          "type": "markdown",
-          "markdown": "Sources for this course:\nUnless otherwise noted, all quotes taken from Reach for the Summitt, by Pat Summitt (with Sally Jenkins). Three Rivers Press, Crown Publishing Group. 1998. New York."
-        },
         {
           "type": "reflection",
           "question_id": "cw_mp_09_st_006_reflection_01",

@@ -44,7 +44,17 @@
               "id": "active_listening",
               "title": "Active Listening",
               "body": "Giving someone your undivided attention"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_002_image_01.jpg",
+          "alt": "A man listening to a colleague across a table"
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "passive_listening",
               "title": "Passive Listening",
@@ -55,11 +65,6 @@
         {
           "type": "markdown",
           "markdown": "While you are listening to someone, don’t just take in the words. Study the speaker. Be aware of the speaker’s voice and mannerisms. Notice what his or her effect is on you. Be aware of your own voice and body language, too.”"
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_002_image_01.jpg",
-          "alt": "A man listening to a colleague across a table"
         },
         {
           "type": "image",
@@ -197,42 +202,112 @@
               "id": "set_aside_time_for_1_1_conversations",
               "title": "Set Aside Time for 1:1 Conversations",
               "body": "One-on-one conversations are a great way to get to know your employees on a personal level and understand their perspective. As your schedule allows, make it a priority to work them into your regular routine.\nHere are some tips to make the most of the time in your 1:1s."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_01.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "summary",
               "title": "Summary",
               "body": "Consider which of these you can work in to meetings with your team to help model active listening the most."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "avoid_distractions",
               "title": "Avoid distractions.",
               "body": "When you're having a conversation with an employee, avoid distractions like checking your phone or looking at your computer. Give them your undivided attention."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_02.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "ask_open_ended_questions",
               "title": "Ask open-ended questions.",
               "body": "Open-ended questions can help you get a better understanding of your employee's perspective. Ask questions like, \"How do you feel about this situation?\" or \"What do you think we can do to improve?\""
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_03.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "don_t_interrupt",
               "title": "Don't interrupt.",
               "body": "Interrupting someone when they’re speaking makes them feel like their opinions aren’t valued. Wait until they have finished speaking before responding."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "take_notes",
               "title": "Take notes.",
               "body": "Taking notes during a conversation shows the other person that you’re taking their concerns seriously and you value their input. It also helps you remember important details."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_04.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "be_empathetic",
               "title": "Be empathetic.",
               "body": "Empathy is the ability to understand and share someone else's feelings. When you're listening to an employee, try to put yourself in their shoes and understand how they are feeling."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_05.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "repeat_confirm_the_issue",
               "title": "Repeat/confirm the issue.",
               "body": "To show the speaker you understand the issue being communicated and to avoid any miscommunication, listen to the employee as they share, then repeat back the problem or issue being discussed. (“Just to make sure I understand, you’re saying the problem is with the new supply chain. Is that the issue?”) This shows the employee that you’re listening and gives them a chance to clarify any additional details if needed. (“Yes, it’s mainly the supply chain, but there’s also an issue with the details on the packages out of the Denver office.”)"
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_06.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "follow_up",
               "title": "Follow up.",
@@ -243,36 +318,6 @@
         {
           "type": "markdown",
           "markdown": "Exercise"
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_01.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_02.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_03.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_04.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_05.jpg",
-          "alt": ""
-        },
-        {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_004_image_06.jpg",
-          "alt": ""
         },
         {
           "type": "image",
@@ -445,27 +490,57 @@
               "id": "create_a_culture_of_open_communication",
               "title": "Create a Culture of Open Communication",
               "body": "Encourage your employees to speak up and share their ideas by creating a culture of open communication.\nHere are some things to keep in mind when encouraging openness."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "summary",
               "title": "Summary",
               "body": "In the end, listening as a leader is about creating a culture of openness and respect. It's about being willing to hear perspectives that are different from your own and using those perspectives to make better decisions. So, take the time to listen to your team — you might just be surprised by what you hear!"
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "seek_regular_feedback",
               "title": "Seek regular feedback.",
               "body": "Asking your employees for feedback on your leadership style shows that you’re open to growth and improvement. It also helps you better understand their needs."
-            },
+            }
+          ]
+        },
+        {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_01.jpg",
+          "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "don_t_punish_solicited_feedback",
               "title": "Don’t punish solicited feedback.",
               "body": "Even if feedback may be negative in nature, avoid punishing honest feedback that you asked for, as long as it’s given respectfully."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "thank_them_for_sharing",
               "title": "Thank them for sharing.",
               "body": "Thanking your employees for sharing their concerns or ideas shows that you value their input and appreciate their willingness to speak up."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "go_on_a_listening_tour",
               "title": "Go on a listening tour.",
@@ -478,64 +553,39 @@
           "markdown": "Exercise\n\nWhich of these behaviors can leaders use to encourage open communication, versus closed communication? Flip each card to complete this element."
         },
         {
+          "type": "image",
+          "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_02.png",
+          "alt": ""
+        },
+        {
           "type": "sections",
           "sections": [
             {
               "id": "open_this_allows_communication_to_flow_f",
               "title": "Open!",
               "body": "Open! This allows communication to flow freely between teams."
-            },
-            {
-              "id": "cross_department_collaboration",
-              "title": "Cross-department collaboration",
-              "body": "Closed! When communication is unnecessarily siloed, it creates closed communication loops."
-            },
-            {
-              "id": "emphasizing_hierarchy",
-              "title": "Emphasizing hierarchy",
-              "body": "Open! This allows everyone to hear important communication from the source, in person."
-            },
-            {
-              "id": "regular_department_meetings",
-              "title": "Regular department meetings",
-              "body": "Closed! If leaders respond negatively to mistakes, employees may avoid speaking up or for fear of criticism."
-            },
-            {
-              "id": "emphasizing_perfectionism",
-              "title": "Emphasizing perfectionism",
-              "body": "Open! This allows leaders to hear feedback, good news and concerns in an informal setting."
-            },
-            {
-              "id": "walking_the_floor",
-              "title": "Walking the floor",
-              "body": "Closed! Over-monitoring communication channels or tools stifles employees ability to speak freely when working."
-            },
-            {
-              "id": "micromanaging_communication_channels",
-              "title": "Micromanaging communication channels",
-              "body": "Open! When you share both the good and the bad with team members, it builds trust."
-            },
-            {
-              "id": "sharing_both_good_and_bad_news",
-              "title": "Sharing both good and bad news",
-              "body": "Closed! If feedback is only solicited through forms or emails, communication will be stifled."
-            },
-            {
-              "id": "discouraging_informality",
-              "title": "Discouraging informality",
-              "body": "Discouraging informality"
             }
           ]
         },
         {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_01.jpg",
-          "alt": ""
+          "type": "sections",
+          "sections": [
+            {
+              "id": "cross_department_collaboration",
+              "title": "Cross-department collaboration",
+              "body": "Closed! When communication is unnecessarily siloed, it creates closed communication loops."
+            }
+          ]
         },
         {
-          "type": "image",
-          "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_02.png",
-          "alt": ""
+          "type": "sections",
+          "sections": [
+            {
+              "id": "emphasizing_hierarchy",
+              "title": "Emphasizing hierarchy",
+              "body": "Open! This allows everyone to hear important communication from the source, in person."
+            }
+          ]
         },
         {
           "type": "image",
@@ -543,9 +593,69 @@
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "regular_department_meetings",
+              "title": "Regular department meetings",
+              "body": "Closed! If leaders respond negatively to mistakes, employees may avoid speaking up or for fear of criticism."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "emphasizing_perfectionism",
+              "title": "Emphasizing perfectionism",
+              "body": "Open! This allows leaders to hear feedback, good news and concerns in an informal setting."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "walking_the_floor",
+              "title": "Walking the floor",
+              "body": "Closed! Over-monitoring communication channels or tools stifles employees ability to speak freely when working."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "micromanaging_communication_channels",
+              "title": "Micromanaging communication channels",
+              "body": "Open! When you share both the good and the bad with team members, it builds trust."
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/power-of-team-leader/potl_mp_09_st_006_image_04.jpg",
           "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "sharing_both_good_and_bad_news",
+              "title": "Sharing both good and bad news",
+              "body": "Closed! If feedback is only solicited through forms or emails, communication will be stifled."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "discouraging_informality",
+              "title": "Discouraging informality",
+              "body": "Discouraging informality"
+            }
+          ]
         }
       ]
     },
@@ -564,10 +674,6 @@
               "body": "Now, how good are you at active listening?\n\nWhat are three things you can do to improve?1.2.3."
             }
           ]
-        },
-        {
-          "type": "markdown",
-          "markdown": "Sources:\nUnless otherwise noted, all quotes taken from, Reach for the Summitt, by Pat Summitt and Sally Jenkins. Three Rivers Press. 1998."
         },
         {
           "type": "video",

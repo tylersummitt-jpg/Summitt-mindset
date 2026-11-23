@@ -214,7 +214,12 @@ describe("Programs image curriculum, first pass", () => {
     expect(imageSrcs("potl_mp_09", "potl_mp_09_st_004")).toHaveLength(7);
     expect(imageSrcs("potl_mp_11", "potl_mp_11_st_005")).toHaveLength(8);
     expect(imageSrcs("cw_mp_02", "cw_mp_02_st_003")).toHaveLength(4);
-    expect(imageSrcs("cw_mp_03", "cw_mp_03_st_002")).toHaveLength(4);
+    expect(imageSrcs("cw_mp_03", "cw_mp_03_st_002")).toEqual([
+      "/learning/championing-women/cw_mp_03_st_002_image_01.jpg",
+    ]);
+    expect(imageSrcs("cw_mp_03", "cw_mp_03_st_004")).toEqual([
+      "/learning/championing-women/cw_mp_03_st_004_image_01.jpg",
+    ]);
     expect(step("cw_mp_02", "cw_mp_02_st_003").blocks.some((block) => block.type === "gallery")).toBe(false);
     expect(step("cw_mp_03", "cw_mp_03_st_002").blocks.some((block) => block.type === "gallery")).toBe(false);
     expect(imageSrcs("cw_mp_07", "cw_mp_07_st_001")).toHaveLength(2);

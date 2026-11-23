@@ -26,21 +26,6 @@
               "id": "rachel",
               "title": "Rachel",
               "body": "Take, for example, Rachel who has an upcoming annual review. She feels strongly that she is underpaid in her position, but is afraid to negotiate a salary increase beyond the standard 3 to 5 percent; what if it doesn’t go over well?"
-            },
-            {
-              "id": "jayla",
-              "title": "Jayla",
-              "body": "And then there’s Jayla, who has been in her position for two years and has consistently delivered exceptional results in her role, but has a hard time approaching the subject of promotion with her managing director. Leadership roles are limited at her organization, and who is she to imply that she is more qualified than some of her peers?"
-            },
-            {
-              "id": "lynn",
-              "title": "Lynn",
-              "body": "Elsewhere, Lynn is starting to notice that certain projects aligning with her specific expertise are often assigned to other team members. She wants to advocate for a different set of job duties but is afraid to be perceived as rocking the boat."
-            },
-            {
-              "id": "carmen",
-              "title": "Carmen",
-              "body": "Finally there’s Carmen, a dedicated professional and new mom who loves her job, but wants to negotiate for a more flexible work schedule.\nAny of these sound familiar?"
             }
           ]
         },
@@ -50,14 +35,44 @@
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "jayla",
+              "title": "Jayla",
+              "body": "And then there’s Jayla, who has been in her position for two years and has consistently delivered exceptional results in her role, but has a hard time approaching the subject of promotion with her managing director. Leadership roles are limited at her organization, and who is she to imply that she is more qualified than some of her peers?"
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_001_image_02.jpg",
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "lynn",
+              "title": "Lynn",
+              "body": "Elsewhere, Lynn is starting to notice that certain projects aligning with her specific expertise are often assigned to other team members. She wants to advocate for a different set of job duties but is afraid to be perceived as rocking the boat."
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_001_image_03.jpg",
           "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "carmen",
+              "title": "Carmen",
+              "body": "Finally there’s Carmen, a dedicated professional and new mom who loves her job, but wants to negotiate for a more flexible work schedule.\nAny of these sound familiar?"
+            }
+          ]
         },
         {
           "type": "image",
@@ -253,41 +268,26 @@
               "id": "negotiating_salary",
               "title": "Negotiating Salary",
               "body": "When it comes to negotiating, salary is one of the most common negotiations women leaders face. Negotiating your salary is more than just a financial discussion; it's a reflection of your value, skills, and contributions to the organization, which makes it feel very personal."
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "review",
               "title": "Review",
               "body": "In short, with a little practice, negotiation won’t seem so foreign. If you’re able, practice some of these guidelines on smaller negotiations where the stakes aren’t so high. Every female leader needs negotiation at some point in her career (if not regularly) and practice makes perfect!"
-            },
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
             {
               "id": "know_your_worth",
               "title": "Know your worth.",
               "body": "The first step in successful salary negotiation is understanding your market value. Studies show that women routinely dismiss or undervalue their own skills in the workplace, which is problematic when advocating for pay increases. Arm yourself with data by researching industry standards. Consider your qualifications, experience, and the responsibilities of the role. Many times the first number in a salary negotiation is based on what the previous person was paid or what the department can afford for the role, and may not be based on market value or your skills specifically. Confidence stems from preparation."
-            },
-            {
-              "id": "be_armed_with_a_range_not_a_finite_numbe",
-              "title": "Be armed with a range, not a finite number.",
-              "body": "What’s the lowest you would accept, and what is your ideal range? Your dream number? The three might be very different, but it’s important to think about where the bottom is and what you’re working toward in advance of the negotiation. As stated earlier, don’t give out your range."
-            },
-            {
-              "id": "be_open_and_flexible",
-              "title": "Be open and flexible.",
-              "body": "Negotiation is a two-way street. Be open to discussion and compromise. If the employer can't meet your salary expectations, explore other areas such as additional benefits, flexible work arrangements, or performance-based bonuses. You don’t have to automatically accept, but it’s important to be open-minded."
-            },
-            {
-              "id": "maintain_a_positive_tone",
-              "title": "Maintain a positive tone.",
-              "body": "To keep the negotiation positive, emphasize your enthusiasm for the role and the company while discussing compensation. Let them know that you’re coming from a place of excitement about the role, not implying that you need to be compensated for the grunt work, stress, or long hours involved. Frame your negotiation in positive terms. Instead of saying, \"I can't accept this offer,\" try, \"I’m excited about the opportunity and my role here, and I believe a slight adjustment in the salary would better align with my skills and experience.\""
-            },
-            {
-              "id": "quantify_your_achievements",
-              "title": "Quantify your achievements.",
-              "body": "Provide concrete examples of your accomplishments and their impact on the company (or for previous employers). Salary shouldn’t be a hypothetical number. Use metrics and specific examples to demonstrate the value you bring to the table."
-            },
-            {
-              "id": "don_t_expect_an_answer_on_the_spot",
-              "title": "Don’t expect an answer on the spot.",
-              "body": "Don’t be too frustrated if the other party needs to review your salary offer. There may be other implications to consider, such as salary increases given within 90 days of your professional review or salary constraints for a particular position. Many times your direct leader or supervisor isn’t the only person who has to sign off, so be prepared for a slight delay. But be prepared with an acceptable time frame: “I know my annual review isn’t for eight months, but I’ve taken on a new role with increased work. What can you do in the next 90 days?”\nIn short, with a little practice, negotiation won’t seem so foreign. If you’re able, practice some of these guidelines on smaller negotiations where the stakes aren’t so high. Every female leader needs negotiation at some point in her career (if not regularly) and practice makes perfect!"
             }
           ]
         },
@@ -297,9 +297,39 @@
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "be_armed_with_a_range_not_a_finite_numbe",
+              "title": "Be armed with a range, not a finite number.",
+              "body": "What’s the lowest you would accept, and what is your ideal range? Your dream number? The three might be very different, but it’s important to think about where the bottom is and what you’re working toward in advance of the negotiation. As stated earlier, don’t give out your range."
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_004_image_02.png",
           "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "be_open_and_flexible",
+              "title": "Be open and flexible.",
+              "body": "Negotiation is a two-way street. Be open to discussion and compromise. If the employer can't meet your salary expectations, explore other areas such as additional benefits, flexible work arrangements, or performance-based bonuses. You don’t have to automatically accept, but it’s important to be open-minded."
+            }
+          ]
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "maintain_a_positive_tone",
+              "title": "Maintain a positive tone.",
+              "body": "To keep the negotiation positive, emphasize your enthusiasm for the role and the company while discussing compensation. Let them know that you’re coming from a place of excitement about the role, not implying that you need to be compensated for the grunt work, stress, or long hours involved. Frame your negotiation in positive terms. Instead of saying, \"I can't accept this offer,\" try, \"I’m excited about the opportunity and my role here, and I believe a slight adjustment in the salary would better align with my skills and experience.\""
+            }
+          ]
         },
         {
           "type": "image",
@@ -307,9 +337,29 @@
           "alt": ""
         },
         {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "quantify_your_achievements",
+              "title": "Quantify your achievements.",
+              "body": "Provide concrete examples of your accomplishments and their impact on the company (or for previous employers). Salary shouldn’t be a hypothetical number. Use metrics and specific examples to demonstrate the value you bring to the table."
+            }
+          ]
+        },
+        {
           "type": "image",
           "src": "/learning/championing-women/cw_mp_12_st_004_image_04.jpg",
           "alt": ""
+        },
+        {
+          "type": "sections",
+          "sections": [
+            {
+              "id": "don_t_expect_an_answer_on_the_spot",
+              "title": "Don’t expect an answer on the spot.",
+              "body": "Don’t be too frustrated if the other party needs to review your salary offer. There may be other implications to consider, such as salary increases given within 90 days of your professional review or salary constraints for a particular position. Many times your direct leader or supervisor isn’t the only person who has to sign off, so be prepared for a slight delay. But be prepared with an acceptable time frame: “I know my annual review isn’t for eight months, but I’ve taken on a new role with increased work. What can you do in the next 90 days?”\nIn short, with a little practice, negotiation won’t seem so foreign. If you’re able, practice some of these guidelines on smaller negotiations where the stakes aren’t so high. Every female leader needs negotiation at some point in her career (if not regularly) and practice makes perfect!"
+            }
+          ]
         },
         {
           "type": "reflection",

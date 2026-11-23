@@ -14,6 +14,7 @@ import {
   programsBody,
   programsConceptListItem,
   programsGroupLabel,
+  programsInstructionHeading,
   programsSortActivityTitle,
   programsSortCardHeading,
   programsSortCardIndex,
@@ -243,7 +244,7 @@ describe("step experience", () => {
     expect(sort.container.innerHTML).not.toContain("correct_choice_ids");
   });
 
-  it("restores a saved reflection, autosaves, and stays put when continue fails", async () => {
+  it("restores a saved reflection, requires resubmit after an edit, and stays put when continue fails", async () => {
     const user = userEvent.setup();
     continueLearningStep.mockResolvedValue({
       ok: false,
@@ -255,9 +256,16 @@ describe("step experience", () => {
     const textarea = screen.getByRole("textbox");
     expect(textarea).toHaveProperty("value", "Saved earlier");
     expect(textarea.className).toContain("text-base");
+    expect(screen.getByRole("status").textContent).toContain("Saved");
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", false);
 
     await user.clear(textarea);
     await user.type(textarea, "A later answer");
+    expect(saveLearningReflection).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Submit" })).toHaveProperty("disabled", false);
+
+    await user.click(screen.getByRole("button", { name: "Submit" }));
     await waitFor(() => {
       expect(saveLearningReflection).toHaveBeenCalled();
     });
@@ -270,6 +278,7 @@ describe("step experience", () => {
     expect(payload.answerText).toContain("A later answer");
     expect(payload).not.toHaveProperty("clerkUserId");
     expect(payload).not.toHaveProperty("clerk_user_id");
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", false);
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
     const alert = await screen.findByRole("alert");
@@ -978,10 +987,10 @@ describe("step experience", () => {
     expect(screen.queryByText(/Passing:/)).toBeNull();
   });
 
-  it("keeps an unsaved reflection off the server until it is submitted", async () => {
+  it("saves a reflection only when Submit is used and then unlocks Continue", async () => {
     const user = userEvent.setup();
     const loaded = getLearningStepForClient("dd_mp_12", "dd_mp_12_st_011");
-    if (!loaded) throw new Error("missing unsaved reflection");
+    if (!loaded) throw new Error("missing reflection");
     render(
       <StepExperience
         miniProgramId="dd_mp_12"
@@ -995,15 +1004,20 @@ describe("step experience", () => {
       />
     );
     const field = screen.getByRole("textbox");
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", true);
     await user.type(field, "A private note");
     expect(saveLearningReflection).not.toHaveBeenCalled();
     expect(screen.queryByText("Saving…")).toBeNull();
     expect(screen.queryByText("Saved")).toBeNull();
     expect(screen.queryByText(/Thank you/)).toBeNull();
+    expect(screen.queryByText(/not saved/i)).toBeNull();
     await user.click(screen.getByRole("button", { name: "Submit" }));
-    expect(saveLearningReflection).not.toHaveBeenCalled();
-    expect(screen.getByText(/Thank you/)).toBeTruthy();
-    expect(screen.queryByText("Saved")).toBeNull();
+    await waitFor(() => {
+      expect(saveLearningReflection).toHaveBeenCalledTimes(1);
+    });
+    expect(screen.getByText("Saved")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", false);
+    expect(field).toHaveProperty("value", "A private note");
   });
 
   it("hides the familiarity reflection until grading and restores it only after See results", async () => {
@@ -1045,6 +1059,69 @@ describe("step experience", () => {
     renderFamiliarity();
     expect(screen.queryByText(reflection)).toBeNull();
     expect(screen.queryByText(reading)).toBeNull();
+  });
+
+  it("gates Continue on every reflection and keeps typed answers off the orange prompt", async () => {
+    const user = userEvent.setup();
+    const loaded = getLearningStepForClient("dd_mp_09", "dd_mp_09_st_005");
+    if (!loaded) throw new Error("missing family reflections");
+    render(
+      <StepExperience
+        miniProgramId="dd_mp_09"
+        collectionTitle="Definite Dozen"
+        step={loaded}
+        stepCount={15}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements
+        isLastStep={false}
+      />
+    );
+    const prompt = screen.getByText(/how did it make you feel/i);
+    expect(prompt.className).toBe(programsInstructionHeading + " block");
+    const boxes = screen.getAllByRole("textbox");
+    expect(boxes).toHaveLength(3);
+    for (const box of boxes) {
+      expect(box.className).toContain("text-stone-100");
+      expect(box.className).not.toContain("text-[var(--brand)]");
+    }
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", true);
+    for (const box of boxes) await user.type(box, "Noted");
+    await user.click(screen.getAllByRole("button", { name: "Submit" })[0]);
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", true);
+    await user.click(screen.getAllByRole("button", { name: "Submit" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "Submit" })[0]);
+    await waitFor(() => {
+      expect(saveLearningReflection).toHaveBeenCalledTimes(3);
+    });
+    expect(screen.getByRole("button", { name: "Continue" })).toHaveProperty("disabled", false);
+  });
+
+  it("shows Correct! for a graded scenario and does not repeat Your answer", async () => {
+    const user = userEvent.setup();
+    const loaded = getLearningStepForClient("dd_mp_09", "dd_mp_09_st_003");
+    if (!loaded) throw new Error("missing family scenario");
+    render(
+      <StepExperience
+        miniProgramId="dd_mp_09"
+        collectionTitle="Definite Dozen"
+        step={loaded}
+        stepCount={15}
+        previousHref={null}
+        initialAnswers={{}}
+        enforceRequirements
+        isLastStep={false}
+      />
+    );
+    await user.click(screen.getByRole("button", { name: "Team members have occasional conflicts." }));
+    expect(screen.getByText("Correct!")).toBeTruthy();
+    expect(screen.queryByText(/Your answer/)).toBeNull();
+    expect(screen.queryByText(/Correct answer:/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Team members never have conflicts." }));
+    expect(
+      screen.getByText("Incorrect. Correct answer: Team members have occasional conflicts.")
+    ).toBeTruthy();
+    expect(screen.queryByText(/Your answer/)).toBeNull();
   });
 
   it("keeps the second change reflection hidden until the first one is revealed", () => {

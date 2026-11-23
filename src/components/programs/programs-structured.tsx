@@ -213,9 +213,9 @@ export function ProgramsProcess({ block }: { block: LearningProcessBlock }) {
       {block.steps.map((step, index) => (
         <li key={step.title} className={`${programsSectionCard} min-w-0`}>
           <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[var(--brand)]">
-            {index + 1}. {step.title}
+            {step.number ?? index + 1}. {step.title}
           </p>
-          <p className={`mt-3 ${programsBody} break-words`}>{step.body}</p>
+          {step.body ? <p className={`mt-3 ${programsBody} break-words`}>{step.body}</p> : null}
         </li>
       ))}
     </ol>

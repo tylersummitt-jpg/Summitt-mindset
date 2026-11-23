@@ -85,6 +85,8 @@ export type LearningCalloutBlock = {
 export type LearningProcessStep = {
   title: string;
   body: string;
+  /** Display number when this step continues a series split across blocks. */
+  number?: number;
 };
 
 export type LearningProcessBlock = {
@@ -160,6 +162,8 @@ export type LearningReflectionBlock = {
   persist?: boolean;
   /** Shown after a non-persisted response is submitted. Not stored. */
   confirmation?: string;
+  /** The question itself reads as an orange heading. The answer field stays body text. */
+  prompt_role?: "accent";
   /** Hide until the named reflection is submitted or the quiz is graded. */
   reveal_after?: string;
 };
@@ -520,9 +524,20 @@ function parseBlock(
           if (!isRecord(stepValue)) {
             throw new Error(`Invalid curriculum: ${label}.steps[${index}]`);
           }
+          if (typeof stepValue.body !== "string") {
+            throw new Error(`Invalid curriculum: ${label}.steps[${index}].body`);
+          }
+          const number = stepValue.number;
+          if (
+            number != null &&
+            (typeof number !== "number" || !Number.isInteger(number) || number < 1)
+          ) {
+            throw new Error(`Invalid curriculum: ${label}.steps[${index}].number`);
+          }
           return {
             title: requireString(stepValue.title, `${label}.steps[${index}].title`),
-            body: requireString(stepValue.body, `${label}.steps[${index}].body`),
+            body: stepValue.body.trim(),
+            ...(typeof number === "number" ? { number } : {}),
           };
         }),
       };
@@ -585,12 +600,16 @@ function parseBlock(
       if (confirmation && value.persist !== false) {
         throw new Error(`Invalid curriculum: ${label}.confirmation requires persist false`);
       }
+      if (value.prompt_role != null && value.prompt_role !== "accent") {
+        throw new Error(`Invalid curriculum: ${label}.prompt_role`);
+      }
       return {
         type: "reflection",
         question_id: questionId,
         prompt: requireString(value.prompt, `${label}.prompt`),
         ...(value.persist === false ? { persist: false as const } : {}),
         ...(confirmation ? { confirmation } : {}),
+        ...(value.prompt_role === "accent" ? { prompt_role: "accent" as const } : {}),
         ...revealField(value, label),
       };
     }

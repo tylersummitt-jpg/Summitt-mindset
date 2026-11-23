@@ -41,20 +41,17 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_04_st_001_reflection_01",
-          "prompt": "If Paul is a disloyal employee, what are some ways you think he might respond in this situation?",
-          "persist": false
+          "prompt": "If Paul is a disloyal employee, what are some ways you think he might respond in this situation?"
         },
         {
           "type": "reflection",
           "question_id": "dd_mp_04_st_001_reflection_02",
-          "prompt": "Let’s assume that you, as the leader, are right, and better outcomes emerge by ignoring Paul's advised changes. Let's also assume that Paul is a loyal employee. From that experience, what could both the leader and follower learn?",
-          "persist": false
+          "prompt": "Let’s assume that you, as the leader, are right, and better outcomes emerge by ignoring Paul's advised changes. Let's also assume that Paul is a loyal employee. From that experience, what could both the leader and follower learn?"
         },
         {
           "type": "reflection",
           "question_id": "dd_mp_04_st_001_reflection_03",
-          "prompt": "Now let’s assume yet another outcome. What if Paul, as the follower, was right about his suggestion? What if Paul’s prediction was correct and your team or group falters because the leader made the wrong choice?",
-          "persist": false
+          "prompt": "Now let’s assume yet another outcome. What if Paul, as the follower, was right about his suggestion? What if Paul’s prediction was correct and your team or group falters because the leader made the wrong choice?"
         }
       ]
     },
@@ -413,8 +410,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_04_st_008_reflection_01",
-          "prompt": "Think about this: For the most part, teachers and school leaders don't tell children their IQ. Why do you think that is?",
-          "persist": false
+          "prompt": "Think about this: For the most part, teachers and school leaders don't tell children their IQ. Why do you think that is?"
         },
         {
           "type": "heading",
@@ -428,8 +424,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_04_st_008_reflection_02",
-          "prompt": "Think about this: As you're working your way through this section of the material, what are you feeling right now?",
-          "persist": false
+          "prompt": "Think about this: As you're working your way through this section of the material, what are you feeling right now?"
         },
         {
           "type": "markdown",
@@ -537,8 +532,7 @@
         {
           "type": "reflection",
           "question_id": "dd_mp_04_st_008_reflection_03",
-          "prompt": "Suppose your team just had a major failure. It fell short of expectations by a mile! Team members feel frustrated and anxious. Is their collective response a good thing or a bad thing? Why? Think about it and respond below.",
-          "persist": false
+          "prompt": "Suppose your team just had a major failure. It fell short of expectations by a mile! Team members feel frustrated and anxious. Is their collective response a good thing or a bad thing? Why? Think about it and respond below."
         },
         {
           "type": "heading",
