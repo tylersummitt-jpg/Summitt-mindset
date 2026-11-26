@@ -142,6 +142,11 @@ export type MorningCoachingBriefV1 = {
      * Missing/unknown parse as send (never invent SPACE).
      */
     proactive_decision: MorningBriefProactiveDecision;
+    /**
+     * Reconsideration only. Absent or not_applicable on ordinary generation.
+     * keep does not authorize a new body. replace does.
+     */
+    existing_text_decision?: "keep" | "replace" | "not_applicable";
   };
 
   boundaries: {
@@ -576,6 +581,19 @@ export function parseMorningCoachingBriefV1(
   const proactive_decision: MorningBriefProactiveDecision =
     parseEnum<MorningBriefProactiveDecision>(coaching.proactive_decision, PROACTIVE_DECISION) ??
     "send";
+  const existingDecisionRaw = coaching.existing_text_decision;
+  let existing_text_decision: "keep" | "replace" | "not_applicable" | undefined;
+  if (existingDecisionRaw == null) {
+    existing_text_decision = "not_applicable";
+  } else if (
+    existingDecisionRaw === "keep" ||
+    existingDecisionRaw === "replace" ||
+    existingDecisionRaw === "not_applicable"
+  ) {
+    existing_text_decision = existingDecisionRaw;
+  } else {
+    return null;
+  }
 
   const claims_to_avoid = parseStringArray(
     boundaries.claims_to_avoid,
@@ -660,6 +678,7 @@ export function parseMorningCoachingBriefV1(
       action_guidance,
       pressure,
       proactive_decision,
+      existing_text_decision,
     },
     boundaries: {
       claims_to_avoid,

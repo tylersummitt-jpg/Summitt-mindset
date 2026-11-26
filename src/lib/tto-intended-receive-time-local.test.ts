@@ -7,6 +7,8 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import { buildMorningMessageFor } from "@/lib/morning-tto-relationship-packet";
+import { capMorningExactThreadMessages } from "@/lib/sms-recent-exact-thread-72h";
+import type { RecentExactThread72hMessage } from "@/lib/sms-recent-exact-thread-72h";
 import {
   EVENING_LANE_WINDOW_END_MINUTE_EXCLUSIVE,
   EVENING_LANE_WINDOW_START_MINUTE,
@@ -251,26 +253,25 @@ describe("tto intended / current local time contracts", () => {
     expect(EVENING_LANE_WINDOW_START_MINUTE).toBe(19 * 60);
     expect(EVENING_LANE_WINDOW_END_MINUTE_EXCLUSIVE).toBe(21 * 60);
     const weeklyCron = readSrc("src/app/api/cron/weekly-sms/route.ts");
-    expect(weeklyCron).toContain("Sunday 12:00–12:14 user-local");
-    expect(weeklyCron).toContain("local.getHours() === 12");
-    expect(weeklyCron).toContain("local.getMinutes() < 15");
+    expect(weeklyCron).toContain("weekly_delivery_retired");
+    expect(weeklyCron).not.toContain("Sunday 12:00–12:14 user-local");
+    expect(weeklyCron).not.toContain("local.getHours() === 12");
     expect(readSrc("src/lib/daily-sms-scheduling.ts")).not.toContain(
       "intended_receive_time_local"
     );
   });
 
   it("G: freshness logic does not reference intended_receive_time_local", () => {
-    const freshnessFiles = [
+    for (const rel of [
       "src/lib/tto-draft-fresh-for-send.ts",
       "src/lib/tyler-text-overview-refresh-stale.ts",
-      "src/lib/tyler-text-overview-generate.ts",
-    ];
-    for (const rel of freshnessFiles) {
+    ]) {
       const src = readSrc(rel);
       expect(src).not.toContain("intended_receive_time_local");
       expect(src).not.toContain("current_local_time");
     }
     const generate = readSrc("src/lib/tyler-text-overview-generate.ts");
+    expect(generate).toContain("intended_receive_time_local");
     expect(generate).toContain("generationEffectiveAsk: packet.current_goal.text");
   });
 
@@ -321,5 +322,155 @@ describe("tto intended / current local time contracts", () => {
     if ("ok" in omitted) throw new Error("unexpected");
     expect(omitted.message_for).not.toHaveProperty("intended_receive_time_local");
     expect(JSON.stringify(omitted.message_for)).not.toContain("07:00");
+  });
+
+  it("scheduled clocks enter the interpreter and writer objects before a lane default", () => {
+    const night = buildMorningMessageFor({
+      timezone: "America/New_York",
+      draftForDayKey: "2026-08-06",
+      daypart: "morning",
+      intendedReceiveTimeLocal: "23:45",
+      utcInstant: "2026-08-07T03:45:00.000Z",
+      administrativeBatchDate: "2026-08-07",
+    });
+    expect(night.intended_receive_time_local).toBe("23:45");
+    expect(night.daypart).toBe("morning");
+    expect(night.timezone).toBe("America/New_York");
+    expect(JSON.stringify(night)).not.toContain("07:00");
+
+    const pacificMorningOwnedByEvening = buildMorningMessageFor({
+      timezone: "America/Los_Angeles",
+      draftForDayKey: "2026-01-15",
+      daypart: "evening",
+      intendedReceiveTimeLocal: "07:00",
+      utcInstant: "2026-01-15T15:00:00.000Z",
+      administrativeBatchDate: "2026-01-15",
+    });
+    expect(pacificMorningOwnedByEvening.daypart).toBe("evening");
+    expect(pacificMorningOwnedByEvening.intended_receive_time_local).toBe("07:00");
+    expect(JSON.stringify(pacificMorningOwnedByEvening)).not.toContain("19:00");
+
+    const chicago = buildMorningMessageFor({
+      timezone: "America/Chicago",
+      draftForDayKey: "2026-01-15",
+      daypart: "evening",
+      intendedReceiveTimeLocal: "14:15",
+    });
+    expect(chicago.timezone).toBe("America/Chicago");
+    expect(chicago.intended_receive_time_local).toBe("14:15");
+
+    const nowMs = Date.parse("2026-08-06T20:00:00.000Z");
+    const user = (
+      at: string,
+      body: string,
+      sid: string,
+      localDay: string
+    ): RecentExactThread72hMessage => ({
+      at,
+      at_local: at,
+      at_local_timezone: "America/New_York",
+      local_day_key: localDay,
+      role: "user",
+      body,
+      message_kind: "inbound",
+      source_table: "sms_inbound_messages",
+      message_sid: sid,
+      delivery_status: "sent",
+      is_exact_body: true,
+    });
+    const capped = capMorningExactThreadMessages(
+      [
+        user("2026-08-06T03:30:00.000Z", "still Wednesday night", "SM-wed", "2026-08-05"),
+        user("2026-08-06T03:30:00.000Z", "same instant", "SM-same", "2026-08-05"),
+        user("2026-08-06T04:30:00.000Z", "now Thursday", "SM-thu", "2026-08-06"),
+        user("2026-07-01T16:00:00.000Z", "too old", "SM-old", "2026-07-01"),
+        user("2026-08-08T16:00:00.000Z", "not yet sent", "SM-future", "2026-08-08"),
+        user("2026-08-05T16:00:00.000Z", "I finished the walk. Friday I will rest.", "SM-done", "2026-08-05"),
+      ],
+      {
+        timezone: "America/New_York",
+        nowMs,
+        messageForLocalDate: "2026-08-07",
+        options: { excludeAfterMs: nowMs },
+      }
+    );
+    const bodies = capped.messages.map((message) => message.body);
+    expect(bodies).toContain("still Wednesday night");
+    expect(bodies).toContain("same instant");
+    expect(bodies).toContain("now Thursday");
+    expect(bodies).toContain("I finished the walk. Friday I will rest.");
+    expect(bodies).not.toContain("too old");
+    expect(bodies).not.toContain("not yet sent");
+    const done = capped.messages.find((message) => message.source_id === "SM-done");
+    expect(done?.day_relation_to_message).toBe("2 days before");
+    expect(done?.local_day_key).toBe("2026-08-05");
+    expect(capped.messages.find((message) => message.source_id === "SM-wed")?.day_relation_to_message).toBe(
+      "2 days before"
+    );
+    expect(capped.messages.find((message) => message.source_id === "SM-thu")?.day_relation_to_message).toBe(
+      "yesterday"
+    );
+
+    const thursdayDelivery = assembleMorningBriefInterpreterInputV1({
+      timezone: "America/New_York",
+      localDate: "2026-08-06",
+      localWeekday: "Thursday",
+      daypart: "morning",
+      daysSinceLastUserResponse: 1,
+      daysSinceLastUserResponseObserved: 0,
+      recentUnansweredOutboundCount: 0,
+      neverReplied: false,
+      canonicalGoalText: "Walk",
+      pendingGoalChange: null,
+      identityAnchorText: null,
+      identitySource: null,
+      importantPeople: [],
+      lifeContextProfile: {},
+      latestOutcome: null,
+      latestOutcomeAt: null,
+      latestOutcomeMessage: null,
+      matchingOutcomeCount: 0,
+      hasVerifiedProofMetadata: false,
+      threadMemoryHint: null,
+      exactThreadMessages: [
+        {
+          sender: "user",
+          sent_at_utc: "2026-08-05T16:00:00.000Z",
+          sent_at_local: "2026-08-05 12:00",
+          local_day_key: "2026-08-05",
+          local_weekday: "Wednesday",
+          day_relation_to_message: "yesterday",
+          body: "I finished the walk. Friday I will rest.",
+        },
+      ],
+      omittedOlderTurnCount: 0,
+      intendedReceiveTimeLocal: "07:00",
+      utcInstant: "2026-08-06T11:00:00.000Z",
+      administrativeBatchDate: "2026-08-06",
+    });
+    expect(thursdayDelivery).not.toHaveProperty("ok");
+    if ("ok" in thursdayDelivery) throw new Error("unexpected");
+    expect(thursdayDelivery.message_for.intended_receive_time_local).toBe("07:00");
+    expect(thursdayDelivery.message_for.daypart).toBe("morning");
+    expect(thursdayDelivery.mechanical.days_since_last_user_response).toBe(1);
+    expect(thursdayDelivery.mechanical.days_since_last_user_response_observed).toBe(0);
+    expect(thursdayDelivery.exact_thread.messages[0]?.body).toContain("Friday I will rest.");
+    expect(thursdayDelivery.exact_thread.messages[0]?.day_relation_to_message).toBe("yesterday");
+    const interpreterUser = String(buildMorningBriefInterpreterMessages(thursdayDelivery)[1]?.content);
+    expect(interpreterUser).toContain('"intended_receive_time_local":"07:00"');
+    expect(interpreterUser).toContain("I finished the walk. Friday I will rest.");
+    expect(interpreterUser).toContain('"day_relation_to_message":"yesterday"');
+    const writerUser = String(
+      buildMorningWriterMessages(
+        {
+          message_for: night,
+          exact_thread: { messages: thursdayDelivery.exact_thread.messages },
+        } as never,
+        {} as never
+      )[1]?.content
+    );
+    expect(writerUser).toContain('"intended_receive_time_local":"23:45"');
+    expect(writerUser).toContain('"daypart":"morning"');
+    expect(writerUser).not.toContain('"intended_receive_time_local":"07:00"');
   });
 });

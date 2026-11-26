@@ -8,6 +8,7 @@ import {
   buildMorningExactThreadForPacket,
   formatAtLocal,
   type AnsweredUserMessageLink,
+  type ExactThreadExcludedSource,
 } from "@/lib/sms-recent-exact-thread-72h";
 import { requireTylerTextOverviewDraftDayKey } from "@/lib/tyler-text-overview-draft-day-key";
 import { getDateKeyInTimezone, resolveUserTimezone } from "@/lib/timezone";
@@ -46,13 +47,21 @@ export type MorningRelationshipPacket = {
     local_date: string;
     local_weekday: string;
     daypart: TtoMessageDaypart;
-    /** Inclusive lane-window start HH:MM. Not send eligibility and not actual Twilio time. */
+    /**
+     * Scheduled convention: the effective local delivery minute.
+     * Legacy lanes: the lane-window start. Not Twilio acceptance.
+     */
     intended_receive_time_local: string;
+    /** Present only when this generation was given a resolved schedule. */
+    utc_instant?: string;
+    administrative_batch_date?: string;
   };
   last_user_response: {
     at_utc: string | null;
     at_local: string | null;
     days_since: number | null;
+    /** Calendar days already elapsed at generation. Omitted on Weekly loads. */
+    days_since_at_generation?: number | null;
     never_replied: boolean;
   };
   preferred_name: string | null;
@@ -88,6 +97,7 @@ export type MorningRelationshipPacket = {
     max_messages: 30;
     messages: Array<{
       sender: "coach" | "user";
+      source_id?: string | null;
       sent_at_utc: string;
       sent_at_local: string;
       local_day_key: string;
@@ -103,6 +113,149 @@ export type MorningRelationshipPacket = {
    * Not inferred from exact_thread wording, adjacency, or timestamps.
    */
   answered_user_message_links: AnsweredUserMessageLink[];
+  /**
+   * Present only for reconsideration. Ordinary packet loads omit it.
+   * The exact saved body the interpreter may keep or replace.
+   */
+  existing_saved_text?: {
+    body: string | null;
+    body_source: string | null;
+    edited_by_tyler: boolean;
+    edited_at: string | null;
+    original_model_delivery?: {
+      status: "known" | "unavailable";
+      /** False when a later Tyler edit means this clock is not the saved body's context. */
+      describes_saved_body: boolean;
+      message_for: {
+        timezone: string;
+        local_date: string;
+        local_weekday: string;
+        daypart: string;
+        intended_receive_time_local: string;
+        utc_instant: string | null;
+        administrative_batch_date: string | null;
+      } | null;
+    };
+    /** Later clock at which this same body was affirmatively kept. Not policy retention. */
+    latest_affirmed_delivery?: TtoSavedTextDeliveryContext | null;
+    /** Delivery context bound to the current Tyler edit. Unavailable is explicit. */
+    tyler_edit_delivery?: TtoSavedTextDeliveryContext | null;
+  } | null;
+  /**
+   * Present only when message_for.local_date is Sunday.
+   * Ordinary Monday–Saturday packets omit it.
+   */
+  sunday_coaching?: SundayCoachingContext;
+};
+
+export type SundayAccountabilityEvent = {
+  id: string;
+  event_type: "user_yes" | "user_no" | "user_partial";
+  occurred_at: string;
+  local_day_key: string;
+  source: string | null;
+  user_visible_proof_line: string | null;
+};
+
+export type SundayCoachingContext = {
+  week_start_local_date: string;
+  week_end_local_date: string;
+  /** Generation clock. Not the later delivery instant. */
+  information_available_through_utc: string;
+  accountability_events: {
+    status: "loaded" | "unavailable";
+    events: SundayAccountabilityEvent[];
+  };
+  planned_interruption: {
+    status: "active" | "none" | "unavailable";
+    occurred_at: string | null;
+    reason_category: string | null;
+    resume_hint: string | null;
+  };
+};
+
+/** Compact comparison record. Not a second packet. */
+export type SundayContextEvidence = {
+  accountability_status: "loaded" | "unavailable";
+  accountability_event_ids: string[];
+  accountability_fingerprint: string;
+  interruption_status: "active" | "none" | "unavailable";
+  interruption_occurred_at: string | null;
+  interruption_reason_category: string | null;
+  interruption_resume_hint: string | null;
+};
+
+export function sundayContextEvidenceFromCoaching(
+  coaching: SundayCoachingContext
+): SundayContextEvidence {
+  const events =
+    coaching.accountability_events.status === "loaded" ? coaching.accountability_events.events : [];
+  const accountability_fingerprint = events
+    .map((event) =>
+      [
+        event.id,
+        event.event_type,
+        event.occurred_at,
+        event.local_day_key,
+        event.source ?? "",
+        event.user_visible_proof_line ?? "",
+      ].join("|")
+    )
+    .sort()
+    .join("\n");
+  return {
+    accountability_status: coaching.accountability_events.status,
+    accountability_event_ids: events.map((event) => event.id).sort(),
+    accountability_fingerprint,
+    interruption_status: coaching.planned_interruption.status,
+    interruption_occurred_at: coaching.planned_interruption.occurred_at,
+    interruption_reason_category: coaching.planned_interruption.reason_category,
+    interruption_resume_hint: coaching.planned_interruption.resume_hint,
+  };
+}
+
+export function sundayContextChanged(args: {
+  considered: SundayContextEvidence | null | undefined;
+  current: SundayContextEvidence;
+}): "unchanged" | "changed" | "unresolved" {
+  if (
+    args.current.accountability_status === "unavailable" ||
+    args.current.interruption_status === "unavailable"
+  ) {
+    return "unresolved";
+  }
+  const prior = args.considered;
+  if (
+    !prior ||
+    prior.accountability_status !== "loaded" ||
+    prior.interruption_status === "unavailable"
+  ) {
+    return "changed";
+  }
+  if (prior.accountability_fingerprint !== args.current.accountability_fingerprint) return "changed";
+  if (prior.interruption_status !== args.current.interruption_status) return "changed";
+  if ((prior.interruption_occurred_at ?? "") !== (args.current.interruption_occurred_at ?? "")) {
+    return "changed";
+  }
+  if (
+    (prior.interruption_reason_category ?? "") !==
+    (args.current.interruption_reason_category ?? "")
+  ) {
+    return "changed";
+  }
+  if ((prior.interruption_resume_hint ?? "") !== (args.current.interruption_resume_hint ?? "")) {
+    return "changed";
+  }
+  return "unchanged";
+}
+
+export type TtoSavedTextDeliveryContext = {
+  status: "known" | "unavailable";
+  member_local_date: string | null;
+  effective_local_minute: number | null;
+  time_zone: string | null;
+  utc_instant: string | null;
+  owner: string | null;
 };
 
 /** Shared-assembler view: live Morning packets include slot time; Weekly compatibility omits it. */
@@ -173,16 +326,29 @@ export function buildMorningMessageFor(args: {
   draftForDayKey: string;
   /** Defaults to morning — Evening wrappers pass "evening". */
   daypart?: TtoMessageDaypart;
+  /**
+   * Scheduled convention passes the effective local minute as HH:MM.
+   * Omitted means the legacy lane-window start.
+   */
+  intendedReceiveTimeLocal?: string;
+  utcInstant?: string;
+  administrativeBatchDate?: string;
 }): MorningRelationshipPacket["message_for"] {
   const local_date = args.draftForDayKey.trim();
   const daypart = args.daypart ?? "morning";
-  return {
+  const clock = args.intendedReceiveTimeLocal?.trim();
+  const messageFor: MorningRelationshipPacket["message_for"] = {
     timezone: resolveUserTimezone(args.timezone),
     local_date,
     local_weekday: weekdayLongFromLocalDayKey(local_date),
     daypart,
-    intended_receive_time_local: formatLaneWindowStartHhMm(daypart),
+    intended_receive_time_local: clock || formatLaneWindowStartHhMm(daypart),
   };
+  if (args.utcInstant?.trim()) messageFor.utc_instant = args.utcInstant.trim();
+  if (args.administrativeBatchDate?.trim()) {
+    messageFor.administrative_batch_date = args.administrativeBatchDate.trim();
+  }
+  return messageFor;
 }
 
 function buildPersonalContext(args: {
@@ -251,8 +417,20 @@ export async function loadMorningRelationshipPacket(args: {
   commitmentId?: string | null;
   /** Defaults to morning — Evening wrappers pass "evening". */
   daypart?: TtoMessageDaypart;
+  /** Scheduled convention only. Legacy callers omit this and keep the lane clock. */
+  intendedReceiveTimeLocal?: string;
+  utcInstant?: string;
+  administrativeBatchDate?: string;
+  /** Drop conversation records whose event time is after generation now. */
+  boundConversationAtNow?: boolean;
 }): Promise<
-  | { ok: true; packet: MorningRelationshipPacket; commitmentId: string }
+  | {
+      ok: true;
+      packet: MorningRelationshipPacket;
+      commitmentId: string;
+      conversationReadAt: string;
+      excludedSourceIds: ExactThreadExcludedSource[];
+    }
   | { ok: false; error: string }
 > {
   const now = args.now ?? new Date();
@@ -273,6 +451,9 @@ export async function loadMorningRelationshipPacket(args: {
     timezone: tz,
     draftForDayKey,
     daypart: args.daypart ?? "morning",
+    intendedReceiveTimeLocal: args.intendedReceiveTimeLocal,
+    utcInstant: args.utcInstant,
+    administrativeBatchDate: args.administrativeBatchDate,
   });
 
   let commitment: ActiveV2CommitmentRow | null = null;
@@ -296,6 +477,7 @@ export async function loadMorningRelationshipPacket(args: {
     return { ok: false, error: "missing_current_goal" };
   }
 
+  const conversationReadAt = new Date().toISOString();
   const [
     { data: profile },
     { data: importantPeopleRows },
@@ -323,11 +505,16 @@ export async function loadMorningRelationshipPacket(args: {
         timezone: tz,
         messageForLocalDate: message_for.local_date,
         now,
+        excludeAfterMs: args.boundConversationAtNow === true ? now.getTime() : undefined,
       }),
       fetchActiveDurableUserEvidenceRows(args.clerkUserId),
       fetchHistoricalWinEvidenceSource(args.clerkUserId),
       fetchCoachRelationshipMemory(args.clerkUserId),
     ]);
+
+  if (exactThread.retrieval_incomplete) {
+    return { ok: false, error: "conversation_retrieval_incomplete" };
+  }
 
   const identityRaw = trimOrNull(profile?.identity_anchor_text);
   const identitySource =
@@ -400,5 +587,11 @@ export async function loadMorningRelationshipPacket(args: {
     answered_user_message_links: exactThread.answered_user_message_links,
   };
 
-  return { ok: true, packet, commitmentId: commitment.id };
+  return {
+    ok: true,
+    packet,
+    commitmentId: commitment.id,
+    conversationReadAt,
+    excludedSourceIds: exactThread.excluded_source_ids,
+  };
 }

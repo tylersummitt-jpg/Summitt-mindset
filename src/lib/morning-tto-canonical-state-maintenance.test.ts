@@ -175,10 +175,9 @@ describe("runMorningTtoPreSendCanonicalStateMaintenance", () => {
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
     );
-    expect(route).toContain("runMorningTtoPreSendCanonicalStateMaintenance");
-    const firstMaint = route.indexOf("runMorningTtoPreSendCanonicalStateMaintenance");
-    const firstAttempt = route.indexOf("attemptMorningTtoTwilioSend(");
-    expect(firstMaint).toBeGreaterThan(-1);
-    expect(firstAttempt).toBeGreaterThan(firstMaint);
+    const production = route.slice(route.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toContain("runMorningTtoPreSendCanonicalStateMaintenance");
+    expect(production).not.toContain("attemptMorningTtoTwilioSend(");
   });
 });

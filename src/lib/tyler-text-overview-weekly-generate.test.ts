@@ -158,15 +158,19 @@ describe("weekly generate source contracts", () => {
     expect(src).not.toContain("weeklyLaneCapture");
     expect(src).not.toContain('role: "assistant"');
     expect(src).toContain("lane.writerOpenAiCapture");
-    expect(src).toContain("persistMorningTtoGeneration");
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).not.toContain("persistMorningTtoGeneration");
+    expect(src).not.toContain("runWeeklyBriefInterpreterV1");
+    expect(src).not.toContain("writeWeeklyTtoBody");
   });
 
-  it("generate-all reuses one-row generation (inherits exact capture)", () => {
+  it("generate-all does not call one-row weekly generation", () => {
     const src = readFileSync(
       join(REPO, "src/lib/tyler-text-overview-weekly-generate-all.ts"),
       "utf8"
     );
-    expect(src).toContain("generateTylerTextOverviewWeeklyDraftForUser");
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).not.toContain("generateTylerTextOverviewWeeklyDraftForUser");
     expect(src).not.toContain("weeklyLaneCapture");
     expect(src).not.toContain('role: "assistant"');
   });

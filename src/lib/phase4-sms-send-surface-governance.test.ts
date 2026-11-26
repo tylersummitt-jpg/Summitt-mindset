@@ -26,8 +26,7 @@ export const PRODUCTION_SMS_SEND_CALLER_ALLOWLIST = new Set<string>([
   "src/lib/twilio.ts",
   "src/app/api/cron/daily-sms/route.ts",
   "src/app/api/cron/sms-inbound-coach/route.ts",
-  "src/app/api/cron/weekly-sms/route.ts",
-  "src/lib/tyler-text-overview-weekly-send.ts",
+  "src/lib/tyler-text-overview-send.ts",
   "src/lib/tyler-text-overview-evening-send.ts",
   "src/lib/v2-adaptive-contract.ts",
   "src/lib/victory-media/inbound-mms-d2b.ts",
@@ -97,17 +96,16 @@ export const SECONDARY_SMS_ROUTE_POLICY = [
   {
     route: "weekly_sms",
     file: "src/app/api/cron/weekly-sms/route.ts",
-    classification: "relationship_coaching" as const,
+    classification: "deprecated_legacy" as const,
     canBypassRelationshipLane: false,
     requiresFvg: false,
-    requiresFailClosedWhenCoaching: true,
+    requiresFailClosedWhenCoaching: false,
     usesNorthStar: false,
     usesFvg: false,
     normalCoachingPattern:
-      "Weekly TTO draft-authoritative: cron sends only persisted weekly_review current_body_to_send (+ STOP/HELP footer) via tyler-text-overview-weekly-send. No live-build / NS / FVG in cron. Voice ownership runs at Weekly TTO generation time.",
-    notNormalCoachingBypassRisk:
-      "Cron must not live-build; force=1 bypasses window only; dryRun is side-effect free.",
-    phase4Action: "migrate_visible_body_to_outbound_v3_relationship_lane",
+      "Weekly delivery is retired. The cron authenticates and returns weekly_delivery_retired. force=1 does not submit SMS. Sunday coaching uses the ordinary daily path.",
+    notNormalCoachingBypassRisk: "N/A — route no longer sends coaching SMS.",
+    phase4Action: "deprecate_weekly_delivery_sunday_uses_daily_coaching",
   },
   {
     route: "followup_sms",
@@ -315,10 +313,11 @@ describe("Phase 4.0 — secondary outbound FVG policy matrix (static)", () => {
 });
 
 describe("Phase 4.1 — secondary FVG normalCoaching policy (fail-closed relationship sends)", () => {
-  it("weekly-sms is Weekly TTO draft-authoritative (no FVG/NS live-build in cron)", () => {
+  it("weekly-sms refuses before any provider submission", () => {
     const weekly = fs.readFileSync(path.join(REPO_ROOT, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(weekly).toContain("weekly-sms is Weekly TTO draft-authoritative");
-    expect(weekly).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(weekly).toContain("weekly_delivery_retired");
+    expect(weekly).toContain("force_ignored");
+    expect(weekly).not.toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
     expect(weekly).not.toContain("applyFinalVoiceOwnershipGate");
     expect(weekly).not.toContain("finalizeNorthStarCoachSmsAsync");
     expect(weekly).not.toMatch(/normalCoaching:\s*true/);
@@ -388,7 +387,7 @@ describe("Phase 4.9b — send caller surface authority registry linkage", () => 
   const COACHING_SEND_CALLERS = [
     "src/app/api/cron/sms-inbound-coach/route.ts",
     "src/app/api/cron/daily-sms/route.ts",
-    "src/lib/tyler-text-overview-weekly-send.ts",
+    "src/lib/tyler-text-overview-send.ts",
     "src/lib/v2-adaptive-contract.ts",
   ] as const;
 
@@ -436,7 +435,9 @@ describe("Phase 4 — SMS Voice Ownership Slice 1 cross-check", () => {
     const voiceStatic = path.join(REPO_ROOT, "src/lib/sms-voice-ownership-static.test.ts");
     expect(fs.existsSync(voiceStatic)).toBe(true);
     for (const f of RELATIONSHIP_SMS_ROUTE_FILES) {
-      expect(PRODUCTION_SMS_SEND_CALLER_ALLOWLIST.has(f)).toBe(true);
+      const src = fs.readFileSync(path.join(REPO_ROOT, f), "utf8");
+      const submits = /\bsendSMS\s*\(/.test(src) || /\bsendSMSChunked\s*\(/.test(src);
+      expect(PRODUCTION_SMS_SEND_CALLER_ALLOWLIST.has(f), f).toBe(submits);
     }
   });
 

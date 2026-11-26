@@ -235,12 +235,10 @@ const ACTIVE_STRATEGY_CARD_SURFACES: readonly SmsSurfaceAuthorityEntry[] = [
     writer_path: "src/lib/v3-weekly-outbound-relationship-lane.ts",
     owner: "strategy_card",
     disposition: "active",
-    reason: "Weekly proof lane with Weekly Strategy Card.",
+    reason:
+      "Historical Weekly proof card. Independent Weekly delivery is retired; Sunday coaching is delivered by the scheduled daily sender.",
     action: CARD_ACTION,
-    send_caller_files: [
-      "src/app/api/cron/weekly-sms/route.ts",
-      "src/lib/tyler-text-overview-weekly-send.ts",
-    ],
+    send_caller_files: [],
   },
 ];
 
@@ -640,6 +638,21 @@ const INTENTIONAL_EXCEPTION_SURFACES: readonly SmsSurfaceAuthorityEntry[] = [
     reason: "Phase 4.5 deprecated; no Twilio visible send.",
     action: "keep no-send; retire when safe",
     send_caller_files: ["src/app/api/cron/post-churn-winback/route.ts"],
+  },
+  {
+    id: "scheduled_daily_coaching_delivery",
+    surface_label: "Scheduled morning and evening coaching delivery",
+    route_identifiers: ["scheduled_daily_coaching"],
+    classification: "state_machine_transactional_exception",
+    final_guard_mode: "outbound_daily",
+    visible_sms: true,
+    writer_path: "src/lib/tyler-text-overview-send.ts",
+    owner: "state_machine",
+    disposition: "intentional_exception",
+    reason:
+      "Authoritative proactive sender. Delivery requires a current draft, a second preparation, an atomic reservation, a provider-attempt fence, a held draft boundary, and the member-local grace window. Account deletion, manual-answer holds, and opt-out review block before Twilio.",
+    action: "keep the scheduled delivery contract; do not add a second proactive sender",
+    send_caller_files: ["src/lib/tyler-text-overview-send.ts"],
   },
 ];
 

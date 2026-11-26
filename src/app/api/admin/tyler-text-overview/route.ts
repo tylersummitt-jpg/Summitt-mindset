@@ -47,20 +47,23 @@ export async function GET(req: Request) {
     const sendSlot = resolveAdminListSendSlot(url.searchParams.get("send_slot"));
     const searchQuery = url.searchParams.get("q") ?? url.searchParams.get("search");
 
-    const { rows, counts, availableDayKeys, manifest } = await listSendableTylerTextOverviewRows({
-      draftForDayKey,
-      sendSlot,
-      searchQuery,
-    });
+    const { rows, historicalRows, counts, availableDayKeys, manifest, batchStatistics } =
+      await listSendableTylerTextOverviewRows({
+        draftForDayKey,
+        sendSlot,
+        searchQuery,
+      });
 
     return NextResponse.json(
       {
         ok: true,
         rows,
+        historicalRows,
         counts,
         availableDayKeys,
         sendSlot,
         manifest,
+        batchStatistics,
       },
       {
         headers: {

@@ -307,8 +307,8 @@ describe("Phase 2.3-B outbound_weekly unified guard", () => {
 
   it("15: weekly-sms cron no longer wires unified guard (TTO draft-authoritative)", () => {
     const src = fs.readFileSync(WEEKLY_ROUTE, "utf8");
-    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
-    expect(src).toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).not.toContain("sendWeeklyTtoDraftAuthoritative");
     expect(src).not.toContain("applyFinalVoiceOwnershipGate");
     expect(src).not.toContain("applyUnifiedSmsFinalProductLawGuard");
     expect(src).not.toContain("guardedWeeklyBody");

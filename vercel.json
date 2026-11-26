@@ -9,10 +9,6 @@
       "schedule": "*/5 * * * *"
     },
     {
-      "path": "/api/cron/weekly-sms",
-      "schedule": "*/5 * * * *"
-    },
-    {
       "path": "/api/cron/challenge",
       "schedule": "0 * * * *"
     },
@@ -43,6 +39,10 @@
     {
       "path": "/api/cron/ad-lab-insights",
       "schedule": "15 11,21 * * *"
+    },
+    {
+      "path": "/api/cron/tto-scheduled-generate",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

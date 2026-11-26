@@ -89,6 +89,21 @@ export type RecentExactThread72hResult = {
   answered_user_message_links?: AnsweredUserMessageLink[];
   /** Populated when thread build records fetch/filter stats (weekly memory packet, etc.). */
   build_telemetry?: BriefThreadBuildTelemetry;
+  /**
+   * Scheduled packet retrieval could not be established.
+   * Empty messages in that case are not a complete Hallway.
+   */
+  retrieval_incomplete?: boolean;
+  /**
+   * Identities observed in this build and dropped by the existing dedupe.
+   * Not turns supplied to the model.
+   */
+  excluded_source_ids?: ExactThreadExcludedSource[];
+};
+
+export type ExactThreadExcludedSource = {
+  source_id: string;
+  reason: "near_duplicate" | "character_budget" | "message_cap";
 };
 
 type TimelineEntry = {
@@ -315,20 +330,26 @@ export type SchemaAdaptiveFetchAttempt = {
 
 /**
  * Primary notebook fetch: bounded select("*") by clerk_user_id, newest rows first.
- * Timestamp/window filtering happens in TypeScript.
+ * Scheduled daily inbound applies received_at <= now before that limit.
+ * Send-event and coach-job ceilings stay in TypeScript: their effective
+ * timestamp is not the single ordered column.
  */
 export async function fetchRowsPrimarySelectStar(args: {
   table: string;
   clerkUserId: string;
   stats?: ThreadBuildStats;
   limit?: number;
+  /** When set, exclude rows with this column after the instant, and keep nulls. */
+  eventNotAfter?: { column: string; iso: string };
 }): Promise<SchemaAdaptiveFetchResult> {
   const limit = args.limit ?? SCHEMA_ADAPTIVE_FALLBACK_LIMIT;
   const primaryLabel = `${args.table}:select_star_primary`;
-  const { data, error } = await applyExactThreadSourceOrder(
-    args.table,
-    supabaseServer.from(args.table).select("*").eq("clerk_user_id", args.clerkUserId)
-  ).limit(limit);
+  let query = supabaseServer.from(args.table).select("*").eq("clerk_user_id", args.clerkUserId);
+  if (args.eventNotAfter) {
+    const { column, iso } = args.eventNotAfter;
+    query = query.or(`${column}.lte."${iso}",${column}.is.null`);
+  }
+  const { data, error } = await applyExactThreadSourceOrder(args.table, query).limit(limit);
 
   if (!error) {
     args.stats?.recordPrimaryFetchSucceeded();
@@ -474,6 +495,18 @@ function firstValidTimestampMs(candidates: unknown[]): number {
   return 0;
 }
 
+function rowsFromDiscoveryPacket(payload: unknown, key: string): Record<string, unknown>[] | null {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) return null;
+  const value = (payload as Record<string, unknown>)[key];
+  if (!Array.isArray(value)) return null;
+  const rows: Record<string, unknown>[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+    rows.push(item as Record<string, unknown>);
+  }
+  return rows;
+}
+
 function mergeUniqueRows(rows: Record<string, unknown>[]): Record<string, unknown>[] {
   const seen = new Set<string>();
   const out: Record<string, unknown>[] = [];
@@ -520,6 +553,20 @@ function normDedupeKey(text: string): string {
 function isComplianceInbound(raw: string): boolean {
   const low = raw.trim().toLowerCase();
   return /^(stop|start|help|unstop|cancel)$/i.test(low) && raw.trim().length <= 12;
+}
+
+/**
+ * Morning and Evening proactive exclusion.
+ * INFO and END are included here. Shared daily, weekly, and inbound threads
+ * keep the narrower isComplianceInbound predicate.
+ */
+export function isProactiveConversationComplianceBody(
+  raw: string | null | undefined
+): boolean {
+  if (typeof raw !== "string") return false;
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.length > 12) return false;
+  return /^(stop|start|help|unstop|cancel|info|end)$/i.test(trimmed);
 }
 
 function metaPathString(meta: Record<string, unknown>, path: string): string {
@@ -909,14 +956,47 @@ export function formatAtLocal(date: Date, timezone: string): string {
   }).format(date);
 }
 
-function dedupeTimeline(entries: TimelineEntry[]): TimelineEntry[] {
+function noteExcludedSource(
+  dropped: ExactThreadExcludedSource[],
+  sid: string | null | undefined,
+  reason: ExactThreadExcludedSource["reason"]
+) {
+  const sourceId = sid?.trim() ?? "";
+  if (!sourceId || dropped.some((item) => item.source_id === sourceId)) return;
+  dropped.push({ source_id: sourceId, reason });
+}
+
+function mergeExcludedSources(
+  ...lists: Array<ExactThreadExcludedSource[] | undefined>
+): ExactThreadExcludedSource[] {
+  const ranked = lists.flatMap((list) => list ?? []);
+  const preferred = [
+    ...ranked.filter((item) => item.reason !== "message_cap"),
+    ...ranked.filter((item) => item.reason === "message_cap"),
+  ];
+  const merged: ExactThreadExcludedSource[] = [];
+  for (const item of preferred) {
+    noteExcludedSource(merged, item.source_id, item.reason);
+    if (merged.length >= 120) break;
+  }
+  return merged;
+}
+
+function dedupeTimeline(entries: TimelineEntry[]): {
+  entries: TimelineEntry[];
+  excluded: ExactThreadExcludedSource[];
+} {
   const sorted = [...entries].sort((a, b) => a.t - b.t || b.priority - a.priority);
   const sidSeen = new Set<string>();
   const out: TimelineEntry[] = [];
+  const excluded: ExactThreadExcludedSource[] = [];
 
   for (const e of sorted) {
     if (e.message_sid) {
-      if (sidSeen.has(e.message_sid)) continue;
+      if (sidSeen.has(e.message_sid)) {
+        noteExcludedSource(excluded, e.message_sid, "near_duplicate");
+        continue;
+      }
       sidSeen.add(e.message_sid);
     }
 
@@ -926,14 +1006,19 @@ function dedupeTimeline(entries: TimelineEntry[]): TimelineEntry[] {
       if (prev.role !== e.role) continue;
       if (Math.abs(e.t - prev.t) > DEDUPE_WINDOW_MS) break;
       if (normDedupeKey(prev.body) !== normDedupeKey(e.body)) continue;
-      if (e.priority >= prev.priority) out[i] = e;
+      if (e.priority >= prev.priority) {
+        noteExcludedSource(excluded, prev.message_sid, "near_duplicate");
+        out[i] = e;
+      } else {
+        noteExcludedSource(excluded, e.message_sid, "near_duplicate");
+      }
       replaced = true;
       break;
     }
     if (!replaced) out.push(e);
   }
 
-  return out.sort((a, b) => a.t - b.t);
+  return { entries: out.sort((a, b) => a.t - b.t), excluded };
 }
 
 function toOutputMessage(entry: TimelineEntry, timezone: string): RecentExactThread72hMessage {
@@ -1009,6 +1094,11 @@ export type BuildRecentExactThreadArgs = {
    * Default false — daily/weekly/inbound keep shared safeBody newline collapse.
    */
   preserveUserBodyFormatting?: boolean;
+  /**
+   * Scheduled daily only. Packet mode reads the discovery RPC at this instant
+   * and ranks by the effective event timestamp before the existing source limits.
+   */
+  excludeAfterMs?: number;
 };
 
 function isWriterFacingThreadMessage(m: RecentExactThread72hMessage): boolean {
@@ -1235,46 +1325,85 @@ async function buildRecentExactThreadWithWindowMs(
   const preserveUserBodyFormatting = args.preserveUserBodyFormatting === true;
   const stats = args.stats;
 
-  const [
-    inboundFetch,
-    sendFetch,
-    weeklyFetch,
-    coachJobFetch,
-    lastCtx,
-  ] = await Promise.all([
-    fetchRowsPrimarySelectStar({
-      table: "sms_inbound_messages",
-      clerkUserId: args.clerkUserId,
-      stats,
-      limit: ROW_FETCH_LIMIT,
-    }),
-    fetchRowsPrimarySelectStar({
-      table: "sms_send_events",
-      clerkUserId: args.clerkUserId,
-      stats,
-    }),
-    fetchRowsPrimarySelectStar({
-      table: "sms_weekly_send_events",
-      clerkUserId: args.clerkUserId,
-      stats,
-    }),
-    fetchRowsPrimarySelectStar({
-      table: "sms_inbound_coach_jobs",
-      clerkUserId: args.clerkUserId,
-      stats,
-      limit: ROW_FETCH_LIMIT,
-    }),
-    fetchMaybeSinglePrimarySelectStar({
-      table: "sms_last_outbound_context",
-      clerkUserId: args.clerkUserId,
-      stats,
-    }),
-  ]);
+  const useScheduledPacketRetrieval =
+    args.excludeAfterMs != null && Number.isFinite(args.excludeAfterMs);
+  let inboundMsgRows: Record<string, unknown>[] = [];
+  let sendRows: Record<string, unknown>[] = [];
+  let weeklyRows: Record<string, unknown>[] = [];
+  let coachJobRows: Record<string, unknown>[] = [];
+  let lastCtx: Record<string, unknown> | null = null;
 
-  const inboundMsgRows = mergeUniqueRows(inboundFetch.rows);
-  const sendRows = mergeUniqueRows(sendFetch.rows);
-  const weeklyRows = mergeUniqueRows(weeklyFetch.rows);
-  const coachJobRows = mergeUniqueRows(coachJobFetch.rows);
+  if (useScheduledPacketRetrieval) {
+    const [packet, last] = await Promise.all([
+      supabaseServer.rpc("tto_reconsideration_conversation_discovery", {
+        p_clerk_user_ids: [args.clerkUserId],
+        p_now: new Date(args.excludeAfterMs as number).toISOString(),
+        p_limit: 30,
+        p_mode: "packet",
+      }),
+      fetchMaybeSinglePrimarySelectStar({
+        table: "sms_last_outbound_context",
+        clerkUserId: args.clerkUserId,
+        stats,
+      }),
+    ]);
+    lastCtx = last;
+    const inbound = rowsFromDiscoveryPacket(packet.data, "inbound");
+    const coach = rowsFromDiscoveryPacket(packet.data, "coach");
+    const proactive = rowsFromDiscoveryPacket(packet.data, "proactive");
+    const weekly = rowsFromDiscoveryPacket(packet.data, "weekly");
+    if (packet.error || !inbound || !coach || !proactive || !weekly) {
+      return {
+        messages: [],
+        window_hours: Math.round(args.windowMs / (60 * 60 * 1000)),
+        message_count: 0,
+        had_preview_messages: false,
+        had_system_no_send: false,
+        answered_user_message_links: [],
+        excluded_source_ids: [],
+        retrieval_incomplete: true,
+      };
+    }
+    inboundMsgRows = inbound;
+    coachJobRows = coach;
+    sendRows = proactive;
+    weeklyRows = weekly;
+  } else {
+    const [inboundFetch, sendFetch, weeklyFetch, coachJobFetch, last] = await Promise.all([
+      fetchRowsPrimarySelectStar({
+        table: "sms_inbound_messages",
+        clerkUserId: args.clerkUserId,
+        stats,
+        limit: ROW_FETCH_LIMIT,
+      }),
+      fetchRowsPrimarySelectStar({
+        table: "sms_send_events",
+        clerkUserId: args.clerkUserId,
+        stats,
+      }),
+      fetchRowsPrimarySelectStar({
+        table: "sms_weekly_send_events",
+        clerkUserId: args.clerkUserId,
+        stats,
+      }),
+      fetchRowsPrimarySelectStar({
+        table: "sms_inbound_coach_jobs",
+        clerkUserId: args.clerkUserId,
+        stats,
+        limit: ROW_FETCH_LIMIT,
+      }),
+      fetchMaybeSinglePrimarySelectStar({
+        table: "sms_last_outbound_context",
+        clerkUserId: args.clerkUserId,
+        stats,
+      }),
+    ]);
+    lastCtx = last;
+    inboundMsgRows = mergeUniqueRows(inboundFetch.rows);
+    sendRows = mergeUniqueRows(sendFetch.rows);
+    weeklyRows = mergeUniqueRows(weeklyFetch.rows);
+    coachJobRows = mergeUniqueRows(coachJobFetch.rows);
+  }
 
   let checkSentEvents = args.preloadedCheckSentEvents;
   if (!checkSentEvents && args.commitmentId) {
@@ -1443,8 +1572,9 @@ async function buildRecentExactThreadWithWindowMs(
           source_table: "sms_inbound_coach_jobs",
           message_kind: "coach",
           message_sid:
-            (typeof row.outbound_message_sid === "string" ? row.outbound_message_sid.trim() : null) ||
-            (typeof row.message_sid === "string" ? row.message_sid.trim() : null),
+            typeof row.outbound_message_sid === "string" && row.outbound_message_sid.trim()
+              ? row.outbound_message_sid.trim()
+              : null,
           delivery_status: "sent",
           is_exact_body: true,
           body_truncated,
@@ -1576,7 +1706,8 @@ async function buildRecentExactThreadWithWindowMs(
     }
   }
 
-  const merged = dedupeTimeline(rich);
+  const deduped = dedupeTimeline(rich);
+  const merged = deduped.entries;
   const messages = merged.map((e) => toOutputMessage(e, tz));
   const answered_user_message_links = answeredUserMessageLinksFromCoachJobRows(
     coachJobRows
@@ -1595,6 +1726,7 @@ async function buildRecentExactThreadWithWindowMs(
     oldest_at: messages[0]?.at,
     newest_at: messages[messages.length - 1]?.at,
     answered_user_message_links,
+    excluded_source_ids: deduped.excluded,
   };
 }
 
@@ -1684,6 +1816,8 @@ export const MORNING_TTO_THREAD_MAX_CHARS_PER_MESSAGE = MORNING_TTO_COACH_MAX_CH
 
 export type MorningExactThreadMessage = {
   sender: "coach" | "user";
+  /** Durable inbound or outbound MessageSid. Omitted when the source row has none. */
+  source_id?: string | null;
   sent_at_utc: string;
   sent_at_local: string;
   local_day_key: string;
@@ -1706,6 +1840,8 @@ export type MorningExactThreadResult = {
    * Not projected onto model-facing exact_thread messages.
    */
   surviving_message_sids: string[];
+  /** Turns this cap removed. Not supplied to the model. */
+  excluded_source_ids?: ExactThreadExcludedSource[];
 };
 
 export type MorningExactThreadOptions = {
@@ -1719,6 +1855,8 @@ export type MorningExactThreadOptions = {
   includeLocalWeekday?: true;
   /** Morning message day (draft_for_day_key). Required for day_relation_to_message. */
   messageForLocalDate?: string;
+  /** Event times strictly after this instant are not established conversation. */
+  excludeAfterMs?: number;
 };
 
 const MS_DAY = 24 * 60 * 60 * 1000;
@@ -1793,6 +1931,7 @@ function toMorningExactThreadMessage(
       : getLocalDayKeyForTimestamp(d, timezone);
   return {
     sender: m.role === "coach" ? "coach" : "user",
+    source_id: m.message_sid,
     sent_at_utc: d.toISOString(),
     sent_at_local: formatAtLocal(d, timezone),
     local_day_key,
@@ -1807,7 +1946,8 @@ type MorningCapItem = { msg: RecentExactThread72hMessage; ts: number };
 function collectMorningWriterFacingItems(
   messages: RecentExactThread72hMessage[],
   nowMs: number,
-  windowHours: number
+  windowHours: number,
+  excludeAfterMs?: number
 ): MorningCapItem[] {
   const floorMs = nowMs - windowHours * 60 * 60 * 1000;
   const items: MorningCapItem[] = [];
@@ -1816,6 +1956,7 @@ function collectMorningWriterFacingItems(
     const ts = Date.parse(m.at);
     if (!Number.isFinite(ts)) continue;
     if (ts < floorMs) continue;
+    if (excludeAfterMs != null && ts > excludeAfterMs) continue;
     items.push({ msg: m, ts });
   }
   items.sort((a, b) => a.ts - b.ts);
@@ -1869,12 +2010,22 @@ export function capMorningExactThreadMessages(
     opts.maxCharsPerMessage ?? MORNING_TTO_COACH_MAX_CHARS_PER_MESSAGE;
   const messageForLocalDate =
     opts.messageForLocalDate?.trim() || args.messageForLocalDate.trim();
+  const excludeAfterMs = opts.excludeAfterMs;
 
-  const inWindow = collectMorningWriterFacingItems(messages, args.nowMs, windowHours);
+  const inWindow = collectMorningWriterFacingItems(
+    messages,
+    args.nowMs,
+    windowHours,
+    excludeAfterMs
+  );
   const windowPoolCount = inWindow.length;
+  const excluded: ExactThreadExcludedSource[] = [];
 
   let chosen = inWindow;
   if (chosen.length > maxMessages) {
+    for (const dropped of chosen.slice(0, chosen.length - maxMessages)) {
+      noteExcludedSource(excluded, dropped.msg.message_sid, "message_cap");
+    }
     chosen = chosen.slice(-maxMessages);
   }
 
@@ -1885,9 +2036,13 @@ export function capMorningExactThreadMessages(
     messageForLocalDate
   );
 
-  const dropOldestCoachThenOldest = (): boolean => {
+  const dropOldestCoachThenOldest = (
+    reason: ExactThreadExcludedSource["reason"]
+  ): boolean => {
     if (chosen.length <= 1) return false;
     const oldestCoachIdx = chosen.findIndex((i) => i.msg.role === "coach");
+    const dropIdx = oldestCoachIdx >= 0 ? oldestCoachIdx : 0;
+    noteExcludedSource(excluded, chosen[dropIdx]?.msg.message_sid, reason);
     if (oldestCoachIdx >= 0) {
       chosen = [...chosen.slice(0, oldestCoachIdx), ...chosen.slice(oldestCoachIdx + 1)];
     } else {
@@ -1903,12 +2058,12 @@ export function capMorningExactThreadMessages(
   };
 
   while (morningExactThreadMessageCharCount(projected) > maxTotalChars) {
-    if (dropOldestCoachThenOldest()) continue;
+    if (dropOldestCoachThenOldest("character_budget")) continue;
     break;
   }
 
   while (chosen.length > maxMessages) {
-    if (dropOldestCoachThenOldest()) continue;
+    if (dropOldestCoachThenOldest("message_cap")) continue;
     break;
   }
 
@@ -1916,6 +2071,7 @@ export function capMorningExactThreadMessages(
     messages: projected,
     omitted_older_turn_count: Math.max(0, windowPoolCount - projected.length),
     surviving_message_sids: survivingMessageSidsFromChosen(chosen),
+    excluded_source_ids: excluded,
   };
 }
 
@@ -1940,6 +2096,8 @@ export async function buildRelationshipExactThreadForPacket(args: {
   char_count: number;
   surviving_message_sids: string[];
   answered_user_message_links: AnsweredUserMessageLink[];
+  excluded_source_ids: ExactThreadExcludedSource[];
+  retrieval_incomplete?: boolean;
 }> {
   return buildMorningExactThreadForPacket(args);
 }
@@ -1953,6 +2111,8 @@ export async function buildMorningExactThreadForPacket(args: {
   messageForLocalDate: string;
   now?: Date;
   options?: MorningExactThreadOptions;
+  /** Scheduled daily: event time after generation now is not historical conversation. */
+  excludeAfterMs?: number;
 }): Promise<{
   window_days: 21;
   max_messages: 30;
@@ -1962,6 +2122,8 @@ export async function buildMorningExactThreadForPacket(args: {
   char_count: number;
   surviving_message_sids: string[];
   answered_user_message_links: AnsweredUserMessageLink[];
+  excluded_source_ids: ExactThreadExcludedSource[];
+  retrieval_incomplete?: boolean;
 }> {
   const now = args.now ?? new Date();
   const tz = resolveUserTimezone(args.timezone);
@@ -1976,13 +2138,34 @@ export async function buildMorningExactThreadForPacket(args: {
     now,
     windowHours,
     preserveUserBodyFormatting: true,
+    excludeAfterMs: args.excludeAfterMs,
   });
+  if (timeline.retrieval_incomplete) {
+    return {
+      window_days: MORNING_TTO_THREAD_WINDOW_DAYS,
+      max_messages: MORNING_TTO_THREAD_MAX_MESSAGES,
+      messages: [],
+      omitted_older_turn_count: 0,
+      message_count: 0,
+      char_count: 0,
+      surviving_message_sids: [],
+      answered_user_message_links: [],
+      excluded_source_ids: [],
+      retrieval_incomplete: true,
+    };
+  }
 
+  const excludeAfterMs = args.excludeAfterMs;
   const capped = capMorningExactThreadMessages(timeline.messages, {
     timezone: tz,
     nowMs: now.getTime(),
     messageForLocalDate,
-    options: { ...opts, messageForLocalDate },
+    options: { ...opts, messageForLocalDate, excludeAfterMs },
+  });
+  const links = (timeline.answered_user_message_links ?? []).filter((link) => {
+    if (excludeAfterMs == null) return true;
+    const answeredMs = Date.parse(link.answered_at);
+    return Number.isFinite(answeredMs) && answeredMs <= excludeAfterMs;
   });
 
   return {
@@ -1993,6 +2176,10 @@ export async function buildMorningExactThreadForPacket(args: {
     message_count: capped.messages.length,
     char_count: morningExactThreadMessageCharCount(capped.messages),
     surviving_message_sids: capped.surviving_message_sids,
-    answered_user_message_links: timeline.answered_user_message_links ?? [],
+    answered_user_message_links: links,
+    excluded_source_ids: mergeExcludedSources(
+      timeline.excluded_source_ids,
+      capped.excluded_source_ids
+    ),
   };
 }

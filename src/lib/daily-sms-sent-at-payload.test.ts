@@ -3,6 +3,25 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const ROUTE_PATH = join(process.cwd(), "src/app/api/cron/daily-sms/route.ts");
+const SENDER_PATH = join(process.cwd(), "src/lib/tyler-text-overview-send.ts");
+const RESERVATION_SQL = join(
+  process.cwd(),
+  "supabase/migrations/20261125150000_sms_tto_scheduled_generation.sql"
+);
+
+function scheduledReservationSql(): string {
+  const sql = readFileSync(RESERVATION_SQL, "utf8");
+  const start = sql.indexOf("CREATE FUNCTION public.tto_reserve_scheduled_daily_delivery");
+  const end = sql.indexOf("CREATE FUNCTION public.tto_begin_scheduled_daily_provider_attempt");
+  return sql.slice(start, end);
+}
+
+function scheduledFinalizeSql(): string {
+  const sql = readFileSync(RESERVATION_SQL, "utf8");
+  const start = sql.indexOf("CREATE FUNCTION public.tto_finalize_scheduled_daily_acceptance");
+  const end = sql.indexOf("CREATE FUNCTION public.tto_release_proven_pre_provider");
+  return sql.slice(start, end);
+}
 
 describe("daily-sms Twilio success sms_send_events payload", () => {
   const src = readFileSync(ROUTE_PATH, "utf8");
@@ -17,7 +36,12 @@ describe("daily-sms Twilio success sms_send_events payload", () => {
   });
 
   it("preserves metadata.local_time for user wall-clock display", () => {
-    expect(src).toMatch(/local_time:\s*localNow\.toISOString\(\)/);
+    const reserve = scheduledReservationSql();
+    expect(reserve).toContain("'time_zone', p_time_zone");
+    expect(reserve).toContain("'member_local_date', p_member_local_date");
+    const finalize = scheduledFinalizeSql();
+    expect(finalize).toContain("'sent_at', to_jsonb(clock_timestamp())");
+    expect(finalize).not.toContain("localNow");
   });
 
   it("does not write top-level sent_at on success payload", () => {
@@ -31,13 +55,16 @@ describe("daily-sms Twilio success sms_send_events payload", () => {
   });
 
   it("persists metadata.sent_at, twilio_message_sid, and visible body on success", () => {
-    expect(src).toContain("function dailySmsTwilioSuccessSendEventFields");
-    expect(src).toContain("twilio_message_sid: args.messageSid");
-    expect(src).toContain("final_sms_body: args.smsBody");
-    expect(src).toContain("twilio_status: args.twilioStatus");
-    expect(src).toContain("twilio_send_attempted: true");
-    expect(src).toContain("mainSuccessPayload = dailySmsTwilioSuccessSendEventFields");
-    expect(src).toContain("retrySuccessPayload = dailySmsTwilioSuccessSendEventFields");
+    const finalize = scheduledFinalizeSql();
+    expect(finalize).toContain("message_sid = p_message_sid");
+    expect(finalize).toContain("sms_body = p_body");
+    expect(finalize).toContain("'sent_at', to_jsonb(clock_timestamp())");
+    expect(finalize).toContain("'final_body_sent', p_body");
+    expect(finalize).toContain("'twilio_send_attempted', true");
+    const sender = readFileSync(SENDER_PATH, "utf8");
+    expect(sender).toContain('rpc("tto_finalize_scheduled_daily_acceptance"');
+    expect(sender).toContain("p_message_sid: messageSid");
+    expect(sender).toContain("p_body: ready.body");
   });
 
   it("keeps message_sid, status, and sms_body at top level", () => {
@@ -61,48 +88,49 @@ describe("daily-sms Twilio success sms_send_events payload", () => {
   });
 
   it("treats metadata Twilio SID as non-retryable via hasAnyTwilioSidOnSendEvent", () => {
-    expect(src).toContain("function hasAnyTwilioSidOnSendEvent");
-    expect(src).toContain("twilio_message_sid");
-    expect(src).toContain("outbound_message_sid");
-    expect(src).toMatch(/hasAnyTwilioSidOnSendEvent\(existingEvent\)/);
-    expect(src).toMatch(
-      /existingEvent\.status === "send_failed"[\s\S]*if \(hasMessageSid\)/
-    );
+    const reserve = scheduledReservationSql();
+    const sidGuard = reserve.indexOf("IF v_sid IS NOT NULL OR v_row.status = 'sent' OR v_attempted THEN");
+    const retry = reserve.indexOf("ELSIF v_row.status = 'send_failed'");
+    expect(sidGuard).toBeGreaterThan(-1);
+    expect(retry).toBeGreaterThan(sidGuard);
+    expect(reserve).toContain("AND message_sid IS NULL");
   });
 
   it("send_failed row with metadata.twilio_message_sid is not retried (guard before retry_count)", () => {
-    const sendFailedIdx = src.indexOf('if (existingEvent.status === "send_failed")');
-    expect(sendFailedIdx).toBeGreaterThan(-1);
-    const block = src.slice(sendFailedIdx, sendFailedIdx + 600);
-    expect(block).toContain("if (hasMessageSid)");
-    expect(block).toContain("alreadyReservedOrSentToday");
-    expect(block.indexOf("if (hasMessageSid)")).toBeLessThan(block.indexOf("retryCount"));
+    const reserve = scheduledReservationSql();
+    const failed = reserve.indexOf("ELSIF v_row.status = 'send_failed' AND NOT v_attempted AND v_sid IS NULL");
+    const retryCount = reserve.indexOf("(metadata->>'retry_count')");
+    expect(failed).toBeGreaterThan(-1);
+    expect(retryCount).toBeGreaterThan(failed);
+    expect(reserve.slice(retryCount)).toContain("AND message_sid IS NULL");
   });
 
   it("reserved recovery skips rows that already have a Twilio SID in metadata", () => {
-    expect(src).toMatch(
-      /existingEvent\.status === "reserved" && !hasMessageSid/
-    );
+    const reserve = scheduledReservationSql();
+    expect(reserve).toMatch(/v_row\.status = 'reserved'[\s\S]*v_sid IS NULL[\s\S]*NOT v_attempted/);
+    expect(reserve).toContain("AND message_sid IS NULL");
   });
 
   it("scheduling gate uses fixed Morning lane window, not adaptive hour authorities", () => {
-    expect(src).toContain("evaluateMorningLaneTiming");
-    expect(src).toContain("buildMorningLaneSchedulingTelemetry");
-    expect(src).not.toContain("evaluateDailySendTimeWindow");
-    expect(src).not.toContain("isLocalCatchupHour");
-    expect(src).not.toMatch(
-      /sendTimeWindowOk\s*=\s*isInSendWindow\(localNow/
-    );
+    const production = src.slice(src.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toContain("evaluateMorningLaneTiming");
+    expect(production).not.toContain("evaluateDailySendTimeWindow");
+    expect(production).not.toContain("isLocalCatchupHour");
+    expect(production).not.toMatch(/sendTimeWindowOk\s*=\s*isInSendWindow\(localNow/);
   });
 
   it("fresh reserved/no-SID rows are not reclaimed within lease", () => {
-    expect(src).toContain("isMorningReservationWithinLease");
-    expect(src).toContain("unknown_outcome_lease_expired");
-    expect(src).toContain("isSafeMorningRetryFailure");
+    const reserve = scheduledReservationSql();
+    expect(reserve).toContain("v_lease > clock_timestamp() - interval '2 minutes'");
+    expect(reserve).toContain("v_sid IS NULL");
+    expect(reserve).toContain("NOT v_attempted");
   });
 
   it("force does not bypass Morning window", () => {
-    expect(src).toMatch(/force=1 does not bypass/);
-    expect(src).not.toMatch(/bypassWindowGate\s*=\s*Boolean\(existingEvent\)\s*\|\|\s*force/);
+    const production = src.slice(src.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toMatch(/searchParams\.get\("force"\)/);
+    expect(production).not.toMatch(/bypassWindowGate\s*=\s*Boolean\(existingEvent\)\s*\|\|\s*force/);
   });
 });

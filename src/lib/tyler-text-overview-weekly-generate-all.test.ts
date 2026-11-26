@@ -44,6 +44,7 @@ import {
 import {
   classifyWeeklyGenerateAllMember,
   generateMissingWeeklyDraftsForAllSendableUsers,
+  generateWeeklyTtoDraftBatch,
   WEEKLY_TTO_GENERATE_ALL_CHUNK_USER_CAP,
   WEEKLY_TTO_GENERATE_ALL_CONCURRENCY,
   WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY,
@@ -52,699 +53,19 @@ import {
 
 const REPO = process.cwd();
 
-describe("weekly-generate-all missing_only service", () => {
-  const now = new Date("2026-07-12T16:00:00.000Z");
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("scans TTO audience and generates missing weekly drafts", async () => {
-    const generateForUser = vi.fn().mockResolvedValue({
-      ok: true,
-      draftForDayKey: "2026-07-12",
-      weekKey: "2026-W29",
-      weekStart: "2026-07-06",
-      weekEnd: "2026-07-12",
-      timezone: "America/New_York",
-      generationId: "gen-1",
-      machineShouldSend: true,
-      machineDraftBody: "Weekly body",
-      machineNoSendReason: null,
-      sendSlot: "weekly_review",
-    });
-
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      mode: "missing_only",
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_missing",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_missing",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
-        generateForUser,
-      },
-    });
-
-    expect(result.ok).toBe(true);
-    expect(result.mode).toBe(WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY);
-    expect(result.scanned).toBe(1);
-    expect(result.generated).toBe(1);
-    expect(result.failed).toBe(0);
-    expect(result.week_keys_seen).toContain("2026-W29");
-    expect(result.draft_for_day_keys_seen).toContain("2026-07-12");
-    expect(generateForUser).toHaveBeenCalledTimes(1);
-  });
-
-  it("skips existing current weekly drafts and does not call generate", async () => {
-    const generateForUser = vi.fn();
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_current",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_current",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({
-          draft: {
-            clerk_user_id: "user_current",
-            status: "current",
-            current_generation_id: "gen-current",
-            edited_by_tyler: false,
-            current_body_source: "machine",
-            current_body_to_send: "Existing weekly body",
-          },
-          machineDraftBody: "Existing weekly body",
-          hasSent: false,
-        }),
-        generateForUser,
-      },
-    });
-
-    expect(result.skipped_existing_current).toBe(1);
-    expect(result.generated).toBe(0);
-    expect(generateForUser).not.toHaveBeenCalled();
-  });
-
-  it("skips Tyler-edited drafts because they are current", async () => {
-    const generateForUser = vi.fn();
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_tyler_edited",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_tyler_edited",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({
-          draft: {
-            clerk_user_id: "user_tyler_edited",
-            status: "current",
-            current_generation_id: "gen-tyler",
-            edited_by_tyler: true,
-            current_body_source: "tyler_edit",
-            current_body_to_send: "Tyler weekly edit",
-          },
-          machineDraftBody: "machine leftover",
-          hasSent: false,
-        }),
-        generateForUser,
-      },
-    });
-
-    expect(result.skipped_existing_current).toBe(1);
-    expect(generateForUser).not.toHaveBeenCalled();
-  });
-
-  it("skips sent weekly drafts", async () => {
-    const generateForUser = vi.fn();
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_sent",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_sent",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({
-          draft: {
-            clerk_user_id: "user_sent",
-            status: "sent",
-            current_generation_id: "gen-sent",
-            edited_by_tyler: false,
-            current_body_source: "machine",
-            current_body_to_send: "Sent body",
-          },
-          machineDraftBody: "Sent body",
-          hasSent: true,
-        }),
-        generateForUser,
-      },
-    });
-
-    expect(result.skipped_sent).toBe(1);
-    expect(generateForUser).not.toHaveBeenCalled();
-  });
-
-  it("retries current drafts whose machine body is empty (OpenAI failure)", async () => {
-    const generateForUser = vi.fn().mockResolvedValue({
-      ok: true,
-      draftForDayKey: "2026-07-12",
-      weekKey: "2026-W29",
-      weekStart: "2026-07-06",
-      weekEnd: "2026-07-12",
-      timezone: "America/New_York",
-      generationId: "gen-retry",
-      machineShouldSend: true,
-      machineDraftBody: "Recovered weekly body",
-      machineNoSendReason: null,
-      sendSlot: "weekly_review",
-    });
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_retry",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_retry",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({
-          draft: {
-            clerk_user_id: "user_retry",
-            status: "current",
-            current_generation_id: "gen-fail",
-            edited_by_tyler: false,
-            current_body_source: "machine",
-            current_body_to_send: null,
-          },
-          machineDraftBody: null,
-          hasSent: false,
-        }),
-        generateForUser,
-      },
-    });
-    expect(generateForUser).toHaveBeenCalledTimes(1);
-    expect(result.generated).toBe(1);
-    expect(result.skipped_existing_current).toBe(0);
-  });
-
-  it("skips an existing intentional_space row as complete", async () => {
-    const generateForUser = vi.fn();
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_space",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_space",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({
-          draft: {
-            clerk_user_id: "user_space",
-            status: "current",
-            current_generation_id: "gen-space",
-            edited_by_tyler: false,
-            current_body_source: "machine",
-            current_body_to_send: null,
-          },
-          machineDraftBody: null,
-          machineNoSendReason: "intentional_space",
-          hasSent: false,
-        }),
-        generateForUser,
-      },
-    });
-    expect(generateForUser).not.toHaveBeenCalled();
-    expect(result.generated).toBe(0);
-    expect(result.failed).toBe(0);
-    expect(result.skipped_existing_current).toBe(1);
-  });
-
-  it("counts technical no-send (empty machine body) as failed, not generated", async () => {
-    const generateForUser = vi.fn().mockResolvedValue({
-      ok: true,
-      draftForDayKey: "2026-07-12",
-      weekKey: "2026-W29",
-      weekStart: "2026-07-06",
-      weekEnd: "2026-07-12",
-      timezone: "America/New_York",
-      generationId: "gen-empty",
-      machineShouldSend: false,
-      machineDraftBody: null,
-      machineNoSendReason: "openai_429",
-      sendSlot: "weekly_review",
-    });
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_429",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_429",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
-        generateForUser,
-      },
-    });
-    expect(result.generated).toBe(0);
-    expect(result.failed).toBe(1);
-    expect(result.errors_preview[0]?.error).toBe("openai_429");
-  });
-
-  it("counts a real intentional_space generation as generated, not failed", async () => {
-    const generateForUser = vi.fn().mockResolvedValue({
-      ok: true,
-      draftForDayKey: "2026-07-12",
-      weekKey: "2026-W29",
-      weekStart: "2026-07-06",
-      weekEnd: "2026-07-12",
-      timezone: "America/New_York",
-      generationId: "gen-space",
-      machineShouldSend: false,
-      machineDraftBody: null,
-      machineNoSendReason: "intentional_space",
-      sendSlot: "weekly_review",
-    });
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_space_new",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_space_new",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({
-          draft: null,
-          machineDraftBody: null,
-          machineNoSendReason: null,
-          hasSent: false,
-        }),
-        generateForUser,
-      },
-    });
-    expect(generateForUser).toHaveBeenCalledTimes(1);
-    expect(result.generated).toBe(1);
-    expect(result.failed).toBe(0);
-  });
-
-  it("protects Tyler blank current drafts", async () => {
-    const generateForUser = vi.fn();
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_blank",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_blank",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({
-          draft: {
-            clerk_user_id: "user_blank",
-            status: "current",
-            current_generation_id: "gen-blank",
-            edited_by_tyler: true,
-            current_body_source: "tyler_edit",
-            current_body_to_send: null,
-          },
-          machineDraftBody: null,
-          hasSent: false,
-        }),
-        generateForUser,
-      },
-    });
-    expect(result.skipped_existing_current).toBe(1);
-    expect(generateForUser).not.toHaveBeenCalled();
-  });
-
-  it("skips users with existing sms_weekly_send_events for week_key (incl. Tyler W29)", async () => {
-    const generateForUser = vi.fn();
-    const hasWeeklySendEvent = vi.fn().mockResolvedValue(true);
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_3Boa0IkXC7GzrZOBgcCem0DnFa9",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_3Boa0IkXC7GzrZOBgcCem0DnFa9",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent,
-        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
-        generateForUser,
-      },
-    });
-
-    expect(result.skipped_already_weekly_event).toBe(1);
-    expect(hasWeeklySendEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        clerkUserId: "user_3Boa0IkXC7GzrZOBgcCem0DnFa9",
-        weekKey: "2026-W29",
-      })
+describe("weekly generation batch entry points are retired", () => {
+  it("missing-only generation throws before an audience scan or a model call", async () => {
+    await expect(generateMissingWeeklyDraftsForAllSendableUsers()).rejects.toThrow(
+      "weekly_delivery_retired"
     );
-    expect(generateForUser).not.toHaveBeenCalled();
   });
 
-  it("skips not eligible (no phone) without generate", async () => {
-    const generateForUser = vi.fn();
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_nophone",
-            phone_number: "  ",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        generateForUser,
-      },
-    });
-
-    expect(result.skipped_not_eligible).toBe(1);
-    expect(result.generated).toBe(0);
-    expect(generateForUser).not.toHaveBeenCalled();
-  });
-
-  it("maps generate eligibility failures to skipped_not_eligible", async () => {
-    const generateForUser = vi.fn().mockResolvedValue({
+  it("the chunked batch refuses before a draft write or a provider call", async () => {
+    await expect(generateWeeklyTtoDraftBatch({ now: new Date("2026-08-08T18:00:00.000Z") })).resolves.toEqual({
       ok: false,
-      reason: "not_v2",
+      error: "weekly_delivery_retired",
+      status: 410,
     });
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_not_v2",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_not_v2",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
-        generateForUser,
-      },
-    });
-
-    expect(result.skipped_not_eligible).toBe(1);
-    expect(result.failed).toBe(0);
-  });
-
-  it("counts machine_should_send false with empty body as failed Generate All work", async () => {
-    const generateForUser = vi.fn().mockResolvedValue({
-      ok: true,
-      draftForDayKey: "2026-07-12",
-      weekKey: "2026-W29",
-      weekStart: "2026-07-06",
-      weekEnd: "2026-07-12",
-      timezone: "America/New_York",
-      generationId: "gen-nosend",
-      machineShouldSend: false,
-      machineDraftBody: null,
-      machineNoSendReason: "weekly_lane_no_send",
-      sendSlot: "weekly_review",
-    });
-
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_nosend",
-            phone_number: "+15551234567",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async () =>
-          ({
-            id: "user_nosend",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
-        generateForUser,
-      },
-    });
-
-    expect(result.generated).toBe(0);
-    expect(result.failed).toBe(1);
-    expect(generateForUser).toHaveBeenCalled();
-  });
-
-  it("returns errors_preview on partial failure while counting successes", async () => {
-    const generateForUser = vi
-      .fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        draftForDayKey: "2026-07-12",
-        weekKey: "2026-W29",
-        weekStart: "2026-07-06",
-        weekEnd: "2026-07-12",
-        timezone: "America/New_York",
-        generationId: "gen-ok",
-        machineShouldSend: true,
-        machineDraftBody: "ok",
-        machineNoSendReason: null,
-        sendSlot: "weekly_review",
-      })
-      .mockResolvedValueOnce({
-        ok: false,
-        reason: "build_failed",
-        error: "openai_down",
-      });
-
-    const result = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => [
-          {
-            clerk_user_id: "user_ok",
-            phone_number: "+15551111111",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-          {
-            clerk_user_id: "user_fail",
-            phone_number: "+15552222222",
-            sms_enabled: true,
-            stopped_at: null,
-            timezone: "America/New_York",
-            summitt_subscribed: true,
-          },
-        ],
-        getClerkUserFn: async (id: string) =>
-          ({
-            id,
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek: async () => ({ draft: null, machineDraftBody: null, hasSent: false }),
-        generateForUser,
-      },
-    });
-
-    expect(result.generated).toBe(1);
-    expect(result.failed).toBe(1);
-    expect(result.errors_preview).toEqual([
-      expect.objectContaining({
-        clerk_user_id: "user_fail",
-        reason: "build_failed",
-        error: "openai_down",
-      }),
-    ]);
-  });
-
-  it("rerun missing_only skips users who now have current drafts", async () => {
-    const generateForUser = vi.fn();
-    const findDraftForWeek = vi
-      .fn()
-      .mockResolvedValueOnce({ draft: null, machineDraftBody: null, hasSent: false })
-      .mockResolvedValueOnce({
-        draft: {
-          clerk_user_id: "user_rerun",
-          status: "current",
-          current_generation_id: "gen-1",
-          edited_by_tyler: false,
-          current_body_source: "machine",
-          current_body_to_send: "body",
-        },
-        machineDraftBody: "body",
-        hasSent: false,
-      });
-
-    generateForUser.mockResolvedValue({
-      ok: true,
-      draftForDayKey: "2026-07-12",
-      weekKey: "2026-W29",
-      weekStart: "2026-07-06",
-      weekEnd: "2026-07-12",
-      timezone: "America/New_York",
-      generationId: "gen-1",
-      machineShouldSend: true,
-      machineDraftBody: "body",
-      machineNoSendReason: null,
-      sendSlot: "weekly_review",
-    });
-
-    const audience = [
-      {
-        clerk_user_id: "user_rerun",
-        phone_number: "+15551234567",
-        sms_enabled: true,
-        stopped_at: null,
-        timezone: "America/New_York",
-        summitt_subscribed: true,
-      },
-    ];
-
-    const first = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => audience,
-        getClerkUserFn: async () =>
-          ({
-            id: "user_rerun",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek,
-        generateForUser,
-      },
-    });
-    expect(first.generated).toBe(1);
-
-    const second = await generateMissingWeeklyDraftsForAllSendableUsers({
-      now,
-      deps: {
-        loadAudienceRows: async () => audience,
-        getClerkUserFn: async () =>
-          ({
-            id: "user_rerun",
-            public_metadata: { timezone: "America/New_York" },
-          }) as never,
-        hasWeeklySendEvent: async () => false,
-        findDraftForWeek,
-        generateForUser,
-      },
-    });
-    expect(second.skipped_existing_current).toBe(1);
-    expect(second.generated).toBe(0);
-    expect(generateForUser).toHaveBeenCalledTimes(1);
-  });
-
-  it("throws on unsupported mode", async () => {
-    await expect(
-      generateMissingWeeklyDraftsForAllSendableUsers({
-        mode: "regenerate_all" as never,
-      })
-    ).rejects.toThrow(/unsupported_mode/);
   });
 });
 
@@ -901,7 +222,8 @@ describe("weekly generate-all classification", () => {
       join(process.cwd(), "src/app/api/admin/tyler-text-overview/weekly-generate/route.ts"),
       "utf8"
     );
-    expect(route).toContain("generateTylerTextOverviewWeeklyDraftForUser");
+    expect(route).toContain("weekly_delivery_retired");
+    expect(route).not.toContain("generateTylerTextOverviewWeeklyDraftForUser");
     expect(route).not.toContain("classifyWeeklyGenerateAllMember");
     expect(route).not.toContain("classifyTtoGenerateAllMember");
   });
@@ -931,13 +253,7 @@ describe("weekly-generate-all route", () => {
     const { POST } = await import(
       "@/app/api/admin/tyler-text-overview/weekly-generate-all/route"
     );
-    const res = await POST(
-      new Request("http://localhost/api/admin/tyler-text-overview/weekly-generate-all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "missing_only" }),
-      })
-    );
+    const res = await POST();
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json.ok).toBe(false);
@@ -976,17 +292,11 @@ describe("weekly-generate-all route", () => {
     const { POST } = await import(
       "@/app/api/admin/tyler-text-overview/weekly-generate-all/route"
     );
-    const res = await POST(
-      new Request("http://localhost/api/admin/tyler-text-overview/weekly-generate-all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "regenerate_all" }),
-      })
-    );
-    expect(res.status).toBe(200);
+    const res = await POST();
+    expect(res.status).toBe(410);
     const json = await res.json();
-    expect(json.ok).toBe(true);
-    expect(json.result.generated_complete).toBe(1);
+    expect(json.ok).toBe(false);
+    expect(json.error).toBe("weekly_delivery_retired");
     vi.doUnmock("@/lib/tyler-text-overview-weekly-generate-all");
   });
 
@@ -1023,18 +333,11 @@ describe("weekly-generate-all route", () => {
     const { POST } = await import(
       "@/app/api/admin/tyler-text-overview/weekly-generate-all/route"
     );
-    const res = await POST(
-      new Request("http://localhost/api/admin/tyler-text-overview/weekly-generate-all", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      })
-    );
-    expect(res.status).toBe(200);
+    const res = await POST();
+    expect(res.status).toBe(410);
     const json = await res.json();
-    expect(json.ok).toBe(true);
-    expect(json.result.is_complete).toBe(true);
-    expect(json.result.generated_complete).toBe(1);
+    expect(json.ok).toBe(false);
+    expect(json.error).toBe("weekly_delivery_retired");
     vi.doUnmock("@/lib/tyler-text-overview-weekly-generate-all");
   });
 });
@@ -1087,13 +390,16 @@ describe("weekly-generate-all no-send static guards", () => {
     expect(vercelSrc).not.toContain("weekly-generate-all");
   });
 
-  it("uses chunked resumable generation via one-row generate", () => {
-    expect(serviceSrc).toContain("generateTylerTextOverviewWeeklyDraftForUser");
-    expect(serviceSrc).toContain("runPoolWithBudget");
-    expect(serviceSrc).toContain("WEEKLY_TTO_GENERATE_ALL_CHUNK_USER_CAP");
-    expect(serviceSrc).toContain("WEEKLY_TTO_GENERATE_ALL_CONCURRENCY");
-    expect(routeSrc).toContain("generateWeeklyTtoDraftBatch");
-    expect(routeSrc).toContain("maxDuration");
+  it("retired entry points do not call the generator, interpreter, writer, or send path", () => {
+    expect(serviceSrc).toContain("weekly_delivery_retired");
+    expect(serviceSrc).not.toContain("generateTylerTextOverviewWeeklyDraftForUser");
+    expect(serviceSrc).not.toContain("runPoolWithBudget");
+    expect(serviceSrc).not.toContain("runWeeklyBriefInterpreterV1");
+    expect(serviceSrc).not.toContain("writeWeeklyTtoBody");
+    expect(serviceSrc).not.toContain("persistMorningTtoGeneration");
+    expect(serviceSrc).not.toContain("sendSMS");
+    expect(routeSrc).toContain("weekly_delivery_retired");
+    expect(routeSrc).not.toContain("generateWeeklyTtoDraftBatch");
   });
 });
 
@@ -1159,9 +465,11 @@ describe("weekly-generate-all does not regress siblings", () => {
     }
   });
 
-  it("weekly-sms cron remains draft-authoritative", () => {
+  it("weekly-sms cron cannot submit a text", () => {
     const src = readFileSync(join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).toContain("force_ignored");
+    expect(src).not.toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
     expect(src).not.toContain("produceWeeklyV3RelationshipSms");
   });
 });

@@ -25,52 +25,23 @@ const FORBIDDEN_CRON_LIVE_BUILD = [
   "v2-weekly-proof-sms",
 ];
 
-describe("weekly-sms is Weekly TTO draft-authoritative (static)", () => {
+describe("weekly-sms delivery is retired", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
 
-  it("documents draft-authoritative invariant", () => {
-    expect(src).toContain("weekly-sms is Weekly TTO draft-authoritative");
-    expect(src).toContain("This route must not live-build weekly SMS bodies");
-    expect(src).toContain("tto_draft_authoritative: true");
+  it("refuses before generation or provider submission, including force=1", () => {
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).toContain("force_ignored");
+    expect(src).toContain('searchParams.get("force") === "1"');
+    expect(src.indexOf("validateCronSecret")).toBeLessThan(src.indexOf("weekly_delivery_retired"));
+    expect(src).not.toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(src).not.toContain("sendSMS");
+    expect(src).not.toContain("shouldSendNow");
   });
 
   it("does not import or call live-build / OpenAI / proof / lane builders", () => {
     for (const forbidden of FORBIDDEN_CRON_LIVE_BUILD) {
       expect(src).not.toContain(forbidden);
     }
-  });
-
-  it("uses Weekly TTO cron authority + shared send core", () => {
-    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
-    expect(src).toContain("sendWeeklyTtoDraftAuthoritative");
-    expect(src).toContain("WEEKLY_TTO_CRON_SEND_SOURCE");
-    expect(src).toContain("resolveTylerTextOverviewWeeklyPeriod");
-    expect(src).not.toContain("ensureCurrentTtoDraftFreshForSend");
-  });
-
-  it("force only bypasses Sunday noon window", () => {
-    expect(src).toContain('url.searchParams.get("force") === "1"');
-    expect(src).toContain("shouldSendNow");
-    expect(src).toMatch(/if\s*\(\s*!force\s*&&\s*!shouldSendNow/);
-    // force never skips authority
-    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
-  });
-
-  it("dryRun is side-effect free (no reserve / Twilio / finalize)", () => {
-    expect(src).toContain('url.searchParams.get("dryRun") === "1"');
-    expect(src).toContain("dryRunWouldSend");
-    // dryRun branch must not call shared send core
-    const dryStart = src.indexOf("if (dryRun)");
-    expect(dryStart).toBeGreaterThanOrEqual(0);
-    const dryEnd = src.indexOf("if (!isTwilioReady())", dryStart);
-    expect(dryEnd).toBeGreaterThan(dryStart);
-    const drySlice = src.slice(dryStart, dryEnd);
-    expect(drySlice).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
-    expect(drySlice).toContain("dryRunWouldSend");
-    expect(drySlice).not.toContain("sendWeeklyTtoDraftAuthoritative");
-    expect(drySlice).not.toContain("ensureCurrentTtoDraftFreshForSend");
-    expect(drySlice).not.toContain("sendSMS");
-    expect(drySlice).not.toContain('from("sms_weekly_send_events")');
   });
 
   it("does not write sms_send_events or check_sent", () => {
@@ -105,27 +76,20 @@ describe("weekly-sms send core still draft-authoritative", () => {
     }
   });
 
-  it("live send uses send-core freshness once, not a cron-level duplicate", () => {
+  it("the retired cron does not reach send-core freshness", () => {
     const routeSrc = fs.readFileSync(ROUTE, "utf8");
     expect(routeSrc).not.toContain("ensureCurrentTtoDraftFreshForSend");
-    expect(sendSrc).toContain("ensureCurrentTtoDraftFreshForSend");
-    const liveStart = routeSrc.indexOf("if (!isTwilioReady())");
-    const liveSlice = routeSrc.slice(liveStart);
-    expect(liveSlice).toContain("sendWeeklyTtoDraftAuthoritative");
-    expect(liveSlice).not.toContain("ensureCurrentTtoDraftFreshForSend");
+    expect(routeSrc).not.toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(routeSrc).toContain("weekly_delivery_retired");
   });
 
-  it("runs shared TTO freshness then re-reads weekly authority before footer/send", () => {
+  it("the shared send function refuses before freshness, reservation, or Twilio", () => {
     const fnStart = sendSrc.indexOf("export async function sendWeeklyTtoDraftAuthoritative");
     const fn = sendSrc.slice(fnStart);
-    const freshIdx = fn.indexOf("ensureCurrentTtoDraftFreshForSend");
-    const reassertIdx = fn.indexOf("assertWeeklyTtoDraftAuthoritativeForCronSend");
-    const footerIdx = fn.indexOf("buildWeeklyTtoFinalBodyWithFooter");
-    const twilioIdx = fn.indexOf("await sendSMS(");
-    expect(freshIdx).toBeGreaterThan(-1);
-    expect(reassertIdx).toBeGreaterThan(freshIdx);
-    expect(footerIdx).toBeGreaterThan(reassertIdx);
-    expect(twilioIdx).toBeGreaterThan(footerIdx);
+    expect(fn).toContain("weekly_delivery_retired");
+    expect(fn).not.toContain("ensureCurrentTtoDraftFreshForSend");
+    expect(fn).not.toContain("await sendSMS(");
+    expect(fn).not.toContain("weekly_tto_reserve_send");
   });
 });
 
@@ -133,14 +97,15 @@ describe("weekly TTO generation uses Sol relationship brain (generation-only)", 
   it("weekly generate uses packet → interpreter → writer and does not call old proof/V3 brains", () => {
     const gen = fs.readFileSync(WEEKLY_GENERATE, "utf8");
     const live = gen.slice(gen.indexOf("export async function generateTylerTextOverviewWeeklyDraftForUser"));
-    expect(live).toContain("loadWeeklyRelationshipPacket");
-    expect(live).toContain("runWeeklyBriefInterpreterV1");
-    expect(live).toContain("writeWeeklyTtoBody");
-    expect(live).toContain("persistMorningTtoGeneration");
+    expect(live).toContain("weekly_delivery_retired");
+    expect(live).not.toContain("loadWeeklyRelationshipPacket");
+    expect(live).not.toContain("runWeeklyBriefInterpreterV1");
+    expect(live).not.toContain("writeWeeklyTtoBody");
+    expect(live).not.toContain("persistMorningTtoGeneration");
     expect(live).not.toContain("buildV2WeeklyProofPack");
     expect(live).not.toContain("produceWeeklyV3RelationshipSms");
     expect(live).not.toContain("generateV2WeeklyProofSmsBody");
     expect(live).not.toContain("buildDeterministicWeeklyProofBody");
-    expect(gen).toContain("Never sends SMS");
+    expect(gen).toContain("does not call an interpreter");
   });
 });

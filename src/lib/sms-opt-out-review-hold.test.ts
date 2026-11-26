@@ -195,13 +195,16 @@ describe("opt-out review hold wiring", () => {
     expect(block).not.toContain("commitAndSendInboundCoachReply");
   });
 
-  it("Morning main and retry skip a held member before Twilio", () => {
-    const retry = daily.indexOf('path: "retry",\n                skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON');
-    const main = daily.indexOf('path: "main",\n          skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON');
-    expect(retry).toBeGreaterThan(0);
-    expect(main).toBeGreaterThan(retry);
-    expect(daily.indexOf("shouldSkipDailyForAwaitingSmsOptOutReview")).toBeLessThan(
-      daily.indexOf("await sendSMS({")
+  it("Morning production delivery does not use the fixed-window skip loop", () => {
+    const production = daily.slice(daily.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toContain('path: "main"');
+    expect(production).not.toContain('path: "retry"');
+    expect(production).not.toContain("attemptMorningTtoTwilioSend(");
+    const send = read("src/lib/tyler-text-overview-send.ts");
+    const prepare = send.slice(send.indexOf("async function prepareScheduledDailyDelivery"));
+    expect(prepare.indexOf("hasAwaitingSmsOptOutReview")).toBeLessThan(
+      prepare.indexOf("scheduledDailyBodyAuthorization")
     );
   });
 
@@ -209,15 +212,14 @@ describe("opt-out review hold wiring", () => {
     expect(evening.indexOf("hasAwaitingSmsOptOutReview")).toBeLessThan(
       evening.indexOf("await sendSMS(")
     );
-    const sendFn = weeklySend.indexOf("async function sendWeeklyTtoDraftAuthoritative");
-    const manual = weeklySend.indexOf("export async function sendWeeklyTtoDraftManually");
-    expect(weeklySend.indexOf("hasAwaitingSmsOptOutReview", sendFn)).toBeLessThan(
-      weeklySend.indexOf("await sendSMS(", sendFn)
-    );
-    expect(weeklySend.indexOf("sendWeeklyTtoDraftAuthoritative", manual)).toBeGreaterThan(manual);
-    const early = weeklyCron.indexOf("await hasAwaitingSmsOptOutReview");
-    expect(early).toBeGreaterThan(0);
-    expect(early).toBeLessThan(weeklyCron.indexOf("await sendWeeklyTtoDraftAuthoritative"));
+    const sends = weeklySend.slice(weeklySend.indexOf("export async function sendWeeklyTtoDraftAuthoritative"));
+    expect(sends).toContain("weekly_delivery_retired");
+    expect(sends).not.toContain("await sendSMS(");
+    expect(sends).not.toContain("hasAwaitingSmsOptOutReview");
+    expect(weeklyCron).toContain("weekly_delivery_retired");
+    expect(weeklyCron).toContain("force_ignored");
+    expect(weeklyCron).not.toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(weeklyCron).not.toContain("sendSMS");
   });
 
   it("exact STOP and START copy stay the same, and review cleanup is a separate write", () => {

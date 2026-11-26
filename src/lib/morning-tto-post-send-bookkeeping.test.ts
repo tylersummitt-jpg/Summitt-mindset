@@ -1,20 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const upsertThreadMemoryMock = vi.hoisted(() => vi.fn());
+const planThreadMemoryMock = vi.hoisted(() => vi.fn());
 const reconcileCheckSentMock = vi.hoisted(() => vi.fn());
 const reconcileRefreshMock = vi.hoisted(() => vi.fn());
 const hasCheckSentMock = vi.hoisted(() => vi.fn());
-const insertCheckSentMock = vi.hoisted(() => vi.fn());
+const rpcMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/v2-commitment-sms-thread-memory", () => ({
-  upsertCommitmentSmsThreadMemoryFromOutbound: upsertThreadMemoryMock,
+  planCommitmentSmsThreadMemoryFromOutbound: planThreadMemoryMock,
+}));
+
+vi.mock("@/lib/supabase-server", () => ({
+  supabaseServer: { rpc: rpcMock },
 }));
 
 vi.mock("@/lib/v2-outbound-check-sent", () => ({
   reconcileCheckSentPostSendBookkeepingForCommitment: reconcileCheckSentMock,
   reconcileRefreshPostSendBookkeepingForCommitment: undefined,
   hasCheckSentForCommitmentDaySlot: hasCheckSentMock,
-  insertV2CheckSentEventBestEffort: insertCheckSentMock,
   onV2StandardCheckSentOutboundSendSuccess: vi.fn(async () => {
     throw new Error("onV2StandardCheckSentOutboundSendSuccess must not be called");
   }),
@@ -30,10 +33,7 @@ vi.mock("@/lib/v2-coaching-memory", () => ({
   }),
 }));
 
-import {
-  MORNING_TTO_OPERATIONAL_CHECK_SENT_TEMPLATE_ID,
-  runMorningTtoPostSendBookkeeping,
-} from "@/lib/morning-tto-post-send-bookkeeping";
+import { runMorningTtoPostSendBookkeeping } from "@/lib/morning-tto-post-send-bookkeeping";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -43,8 +43,8 @@ describe("runMorningTtoPostSendBookkeeping", () => {
     reconcileCheckSentMock.mockResolvedValue({});
     reconcileRefreshMock.mockResolvedValue({});
     hasCheckSentMock.mockResolvedValue(false);
-    insertCheckSentMock.mockResolvedValue(undefined);
-    upsertThreadMemoryMock.mockResolvedValue({ ok: true });
+    planThreadMemoryMock.mockResolvedValue({ ok: true, ops: [{ op: "insert", row: { last_outbound_full_body: "body" } }] });
+    rpcMock.mockResolvedValue({ data: [{ outcome: "recorded", reason: null }], error: null });
   });
 
   it("source module has no OpenAI or coaching-memory recompute dependency", () => {
@@ -55,6 +55,10 @@ describe("runMorningTtoPostSendBookkeeping", () => {
     expect(src).not.toContain("recomputeV2CoachingMemory");
     expect(src).not.toContain("openai");
     expect(src).not.toContain("OpenAI");
+    expect(src).toContain("tto_record_scheduled_post_send_bookkeeping");
+    expect(src).toContain("scheduledDeletionFence: true");
+    expect(src).not.toContain("insertV2CheckSentEventBestEffort");
+    expect(src).not.toContain("upsertCommitmentSmsThreadMemoryFromOutbound");
     expect(src).not.toContain("onV2StandardCheckSentOutboundSendSuccess");
     expect(src).not.toContain("yes_no_partial");
     expect(src).not.toContain("relationship_profile");
@@ -73,7 +77,7 @@ describe("runMorningTtoPostSendBookkeeping", () => {
       sentAt: new Date("2026-07-31T12:00:00.000Z"),
     });
     expect(result).toEqual({ ok: true });
-    expect(upsertThreadMemoryMock).toHaveBeenCalledWith(
+    expect(planThreadMemoryMock).toHaveBeenCalledWith(
       expect.objectContaining({
         commitmentId: "c1",
         clerkUserId: "u1",
@@ -81,10 +85,23 @@ describe("runMorningTtoPostSendBookkeeping", () => {
         messageSid: "SM1",
         source: "daily_sms",
         clearBindingOpenQuestion: true,
+        sentAt: new Date("2026-07-31T12:00:00.000Z"),
       })
     );
-    const call = upsertThreadMemoryMock.mock.calls[0]?.[0] as Record<string, unknown>;
+    const call = planThreadMemoryMock.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(call).not.toHaveProperty("expectedAnswerType");
+    expect(rpcMock).toHaveBeenCalledWith(
+      "tto_record_scheduled_post_send_bookkeeping",
+      expect.objectContaining({
+        p_commitment_id: "c1",
+        p_day_key: "2026-07-31",
+        p_send_slot: "morning",
+        p_message_sid: "SM1",
+        p_sent_at: "2026-07-31T12:00:00.000Z",
+        p_record_check_sent: true,
+        p_body_preview: body.slice(0, 160),
+      })
+    );
   });
 
   it("does not invent yes_no_partial for statement, open question, or encouragement bodies", async () => {
@@ -95,8 +112,8 @@ describe("runMorningTtoPostSendBookkeeping", () => {
     ]) {
       vi.clearAllMocks();
       hasCheckSentMock.mockResolvedValue(false);
-      upsertThreadMemoryMock.mockResolvedValue({ ok: true });
-      insertCheckSentMock.mockResolvedValue(undefined);
+      planThreadMemoryMock.mockResolvedValue({ ok: true, ops: [] });
+      rpcMock.mockResolvedValue({ data: [{ outcome: "recorded", reason: null }], error: null });
       reconcileCheckSentMock.mockResolvedValue({});
       reconcileRefreshMock.mockResolvedValue({});
 
@@ -108,20 +125,20 @@ describe("runMorningTtoPostSendBookkeeping", () => {
         messageSid: "SM-x",
       });
 
-      expect(upsertThreadMemoryMock.mock.calls[0]?.[0]).not.toHaveProperty("expectedAnswerType");
-      expect(insertCheckSentMock).toHaveBeenCalledWith(
+      expect(planThreadMemoryMock.mock.calls[0]?.[0]).not.toHaveProperty("expectedAnswerType");
+      expect(rpcMock).toHaveBeenCalledWith(
+        "tto_record_scheduled_post_send_bookkeeping",
         expect.objectContaining({
-          bodyPreview: sentBody.slice(0, 160),
-          templateId: MORNING_TTO_OPERATIONAL_CHECK_SENT_TEMPLATE_ID,
-          messageSid: "SM-x",
+          p_body_preview: sentBody.slice(0, 160),
+          p_message_sid: "SM-x",
+          p_record_check_sent: true,
+          p_replay: null,
         })
       );
-      const payload = insertCheckSentMock.mock.calls[0]?.[0] as Record<string, unknown>;
+      const payload = rpcMock.mock.calls[0]?.[1] as Record<string, unknown>;
       expect(payload).not.toHaveProperty("promptKind");
       expect(payload).not.toHaveProperty("expectedReplySemantics");
-      expect(payload.silence).toBeUndefined();
-      expect(payload.nextMove).toBeUndefined();
-      expect(payload.ai).toBeUndefined();
+      expect(JSON.stringify(payload)).not.toContain("yes_no_partial");
     }
   });
 
@@ -134,11 +151,14 @@ describe("runMorningTtoPostSendBookkeeping", () => {
       sentBody: "Hello",
       messageSid: "SM2",
     });
-    expect(insertCheckSentMock).not.toHaveBeenCalled();
+    expect(rpcMock).toHaveBeenCalledWith(
+      "tto_record_scheduled_post_send_bookkeeping",
+      expect.objectContaining({ p_record_check_sent: false })
+    );
   });
 
   it("returns controlled failure when operational check_sent insert throws", async () => {
-    insertCheckSentMock.mockRejectedValue(new Error("insert_failed"));
+    rpcMock.mockRejectedValue(new Error("insert_failed"));
     const result = await runMorningTtoPostSendBookkeeping({
       commitmentId: "c1",
       clerkUserId: "u1",
@@ -171,7 +191,7 @@ describe("runMorningTtoPostSendBookkeeping", () => {
       messageSid: "SM5",
     });
     expect(result).toEqual({ ok: false, error: "missing_required_fields" });
-    expect(upsertThreadMemoryMock).not.toHaveBeenCalled();
-    expect(insertCheckSentMock).not.toHaveBeenCalled();
+    expect(planThreadMemoryMock).not.toHaveBeenCalled();
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 });

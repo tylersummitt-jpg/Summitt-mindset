@@ -6,7 +6,7 @@
 
 const DEFAULT_TZ = "America/New_York";
 
-function isValidIanaTimezone(tz: string): boolean {
+export function isValidIanaTimezone(tz: string): boolean {
   try {
     // If tz is invalid, this throws RangeError in most runtimes.
     Intl.DateTimeFormat("en-US", { timeZone: tz }).format(new Date());

@@ -42,7 +42,7 @@ describe("notifySmsOptOutReviewNeeded", () => {
     expect(payload.to).toBe("ops@example.com");
     expect(payload.subject).toBe("SMS Opt-Out Review Needed — Susie Smith");
     expect(payload.text).toContain("Please stop texting me.");
-    expect(payload.text).toContain("Morning, Evening, and Weekly texts are currently being held.");
+    expect(payload.text).toContain("Morning and Evening texts are currently being held.");
     expect(payload.text).toContain(
       "https://summittmindset.com/admin/sms-opt-out-reviews?message_sid=SMreview"
     );

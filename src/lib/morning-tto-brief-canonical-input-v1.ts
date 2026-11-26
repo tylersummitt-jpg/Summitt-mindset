@@ -16,6 +16,7 @@ import type {
   MorningBriefProofClaimsAllowed,
 } from "@/lib/morning-tto-coaching-brief-v1";
 import { formatLaneWindowStartHhMm } from "@/lib/daily-sms-scheduling";
+import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
 
 export const MORNING_BRIEF_INTERPRETER_INPUT_VERSION =
   "morning_brief_interpreter_input_v1" as const;
@@ -46,9 +47,13 @@ export type MorningBriefInterpreterInputV1 = {
     local_weekday: string;
     daypart: "morning" | "evening";
     intended_receive_time_local: string;
+    utc_instant?: string;
+    administrative_batch_date?: string;
   };
   mechanical: {
     days_since_last_user_response: number | null;
+    /** Present when generation measured silence separately from the message day. */
+    days_since_last_user_response_observed?: number | null;
     never_replied: boolean;
     recent_unanswered_outbound_count: number;
     /** Server-owned. Sol does not decide this. */
@@ -113,6 +118,10 @@ export type MorningBriefInterpreterInputV1 = {
    * Outranks thread_memory_hint for whether a user message was answered.
    */
   answered_user_message_links: AnsweredUserMessageLink[];
+  /** Omitted on ordinary generation. */
+  existing_saved_text?: MorningRelationshipPacket["existing_saved_text"];
+  /** Omitted Monday–Saturday. Present only for an intended Sunday delivery. */
+  sunday_coaching?: MorningRelationshipPacket["sunday_coaching"];
 };
 
 /** Canonical merge/fail-soft input. Slot time is unused here; Weekly views omit it. */
@@ -258,15 +267,21 @@ export type AssembleMorningBriefInterpreterInputArgs = {
     open_question_answer_text: string | null;
   } | null;
   exactThreadMessages: MorningBriefExactThreadMessage[];
+  existingSavedText?: MorningBriefInterpreterInputV1["existing_saved_text"];
   omittedOlderTurnCount?: number;
   messageRequiredToday?: boolean;
   quietRelationshipEligible?: boolean;
+  daysSinceLastUserResponseObserved?: number | null;
+  utcInstant?: string | null;
+  administrativeBatchDate?: string | null;
   /** Copied from packet.historical_evidence. Do not load separately. */
   historicalEvidence?: HistoricalEvidenceSlice;
   /** Copied from packet.coach_relationship_memory. Do not load separately. */
   coachRelationshipMemory?: string | null;
   /** Copied from packet.answered_user_message_links. Do not infer. */
   answeredUserMessageLinks?: AnsweredUserMessageLink[];
+  /** Copied from packet.sunday_coaching. Do not load separately. */
+  sundayCoaching?: MorningRelationshipPacket["sunday_coaching"];
   /**
    * Live Morning/Evening: omit to derive from lane-window start, or pass packet HH:MM.
    * `false` omits the field (Weekly compatibility views — do not invent Morning 07:00).
@@ -407,6 +422,13 @@ export function assembleMorningBriefInterpreterInputV1(
         args.daysSinceLastUserResponse == null
           ? null
           : Math.floor(args.daysSinceLastUserResponse),
+      ...(args.daysSinceLastUserResponseObserved == null
+        ? {}
+        : {
+            days_since_last_user_response_observed: Math.floor(
+              args.daysSinceLastUserResponseObserved
+            ),
+          }),
       never_replied: args.neverReplied === true,
       recent_unanswered_outbound_count: unanswered,
       message_required_today: args.messageRequiredToday === true,
@@ -443,6 +465,10 @@ export function assembleMorningBriefInterpreterInputV1(
     answered_user_message_links: Array.isArray(args.answeredUserMessageLinks)
       ? args.answeredUserMessageLinks
       : [],
+    ...(args.existingSavedText
+      ? { existing_saved_text: args.existingSavedText }
+      : {}),
+    ...(args.sundayCoaching ? { sunday_coaching: args.sundayCoaching } : {}),
   };
   if (args.intendedReceiveTimeLocal === false) {
     return {
@@ -466,6 +492,10 @@ export function assembleMorningBriefInterpreterInputV1(
         typeof args.intendedReceiveTimeLocal === "string"
           ? args.intendedReceiveTimeLocal
           : formatLaneWindowStartHhMm(daypart),
+      ...(args.utcInstant?.trim() ? { utc_instant: args.utcInstant.trim() } : {}),
+      ...(args.administrativeBatchDate?.trim()
+        ? { administrative_batch_date: args.administrativeBatchDate.trim() }
+        : {}),
     },
   };
 }

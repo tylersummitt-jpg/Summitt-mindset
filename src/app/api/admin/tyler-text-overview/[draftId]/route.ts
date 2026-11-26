@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
-import { updateTylerTextOverviewDraftBody } from "@/lib/tyler-text-overview-admin";
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
+import {
+  parseDisplayedDeliveryEcho,
+  updateTylerTextOverviewDraftBody,
+} from "@/lib/tyler-text-overview-admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,9 +53,15 @@ export async function PATCH(
       );
     }
 
+    const displayedDelivery =
+      body != null && typeof body === "object" && "displayedDelivery" in body
+        ? parseDisplayedDeliveryEcho((body as { displayedDelivery?: unknown }).displayedDelivery)
+        : null;
+
     const result = await updateTylerTextOverviewDraftBody({
       draftId,
       body: currentBodyToSend,
+      displayedDelivery,
     });
 
     if (!result.ok) {

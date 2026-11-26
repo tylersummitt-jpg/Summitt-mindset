@@ -477,8 +477,9 @@ describe("Phase 2.3-C1 daily route wiring invariants", () => {
     expect(dailySrc).toContain("refreshGuardFacts");
   });
 
-  it("16: weekly route wired to outbound_weekly only (daily C1 scope unchanged)", () => {
-    expect(weeklySrc).toContain('mode: "outbound_weekly"');
+  it("16: weekly route is retired and does not wire outbound_weekly", () => {
+    expect(weeklySrc).toContain("weekly_delivery_retired");
+    expect(weeklySrc).not.toContain('mode: "outbound_weekly"');
     expect(weeklySrc).not.toContain('mode: "outbound_daily"');
     expect(weeklySrc).not.toContain("isOutboundDailyWiredRoutePurpose");
   });

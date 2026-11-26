@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase-server", () => ({
@@ -200,345 +202,49 @@ function writerMessages(p: WeeklyRelationshipPacket, b: MorningCoachingBriefV1) 
   return buildWeeklyWriterMessages(p, b);
 }
 
-describe("generateTylerTextOverviewWeeklyDraftForUser Sol orchestration", () => {
-  const fridayNow = new Date("2026-07-10T20:00:00.000Z");
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    process.env[TYLER_TEXT_OVERVIEW_ENABLED_ENV] = "true";
-    loadTylerTextOverviewAudienceRow.mockResolvedValue({
-      clerk_user_id: "user_1",
-      timezone: "America/New_York",
-    });
-    getClerkUser.mockResolvedValue({
-      public_metadata: { timezone: "America/New_York" },
-    });
-    fetchV2UserSmsCommsPreferences.mockResolvedValue(null);
-    shouldSkipWeeklyForCommsPrefs.mockReturnValue(false);
-    resolveUserFullyOnV2ForCutoverMessaging.mockResolvedValue({ fullyOnV2: true });
-    getActiveCommitment.mockResolvedValue({ id: "cmt_1" });
-    loadWeeklyRelationshipPacket.mockResolvedValue({
-      ok: true,
-      packet: packet(),
-      commitmentId: "cmt_1",
-    });
-    const b = brief();
-    runWeeklyBriefInterpreterV1.mockResolvedValue({
-      ok: true,
-      brief: b,
-      input: { message_for: packet().message_for },
-      capture: {
-        capture_version: "weekly_brief_interpreter_capture_v1",
-        model: "gpt-5.6-sol",
-        temperature: null,
-        reasoning_effort: "low",
-        prompt_path: "weekly_brief_interpreter_v1",
-      },
-    });
-    const msgs = writerMessages(packet(), b);
-    writeWeeklyTtoBody.mockResolvedValue({
-      ok: true,
-      body: "The ankle comes first. I'm here, not another inbox.",
-      messages: msgs,
-      primaryMessages: msgs,
-      retryMessages: [],
-      retryOccurred: false,
-      writer_prompt_path: "weekly_brief_writer_v1",
-      model: "gpt-5.6-sol",
-      capture: {
-        capture_version: "weekly_writer_capture_v1",
-        model: "gpt-5.6-sol",
-        temperature: null,
-        reasoning_effort: "low",
-        max_completion_tokens: 1200,
-        prompt_path: "weekly_brief_writer_v1",
-        raw_response: '{"body":"The ankle comes first. I\'m here, not another inbox."}',
-        raw_retry_response: null,
-        error: null,
-        openai_error: null,
-        retry_occurred: false,
-        retry_succeeded: null,
-      },
-    });
-    persistMorningTtoGeneration.mockResolvedValue({ ok: true, generationId: "gen-w1" });
-    resolveQuietRelationshipMechanicalFacts.mockResolvedValue({
-      quiet_relationship_eligible: false,
-      message_required_today: false,
-      clock_lookup_failed: false,
-      clock_lookup_error: null,
-      days_since_last_successful_proactive_send: 2,
-      days_since_first_successful_proactive_send: 40,
-    });
-  });
-
-  it("generated Friday still uses Sunday message_for and two Sol calls only", async () => {
-    const result = await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: "user_1",
-      now: fridayNow,
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.weekEnd).toBe("2026-07-12");
-    expect(result.weekStart).toBe("2026-07-06");
-    expect(result.draftForDayKey).toBe("2026-07-12");
-    expect(result.machineShouldSend).toBe(true);
-    expect(result.machineDraftBody).toBe("The ankle comes first. I'm here, not another inbox.");
-    expect(result.sendSlot).toBe(SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT);
-
-    expect(loadWeeklyRelationshipPacket).toHaveBeenCalledTimes(1);
-    expect(loadWeeklyRelationshipPacket).toHaveBeenCalledWith(
-      expect.objectContaining({
-        weekStartLocalDate: "2026-07-06",
-        weekEndLocalDate: "2026-07-12",
-        now: fridayNow,
-      })
+describe("retired weekly generation does not call the model or persist a draft", () => {
+  it("returns weekly_delivery_retired before an interpreter, writer, or draft write", async () => {
+    const src = readFileSync(
+      path.join(process.cwd(), "src/lib/tyler-text-overview-weekly-generate.ts"),
+      "utf8"
     );
-    expect(runWeeklyBriefInterpreterV1).toHaveBeenCalledTimes(1);
-    expect(writeWeeklyTtoBody).toHaveBeenCalledTimes(1);
-    expect(writeWeeklyTtoBody.mock.calls[0]?.[0].weeklyCoachingBrief.goal_role_today.role).toBe(
-      "do_not_mention"
-    );
-    expect(writeWeeklyTtoBody.mock.calls[0]?.[0].weeklyCoachingBrief.human_situation.most_alive).toMatch(
-      /ankle/i
-    );
-    expect(persistMorningTtoGeneration).toHaveBeenCalledTimes(1);
-    const persistArgs = persistMorningTtoGeneration.mock.calls[0]?.[0];
-    expect(persistArgs.sendSlot).toBe("weekly_review");
-    expect(persistArgs.respectProtectedMorningDraft).toBe(true);
-    expect(persistArgs.protectTylerProvenanceOnly).toBe(true);
-    expect(persistArgs.routeKind).toBe("weekly_relationship");
-    expect(persistArgs.notebookVerdictReason).toBe("weekly_brief_writer_ran");
-    expect(persistArgs.success.body).toBe("The ankle comes first. I'm here, not another inbox.");
-    expect(persistArgs.generationEffectiveAsk).toBe("Walk 20 minutes after dinner");
-    expect(persistArgs.success.writerPromptPath).toBe("weekly_brief_writer_v1");
-    expect(persistArgs.generationMetadataExtra.message_for.local_date).toBe("2026-07-12");
-    expect(persistArgs.generationMetadataExtra.message_for.daypart).toBe("weekly");
-    expect(persistArgs.generationMetadataExtra.weekly_relationship_packet_v1).toEqual(packet());
-    expect(persistArgs.generationMetadataExtra.morning_coaching_brief_v1).toEqual(brief());
-    expect(persistArgs.generationMetadataExtra.weekly_v3_lane_used).toBe(false);
-    expect(persistArgs.success.messages).toEqual(writerMessages(packet(), brief()));
-  });
-
-  it("blocked writer body persists no-send without rewriting", async () => {
-    writeWeeklyTtoBody.mockResolvedValue({
-      ok: true,
-      body: "Nice week. Reply STOP to opt out. Reply HELP for help.",
-      messages: writerMessages(packet(), brief()),
-      primaryMessages: writerMessages(packet(), brief()),
-      retryMessages: [],
-      retryOccurred: false,
-      writer_prompt_path: "weekly_brief_writer_v1",
-      model: "gpt-5.6-sol",
-      capture: { model: "gpt-5.6-sol", temperature: null, reasoning_effort: "low" },
-    });
+    const fn = src.slice(src.indexOf("export async function generateTylerTextOverviewWeeklyDraftForUser"));
+    expect(fn).toContain("weekly_delivery_retired");
+    expect(fn).not.toContain("loadWeeklyRelationshipPacket");
+    expect(fn).not.toContain("runWeeklyBriefInterpreterV1");
+    expect(fn).not.toContain("writeWeeklyTtoBody");
+    expect(fn).not.toContain("persistMorningTtoGeneration");
+    expect(fn).not.toContain("sendSMS");
 
     const result = await generateTylerTextOverviewWeeklyDraftForUser({
       clerkUserId: "user_1",
-      now: fridayNow,
+      now: new Date("2026-07-10T20:00:00.000Z"),
     });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.machineShouldSend).toBe(false);
-    expect(result.machineDraftBody).toBeNull();
-    expect(result.machineNoSendReason).toBe("compliance_footer_in_body");
-    expect(persistMorningTtoGeneration.mock.calls[0]?.[0].failure.error).toBe(
-      "compliance_footer_in_body"
-    );
-    expect(persistMorningTtoGeneration.mock.calls[0]?.[0].success).toBeUndefined();
-  });
-
-  it("does not write proof, wins, season, goal, or identity tables", async () => {
-    await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: "user_1",
-      now: fridayNow,
+    expect(result).toEqual({
+      ok: false,
+      reason: "weekly_delivery_retired",
+      error: "weekly_delivery_retired",
     });
-    expect(persistMorningTtoGeneration).toHaveBeenCalledTimes(1);
-    expect(getActiveCommitment).toHaveBeenCalledTimes(1);
-    const persistSrc = JSON.stringify(persistMorningTtoGeneration.mock.calls);
-    expect(persistSrc).not.toContain("v2_commitment_event");
-    expect(persistSrc).not.toContain("v2_win");
-  });
-
-  it("protected Tyler draft does not advertise discarded machine body as current", async () => {
-    persistMorningTtoGeneration.mockResolvedValue({
-      ok: true,
-      generationId: "gen-orphan",
-      currentDraftProtected: true,
-    });
-    const result = await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: "user_1",
-      now: fridayNow,
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.currentDraftProtected).toBe(true);
-    expect(result.machineDraftBody).toBeNull();
-    expect(result.machineNoSendReason).toBe("current_draft_protected");
-    expect(result.machineShouldSend).toBe(false);
-  });
-
-  it("uses the real quiet resolver and still calls the writer for an active user", async () => {
-    await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: "user_1",
-      now: fridayNow,
-    });
-    expect(resolveQuietRelationshipMechanicalFacts).toHaveBeenCalledWith({
-      clerkUserId: "user_1",
-      timezone: "America/New_York",
-      localDate: "2026-07-12",
-      daysSinceLastUserResponse: 2,
-      neverReplied: false,
-      recentUnansweredOutboundCount: 0,
-    });
-    expect(runWeeklyBriefInterpreterV1).toHaveBeenCalledWith(
-      expect.objectContaining({
-        quietFacts: expect.objectContaining({
-          quiet_relationship_eligible: false,
-          message_required_today: false,
-        }),
-      })
-    );
-    expect(writeWeeklyTtoBody).toHaveBeenCalledTimes(1);
-  });
-
-  it("skips the writer and persists intentional_space when the shared clamp allows it", async () => {
-    resolveQuietRelationshipMechanicalFacts.mockResolvedValue({
-      quiet_relationship_eligible: true,
-      message_required_today: false,
-      clock_lookup_failed: false,
-      clock_lookup_error: null,
-      days_since_last_successful_proactive_send: 3,
-      days_since_first_successful_proactive_send: 40,
-    });
-    const spaceBrief = brief();
-    spaceBrief.coaching_direction.proactive_decision = "intentional_space";
-    runWeeklyBriefInterpreterV1.mockResolvedValue({
-      ok: true,
-      brief: spaceBrief,
-      input: { message_for: packet().message_for },
-      capture: { model: "gpt-5.6-sol", prompt_path: "weekly_brief_interpreter_v1" },
-    });
-
-    const result = await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: "user_1",
-      now: fridayNow,
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
+    expect(loadWeeklyRelationshipPacket).not.toHaveBeenCalled();
+    expect(runWeeklyBriefInterpreterV1).not.toHaveBeenCalled();
     expect(writeWeeklyTtoBody).not.toHaveBeenCalled();
-    expect(result.machineShouldSend).toBe(false);
-    expect(result.machineDraftBody).toBeNull();
-    expect(result.machineNoSendReason).toBe("intentional_space");
-    const persistArgs = persistMorningTtoGeneration.mock.calls[0]?.[0];
-    expect(persistArgs.failure.error).toBe("intentional_space");
-    expect(persistArgs.failure.messages).toBeUndefined();
-    expect(persistArgs.notebookVerdictReason).toBe("intentional_space");
-    expect(persistArgs.generationMetadataExtra.intentional_space).toBe(true);
-    expect(persistArgs.generationMetadataExtra.error).toBeNull();
-    expect(persistArgs.generationMetadataExtra.proactive_decision).toBe("intentional_space");
+    expect(persistMorningTtoGeneration).not.toHaveBeenCalled();
+  });
+
+  it("classification of an existing draft does not generate", () => {
     expect(
       classifyWeeklyGenerateAllMember({
         draft: {
-          clerk_user_id: "user_1",
+          clerk_user_id: "u",
           status: "current",
-          current_generation_id: "gen-w1",
-          edited_by_tyler: false,
-          current_body_source: "machine",
-          current_body_to_send: null,
+          current_generation_id: "g",
+          edited_by_tyler: true,
+          current_body_source: "tyler_edit",
+          current_body_to_send: "Kept",
         },
-        machineDraftBody: null,
-        machineNoSendReason: persistArgs.failure.error,
+        machineDraftBody: "ignored",
       })
-    ).toBe("generated_complete");
-  });
-
-  it("clamps model space back to send when a required touch is due or the user is active", async () => {
-    resolveQuietRelationshipMechanicalFacts.mockResolvedValue({
-      quiet_relationship_eligible: true,
-      message_required_today: true,
-      clock_lookup_failed: false,
-      clock_lookup_error: null,
-      days_since_last_successful_proactive_send: 8,
-      days_since_first_successful_proactive_send: 40,
-    });
-    const spaceBrief = brief();
-    spaceBrief.coaching_direction.proactive_decision = "intentional_space";
-    runWeeklyBriefInterpreterV1.mockResolvedValue({
-      ok: true,
-      brief: spaceBrief,
-      input: null,
-      capture: { model: "gpt-5.6-sol" },
-    });
-    await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: "user_1",
-      now: fridayNow,
-    });
-    expect(writeWeeklyTtoBody).toHaveBeenCalledTimes(1);
-    expect(writeWeeklyTtoBody.mock.calls[0]?.[0].weeklyCoachingBrief.coaching_direction.proactive_decision).toBe(
-      "send"
-    );
-    expect(persistMorningTtoGeneration.mock.calls[0]?.[0].failure?.error).not.toBe(
-      "intentional_space"
-    );
-  });
-
-  it("clamps model space back to send when the proactive clock lookup failed", async () => {
-    resolveQuietRelationshipMechanicalFacts.mockResolvedValue({
-      quiet_relationship_eligible: true,
-      message_required_today: false,
-      clock_lookup_failed: true,
-      clock_lookup_error: "sms_send_events:db down",
-      days_since_last_successful_proactive_send: null,
-      days_since_first_successful_proactive_send: null,
-    });
-    const spaceBrief = brief();
-    spaceBrief.coaching_direction.proactive_decision = "intentional_space";
-    runWeeklyBriefInterpreterV1.mockResolvedValue({
-      ok: true,
-      brief: spaceBrief,
-      input: null,
-      capture: { model: "gpt-5.6-sol" },
-    });
-    await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: "user_1",
-      now: fridayNow,
-    });
-    expect(writeWeeklyTtoBody).toHaveBeenCalledTimes(1);
-    expect(
-      writeWeeklyTtoBody.mock.calls[0]?.[0].weeklyCoachingBrief.coaching_direction.proactive_decision
-    ).toBe("send");
-  });
-
-  it("does not persist interpreter or writer failure as intentional_space", async () => {
-    resolveQuietRelationshipMechanicalFacts.mockResolvedValue({
-      quiet_relationship_eligible: true,
-      message_required_today: false,
-      clock_lookup_failed: false,
-      clock_lookup_error: null,
-      days_since_last_successful_proactive_send: 3,
-      days_since_first_successful_proactive_send: 40,
-    });
-    const failedBrief = brief();
-    runWeeklyBriefInterpreterV1.mockResolvedValue({
-      ok: false,
-      error: "openai_request_failed",
-      brief: failedBrief,
-      input: null,
-      capture: { model: "gpt-5.6-sol", error: "openai_request_failed" },
-    });
-    writeWeeklyTtoBody.mockResolvedValue({
-      ok: false,
-      error: "openai_429",
-      messages: undefined,
-    });
-    const result = await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: "user_1",
-      now: fridayNow,
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(writeWeeklyTtoBody).toHaveBeenCalledTimes(1);
-    expect(result.machineNoSendReason).toBe("openai_429");
-    expect(persistMorningTtoGeneration.mock.calls[0]?.[0].failure.error).toBe("openai_429");
+    ).toBe("protected_complete");
   });
 });

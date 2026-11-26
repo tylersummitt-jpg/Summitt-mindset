@@ -191,6 +191,10 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).toMatch(/may outrank Current Goal/);
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).toMatch(/Do not manufacture engagement/);
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain(
+      "A stylistic variation alone is not replace."
+    );
+    expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain("existing_text_decision must be not_applicable");
+    expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).toContain(
       "Choose the one coaching move that best advances the relationship from where the recent conversation actually stands. Treat recent Coach questions, lessons, tactics, reframes, and challenges as moves already made; return to them only when new evidence, timing, or context makes doing so useful."
     );
     expect(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT).not.toContain(
@@ -279,12 +283,12 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(p).toContain("near-end-of-day receive context");
     expect(p).toContain('does not automatically mean "the day is over."');
     expect(p).toContain(
-      "Evening may answer, support, clarify, reconnect, prepare for tomorrow, challenge, ask one useful question, or ask none"
+      "A late-day delivery may answer, support, clarify, reconnect, prepare for tomorrow, challenge, ask one useful question, or ask none"
     );
     expect(p).not.toContain("ask about what happened today");
     expect(p).toContain("start-of-day framing");
     expect(p).toContain(
-      "evening alone must not imply every goal/action opportunity has already happened"
+      "a late receive time alone must not imply every goal/action opportunity has already happened"
     );
     expect(p).toContain("later-night action");
     expect(p).toContain("day_relation_to_message");
@@ -346,14 +350,14 @@ describe("morning-tto-brief-interpreter-v1", () => {
     expect(clause).not.toMatch(/\d/);
     expect(clause).not.toMatch(/±|minute/i);
     expect(p).toContain(
-      "evening alone must not imply every goal/action opportunity has already happened"
+      "a late receive time alone must not imply every goal/action opportunity has already happened"
     );
     expect(p).toContain("later-night action");
     expect(p).toContain("beginning-of-day receive context");
     expect(p).toContain("near-end-of-day receive context");
     expect(p).toContain("daypart alone never creates evidence");
     expect(p).toContain(
-      "message_for (local_date, local_weekday, daypart, timezone) is the authoritative target"
+      "intended_receive_time_local are when this SMS is meant to reach the member"
     );
   });
 
@@ -1794,5 +1798,58 @@ describe("same missing information vs new information need", () => {
       "Did you finish the proposal?"
     );
     expect(merged?.coaching_direction.proactive_decision).toBe("send");
+  });
+});
+
+describe("Sunday supplement", () => {
+  it("leaves the daily prompt unchanged and appends Sunday coaching only for a Sunday input", () => {
+    const monday = assembleOrThrow({
+      localDate: "2026-08-10",
+      localWeekday: "Monday",
+      intendedReceiveTimeLocal: "09:00",
+    });
+    const mondayMessages = buildMorningBriefInterpreterMessages(monday);
+    expect(mondayMessages[0]?.content).toBe(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT);
+    expect(String(mondayMessages[1]?.content)).not.toContain("sunday_coaching");
+
+    const sunday = assembleOrThrow({
+      localDate: "2026-08-09",
+      localWeekday: "Sunday",
+      intendedReceiveTimeLocal: "15:00",
+      sundayCoaching: {
+        week_start_local_date: "2026-08-03",
+        week_end_local_date: "2026-08-09",
+        information_available_through_utc: "2026-08-08T20:00:00.000Z",
+        accountability_events: {
+          status: "loaded",
+          events: [
+            {
+              id: "evt-1",
+              event_type: "user_yes",
+              occurred_at: "2026-08-05T15:00:00.000Z",
+              local_day_key: "2026-08-05",
+              source: "app",
+              user_visible_proof_line: "Walked",
+            },
+          ],
+        },
+        planned_interruption: {
+          status: "none",
+          occurred_at: null,
+          reason_category: null,
+          resume_hint: null,
+        },
+      },
+    });
+    const sundayMessages = buildMorningBriefInterpreterMessages(sunday);
+    expect(String(sundayMessages[0]?.content).startsWith(MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT)).toBe(true);
+    expect(String(sundayMessages[0]?.content)).toContain("SUNDAY COACHING");
+    expect(String(sundayMessages[0]?.content)).toContain("fixed noon");
+    expect(String(sundayMessages[0]?.content)).toContain("unavailable means the tape was not read");
+    const user = String(sundayMessages[1]?.content);
+    expect(user).toContain('"intended_receive_time_local":"15:00"');
+    expect(user).toContain('"local_weekday":"Sunday"');
+    expect(user).toContain("evt-1");
+    expect(user).not.toContain('"daypart":"weekly"');
   });
 });

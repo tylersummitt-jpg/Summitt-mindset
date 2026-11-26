@@ -10,6 +10,7 @@ import {
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
+import DailyTextsSection from "@/components/daily-texts-section";
 import ManageMembershipButton from "@/components/manage-membership-button";
 import ResumeMembershipButton from "@/components/resume-membership-button";
 import { SUBSCRIBE_AGAIN_HREF } from "@/lib/subscribe-again-eligibility";
@@ -160,7 +161,11 @@ function AccountTopCard({
 
   return (
     <div className={`w-full text-sm text-left ${utCard}`}>
-      <section className="space-y-2 px-4 py-4">
+      <section className="px-4 py-4">
+        <DailyTextsSection />
+      </section>
+
+      <section className={`space-y-2 px-4 py-4 ${utCardDivider}`}>
         <h2 className={utSectionTitle}>Need help?</h2>
         <p className={utBody}>
           Email us anytime —{" "}

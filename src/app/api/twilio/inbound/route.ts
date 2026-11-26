@@ -199,9 +199,13 @@ function scheduleInboundMediaPipelineKick(insertedCount: number): void {
 const HELP_TWIML_BODY =
   "Summitt Mindset: Pat texts you about your commitment. Reply honestly to those check-ins. Reply STOP to opt out.";
 
-/** START TwiML after opt-in is restored. */
+/** START TwiML after opt-in is restored and the scheduled-text pause clear is confirmed. */
 const START_TWIML_BODY =
   "Welcome back. Text check-ins are on; Pat will text you about your commitment. Reply STOP to opt out anytime.";
+
+/** Consent is on, but the scheduled-text pause clear was not confirmed. */
+const START_CONSENT_RESTORED_BODY =
+  "Welcome back. Your text messages are on again. Reply STOP to opt out anytime.";
 
 /**
  * Coach-path durability: after sms_inbound_messages is stored, a job row MUST exist
@@ -233,7 +237,7 @@ function inboundSafetyTwimlResponse(body: string, fromPhone: string, messageSid:
 async function runStartFlow(
   userId: string,
   from: string
-): Promise<"restarted" | "blocked_account_deleting"> {
+): Promise<"restarted" | "restarted_preferences_unconfirmed" | "blocked_account_deleting"> {
   // APP-041B2a: do not revive SMS while account deletion is unresolved.
   if (await hasUnresolvedAccountDeletionRequest(userId)) {
     console.warn(
@@ -256,7 +260,7 @@ async function runStartFlow(
     smsRestartedAt: new Date().toISOString(),
   });
 
-  await clearCommsPreferencesOnSmsResume(userId);
+  const preferenceClear = await clearCommsPreferencesOnSmsResume(userId);
 
   await syncSmsAudience({
     userId,
@@ -267,6 +271,7 @@ async function runStartFlow(
     smsTimePreference: null,
     summittSubscribed: null,
   });
+  if (preferenceClear !== "cleared") return "restarted_preferences_unconfirmed";
   return "restarted";
 }
 
@@ -374,6 +379,9 @@ export async function POST(req: Request) {
             return fastAckTwiml();
           }
           await closeOpenSmsOptOutReviewsAfterMemberStart(userId);
+          if (startOutcome === "restarted_preferences_unconfirmed") {
+            return twiml(START_CONSENT_RESTORED_BODY);
+          }
           return twiml(START_TWIML_BODY);
         }
 
@@ -445,6 +453,9 @@ export async function POST(req: Request) {
         return fastAckTwiml();
       }
       await closeOpenSmsOptOutReviewsAfterMemberStart(userId);
+      if (startOutcome === "restarted_preferences_unconfirmed") {
+        return twiml(START_CONSENT_RESTORED_BODY);
+      }
       return twiml(START_TWIML_BODY);
     }
 

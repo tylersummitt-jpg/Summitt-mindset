@@ -3,7 +3,7 @@
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   adminCountLabel,
@@ -64,7 +64,6 @@ import {
   TTO_FILTERED_ROWS_LABEL,
   TTO_MANIFEST_INCOMPLETE_BANNER,
   TTO_MANIFEST_SELECT_DAY_COPY,
-  tylerTextOverviewNavPages,
   type TylerTextOverviewDashboardSendSlot,
 } from "@/lib/tyler-text-overview-dashboard-copy";
 import {
@@ -112,11 +111,14 @@ import {
 } from "@/lib/tyler-text-overview-dashboard-sections";
 import {
   shouldShowTtoBackgroundRefreshing,
+  resolveTtoDashboardSelectionView,
   shouldShowTtoFullPageLoader,
   shouldSkipMorningTtoFocusRefresh,
 } from "@/lib/tyler-text-overview-dashboard-refresh";
 import { notebookFamilyLabel } from "@/lib/tyler-text-overview-notebook-display";
 import type {
+  TtoBatchStatistics,
+  TtoGenerationOutcomeCounts,
   TylerTextOverviewAdminCounts,
   TylerTextOverviewAdminDraftRow,
   TylerTextOverviewManifestIntegrity,
@@ -139,7 +141,129 @@ function isEveningDraftSent(row: TylerTextOverviewAdminDraftRow): boolean {
 }
 
 function rowListKey(row: TylerTextOverviewAdminDraftRow): string {
+  if (row.occurrenceKey) return `occurrence:${row.sendSlot}:${row.occurrenceKey}`;
+  if (row.rowRole === "historical_legacy") {
+    return `historical:${row.clerkUserId}:${row.sendSlot}:${row.draftForDayKey}:${row.draftId ?? "no-draft"}`;
+  }
   return `${row.clerkUserId}:${row.sendSlot}:${row.draftForDayKey}:${row.draftId ?? "no-draft"}`;
+}
+
+function generationActivityKey(row: TylerTextOverviewAdminDraftRow): string {
+  return row.occurrenceKey ?? `${row.clerkUserId}:${row.draftForDayKey}:${row.draftId ?? "none"}`;
+}
+
+function formatEasternAdminClock(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return (
+    d.toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      second: "2-digit",
+    }) + " ET"
+  );
+}
+
+function formatElapsedDuration(ms: number | null): string | null {
+  if (ms == null || !Number.isFinite(ms) || ms < 0) return null;
+  const total = Math.round(ms / 1000);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  return `${minutes}m ${seconds}s`;
+}
+
+function formatLocalMinuteLabel(minute: number): string {
+  const hours = Math.floor(minute / 60);
+  const mins = minute % 60;
+  const suffix = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour12}:${String(mins).padStart(2, "0")} ${suffix}`;
+}
+
+function formatMemberLocalDay(dateKey: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return dateKey;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12));
+  return date.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function shortTimezoneLabel(timeZone: string): string {
+  if (!timeZone.trim()) return "Unknown timezone";
+  try {
+    const name = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      timeZoneName: "shortGeneric",
+    })
+      .formatToParts(new Date())
+      .find((part) => part.type === "timeZoneName")?.value;
+    if (name) return name.replace(/ Time$/, "");
+  } catch {
+    return timeZone;
+  }
+  return timeZone;
+}
+
+function displayedDeliveryFromRow(row: TylerTextOverviewAdminDraftRow) {
+  const delivery = row.scheduledDelivery;
+  if (!delivery) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(delivery.memberLocalDate)) return null;
+  if (!Number.isInteger(delivery.effectiveLocalMinute)) return null;
+  if (!delivery.timeZone.trim()) return null;
+  return {
+    clerkUserId: row.clerkUserId,
+    memberLocalDate: delivery.memberLocalDate,
+    effectiveLocalMinute: delivery.effectiveLocalMinute,
+    timeZone: delivery.timeZone,
+  };
+}
+
+function formatScheduledDeliveryLine(row: TylerTextOverviewAdminDraftRow): string | null {
+  const delivery = row.scheduledDelivery;
+  if (!delivery?.memberLocalDate || !delivery.timeZone) return null;
+  return `Scheduled: ${formatMemberLocalDay(delivery.memberLocalDate)}, ${formatLocalMinuteLabel(delivery.effectiveLocalMinute)} ${shortTimezoneLabel(delivery.timeZone)}`;
+}
+
+function formatGeneratedDeliveryLine(row: TylerTextOverviewAdminDraftRow): string | null {
+  const delivery = row.generatedDelivery;
+  if (!delivery?.memberLocalDate || delivery.effectiveLocalMinute == null || !delivery.timeZone) {
+    return null;
+  }
+  return `Generated for: ${formatMemberLocalDay(delivery.memberLocalDate)}, ${formatLocalMinuteLabel(delivery.effectiveLocalMinute)} ${shortTimezoneLabel(delivery.timeZone)}`;
+}
+
+function outcomeSummary(counts: TtoGenerationOutcomeCounts | null): string {
+  if (!counts) return "—";
+  return `generated ${counts.generated}, intentional space ${counts.intentionalSpace}, protected ${counts.protected}, failed ${counts.failed}, pending ${counts.pending}, claimed ${counts.claimed}, sent ${counts.sent}`;
+}
+
+function batchStatusLabel(status: TtoBatchStatistics["status"]): string {
+  switch (status) {
+    case "not_started":
+      return "Not started";
+    case "in_progress":
+      return "Pending or claimed work remains inside the generation window";
+    case "started_idle":
+      return "Started — nothing is pending or claimed";
+    case "completed":
+      return "Initial pass completed";
+    case "completed_with_blocked":
+      return "Initial pass completed with failures or blocked outcomes";
+    case "incomplete_after_window":
+      return "Incomplete after the generation window closed";
+    case "unavailable":
+      return "Statistics unavailable";
+  }
 }
 
 function isMorningDraftSent(row: TylerTextOverviewAdminDraftRow): boolean {
@@ -852,16 +976,40 @@ function MorningAnchorPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
 
 function PersistedMessageForPanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
   const line = formatPersistedMessageForLine(row.messageFor);
+  const generated = formatGeneratedDeliveryLine(row);
+  const scheduled = formatScheduledDeliveryLine(row);
+  const original = row.morningRelationshipPacketV1?.existing_saved_text;
+  const originalDelivery =
+    original && typeof original === "object" && !Array.isArray(original)
+      ? (original as { original_model_delivery?: { status?: string; describes_saved_body?: boolean } })
+          .original_model_delivery
+      : null;
   return (
     <div className="space-y-1">
       <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
         {TTO_MESSAGE_FOR_HEADING}
       </p>
       {line ? (
-        <p className="text-sm text-gray-900">{line}</p>
+        <p className="text-sm text-gray-900">Stored generation context: {line}</p>
       ) : (
         <p className="text-sm text-gray-600">{TTO_MESSAGE_FOR_UNAVAILABLE}</p>
       )}
+      {generated ? <p className="text-sm text-gray-700">{generated}</p> : null}
+      {scheduled ? <p className="text-sm text-gray-700">Current {scheduled}</p> : null}
+      {originalDelivery?.status === "known" ? (
+        <p className="text-sm text-gray-700">
+          Original model clock is stored on this generation
+          {originalDelivery.describes_saved_body === false ? " and does not describe the saved body" : ""}.
+        </p>
+      ) : originalDelivery?.status === "unavailable" ? (
+        <p className="text-sm text-gray-700">Original model clock is unavailable.</p>
+      ) : null}
+      {row.editedByTyler || row.currentBodySource === "tyler_edit" ? (
+        <p className="text-sm text-gray-700">Current body is a Tyler edit. The Notebook remains the original writer input.</p>
+      ) : null}
+      {row.reconsiderationRecord ? (
+        <p className="text-sm text-gray-700">{row.reconsiderationRecord}</p>
+      ) : null}
     </div>
   );
 }
@@ -1044,6 +1192,17 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const isEveningPage = isEveningDashboardSendSlot(sendSlot);
 
   const [rows, setRows] = useState<TylerTextOverviewAdminDraftRow[]>([]);
+  const [historicalRows, setHistoricalRows] = useState<TylerTextOverviewAdminDraftRow[]>([]);
+  const [batchStatistics, setBatchStatistics] = useState<TtoBatchStatistics | null>(null);
+  const [loadedSelection, setLoadedSelection] = useState<{
+    dayKey: string;
+    slot: TylerTextOverviewDashboardSendSlot;
+  } | null>(null);
+  const [selectionLoadFailed, setSelectionLoadFailed] = useState(false);
+  const loadedSelectionRef = useRef<{
+    dayKey: string;
+    slot: TylerTextOverviewDashboardSendSlot;
+  } | null>(null);
   const [counts, setCounts] = useState<TylerTextOverviewAdminCounts | null>(null);
   const [manifest, setManifest] = useState<TylerTextOverviewManifestIntegrity | null>(null);
   const [manifestLoadError, setManifestLoadError] = useState<string | null>(null);
@@ -1145,6 +1304,30 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
       loadInFlightRef.current = true;
       setLoading(true);
+      const requested = { dayKey: dayKey.trim(), slot };
+      const previous = loadedSelectionRef.current;
+      const sameSelection =
+        previous != null && previous.dayKey === requested.dayKey && previous.slot === requested.slot;
+      if (!sameSelection) setSelectionLoadFailed(false);
+      const failSelectionLoad = (message: string) => {
+        if (sameSelection) {
+          setDataStale(true);
+          setLastFailedRefreshAt(new Date().toISOString());
+          setManifestLoadError(message);
+          return;
+        }
+        loadedSelectionRef.current = requested;
+        setLoadedSelection(requested);
+        setSelectionLoadFailed(true);
+        setRows([]);
+        setHistoricalRows([]);
+        setBatchStatistics(null);
+        setCounts(null);
+        setManifest(null);
+        setDataStale(false);
+        setLastFailedRefreshAt(new Date().toISOString());
+        setManifestLoadError(message);
+      };
       try {
         const params = new URLSearchParams();
         params.set("send_slot", slot);
@@ -1165,10 +1348,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         if (!res.ok || !json.ok) {
           const errMsg = json.error || "Could not load drafts.";
           showToast(errMsg);
-          setDataStale(true);
-          setLastFailedRefreshAt(new Date().toISOString());
-          setManifestLoadError(errMsg);
-          // Keep prior rows with stale banner — do not invent zeros.
+          failSelectionLoad(errMsg);
           return false;
         }
 
@@ -1185,7 +1365,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         lastSuccessfulRefreshAtMsRef.current = Number.isFinite(refreshedMs)
           ? refreshedMs
           : Date.now();
+        loadedSelectionRef.current = requested;
+        setLoadedSelection(requested);
+        setSelectionLoadFailed(false);
         setRows(nextRows);
+        setHistoricalRows((json.historicalRows || []) as TylerTextOverviewAdminDraftRow[]);
+        setBatchStatistics((json.batchStatistics as TtoBatchStatistics | null | undefined) ?? null);
         setCounts((json.counts as TylerTextOverviewAdminCounts | undefined) ?? null);
         setAvailableDayKeys((json.availableDayKeys || []) as string[]);
 
@@ -1211,9 +1396,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         }
         console.error("Failed to load Tyler Text Overview drafts", err);
         showToast("Could not load drafts.");
-        setManifestLoadError("Could not load drafts.");
-        setDataStale(true);
-        setLastFailedRefreshAt(new Date().toISOString());
+        failSelectionLoad("Could not load drafts.");
         return false;
       } finally {
         if (generation === loadGenerationRef.current) {
@@ -1291,6 +1474,8 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     targeted: number;
     generated: number;
     generated_complete: number;
+    generated_texts?: number;
+    intentional_spaces?: number;
     protectedTylerAuthority: number;
     protected_complete: number;
     skippedAlreadySent: number;
@@ -1303,7 +1488,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     processed_this_chunk: number;
     is_complete: boolean;
     audience_clerk_user_ids: string[];
-    failures: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+    failures: Array<{
+      clerkUserId: string;
+      preferredName: string | null;
+      error: string;
+      memberLocalDate?: string | null;
+    }>;
   };
 
   type GenerateAllSnapshot = {
@@ -1374,9 +1564,22 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const bulkApplyOverTransportMax = ttoDraftBodyExceedsTransportMax(bulkApplyNormalized);
   const bulkApplyEnabled = bulkApplyHasText && !bulkApplyOverTransportMax;
 
+  function selectionIsCurrent() {
+    return (
+      resolveTtoDashboardSelectionView({
+        selectedDayKey,
+        selectedSlot: sendSlot,
+        loadedDayKey: loadedSelection?.dayKey ?? null,
+        loadedSlot: loadedSelection?.slot ?? null,
+        loading,
+        selectionLoadFailed,
+      }) === "current"
+    );
+  }
+
   async function runGenerateAll() {
     const dayKey = selectedDayKey.trim();
-    if (!dayKey || pageBatchBusy) return;
+    if (!dayKey || pageBatchBusy || !selectionIsCurrent()) return;
 
     const existingSnapshot = readGenerateAllSnapshot(dayKey);
     const resumeAvailable = Boolean(existingSnapshot);
@@ -1396,7 +1599,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     setGenerateAllResultMessage(null);
     generateAllChainAbortRef.current = false;
 
-    const excludeClerkUserIds: string[] = [];
+    const excludeOccurrenceKeys: string[] = [];
     let audienceClerkUserIds = existingSnapshot?.audienceClerkUserIds ?? null;
     let lastResult: GenerateAllChunkResult | null = null;
 
@@ -1420,8 +1623,8 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             ...(audienceClerkUserIds
               ? { audience_clerk_user_ids: audienceClerkUserIds }
               : {}),
-            ...(excludeClerkUserIds.length > 0
-              ? { exclude_clerk_user_ids: excludeClerkUserIds }
+            ...(excludeOccurrenceKeys.length > 0
+              ? { exclude_occurrence_keys: excludeOccurrenceKeys }
               : {}),
           }),
         });
@@ -1445,10 +1648,10 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         });
         setGenerateAllResumeAvailable(true);
 
-        for (const f of result.failures) {
-          if (!excludeClerkUserIds.includes(f.clerkUserId)) {
-            excludeClerkUserIds.push(f.clerkUserId);
-          }
+        for (const failure of result.failures) {
+          if (!failure.memberLocalDate) continue;
+          const key = `${failure.clerkUserId}|${failure.memberLocalDate}`;
+          if (!excludeOccurrenceKeys.includes(key)) excludeOccurrenceKeys.push(key);
         }
 
         const progress = formatTtoGenerateAllProgressLine({
@@ -1456,12 +1659,16 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
           targeted: result.targeted,
           failed: result.failed,
           remaining: result.remaining,
+          generatedTexts: result.generated_texts,
+          intentionalSpaces: result.intentional_spaces,
         });
         setGenerateAllResultMessage(
           formatTtoGenerateAllResultMessage({
             slot: bulkUiSlot,
             targeted: result.targeted,
             generated_complete: result.generated_complete,
+            generatedTexts: result.generated_texts,
+            intentionalSpaces: result.intentional_spaces,
             protected_complete: result.protected_complete,
             already_sent: result.already_sent,
             noncurrent: result.noncurrent,
@@ -1490,7 +1697,14 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
       if (lastResult?.is_complete) {
         showToast(
-          `Generate All complete: ${lastResult.generated_complete} / ${lastResult.targeted}.`
+          formatTtoGenerateAllProgressLine({
+            generatedComplete: lastResult.generated_complete,
+            targeted: lastResult.targeted,
+            failed: lastResult.failed,
+            remaining: lastResult.remaining,
+            generatedTexts: lastResult.generated_texts,
+            intentionalSpaces: lastResult.intentional_spaces,
+          })
         );
       } else if (lastResult && lastResult.remaining > 0) {
         showToast(
@@ -1499,6 +1713,8 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             targeted: lastResult.targeted,
             failed: lastResult.failed,
             remaining: lastResult.remaining,
+            generatedTexts: lastResult.generated_texts,
+            intentionalSpaces: lastResult.intentional_spaces,
           })}`
         );
       }
@@ -1512,12 +1728,77 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     }
   }
 
+  async function runFailedOnlyRetry() {
+    const dayKey = selectedDayKey.trim();
+    const failureCount = batchStatistics?.confirmedFailureCount ?? 0;
+    if (!dayKey || pageBatchBusy || !selectionIsCurrent() || batchStatistics?.retrieval !== "ok" || failureCount < 1) return;
+    const confirmed = window.confirm(
+      `Retry ${failureCount} failed generation${failureCount === 1 ? "" : "s"}? This does not generate pending texts, replace saved texts, or change the original batch time.`
+    );
+    if (!confirmed) return;
+
+    setGenerateAllBusy(true);
+    setGenerateAllResultMessage(null);
+    const excludeOccurrenceKeys: string[] = [];
+    let lastFailed = 0;
+    let attempted = 0;
+    try {
+      for (;;) {
+        const token = await getToken();
+        if (typeof token !== "string" || token.trim().length === 0) {
+          throw new Error("missing_clerk_session_token");
+        }
+        const res = await fetch(ttoGenerateAllEndpoint(bulkUiSlot), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            draft_for_day_key: dayKey,
+            failed_only: true,
+            ...(excludeOccurrenceKeys.length > 0
+              ? { exclude_occurrence_keys: excludeOccurrenceKeys }
+              : {}),
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.result) {
+          const msg = json.error || "Failed-generation retry failed.";
+          setGenerateAllResultMessage(msg);
+          showToast(msg);
+          break;
+        }
+        const result = json.result as GenerateAllChunkResult;
+        attempted += result.processed_this_chunk;
+        lastFailed = result.failures.length;
+        for (const failure of result.failures) {
+          if (!failure.memberLocalDate) continue;
+          const key = `${failure.clerkUserId}|${failure.memberLocalDate}`;
+          if (!excludeOccurrenceKeys.includes(key)) excludeOccurrenceKeys.push(key);
+        }
+        if (result.processed_this_chunk === 0) break;
+      }
+      await load(dayKey, sendSlot, { forceOverwrite: true });
+      const message = `Failed-generation retry finished. Work recorded this run: ${attempted}. Failures still reported in the last step: ${lastFailed}. Original batch clocks stay unchanged.`;
+      setGenerateAllResultMessage(message);
+      showToast("Failed-generation retry finished.");
+    } catch (err) {
+      console.error(`${bulkSlotLabel} failed-only retry failed`, err);
+      const msg = "Failed-generation retry failed.";
+      setGenerateAllResultMessage(msg);
+      showToast(msg);
+    } finally {
+      setGenerateAllBusy(false);
+    }
+  }
+
   async function runBulkSave(args: {
     operation: "blank_all" | "apply_all";
     body?: string;
   }) {
     const dayKey = selectedDayKey.trim();
-    if (!dayKey || pageBatchBusy) return;
+    if (!dayKey || pageBatchBusy || !selectionIsCurrent()) return;
 
     setBulkBusy(true);
     setBulkResultMessage(null);
@@ -1529,6 +1810,10 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
           draft_for_day_key: dayKey,
           operation: args.operation,
           ...(args.operation === "apply_all" ? { body: args.body ?? "" } : {}),
+          displayed_deliveries: rows.flatMap((row) => {
+            const displayed = displayedDeliveryFromRow(row);
+            return displayed ? [displayed] : [];
+          }),
         }),
       });
       const json = await res.json();
@@ -1599,7 +1884,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
   async function saveDraft(row: TylerTextOverviewAdminDraftRow) {
     if (!row.draftId) return;
-    if (pageBatchBusy) return;
+    if (pageBatchBusy || !selectionIsCurrent()) return;
     const draftId = row.draftId;
     const submittedBody = editsRef.current[draftId] ?? "";
     const submittedTransportBody = submittedBody.trim();
@@ -1623,6 +1908,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           currentBodyToSend: submittedBody,
+          displayedDelivery: displayedDeliveryFromRow(row),
         }),
       });
       const json = await res.json();
@@ -1707,23 +1993,28 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     if (!row.clerkUserId?.trim()) {
       return;
     }
-    if (pageBatchBusy) return;
+    if (pageBatchBusy || !selectionIsCurrent()) return;
 
-    // Evening page: explicit filter/URL day wins; blank "All current days" omits day so
-    // the server resolves user-local today (never pass a stale/tomorrow row day).
-    // Morning page (legacy path): keep prior row → filter precedence.
-    const dayKey = isEveningPage
-      ? selectedDayKey.trim() || undefined
-      : row.draftForDayKey?.trim() || selectedDayKey.trim() || undefined;
+    // The selected day is the administrative batch date. The row day is the member-local date.
+    const batchDate = isEveningPage
+      ? selectedDayKey.trim() || row.draftForDayKey?.trim() || ""
+      : row.draftForDayKey?.trim() || selectedDayKey.trim() || "";
+    // Before a batch exists the row day is the administrative date, not an
+    // occurrence. The server resolves the member's scheduled occurrence.
+    const memberLocalDate =
+      batchStatistics?.status === "not_started" && row.rowRole !== "scheduled_occurrence"
+        ? ""
+        : row.draftForDayKey?.trim() || "";
 
-    setGeneratingUserId(row.clerkUserId);
+    setGeneratingUserId(generationActivityKey(row));
     try {
       const res = await fetch("/api/admin/tyler-text-overview/evening-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clerk_user_id: row.clerkUserId,
-          ...(dayKey ? { draft_for_day_key: dayKey } : {}),
+          ...(batchDate ? { draft_for_day_key: batchDate } : {}),
+          ...(memberLocalDate ? { member_local_date: memberLocalDate } : {}),
         }),
       });
       const json = await res.json();
@@ -1740,7 +2031,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
           machineNoSendReason: json.machine_no_send_reason,
         })
       );
-      const effectiveDayKey = selectedDayKey || dayKey || "";
+      const effectiveDayKey = selectedDayKey || batchDate || "";
       if (isEveningPage) {
         await load(effectiveDayKey, sendSlot, { preserveUnsaved: true });
       } else {
@@ -1786,7 +2077,6 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     draftForDayKey: selectedDayKey,
   });
   const siblingPageLabel = isEveningPage ? "Morning Text Overview →" : "Evening Text Overview →";
-  const navPages = tylerTextOverviewNavPages(isEveningPage ? "evening" : "morning");
   const showEveningNonTodayWarning =
     isEveningPage && shouldShowEveningNonTodayWarning(selectedDayKey);
   const dayFilterOptions = (() => {
@@ -1799,13 +2089,21 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     return keys;
   })();
 
-  const visibleRows = useMemo(
-    () =>
-      searchQuery.trim()
-        ? rows.filter((row) => matchesTylerTextOverviewSearchQuery(row, searchQuery))
-        : rows,
-    [rows, searchQuery]
-  );
+  const selectionView = resolveTtoDashboardSelectionView({
+    selectedDayKey,
+    selectedSlot: sendSlot,
+    loadedDayKey: loadedSelection?.dayKey ?? null,
+    loadedSlot: loadedSelection?.slot ?? null,
+    loading,
+    selectionLoadFailed,
+  });
+  const showLoadedDashboard = selectionView === "current";
+
+  const visibleRows = useMemo(() => {
+    const match = (row: TylerTextOverviewAdminDraftRow) =>
+      !searchQuery.trim() || matchesTylerTextOverviewSearchQuery(row, searchQuery);
+    return [...rows.filter(match), ...historicalRows.filter(match)];
+  }, [historicalRows, rows, searchQuery]);
 
   const showFullPageLoader = shouldShowTtoFullPageLoader({
     loading,
@@ -1818,9 +2116,10 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   });
 
   const showTrustBanner =
-    Boolean(manifestLoadError) ||
-    dataStale ||
-    Boolean(selectedDayKey.trim() && manifest && !manifest.manifestComplete);
+    selectionView !== "loading_selection" &&
+    (Boolean(manifestLoadError) ||
+      dataStale ||
+      Boolean(selectedDayKey.trim() && manifest && !manifest.manifestComplete));
 
   return (
     <div className="space-y-6">
@@ -1895,6 +2194,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
           {manifest?.incompletenessReason ? (
             <p className="mt-1 font-mono text-xs">{manifest.incompletenessReason}</p>
           ) : null}
+          {dataStale && showLoadedDashboard ? (
+            <p className="mt-2 text-xs">
+              Stale data for {loadedSelection?.dayKey || "all current days"} ({sendSlot}). It is not
+              another date.
+            </p>
+          ) : null}
           <p className="mt-2 text-xs">
             Last successful refresh (Eastern):{" "}
             {formatLastRefreshedAt(lastSuccessfulRefreshAt ?? manifest?.lastRefreshedAt)}
@@ -1962,13 +2267,6 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         <Link href={siblingPageHref} className="font-medium text-gray-900 underline">
           {siblingPageLabel}
         </Link>
-        {navPages
-          .filter((p) => p.page === "weekly")
-          .map((p) => (
-            <Link key={p.page} href={p.href} className="ml-3 font-medium text-gray-900 underline">
-              Weekly Text Overview →
-            </Link>
-          ))}
       </p>
 
       <div className="flex flex-wrap items-end gap-3">
@@ -2013,6 +2311,79 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         </div>
       </div>
 
+      {showLoadedDashboard && selectedDayKey.trim() && batchStatistics ? (
+        <div className="rounded-md border border-gray-300 bg-white px-4 py-4 space-y-2">
+          <h2 className="text-sm font-semibold text-gray-900">Generation statistics</h2>
+          <p className="text-sm text-gray-900">{batchStatusLabel(batchStatistics.status)}</p>
+          {batchStatistics.retrieval === "unavailable" ? (
+            <p className="text-sm text-red-900">
+              The batch record could not be read{batchStatistics.error ? `: ${batchStatistics.error}` : ""}.
+              Counts are not shown.
+            </p>
+          ) : batchStatistics.retrieval === "missing" ? (
+            <p className="text-sm text-gray-600">No generation batch has been opened for this day.</p>
+          ) : (
+            <>
+              <p className="text-xs text-gray-700">
+                Started ({batchStatistics.openedTrigger === "manual_schedule" ? "manual" : "automatic"}
+                ): {formatEasternAdminClock(batchStatistics.startedAt)}
+                {" · "}
+                Initial pass completed: {formatEasternAdminClock(batchStatistics.initialCompletedAt)}
+                {" · "}
+                Duration: {formatElapsedDuration(batchStatistics.elapsedMs) ?? "not completed"}
+              </p>
+              <p className="text-xs text-gray-700">
+                Relevant members: {batchStatistics.relevantMemberCount ?? "—"}
+                {" · "}
+                Scheduled members: initial {batchStatistics.initialScheduledMemberCount ?? "—"}, current{" "}
+                {batchStatistics.currentScheduledMemberCount ?? "—"}
+                {" · "}
+                Occurrences: initial {batchStatistics.initialScheduledOccurrenceCount ?? "—"}, current{" "}
+                {batchStatistics.currentScheduledOccurrenceCount ?? "—"}
+              </p>
+              <p className="text-xs text-gray-700">
+                Initial pass: {outcomeSummary(batchStatistics.initialOutcomes)}
+              </p>
+              <p className="text-xs text-gray-700">
+                Current results: {outcomeSummary(batchStatistics.currentOutcomes)}
+              </p>
+              <p className="text-xs text-gray-700">
+                Unscheduled members: {batchStatistics.unscheduledMemberCount}
+                {" · "}
+                Unresolved scheduling: {batchStatistics.unresolvedMemberCount}
+                {batchStatistics.latePendingOrClaimedCount > 0
+                  ? ` · Later pending or claimed work: ${batchStatistics.latePendingOrClaimedCount}`
+                  : ""}
+              </p>
+              {batchStatistics.currentOutcomes &&
+              batchStatistics.currentOutcomes.legacyConflict +
+                batchStatistics.currentOutcomes.expired +
+                batchStatistics.currentOutcomes.ineligible >
+                0 ? (
+                <p className="text-xs text-gray-700">
+                  Other blocked outcomes: legacy conflicts {batchStatistics.currentOutcomes.legacyConflict}
+                  , expired {batchStatistics.currentOutcomes.expired}, ineligible{" "}
+                  {batchStatistics.currentOutcomes.ineligible}
+                </p>
+              ) : null}
+              {batchStatistics.confirmedFailureCount > 0 ? (
+                <button
+                  type="button"
+                  className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
+                  disabled={pageBatchBusy || loading}
+                  onClick={() => void runFailedOnlyRetry()}
+                >
+                  {generateAllBusy
+                    ? "Working…"
+                    : `Retry ${batchStatistics.confirmedFailureCount} failed generation${batchStatistics.confirmedFailureCount === 1 ? "" : "s"}`}
+                </button>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
+
+      {showLoadedDashboard ? (
       <div className="rounded-md border border-gray-300 bg-white px-4 py-4 space-y-3">
         <h2 className="text-sm font-semibold text-gray-900">
           Generate {bulkSlotLabel} for selected day
@@ -2029,9 +2400,8 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
               <span className="font-mono">{selectedDayKey}</span> in resumable chunks (concurrency 2).
               Does not send texts. Search does not narrow generation. Already-completed machine drafts,
               Tyler-protected edits/blanks, already-sent, and non-current slots are skipped on Resume.
-              {isEveningPage
-                ? " Successful nonblank current drafts are only eligible in each member's local 7–9 PM Evening window."
-                : " Successful nonblank current drafts are only eligible in each member's local 7–9 AM Morning window."}
+              {" "}
+              {"Delivery follows each member's saved schedule. Morning and Evening are the batch labels, not the delivery clock."}
             </p>
             <button
               type="button"
@@ -2060,7 +2430,9 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
           </>
         )}
       </div>
+      ) : null}
 
+      {showLoadedDashboard ? (
       <div className="rounded-md border border-gray-300 bg-white px-4 py-4 space-y-3">
         <h2 className="text-sm font-semibold text-gray-900">
           {ttoBulkActionsHeading(bulkUiSlot)}
@@ -2075,10 +2447,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
             <p className="text-xs text-gray-600">
               Targets all {bulkCurrentDraftCount} current unsent {bulkSlotLabel} drafts for{" "}
               <span className="font-mono">{selectedDayKey}</span>. Already-sent and missing drafts
-              are skipped. Does not send texts
-              {isEveningPage
-                ? "; nonblank saved Evening bodies may auto-send later in each member's 7–9 PM local window."
-                : "."}
+              are skipped. Does not send texts. Delivery follows each member&apos;s saved schedule.
             </p>
             <div className="flex flex-wrap gap-2">
               <button
@@ -2140,8 +2509,9 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
           </>
         )}
       </div>
+      ) : null}
 
-      {counts ? (
+      {showLoadedDashboard && counts ? (
         <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800">
           <p className="font-medium text-gray-900">Sendable audience (global manifest)</p>
           <dl className="mt-2 grid gap-2 sm:grid-cols-4 lg:grid-cols-6">
@@ -2164,7 +2534,13 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         </div>
       ) : null}
 
-      {showFullPageLoader ? (
+      {selectionView === "loading_selection" ? (
+        <p className="text-sm text-gray-500">Loading sendable users…</p>
+      ) : selectionView === "unavailable" ? (
+        <p className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-950">
+          This date could not be loaded. Statistics and drafts are not shown.
+        </p>
+      ) : showFullPageLoader ? (
         <p className="text-sm text-gray-500">Loading sendable users…</p>
       ) : visibleRows.length === 0 ? (
         isEveningPage ? (
@@ -2182,7 +2558,10 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         )
       ) : (
         <ul className="space-y-8">
-          {visibleRows.map((row) => {
+          {visibleRows.map((row, index) => {
+            const showHistoricalHeading =
+              row.rowRole === "historical_legacy" &&
+              visibleRows[index - 1]?.rowRole !== "historical_legacy";
             const eveningRow = isEveningPreviewRow(row);
             const eveningSent = eveningRow && isEveningDraftSent(row);
             const morningSent = !eveningRow && isMorningDraftSent(row);
@@ -2214,7 +2593,8 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
               sendingDraftId,
             });
             const isGeneratingThisEvening =
-              Boolean(row.clerkUserId?.trim()) && generatingUserId === row.clerkUserId;
+              Boolean(row.clerkUserId?.trim()) &&
+              generatingUserId === generationActivityKey(row);
             const eveningSendDisabledReason = EVENING_PROACTIVE_SEND_DISABLED_UI_COPY;
             const readOnlyBody =
               (eveningSent || morningSent) && row.finalBodySent?.trim()
@@ -2262,8 +2642,17 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                 : null;
 
             return (
+              <Fragment key={rowListKey(row)}>
+              {showHistoricalHeading ? (
+                <li className="list-none rounded-md border border-gray-200 bg-gray-50 px-4 py-3">
+                  <h2 className="text-sm font-semibold text-gray-900">Historical drafts</h2>
+                  <p className="mt-1 text-xs text-gray-600">
+                    These drafts are not part of this scheduled batch. Batch bulk save and
+                    failed-only retry do not include them.
+                  </p>
+                </li>
+              ) : null}
               <li
-                key={rowListKey(row)}
                 className={`rounded-xl border p-5 shadow-sm space-y-5 ${
                   missingMorningDraft
                     ? "border-red-300 bg-red-50/40"
@@ -2375,6 +2764,18 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                     <div>
                       <p className="text-xs font-medium text-gray-500">draft_for_day_key</p>
                       <p className="mt-1 font-mono text-sm text-gray-900">{row.draftForDayKey}</p>
+                    </div>
+                  ) : null}
+                  {formatScheduledDeliveryLine(row) ? (
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">Scheduled delivery</p>
+                      <p className="mt-1 text-sm text-gray-900">{formatScheduledDeliveryLine(row)}</p>
+                      {row.occurrenceState ? (
+                        <p className="mt-1 text-xs text-gray-600">Occurrence: {row.occurrenceState}</p>
+                      ) : null}
+                      {formatGeneratedDeliveryLine(row) ? (
+                        <p className="mt-1 text-xs text-amber-900">{formatGeneratedDeliveryLine(row)}</p>
+                      ) : null}
                     </div>
                   ) : null}
                   {eveningSent || morningSent ? (
@@ -2646,6 +3047,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                   <MorningTechnicalRetryPanel row={row} />
                 ) : null}
               </li>
+              </Fragment>
             );
           })}
         </ul>

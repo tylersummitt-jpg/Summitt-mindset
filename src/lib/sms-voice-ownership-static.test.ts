@@ -75,11 +75,14 @@ describe("SMS Voice Ownership — static policy", () => {
     );
   });
 
-  it("relationship routes are on the Phase 4 production sendSMS allowlist", () => {
+  it("live relationship send routes are on the Phase 4 production sendSMS allowlist", () => {
     for (const f of RELATIONSHIP_SMS_ROUTE_FILES) {
-      expect(PRODUCTION_SMS_SEND_CALLER_ALLOWLIST.has(f), `${f} must be in PRODUCTION_SMS_SEND_CALLER_ALLOWLIST`).toBe(
-        true
-      );
+      const src = readSrc(f);
+      const submits = /\bsendSMS\s*\(/.test(src) || /\bsendSMSChunked\s*\(/.test(src);
+      expect(
+        PRODUCTION_SMS_SEND_CALLER_ALLOWLIST.has(f),
+        submits ? `${f} must be in PRODUCTION_SMS_SEND_CALLER_ALLOWLIST` : `${f} is retired and must not stay allowlisted`
+      ).toBe(submits);
     }
   });
 });
@@ -89,10 +92,11 @@ describe("SMS Voice Ownership — daily-sms route", () => {
   const morningBookkeeping = readSrc("src/lib/morning-tto-post-send-bookkeeping.ts");
 
   it("Morning send uses exact TTO body path without the deleted Daily SMS hallway", () => {
-    expect(daily).toContain("attemptMorningTtoTwilioSend");
+    const production = daily.slice(daily.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toContain("attemptMorningTtoTwilioSend(");
+    expect(daily).toContain("async function attemptMorningTtoTwilioSend");
     expect(daily).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
-    expect(daily).toContain("runMorningTtoPostSendBookkeeping");
-    expect(daily).toContain("runMorningTtoPreSendCanonicalStateMaintenance");
     expect(daily).not.toContain("buildDailySmsContent");
     expect(daily).not.toContain("prepareTylerTextOverviewDailyBuild");
     expect(daily).not.toContain("produceDailyV3RelationshipSms");
@@ -180,10 +184,11 @@ describe("SMS Voice Ownership — weekly-sms route", () => {
   const weeklySend = readSrc("src/lib/tyler-text-overview-weekly-send.ts");
   const weeklyLength = readSrc("src/lib/weekly-tto-length.ts");
 
-  it("is Weekly TTO draft-authoritative (no live V3 lane / FVG in cron)", () => {
-    expect(weekly).toContain("weekly-sms is Weekly TTO draft-authoritative");
-    expect(weekly).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
-    expect(weekly).toContain("sendWeeklyTtoDraftAuthoritative");
+  it("refuses Weekly delivery before any provider submission", () => {
+    expect(weekly).toContain("weekly_delivery_retired");
+    expect(weekly).toContain("force_ignored");
+    expect(weekly).not.toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(weekly).not.toContain("sendWeeklyTtoDraftAuthoritative");
     expect(weekly).not.toContain("produceWeeklyV3RelationshipSms");
     expect(weekly).not.toContain("applyFinalVoiceOwnershipGate");
     expect(weekly).not.toContain("finalizeNorthStarCoachSmsAsync");
@@ -196,13 +201,15 @@ describe("SMS Voice Ownership — weekly-sms route", () => {
     expect(weekly).not.toMatch(/\bsendSMS\s*\(/);
   });
 
-  it("footer + thread memory stay in shared send core (pre-footer memory)", () => {
+  it("retired weekly send does not submit or write thread memory; the footer helper remains available", () => {
+    expect(weeklySend).toContain("weekly_delivery_retired");
     expect(weeklySend).toContain("WEEKLY_TTO_COMPLIANCE_FOOTER");
     expect(weeklySend).toContain("buildWeeklyTtoFinalBodyWithFooter");
     expect(weeklyLength).toContain("appendPreservedSmsSuffix");
-    expect(weeklySend).toContain('source: "weekly_sms"');
-    expect(weeklySend).toContain("sentBody: bodyWithoutFooter");
-    expect(weeklySend).toContain("stripped_compliance_footer: true");
+    const sends = weeklySend.slice(weeklySend.indexOf("export async function sendWeeklyTtoDraftAuthoritative"));
+    expect(sends).not.toContain("sendSMS");
+    expect(sends).not.toContain('source: "weekly_sms"');
+    expect(sends).not.toContain("upsertCommitmentSmsThreadMemoryFromOutbound");
   });
 });
 

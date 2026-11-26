@@ -10,12 +10,6 @@
 import { supabaseServer } from "@/lib/supabase-server";
 import { markCurrentTtoDraftUnusable } from "@/lib/tto-mark-current-draft-unusable";
 import {
-  generateTylerTextOverviewDraftForUser,
-  generateTylerTextOverviewEveningPreviewForUser,
-  loadTylerTextOverviewAudienceRow,
-} from "@/lib/tyler-text-overview-generate";
-import { generateTylerTextOverviewWeeklyDraftForUser } from "@/lib/tyler-text-overview-weekly-generate";
-import {
   isProtectedTylerProvenanceDraft,
   isTylerTextOverviewEnabled,
   parseSmsDailySendSlot,
@@ -28,13 +22,14 @@ import {
 } from "@/lib/tyler-text-overview-types";
 
 const LOG_PREFIX = "[sol-goal-change-tto-draft-refresh]";
-const RELATIONSHIP_REFRESH_GENERATION_REASON = "manual_regenerate" as const;
 
 export type RefreshUnsentTtoDraftsOutcomeStatus =
   | "refreshed"
   | "protected"
   | "skipped_unusable"
-  | "stale_draft_could_not_be_disabled";
+  | "stale_draft_could_not_be_disabled"
+  | "deferred_reconsideration"
+  | "retired_weekly";
 
 export type RefreshUnsentTtoDraftsFailureReason =
   | "query_failed"
@@ -143,10 +138,6 @@ async function refreshUnsentTtoDraftsAfterRelationshipChangeInner(args: {
   }
 
   const outcomes: RefreshUnsentTtoDraftsOutcome[] = [];
-  let audienceUser:
-    | Awaited<ReturnType<typeof loadTylerTextOverviewAudienceRow>>
-    | undefined;
-  let weeklyInvoked = false;
 
   for (const draft of drafts) {
     if (isProtectedTylerProvenanceDraft(draft)) {
@@ -155,46 +146,19 @@ async function refreshUnsentTtoDraftsAfterRelationshipChangeInner(args: {
     }
 
     try {
-      if (draft.send_slot === SMS_DAILY_PRODUCTION_SEND_SLOT) {
-        if (audienceUser === undefined) {
-          audienceUser = await loadTylerTextOverviewAudienceRow(args.clerkUserId);
-        }
-        if (!audienceUser) {
-          outcomes.push(await settleUnusableDraft(draft));
-          continue;
-        }
-        const generated = await generateTylerTextOverviewDraftForUser({
-          audienceUser,
-          now: args.now,
-          draftForDayKey: draft.draft_for_day_key,
-          generationReason: RELATIONSHIP_REFRESH_GENERATION_REASON,
-          protectTylerProvenanceOnly: true,
-        });
-        outcomes.push(await settleGeneratedDraft(draft, generated));
-        continue;
-      }
-
-      if (draft.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
-        const generated = await generateTylerTextOverviewEveningPreviewForUser({
-          clerkUserId: args.clerkUserId,
-          draftForDayKey: draft.draft_for_day_key,
-          now: args.now,
-          protectTylerProvenanceOnly: true,
-        });
-        outcomes.push(await settleGeneratedDraft(draft, generated));
+      if (
+        draft.send_slot === SMS_DAILY_PRODUCTION_SEND_SLOT ||
+        draft.send_slot === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
+      ) {
+        // The scheduled cron discovers the new goal on the next occurrence.
+        // Do not regenerate every current draft or disable one if that work fails.
+        outcomes.push(outcome(draft, "deferred_reconsideration"));
         continue;
       }
 
       if (draft.send_slot === SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT) {
-        if (weeklyInvoked) {
-          continue;
-        }
-        weeklyInvoked = true;
-        const generated = await generateTylerTextOverviewWeeklyDraftForUser({
-          clerkUserId: args.clerkUserId,
-          now: args.now,
-        });
-        outcomes.push(await settleGeneratedDraft(draft, generated));
+        outcomes.push(outcome(draft, "retired_weekly"));
+        continue;
       }
     } catch (error) {
       warnRefresh("slot_refresh_threw", {
@@ -208,26 +172,6 @@ async function refreshUnsentTtoDraftsAfterRelationshipChangeInner(args: {
   }
 
   return resultFromOutcomes(args.clerkUserId, outcomes);
-}
-
-async function settleGeneratedDraft(
-  draft: CurrentUnsentTtoDraftRow,
-  generated:
-    | { ok: true; currentDraftProtected?: boolean }
-    | { ok: false; reason?: string; error?: string }
-): Promise<RefreshUnsentTtoDraftsOutcome> {
-  if (generated.ok) {
-    if (generated.currentDraftProtected === true) {
-      return outcome(draft, "protected");
-    }
-    return outcome(draft, "refreshed");
-  }
-  warnRefresh("generation_failed", {
-    draft_id: draft.id,
-    send_slot: draft.send_slot,
-    reason: generated.reason ?? generated.error ?? "unknown",
-  });
-  return settleUnusableDraft(draft);
 }
 
 async function settleUnusableDraft(

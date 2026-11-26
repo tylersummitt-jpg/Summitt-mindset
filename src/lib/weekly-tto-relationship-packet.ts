@@ -6,14 +6,22 @@
 
 import {
   loadMorningRelationshipPacket,
+  sundayContextEvidenceFromCoaching,
   weekdayLongFromLocalDayKey,
   type MorningRelationshipPacket,
   type MorningRelationshipPacketAssemblerView,
+  type SundayCoachingContext,
+  type SundayContextEvidence,
 } from "@/lib/morning-tto-relationship-packet";
-import { loadRecentPlannedInterruptionSignalForCommitment } from "@/lib/sms-planned-interruption";
 import {
+  loadRecentPlannedInterruptionSignalForCommitment,
+  loadSundayPlannedInterruption,
+} from "@/lib/sms-planned-interruption";
+import {
+  loadSundayAccountabilityTape,
   loadWeeklyAccountabilityEventsReadOnly,
   loadWeeklyCoachingMemoryProjectionReadOnly,
+  mondayThroughSundayEnding,
   type WeeklyAccountabilityEventV1,
 } from "@/lib/weekly-tto-accountability-events";
 
@@ -160,6 +168,81 @@ export async function loadWeeklyRelationshipPacket(
   };
 
   return { ok: true, packet, commitmentId: loaded.commitmentId };
+}
+
+function unavailableSundayCoaching(args: {
+  weekStart: string;
+  weekEnd: string;
+  now: Date;
+}): SundayCoachingContext {
+  return {
+    week_start_local_date: args.weekStart,
+    week_end_local_date: args.weekEnd,
+    information_available_through_utc: args.now.toISOString(),
+    accountability_events: { status: "unavailable", events: [] },
+    planned_interruption: {
+      status: "unavailable",
+      occurred_at: null,
+      reason_category: null,
+      resume_hint: null,
+    },
+  };
+}
+
+/**
+ * Sunday deliveries only. Monday–Saturday return the same packet with no extra reads.
+ * Does not copy the legacy coaching_memory_projection.
+ */
+export async function attachSundayCoachingContext(args: {
+  packet: MorningRelationshipPacket;
+  clerkUserId: string;
+  commitmentId: string;
+  now: Date;
+}): Promise<MorningRelationshipPacket> {
+  if (args.packet.message_for.local_weekday !== "Sunday") return args.packet;
+  const period = mondayThroughSundayEnding(args.packet.message_for.local_date);
+  if (!period || !args.commitmentId.trim()) {
+    return {
+      ...args.packet,
+      sunday_coaching: unavailableSundayCoaching({
+        weekStart: period?.weekStartLocalDate ?? args.packet.message_for.local_date,
+        weekEnd: period?.weekEndLocalDate ?? args.packet.message_for.local_date,
+        now: args.now,
+      }),
+    };
+  }
+  const [tape, interruption] = await Promise.all([
+    loadSundayAccountabilityTape({
+      commitmentId: args.commitmentId,
+      clerkUserId: args.clerkUserId,
+      timezone: args.packet.message_for.timezone,
+      weekStartLocalDate: period.weekStartLocalDate,
+      weekEndLocalDate: period.weekEndLocalDate,
+      availableThrough: args.now,
+    }),
+    loadSundayPlannedInterruption({
+      commitmentId: args.commitmentId,
+      clerkUserId: args.clerkUserId,
+      now: args.now,
+    }),
+  ]);
+  const sunday_coaching: SundayCoachingContext = {
+    week_start_local_date: period.weekStartLocalDate,
+    week_end_local_date: period.weekEndLocalDate,
+    information_available_through_utc: args.now.toISOString(),
+    accountability_events:
+      tape.status === "loaded"
+        ? { status: "loaded", events: tape.events }
+        : { status: "unavailable", events: [] },
+    planned_interruption: interruption,
+  };
+  return { ...args.packet, sunday_coaching };
+}
+
+export function sundayContextEvidenceForDelivery(args: {
+  coaching: SundayCoachingContext;
+}): SundayContextEvidence {
+  return sundayContextEvidenceFromCoaching(args.coaching);
 }
 
 /** Type-compatible Morning packet view for shared Brief assemblers (daypart morning for types only). */

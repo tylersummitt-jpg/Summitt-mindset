@@ -153,7 +153,7 @@ export default function SmsOptOutReviewsDashboard({
             </p>
 
             <p className="mt-4 text-sm font-medium text-gray-900">
-              Automatic Morning, Evening, and Weekly texts are currently being held.
+              Automatic Morning and Evening texts are currently being held.
             </p>
 
             {row.textsAlreadyStopped ? (

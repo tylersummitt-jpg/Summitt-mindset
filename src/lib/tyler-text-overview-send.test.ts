@@ -869,21 +869,20 @@ describe("tyler-text-overview-send pre-twilio revalidation", () => {
     expect(attemptFn.indexOf("resolveMorningTtoExactBodyImmediatelyBeforeTwilio")).toBeLessThan(
       attemptFn.indexOf("await sendSMS(")
     );
-    const retrySection = route.slice(route.indexOf("morningTtoAuthoritativeGateRetry"));
-    expect(retrySection).toContain("attemptMorningTtoTwilioSend");
+    const production = route.slice(route.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toContain("attemptMorningTtoTwilioSend(");
   });
 
-  it("main-path wiring uses attemptMorningTtoTwilioSend before success record", () => {
+  it("production Morning path uses scheduled authorization instead of the fixed window", () => {
     const route = readFileSync(
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
     );
-    const mainSection = route.slice(route.indexOf("morningTtoAuthoritativeGateMain"));
-    expect(mainSection).toContain("attemptMorningTtoTwilioSend");
-    expect(mainSection).toContain("runMorningTtoPostSendBookkeeping");
-    expect(mainSection.indexOf("attemptMorningTtoTwilioSend")).toBeLessThan(
-      mainSection.indexOf("recordDailyTwilioSuccessOrFallback")
-    );
+    const production = route.slice(route.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toContain("attemptMorningTtoTwilioSend(");
+    expect(production).not.toContain("recordDailyTwilioSuccessOrFallback");
   });
 
   it("exact body means trim(current_body_to_send) with no append/prefix/footer/fallback", () => {
@@ -916,7 +915,7 @@ describe("tyler-text-overview-send pre-twilio revalidation", () => {
     expect(attempt).toMatch(/body:\s*smsBody/);
     expect(attempt).toContain("smsBody = resolved.bodyToSend");
 
-    expect(route).toMatch(/sentBody:\s*smsBody/);
+    expect(sendSrc).toMatch(/sentBody:\s*ready\.body/);
     expect(route).toContain("finalBodySent: args.smsBody");
     expect(route).toContain("sms_body: args.smsBody");
   });
@@ -1153,14 +1152,18 @@ describe("tyler-text-overview Phase 5 scope guards", () => {
   });
 
   it("no second Twilio helper import/path in Phase 5 files", () => {
-    for (const rel of [
-      "src/lib/tyler-text-overview-send.ts",
-      "src/lib/tyler-text-overview-types.ts",
-    ]) {
-      const src = readFileSync(join(process.cwd(), rel), "utf8");
-      expect(src).not.toContain("@/lib/twilio");
-      expect(src).not.toContain("sendSMS");
-    }
+    const types = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-types.ts"),
+      "utf8"
+    );
+    expect(types).not.toContain("@/lib/twilio");
+    expect(types).not.toContain("sendSMS");
+    const sender = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-send.ts"),
+      "utf8"
+    );
+    expect(sender).toContain('from "@/lib/twilio"');
+    expect(sender).toContain("await sendSMS(");
     const route = readFileSync(
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
@@ -1192,10 +1195,14 @@ describe("tyler-text-overview Phase 5 scope guards", () => {
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
     );
-    expect(route).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
-    expect(route).toContain("attemptMorningTtoTwilioSend");
-    expect(route).toContain("runMorningTtoPostSendBookkeeping");
-    expect(route).toContain("assertMorningTtoDraftAuthoritativeForSend");
+    expect(route).toContain("deliverScheduledDailyCoaching");
+    const sender = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-send.ts"),
+      "utf8"
+    );
+    expect(sender).toContain("runMorningTtoPostSendBookkeeping");
+    expect(sender).toContain('rpc("tto_record_scheduled_post_send_bookkeeping"');
+    expect(sender).not.toContain("insertV2CheckSentEventBestEffort");
     expect(route).not.toContain("prepareTylerTextOverviewDailyBuild");
     expect(route).not.toContain("resolveSilenceCadenceForDailyUser");
     expect(route).not.toContain("tyler-text-overview-generate");

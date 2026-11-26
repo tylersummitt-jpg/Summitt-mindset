@@ -860,11 +860,12 @@ describe("Evening cron wiring", () => {
       "utf8"
     );
     expect(src).toContain("validateCronSecret");
-    expect(src).toContain("sendEveningTtoAuthoritativeCronSend");
-    expect(src).toContain("evaluateEveningLaneTiming");
+    expect(src).toContain("deliverScheduledDailyCoaching");
+    expect(src).not.toContain("evaluateEveningLaneTiming");
+    expect(src).not.toContain("[19:00, 21:00)");
     expect(src).toContain("skippedTtoBodyTooLong");
     expect(src).toContain("body_too_long");
-    expect(src).toMatch(/try \{[\s\S]*sendEveningTtoAuthoritativeCronSend/);
+    expect(src).toMatch(/try \{[\s\S]*deliverScheduledDailyCoaching/);
     expect(src).not.toContain("openai");
     expect(src).not.toContain("generateEvening");
     expect(src).not.toContain("reply_rate");
@@ -906,8 +907,9 @@ describe("Evening cron wiring", () => {
   });
 
   it("admin copy describes auto-send window", () => {
-    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("7–9 PM");
-    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("local time");
+    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("Manual Evening send is off");
+    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("does not send");
+    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).not.toContain("7–9");
   });
 });
 

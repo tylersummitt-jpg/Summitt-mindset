@@ -369,6 +369,59 @@ export type {
   TylerTextOverviewNotebookFamily,
 } from "@/lib/tyler-text-overview-notebook-display";
 
+export type TtoGenerationOutcomeCounts = {
+  generated: number;
+  intentionalSpace: number;
+  protected: number;
+  failed: number;
+  pending: number;
+  claimed: number;
+  sent: number;
+  legacyConflict: number;
+  expired: number;
+  ineligible: number;
+};
+
+/** Display status derived from the existing batch row. It is not stored. */
+export type TtoBatchDisplayStatus =
+  | "not_started"
+  | "in_progress"
+  | "started_idle"
+  | "completed"
+  | "completed_with_blocked"
+  | "incomplete_after_window"
+  | "unavailable";
+
+export type TtoBatchStatistics = {
+  retrieval: "missing" | "ok" | "unavailable";
+  error: string | null;
+  status: TtoBatchDisplayStatus;
+  startedAt: string | null;
+  initialCompletedAt: string | null;
+  elapsedMs: number | null;
+  openedTrigger: "automatic_schedule" | "manual_schedule" | null;
+  initialCompletedTrigger: "automatic_schedule" | "manual_schedule" | null;
+  windowEndsAt: string | null;
+  relevantMemberCount: number | null;
+  initialScheduledMemberCount: number | null;
+  initialScheduledOccurrenceCount: number | null;
+  currentScheduledMemberCount: number | null;
+  currentScheduledOccurrenceCount: number | null;
+  initialOutcomes: TtoGenerationOutcomeCounts | null;
+  currentOutcomes: TtoGenerationOutcomeCounts | null;
+  unscheduledMemberCount: number;
+  unresolvedMemberCount: number;
+  latePendingOrClaimedCount: number;
+  confirmedFailureCount: number;
+};
+
+export type TtoScheduledDeliveryFacts = {
+  memberLocalDate: string;
+  effectiveLocalMinute: number;
+  selectedLocalMinute: number;
+  timeZone: string;
+};
+
 /** Admin UI row — sendable audience member with optional draft overlay. */
 export type TylerTextOverviewAdminDraftRow = {
   draftId: string | null;
@@ -450,7 +503,12 @@ export type TylerTextOverviewAdminDraftRow = {
     local_date: string;
     local_weekday: string;
     daypart: "morning" | "evening" | "weekly";
+    intended_receive_time_local?: string | null;
+    utc_instant?: string | null;
+    administrative_batch_date?: string | null;
   } | null;
+  /** Compact recorded reconsideration. Not a send authorization and not the Notebook. */
+  reconsiderationRecord?: string | null;
   /** Persisted generation-time relationship packet (Evening Sol stores full packet). */
   morningRelationshipPacketV1: Record<string, unknown> | null;
   /** E3+ shared Sol marker from generation_metadata.coaching_stack. */
@@ -469,6 +527,18 @@ export type TylerTextOverviewAdminDraftRow = {
    * Never remapped to no_draft_yet.
    */
   generationLinkageError?: boolean;
+  /** Member-local occurrence identity. Absent on ordinary historical audience rows. */
+  occurrenceKey?: string | null;
+  rowRole?: "scheduled_occurrence" | "historical_legacy";
+  occurrenceState?: string | null;
+  /** Persisted occurrence schedule. Not calculated in the browser. */
+  scheduledDelivery?: TtoScheduledDeliveryFacts | null;
+  /** Schedule stored on the generation, when it differs from the occurrence. */
+  generatedDelivery?: {
+    memberLocalDate: string | null;
+    effectiveLocalMinute: number | null;
+    timeZone: string | null;
+  } | null;
 };
 
 /** Read-only TTO panel — notebook context, not mandatory send rules. */

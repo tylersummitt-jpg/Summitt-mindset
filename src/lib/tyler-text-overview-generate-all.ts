@@ -52,6 +52,7 @@ export type TtoGenerateAllFailure = {
   clerkUserId: string;
   preferredName: string | null;
   error: string;
+  memberLocalDate?: string | null;
 };
 
 export type TtoGenerateAllChunkResult = {
@@ -60,6 +61,9 @@ export type TtoGenerateAllChunkResult = {
   sendSlot: TtoGenerateAllSlot;
   targeted: number;
   generated_complete: number;
+  /** Scheduled-batch counts. Absent on older chunk builders; do not invent them. */
+  generated_texts?: number;
+  intentional_spaces?: number;
   protected_complete: number;
   already_sent: number;
   noncurrent: number;
@@ -667,10 +671,24 @@ export async function generateEveningTtoDraftBatch(args: {
   });
 }
 
+function parseOccurrenceKeys(value: unknown): string[] | null {
+  if (!Array.isArray(value)) return null;
+  const keys: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") return null;
+    const [clerkUserId, memberLocalDate] = item.split("|");
+    if (!clerkUserId?.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(memberLocalDate ?? "")) return null;
+    keys.push(`${clerkUserId.trim()}|${memberLocalDate}`);
+  }
+  return keys;
+}
+
 export function parseGenerateAllRequestBody(body: unknown): {
   draftForDayKey: string;
   audienceClerkUserIds: string[] | null;
   excludeClerkUserIds: string[] | null;
+  excludeOccurrenceKeys: string[] | null;
+  failedOnly: boolean;
 } | { error: string } {
   if (body == null || typeof body !== "object" || Array.isArray(body)) {
     return { error: "Invalid JSON body" };
@@ -696,9 +714,24 @@ export function parseGenerateAllRequestBody(body: unknown): {
   ) {
     return { error: "Invalid exclude_clerk_user_ids" };
   }
+  const excludeOccurrenceKeys = parseOccurrenceKeys(
+    record.exclude_occurrence_keys ?? record.excludeOccurrenceKeys
+  );
+  if (
+    (record.exclude_occurrence_keys != null || record.excludeOccurrenceKeys != null) &&
+    excludeOccurrenceKeys == null
+  ) {
+    return { error: "Invalid exclude_occurrence_keys" };
+  }
+  const failedOnlyRaw = record.failed_only ?? record.failedOnly;
+  if (failedOnlyRaw != null && failedOnlyRaw !== true && failedOnlyRaw !== false) {
+    return { error: "Invalid failed_only" };
+  }
   return {
     draftForDayKey,
     audienceClerkUserIds,
     excludeClerkUserIds,
+    excludeOccurrenceKeys,
+    failedOnly: failedOnlyRaw === true,
   };
 }

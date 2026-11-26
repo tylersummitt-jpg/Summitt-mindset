@@ -455,6 +455,8 @@ export async function applyRefreshPromptedPostSendBookkeepingMutation(args: {
   nextRefreshSession: V2RefreshSessionState;
   expectedSessionId?: string | null;
   expectedUpdatedAt?: string | null;
+  /** Scheduled post-send only. Legacy and reactive callers leave this unset. */
+  scheduledDeletionFence?: boolean;
 }): Promise<
   | { ok: true; result: V2RefreshPromptedPostSendMutationResult; updatedAt: string | null }
   | {
@@ -464,8 +466,35 @@ export async function applyRefreshPromptedPostSendBookkeepingMutation(args: {
       updatedAt?: string | null;
     }
 > {
-  const call = async () =>
-    supabaseServer.rpc("v2_apply_refresh_prompted_post_send_bookkeeping_mutation", {
+  const call = async () => {
+    const now = new Date().toISOString();
+    const expectedSessionId =
+      typeof args.expectedSessionId === "string" ? args.expectedSessionId : null;
+    const expectedUpdatedAt =
+      typeof args.expectedUpdatedAt === "string" ? args.expectedUpdatedAt : null;
+    if (args.scheduledDeletionFence) {
+      const fenced = await supabaseServer.rpc("tto_record_scheduled_post_send_bookkeeping", {
+        p_clerk_user_id: args.clerkUserId,
+        p_commitment_id: args.commitmentId,
+        p_replay: {
+          kind: "refresh",
+          message_sid: args.messageSid,
+          prompt_step: args.promptStep,
+          prompt_kind: args.promptKind,
+          body_preview: args.bodyPreview,
+          next_refresh_session: args.nextRefreshSession,
+          expected_session_id: expectedSessionId,
+          expected_updated_at: expectedUpdatedAt,
+          now,
+        },
+      });
+      const raw = Array.isArray(fenced.data) ? fenced.data[0] : fenced.data;
+      return {
+        data: raw ? [{ result: raw.outcome, updated_at: raw.reason ?? null }] : null,
+        error: fenced.error,
+      };
+    }
+    return supabaseServer.rpc("v2_apply_refresh_prompted_post_send_bookkeeping_mutation", {
       p_commitment_id: args.commitmentId,
       p_clerk_user_id: args.clerkUserId,
       p_message_sid: args.messageSid,
@@ -473,12 +502,11 @@ export async function applyRefreshPromptedPostSendBookkeepingMutation(args: {
       p_prompt_kind: args.promptKind,
       p_body_preview: args.bodyPreview,
       p_next_refresh_session: args.nextRefreshSession,
-      p_expected_session_id:
-        typeof args.expectedSessionId === "string" ? args.expectedSessionId : null,
-      p_expected_updated_at:
-        typeof args.expectedUpdatedAt === "string" ? args.expectedUpdatedAt : null,
-      p_now: new Date().toISOString(),
+      p_expected_session_id: expectedSessionId,
+      p_expected_updated_at: expectedUpdatedAt,
+      p_now: now,
     });
+  };
 
   let data: unknown;
   let error: { message: string } | null = null;
@@ -881,6 +909,8 @@ export async function reconcileRefreshPostSendBookkeepingForCommitment(args: {
   commitmentId: string;
   clerkUserId: string;
   maxCandidates?: number;
+  /** Scheduled post-send only. Legacy and reactive callers leave this unset. */
+  scheduledDeletionFence?: boolean;
 }): Promise<{
   attempted: number;
   recovered: number;
@@ -978,6 +1008,7 @@ export async function reconcileRefreshPostSendBookkeepingForCommitment(args: {
         candidate.source === "heuristic_check_sent" && candidate.kind === "identity_first"
           ? null
           : candidate.sessionId,
+      ...(args.scheduledDeletionFence ? { scheduledDeletionFence: true } : {}),
     });
     if (candidate.source === "snapshot") snapshotReplayAttempted += 1;
     else heuristicFallbackAttempted += 1;
@@ -1043,6 +1074,7 @@ export async function reconcileRefreshPostSendBookkeepingForCommitment(args: {
         bodyPreview: candidate.bodyPreview,
         nextRefreshSession: candidate.nextRefreshSession,
         expectedSessionId: candidate.sessionId,
+        ...(args.scheduledDeletionFence ? { scheduledDeletionFence: true } : {}),
       });
       snapshotReplayAttempted += 1;
 

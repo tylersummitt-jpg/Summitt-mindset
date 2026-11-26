@@ -17,7 +17,7 @@ export default async function SmsOptOutReviewsPage({
       <div>
         <h1 className="text-3xl font-bold text-gray-900">SMS Opt-Out Reviews</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Someone may want the automatic texts to stop. Morning, Evening, and Weekly
+          Someone may want the automatic texts to stop. Morning and Evening
           stay held until you choose.
         </p>
       </div>

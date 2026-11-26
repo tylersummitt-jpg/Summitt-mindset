@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const sendEveningMock = vi.hoisted(() => vi.fn());
+const deliverMock = vi.hoisted(() => vi.fn());
 const getClerkUserMock = vi.hoisted(() => vi.fn());
 const audienceRows = vi.hoisted(() => ({ current: [] as Array<Record<string, unknown>> }));
 
-vi.mock("@/lib/tyler-text-overview-evening-send", () => ({
-  sendEveningTtoAuthoritativeCronSend: sendEveningMock,
+vi.mock("@/lib/tyler-text-overview-send", () => ({
+  deliverScheduledDailyCoaching: deliverMock,
+  orderPotentiallyDueMembers: async () => ["user_a", "user_b"],
+  SCHEDULED_SEND_MEMBER_BUDGET_MS: 60_000,
+  SCHEDULED_SEND_TICK_BUDGET_MS: 60_000,
 }));
 
 vi.mock("@/lib/clerk-rest", () => ({
@@ -59,9 +62,7 @@ describe("Evening cron per-user send exception isolation", () => {
     getClerkUserMock.mockResolvedValue({
       public_metadata: { timezone: "America/New_York" },
     });
-    sendEveningMock.mockReset();
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-27T23:05:00.000Z"));
+    deliverMock.mockReset();
   });
 
   afterEach(() => {
@@ -69,21 +70,11 @@ describe("Evening cron per-user send exception isolation", () => {
   });
 
   it("a thrown send for user A is counted and does not abort user B's send path", async () => {
-    sendEveningMock.mockImplementation(async (args: { clerkUserId: string }) => {
+    deliverMock.mockImplementation(async (args: { clerkUserId: string }) => {
       if (args.clerkUserId === "user_a") {
         throw new Error("unexpected user A boom");
       }
-      return {
-        ok: true,
-        draftId: "draft-b",
-        clerkUserId: "user_b",
-        draftForDayKey: "2026-06-27",
-        sendSlot: "evening_checkin",
-        smsSendEventId: "evt-b",
-        twilioMessageSid: "SM_B",
-        finalBodySent: "Good evening B",
-        mode: "evening_sms_cron",
-      };
+      return { outcome: "sent", reason: "SM_B" };
     });
 
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -97,26 +88,25 @@ describe("Evening cron per-user send exception isolation", () => {
       const body = await res.json();
 
       expect(res.status).toBe(200);
-      expect(sendEveningMock).toHaveBeenCalledTimes(2);
-      expect(sendEveningMock.mock.calls[0]?.[0]?.clerkUserId).toBe("user_a");
-      expect(sendEveningMock.mock.calls[1]?.[0]?.clerkUserId).toBe("user_b");
+      expect(deliverMock).toHaveBeenCalledTimes(2);
+      expect(deliverMock.mock.calls[0]?.[0]?.clerkUserId).toBe("user_a");
+      expect(deliverMock.mock.calls[1]?.[0]?.clerkUserId).toBe("user_b");
       expect(body.scanned).toBe(2);
       expect(body.eligible).toBe(2);
       expect(body.skippedOther).toBe(1);
       expect(body.sent).toBe(1);
       expect(body.failed).toBe(0);
       expect(errorSpy).toHaveBeenCalledWith(
-        "[evening-sms] sendEveningTtoAuthoritativeCronSend threw",
+        "[evening-sms] scheduled delivery threw",
         "user_a",
         expect.any(Error)
       );
-      await expect(sendEveningMock.mock.results[0]?.value).rejects.toThrow(
+      await expect(deliverMock.mock.results[0]?.value).rejects.toThrow(
         "unexpected user A boom"
       );
-      await expect(sendEveningMock.mock.results[1]?.value).resolves.toMatchObject({
-        ok: true,
-        clerkUserId: "user_b",
-        smsSendEventId: "evt-b",
+      await expect(deliverMock.mock.results[1]?.value).resolves.toMatchObject({
+        outcome: "sent",
+        reason: "SM_B",
       });
     } finally {
       errorSpy.mockRestore();

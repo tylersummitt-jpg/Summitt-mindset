@@ -3,13 +3,13 @@
  * No model calls. No coaching-memory recompute. No invented answer/template semantics.
  */
 
-import { upsertCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
+import { planCommitmentSmsThreadMemoryFromOutbound } from "@/lib/v2-commitment-sms-thread-memory";
 import {
   hasCheckSentForCommitmentDaySlot,
-  insertV2CheckSentEventBestEffort,
   reconcileCheckSentPostSendBookkeepingForCommitment,
 } from "@/lib/v2-outbound-check-sent";
 import { reconcileRefreshPostSendBookkeepingForCommitment } from "@/lib/v2-refresh-session";
+import { supabaseServer } from "@/lib/supabase-server";
 import { SMS_DAILY_PRODUCTION_SEND_SLOT } from "@/lib/tyler-text-overview-types";
 
 /**
@@ -42,6 +42,7 @@ export async function runMorningTtoPostSendBookkeeping(args: {
     await reconcileCheckSentPostSendBookkeepingForCommitment({
       commitmentId,
       clerkUserId,
+      scheduledDeletionFence: true,
     });
   } catch (err) {
     console.warn("[morning-tto-post-send] reconcile_check_sent_failed", {
@@ -55,6 +56,7 @@ export async function runMorningTtoPostSendBookkeeping(args: {
     await reconcileRefreshPostSendBookkeepingForCommitment({
       commitmentId,
       clerkUserId,
+      scheduledDeletionFence: true,
     });
   } catch (err) {
     console.warn("[morning-tto-post-send] reconcile_refresh_failed", {
@@ -64,54 +66,73 @@ export async function runMorningTtoPostSendBookkeeping(args: {
     });
   }
 
+  const sentAt = args.sentAt ?? new Date();
   // Exact sent body only. Do not invent expected-answer types.
-  const threadMem = await upsertCommitmentSmsThreadMemoryFromOutbound({
+  const threadPlan = await planCommitmentSmsThreadMemoryFromOutbound({
     commitmentId,
     clerkUserId,
     sentBody,
-    sentAt: args.sentAt ?? new Date(),
+    sentAt,
     messageSid,
     source: "daily_sms",
     clearBindingOpenQuestion: true,
   });
-  if (!threadMem.ok) {
-    console.warn("[morning-tto-post-send] thread_memory_upsert_failed", {
+  let recordCheckSent = true;
+  try {
+    recordCheckSent = !(await hasCheckSentForCommitmentDaySlot({
+      commitmentId,
+      dayKey,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    }));
+  } catch (err) {
+    console.warn("[morning-tto-post-send] check_sent dedupe read failed; database rechecks", {
       commitment_id: commitmentId,
       clerk_user_id: clerkUserId,
-      error: threadMem.error,
+      message: err instanceof Error ? err.message : String(err),
     });
+    recordCheckSent = true;
   }
 
   try {
-    // Truthful outbound marker for cadence day_key + message_sid + body preview.
-    // Does not call the standard accountability outbound-success helper (no promptKind / answer semantics).
-    if (
-      !(await hasCheckSentForCommitmentDaySlot({
-        commitmentId,
-        dayKey,
-        sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
-      }))
-    ) {
-      await insertV2CheckSentEventBestEffort({
-        commitmentId,
-        clerkUserId,
-        dayKey,
-        messageSid,
-        bodyPreview: sentBody.slice(0, 160),
-        templateId: MORNING_TTO_OPERATIONAL_CHECK_SENT_TEMPLATE_ID,
-        templateFamily: "standard",
-        sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      const persisted = await supabaseServer.rpc("tto_record_scheduled_post_send_bookkeeping", {
+        p_clerk_user_id: clerkUserId,
+        p_commitment_id: commitmentId,
+        p_day_key: dayKey,
+        p_send_slot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+        p_message_sid: messageSid,
+        p_body_preview: sentBody.slice(0, 160),
+        p_sent_at: sentAt.toISOString(),
+        p_record_check_sent: recordCheckSent,
+        p_thread_memory: threadPlan.ok ? { ops: threadPlan.ops } : null,
+        p_replay: null,
       });
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error("[morning-tto-post-send] operational_check_sent_insert_failed", {
-      commitment_id: commitmentId,
-      clerk_user_id: clerkUserId,
-      message_sid: messageSid,
-      error: message,
-    });
-    hardError = message;
+      if (persisted.error) {
+        hardError = persisted.error.message;
+      } else {
+        const row = (Array.isArray(persisted.data) ? persisted.data[0] : persisted.data) as
+          | { outcome?: string; reason?: string | null }
+          | null;
+        const outcome = row?.outcome ?? "invalid";
+        if (!threadPlan.ok || outcome === "thread_memory_failed") {
+          console.warn("[morning-tto-post-send] thread_memory_upsert_failed", {
+            commitment_id: commitmentId,
+            clerk_user_id: clerkUserId,
+            error: threadPlan.ok ? row?.reason ?? outcome : threadPlan.error,
+          });
+        }
+        if (outcome === "check_sent_failed" || outcome === "invalid") {
+          hardError = row?.reason ?? outcome;
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[morning-tto-post-send] operational_check_sent_insert_failed", {
+        commitment_id: commitmentId,
+        clerk_user_id: clerkUserId,
+        message_sid: messageSid,
+        error: message,
+      });
+      hardError = message;
   }
 
   return hardError ? { ok: false, error: hardError } : { ok: true };

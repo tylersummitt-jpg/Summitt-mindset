@@ -3,6 +3,7 @@
  * STOP/opt-out remains sms_audience + Twilio compliance.
  */
 
+import { parseWeeklySchedule, type SmsWeeklySchedule } from "@/lib/sms-account-schedule";
 import { supabaseServer } from "@/lib/supabase-server";
 import { resolveUserTimezone } from "@/lib/timezone";
 import type { V2CadenceLevel } from "@/lib/v2-cadence";
@@ -41,6 +42,14 @@ export type V2UserSmsCommsPreferencesRow = {
   preferred_local_hour: number | null;
   source_message_sid: string | null;
   resume_prompt_sent_at: string | null;
+  /** Null means the member has not saved an Account schedule. */
+  weekly_schedule?: SmsWeeklySchedule | null;
+  /** True when the stored JSON is present but not a valid seven-day schedule. */
+  weekly_schedule_invalid?: boolean;
+  /** Null means no explicit SMS time zone has been saved from Account. */
+  schedule_timezone?: string | null;
+  /** Indefinite application pause. Distinct from pause_until and from provider STOP. */
+  pause_indefinite?: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -218,6 +227,14 @@ function mapRow(data: Record<string, unknown>): V2UserSmsCommsPreferencesRow {
       ? Math.min(23, Math.max(0, Math.floor(hourRaw)))
       : null;
 
+  const parsedSchedule = parseWeeklySchedule(
+    Object.prototype.hasOwnProperty.call(data, "weekly_schedule") ? data.weekly_schedule : null
+  );
+  const scheduleTimezone =
+    typeof data.schedule_timezone === "string" && data.schedule_timezone.trim()
+      ? data.schedule_timezone.trim()
+      : null;
+
   return {
     clerk_user_id: String(data.clerk_user_id),
     pause_until: typeof data.pause_until === "string" ? data.pause_until : null,
@@ -229,9 +246,26 @@ function mapRow(data: Record<string, unknown>): V2UserSmsCommsPreferencesRow {
     source_message_sid: typeof data.source_message_sid === "string" ? data.source_message_sid : null,
     resume_prompt_sent_at:
       typeof data.resume_prompt_sent_at === "string" ? data.resume_prompt_sent_at : null,
+    weekly_schedule: parsedSchedule.ok ? parsedSchedule.schedule : null,
+    weekly_schedule_invalid: !parsedSchedule.ok,
+    schedule_timezone: scheduleTimezone,
+    pause_indefinite: data.pause_indefinite === true,
     created_at: typeof data.created_at === "string" ? data.created_at : new Date().toISOString(),
     updated_at: typeof data.updated_at === "string" ? data.updated_at : new Date().toISOString(),
   };
+}
+
+/**
+ * Account pause: indefinite, or an existing timed pause that is still in the future.
+ * Delivery still uses isPauseActive (timed only) until the later enforcement stage.
+ */
+export function isAccountApplicationPauseActive(
+  row: V2UserSmsCommsPreferencesRow | null,
+  now: Date = new Date()
+): boolean {
+  if (!row) return false;
+  if (row.pause_indefinite === true) return true;
+  return isPauseActive(row, now);
 }
 
 export function isPauseActive(row: V2UserSmsCommsPreferencesRow | null, now: Date = new Date()): boolean {
@@ -240,24 +274,40 @@ export function isPauseActive(row: V2UserSmsCommsPreferencesRow | null, now: Dat
   return Number.isFinite(t) && t > now.getTime();
 }
 
-export async function fetchV2UserSmsCommsPreferences(
+export type V2UserSmsCommsPreferencesRead =
+  | { ok: true; row: V2UserSmsCommsPreferencesRow | null }
+  | { ok: false; error: string };
+
+/**
+ * Distinguishes a missing row from a failed read.
+ * Does not insert or update.
+ */
+export async function readV2UserSmsCommsPreferences(
   clerkUserId: string
-): Promise<V2UserSmsCommsPreferencesRow | null> {
+): Promise<V2UserSmsCommsPreferencesRead> {
   const { data, error } = await supabaseServer
     .from("v2_user_sms_comms_preferences")
     .select("*")
     .eq("clerk_user_id", clerkUserId)
     .maybeSingle();
 
-  if (error) {
+  if (error) return { ok: false, error: error.message };
+  if (!data) return { ok: true, row: null };
+  return { ok: true, row: mapRow(data as Record<string, unknown>) };
+}
+
+export async function fetchV2UserSmsCommsPreferences(
+  clerkUserId: string
+): Promise<V2UserSmsCommsPreferencesRow | null> {
+  const read = await readV2UserSmsCommsPreferences(clerkUserId);
+  if (!read.ok) {
     console.warn("[v2-sms-comms-prefs] fetch failed (fail open)", {
       clerk_user_id: clerkUserId,
-      message: error.message,
+      message: read.error,
     });
     return null;
   }
-  if (!data) return null;
-  return mapRow(data as Record<string, unknown>);
+  return read.row;
 }
 
 export async function upsertV2UserSmsCommsPreferences(args: {
@@ -272,94 +322,110 @@ export async function upsertV2UserSmsCommsPreferences(args: {
       | "preferred_send_window"
       | "preferred_local_hour"
       | "source_message_sid"
+      | "weekly_schedule"
+      | "schedule_timezone"
+      | "pause_indefinite"
     >
   >;
   clearPause?: boolean;
+  /** Account Resume Daily Texts only. Generic clearPause must not set this. */
+  clearIndefinitePause?: boolean;
   clearCadenceOverride?: boolean;
-}): Promise<{ ok: boolean; row: V2UserSmsCommsPreferencesRow | null; error?: string }> {
-  const existing = await fetchV2UserSmsCommsPreferences(args.clerkUserId);
-  const base = existing ?? {
-    clerk_user_id: args.clerkUserId,
-    pause_until: null,
-    pause_reason_category: null,
-    cadence_override: null,
-    weekend_send_policy: null,
-    preferred_send_window: null,
-    preferred_local_hour: null,
-    source_message_sid: null,
-    resume_prompt_sent_at: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+}): Promise<{
+  ok: boolean;
+  row: V2UserSmsCommsPreferencesRow | null;
+  error?: string;
+  /** Set only when ok is false. A server error code is a rejection; anything else is unconfirmed. */
+  persistence?: "rejected" | "uncertain";
+}> {
+  // Partial upsert only. Omitted fields stay as they are on an existing row.
+  // A prior read is not merged in, so a concurrent write to another column is not restored.
+  const payload: Record<string, unknown> = { clerk_user_id: args.clerkUserId };
 
-  const merged: V2UserSmsCommsPreferencesRow = {
-    ...base,
-    pause_until: args.clearPause ? null : (args.patch.pause_until ?? base.pause_until),
-    pause_reason_category: args.clearPause
-      ? null
-      : args.patch.pause_reason_category !== undefined
-        ? args.patch.pause_reason_category
-        : base.pause_reason_category,
-    cadence_override: args.clearCadenceOverride
-      ? null
-      : args.patch.cadence_override !== undefined
-        ? args.patch.cadence_override
-        : base.cadence_override,
-    weekend_send_policy:
-      args.patch.weekend_send_policy !== undefined
-        ? args.patch.weekend_send_policy
-        : base.weekend_send_policy,
-    preferred_send_window:
-      args.patch.preferred_send_window !== undefined
-        ? args.patch.preferred_send_window
-        : base.preferred_send_window,
-    preferred_local_hour:
-      args.patch.preferred_local_hour !== undefined
-        ? args.patch.preferred_local_hour
-        : base.preferred_local_hour,
-    source_message_sid:
-      args.patch.source_message_sid !== undefined
-        ? args.patch.source_message_sid
-        : base.source_message_sid,
-  };
+  if (args.clearPause) {
+    payload.pause_until = null;
+    payload.pause_reason_category = null;
+  } else {
+    if (args.patch.pause_until != null) payload.pause_until = args.patch.pause_until;
+    if (args.patch.pause_reason_category !== undefined) {
+      payload.pause_reason_category = args.patch.pause_reason_category;
+    }
+    if (args.patch.pause_indefinite !== undefined) payload.pause_indefinite = args.patch.pause_indefinite;
+  }
+  if (args.clearIndefinitePause) payload.pause_indefinite = false;
 
-  const { data, error } = await supabaseServer.from("v2_user_sms_comms_preferences").upsert(
-    {
-      clerk_user_id: args.clerkUserId,
-      pause_until: merged.pause_until,
-      pause_reason_category: merged.pause_reason_category,
-      cadence_override: merged.cadence_override,
-      weekend_send_policy: merged.weekend_send_policy,
-      preferred_send_window: merged.preferred_send_window,
-      preferred_local_hour: merged.preferred_local_hour,
-      source_message_sid: merged.source_message_sid,
-      resume_prompt_sent_at: merged.resume_prompt_sent_at,
-    },
-    { onConflict: "clerk_user_id" }
-  );
+  if (args.clearCadenceOverride) payload.cadence_override = null;
+  else if (args.patch.cadence_override !== undefined) payload.cadence_override = args.patch.cadence_override;
+
+  if (args.patch.weekend_send_policy !== undefined) {
+    payload.weekend_send_policy = args.patch.weekend_send_policy;
+  }
+  if (args.patch.preferred_send_window !== undefined) {
+    payload.preferred_send_window = args.patch.preferred_send_window;
+  }
+  if (args.patch.preferred_local_hour !== undefined) {
+    payload.preferred_local_hour = args.patch.preferred_local_hour;
+  }
+  if (args.patch.source_message_sid !== undefined) payload.source_message_sid = args.patch.source_message_sid;
+  if (args.patch.weekly_schedule !== undefined) payload.weekly_schedule = args.patch.weekly_schedule;
+  if (args.patch.schedule_timezone !== undefined) payload.schedule_timezone = args.patch.schedule_timezone;
+
+  const { data, error } = await supabaseServer.rpc("v2_upsert_sms_comms_preferences", {
+    p_clerk_user_id: args.clerkUserId,
+    p_patch: payload,
+  });
 
   if (error) {
-    return { ok: false, row: null, error: error.message };
+    const code = typeof (error as { code?: unknown }).code === "string" ? error.code.trim() : "";
+    return {
+      ok: false,
+      row: null,
+      error: error.message,
+      persistence: code.length > 0 ? "rejected" : "uncertain",
+    };
   }
-  return { ok: true, row: mapRow((data ?? merged) as Record<string, unknown>) };
+  if (!data) {
+    return {
+      ok: false,
+      row: null,
+      error: "Preference save did not return a row",
+      persistence: "uncertain",
+    };
+  }
+  return { ok: true, row: mapRow(data as Record<string, unknown>) };
 }
 
-/** Clears pause + cadence override on SMS resume (START). Keeps timing/weekend prefs. */
-export async function clearCommsPreferencesOnSmsResume(clerkUserId: string): Promise<void> {
-  const { error } = await supabaseServer.from("v2_user_sms_comms_preferences").upsert(
-    {
-      clerk_user_id: clerkUserId,
-      pause_until: null,
-      pause_reason_category: null,
-      cadence_override: null,
-    },
-    { onConflict: "clerk_user_id" }
-  );
-  if (error) {
+/**
+ * Provider START only. Clears timed pause, cadence, and the indefinite
+ * scheduled-text pause. Does not clear the Account schedule or time zone.
+ */
+export async function clearCommsPreferencesOnSmsResume(
+  clerkUserId: string
+): Promise<"cleared" | "failed" | "unconfirmed"> {
+  try {
+    const { error } = await supabaseServer.rpc("v2_upsert_sms_comms_preferences", {
+      p_clerk_user_id: clerkUserId,
+      p_patch: {
+        clerk_user_id: clerkUserId,
+        pause_until: null,
+        pause_reason_category: null,
+        cadence_override: null,
+        pause_indefinite: false,
+      },
+    });
+    if (!error) return "cleared";
+    const code = typeof (error as { code?: unknown }).code === "string" ? error.code.trim() : "";
     console.warn("[v2-sms-comms-prefs] clear on START failed", {
       clerk_user_id: clerkUserId,
       message: error.message,
     });
+    return code.length > 0 ? "failed" : "unconfirmed";
+  } catch (error) {
+    console.warn("[v2-sms-comms-prefs] clear on START failed", {
+      clerk_user_id: clerkUserId,
+      message: error instanceof Error ? error.message : "unknown",
+    });
+    return "unconfirmed";
   }
 }
 

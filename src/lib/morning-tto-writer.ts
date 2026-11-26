@@ -50,6 +50,7 @@ HUMAN COACHING LAWS
 
 SEND CONTRACT
 - The interpreter already chose SEND. Do not re-decide whether this text should exist. Do not output empty copy.
+- If existing_text_decision is replace, write the new text the brief calls for. Do not reproduce the saved body just to vary its wording. The interpreter already decided the saved body should not remain.
 - If the Brief selected conversational reentry or continue_conversation, write the natural next human turn.
 - If the Brief selected standalone value (often offer_perspective, challenge, or support with little live thread), deliver the value itself.
 - If OPTIONAL_PAT_SOURCE_EVIDENCE_V1 is present, you may use one short first-person story or lesson from that excerpt only when it genuinely improves the selected Brief move; otherwise ignore it. Do not invent beyond the excerpt. Never mention books, citations, chunks, retrieval, or sources in the SMS.
@@ -83,12 +84,14 @@ ${HISTORICAL_EVIDENCE_HISTORY_LAW}
 ${COACH_RELATIONSHIP_MEMORY_WRITER_USE_LAW}
 
 TARGET DATE / TIME
-- packet.message_for (local_date, local_weekday, daypart, timezone) is the authoritative clock for this SMS — not the wall-clock time when the draft was generated.
-- Write as a natural text for that message_for day and daypart (e.g. a Friday morning draft generated on Thursday must still read as Friday morning; a Friday evening draft generated on Thursday must still read as Friday evening).
-- Exact-thread timestamps and day_relation_to_message are factual context. Relative-time words inside older messages belong to when those messages were sent.
+- packet.message_for.local_date, local_weekday, timezone, and intended_receive_time_local are the authoritative clock for this SMS — not the wall-clock time when the draft was generated.
+- daypart is the administrative Morning or Evening batch, not the member's local time of day. Write for the intended local clock. A Friday 07:15 text generated on Thursday still reads as Friday morning. A Friday 14:15 text reads as Friday afternoon even when the batch is Evening. A Friday 23:45 text reads as Friday night even when the batch is Morning.
+- Exact-thread timestamps and day_relation_to_message are factual context. Relative-time words inside older messages belong to when those messages were sent. A Wednesday accomplishment referenced for Thursday is yesterday relative to Thursday, and the member's Wednesday wording stays Wednesday's.
 - Do not blindly reuse today/yesterday/tomorrow/tonight/this morning from older turns. Only use relative-time language when message_for and exact thread timing support it.
-- Understand semantic timing with intelligence (e.g. Friday morning + goal "before bed tonight" means today's completion has not happened yet; Friday evening + goal "walk before work" means that day's before-work opportunity is effectively over). Do not invent rigid phrase tables.
-- Evening does not automatically mean every action opportunity is over, and morning does not mean today's result is already known; use the thread, timing, and evidence.
+- Understand the actual receive time. A goal phrased as before bed is still ahead of an afternoon receive time on that same day, and it is not automatically still ahead of a late-night receive time. A goal phrased as before work is still ahead of an early-morning receive time, and it is not automatically still ahead of an evening receive time. Do not invent rigid phrase tables.
+- Evening does not automatically mean every action opportunity is over, and morning does not mean today's result is already known; use the thread, the clock, and the evidence. Time alone is not success or failure.
+- If existing_saved_text.original_model_delivery is known, that is the clock an earlier model input used. If describes_saved_body is false, a later Tyler edit means that earlier model clock does not establish what Tyler intended. latest_affirmed_delivery, when present, is a later clock where this same body was affirmatively kept. tyler_edit_delivery with status known is the context bound to Tyler's edit. An unavailable edit context is not proof the edit was written for the current clock. The current message_for is the delivery you are writing for now.
+- If days_since_last_user_response is larger than days_since_last_user_response_observed, the difference has not elapsed. Do not write as though that future gap were silence the member has already lived.
 
 PRIOR COACH HISTORY
 - Prior coach messages are factual conversation history, not style samples.
@@ -101,6 +104,11 @@ Do not use em dashes, en dashes, or hyphens as punctuation between thoughts in t
 Return strict JSON only:
 {"body":"<sms text>"}
 The body must be nonempty. No other keys.`;
+
+/** Appended only when the packet is for an intended Sunday. Daily length stays. */
+export const SUNDAY_COACHING_WRITER_SUPPLEMENT = `SUNDAY COACHING
+When the packet includes sunday_coaching, this is still one ordinary daily SMS at packet.message_for.intended_receive_time_local. Do not lengthen it into a weekly letter, newsletter, or performance report. Do not use a fixed noon clock. Do not recite the event tape.
+Use a weekly observation only when the Brief calls for it. An empty loaded tape is not a failure. An unavailable tape is not an empty tape and is not zero accomplishments. Do not invent completion, failure, consistency, or a pattern. A stored interruption is the supplied signal, not a guess from silence. A recent live concern outranks a weekly recap. Sunday alone is not a reason to add filler. Keep the ordinary daily length.`;
 
 export type MorningWriterCaptureV1 = {
   capture_version: typeof MORNING_TTO_WRITER_CAPTURE_VERSION;
@@ -258,8 +266,11 @@ export function buildMorningWriterMessages(
     );
   }
   parts.push("", 'Return JSON only: {"body":"<sms text>"}');
+  const system = packet.sunday_coaching
+    ? `${MORNING_TTO_SYSTEM_PROMPT}\n\n${SUNDAY_COACHING_WRITER_SUPPLEMENT}`
+    : MORNING_TTO_SYSTEM_PROMPT;
   return [
-    { role: "system", content: MORNING_TTO_SYSTEM_PROMPT },
+    { role: "system", content: system },
     { role: "user", content: parts.join("\n") },
   ];
 }

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
 import {
   bulkSaveEveningTtoDraftBodies,
+  parseDisplayedDeliveryEchoes,
   type TtoBulkSaveOperation,
 } from "@/lib/tyler-text-overview-admin";
 
@@ -65,6 +66,7 @@ export async function POST(req: Request) {
       draftForDayKey,
       operation,
       body: applyBody,
+      displayedDeliveries: parseDisplayedDeliveryEchoes(record.displayed_deliveries),
     });
 
     if ("status" in result) {

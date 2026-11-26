@@ -118,6 +118,8 @@ const db = vi.hoisted(() => ({
   draftsExactCountOverride: null as number | null,
   audienceExactCountOverride: null as number | null,
   countForceNull: false,
+  batches: [] as Array<Record<string, unknown>>,
+  batchReadError: null as string | null,
 }));
 
 function filterDrafts(payload: Record<string, unknown>): DraftRow[] {
@@ -138,6 +140,10 @@ function filterDrafts(payload: Record<string, unknown>): DraftRow[] {
   if (Array.isArray(payload.in_clerk_user_id)) {
     const allowed = payload.in_clerk_user_id as string[];
     rows = rows.filter((d) => allowed.includes(d.clerk_user_id));
+  }
+  if (Array.isArray(payload.in_draft_for_day_key)) {
+    const allowed = payload.in_draft_for_day_key as string[];
+    rows = rows.filter((d) => allowed.includes(d.draft_for_day_key));
   }
   if (typeof payload.id === "string") {
     rows = rows.filter((d) => d.id === payload.id);
@@ -181,6 +187,23 @@ function makeChain(handlers: {
       }
       db.smsSendEventsWrites += 1;
       return { data: null, error: null };
+    }
+
+    if (table === "sms_tto_generation_batches" && action === "select") {
+      if (db.batchReadError) {
+        return { data: null, error: { message: db.batchReadError }, count: null };
+      }
+      let rows = [...db.batches];
+      if (typeof payload.batch_date === "string") {
+        rows = rows.filter((row) => row.batch_date === payload.batch_date);
+      }
+      if (typeof payload.send_slot === "string") {
+        rows = rows.filter((row) => row.send_slot === payload.send_slot);
+      }
+      if (payload.maybeSingle) {
+        return { data: rows[0] ?? null, error: null, count: rows.length };
+      }
+      return { data: rows, error: null, count: rows.length };
     }
 
     if (table === "sms_daily_drafts" && action === "select") {
@@ -389,11 +412,49 @@ vi.mock("@/lib/auth/require-tyler-admin", () => ({
   requireTylerAdmin: requireTylerAdminMock,
 }));
 
+vi.mock("@/lib/clerk-rest", () => ({
+  getClerkUserOrNull: vi.fn(async () => null),
+  getClerkUser: vi.fn(async () => null),
+  listClerkUsersByIds: vi.fn(async () => []),
+}));
+
 vi.mock("@/lib/supabase-server", () => ({
   supabaseServer: {
     from: vi.fn((name: string) =>
       makeChain({ table: name, action: "select", payload: {} })
     ),
+    rpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
+      if (fn !== "tto_save_tyler_draft_body") {
+        return { data: null, error: { message: `missing_rpc:${fn}`, code: "P0001" } };
+      }
+      const draft = db.drafts.find((row) => row.id === args.p_draft_id);
+      if (!draft || draft.status !== "current") {
+        return { data: { ok: false, reason: "not_current" }, error: null };
+      }
+      if (draft.current_generation_id !== args.p_expected_generation_id) {
+        return { data: { ok: false, reason: "generation_conflict" }, error: null };
+      }
+      if (draft.send_slot !== args.p_expected_slot) {
+        return { data: { ok: false, reason: "slot_conflict" }, error: null };
+      }
+      if (typeof args.p_body !== "string" && args.p_body !== null) {
+        return { data: { ok: false, reason: "invalid_body" }, error: null };
+      }
+      if (args.p_body_source !== "tyler_edit" && args.p_body_source !== "machine") {
+        return { data: { ok: false, reason: "invalid_source" }, error: null };
+      }
+      draft.current_body_to_send = args.p_body;
+      draft.current_body_source = args.p_body_source;
+      draft.edited_by_tyler = args.p_edited_by_tyler === true;
+      draft.edited_at = typeof args.p_edited_at === "string" || args.p_edited_at === null ? args.p_edited_at : null;
+      draft.edit_distance_chars = typeof args.p_edit_distance === "number" || args.p_edit_distance === null
+        ? args.p_edit_distance
+        : null;
+      draft.current_body_hash = typeof args.p_body_hash === "string" || args.p_body_hash === null
+        ? args.p_body_hash
+        : null;
+      return { data: { ok: true }, error: null };
+    }),
   },
 }));
 
@@ -518,6 +579,8 @@ describe("resolveAdminListSendSlot", () => {
 describe("tyler-text-overview-admin read model", () => {
   beforeEach(() => {
     db.drafts = [];
+    db.batches = [];
+    db.batchReadError = null;
     db.generations = [];
     db.smsAudience = [];
     db.v2Commitments = [];
@@ -1594,6 +1657,8 @@ describe("tyler-text-overview-admin morning bulk save", () => {
 
   function seedBulkFixture() {
     db.drafts = [];
+    db.batches = [];
+    db.batchReadError = null;
     db.generations = [];
     db.smsAudience = [];
     db.v2Commitments = [];
@@ -1858,6 +1923,8 @@ describe("tyler-text-overview-admin evening bulk save", () => {
 
   function seedEveningBulkFixture() {
     db.drafts = [];
+    db.batches = [];
+    db.batchReadError = null;
     db.generations = [];
     db.smsAudience = [];
     db.v2Commitments = [];
@@ -2407,6 +2474,8 @@ describe("tyler-text-overview-admin API auth", () => {
     requireTylerAdminMock.mockResolvedValue(undefined);
     seedCurrentDraft();
     db.drafts = [];
+    db.batches = [];
+    db.batchReadError = null;
     db.drafts.push({
       id: "draft-evening",
       clerk_user_id: "user_evening",
@@ -2458,6 +2527,8 @@ describe("tyler-text-overview-admin API auth", () => {
 describe("tyler-text-overview sendable audience coverage", () => {
   beforeEach(() => {
     db.drafts = [];
+    db.batches = [];
+    db.batchReadError = null;
     db.generations = [];
     db.smsAudience = [];
     db.v2Commitments = [];
@@ -2669,6 +2740,8 @@ describe("tyler-text-overview sendable audience coverage", () => {
 describe("tyler-text-overview morning manifest completeness", () => {
   beforeEach(() => {
     db.drafts = [];
+    db.batches = [];
+    db.batchReadError = null;
     db.generations = [];
     db.smsAudience = [];
     db.v2Commitments = [];
@@ -2961,7 +3034,9 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
       "weekly-sms/route",
       "twilio/inbound",
       "sms-inbound-coach",
-      "tyler-text-overview-generate",
+      "generateTylerTextOverview",
+      "writeMorningTtoBody",
+      "runObservationalMorningBriefInterpreter",
       "@/lib/twilio",
     ];
     for (const rel of phase4Files) {
@@ -2970,6 +3045,8 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
         expect(src).not.toContain(needle);
       }
     }
+    const admin = readFileSync(join(process.cwd(), "src/lib/tyler-text-overview-admin.ts"), "utf8");
+    expect(admin).toContain("persistedDeliveryFactsFromMetadata");
   });
 
   it("no notebook rebuild imports in Phase 4 files", () => {
@@ -3088,5 +3165,440 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     expect(dashboard).toContain("runGenerateAll");
     expect(dashboard).toContain("ttoGenerateAllEndpoint");
     expect(dashboard).not.toMatch(/Bulk generate/i);
+  });
+});
+
+describe("stage 4 scheduled dashboard", () => {
+  const batchDate = "2026-01-15";
+
+  function scheduledMetadata(memberLocalDate: string, packetLabel: string) {
+    return {
+      scheduled_generation_convention: "member_local_delivery_v1",
+      administrative_batch_date: batchDate,
+      member_local_date: memberLocalDate,
+      tto_owner: "morning",
+      effective_local_minute: memberLocalDate === "2026-01-14" ? 23 * 60 + 45 : 7 * 60,
+      time_zone: memberLocalDate === "2026-01-14" ? "America/New_York" : "America/Los_Angeles",
+      morning_relationship_packet_v1: { label: packetLabel },
+    };
+  }
+
+  function pushDraft(args: {
+    id: string;
+    clerkUserId: string;
+    day: string;
+    body: string;
+    metadata: Record<string, unknown>;
+    machineNoSendReason?: string | null;
+    editedByTyler?: boolean;
+  }) {
+    db.generations.push({
+      id: `gen-${args.id}`,
+      generation_number: 1,
+      clerk_user_id: args.clerkUserId,
+      draft_for_day_key: args.day,
+      send_slot: "morning",
+      writer_openai_messages: [{ role: "user", content: args.body }],
+      machine_draft_body: args.body,
+      machine_should_send: true,
+      machine_no_send_reason: args.machineNoSendReason ?? null,
+      notebook_hash: `notebook-${args.id}`,
+      generation_metadata: args.metadata,
+    });
+    db.drafts.push({
+      id: args.id,
+      clerk_user_id: args.clerkUserId,
+      draft_for_day_key: args.day,
+      send_slot: "morning",
+      current_generation_id: `gen-${args.id}`,
+      current_body_to_send: args.body,
+      status: "current",
+      edited_by_tyler: args.editedByTyler ?? false,
+      current_body_source: args.editedByTyler ? "tyler_edit" : "machine",
+    });
+  }
+
+  beforeEach(() => {
+    db.drafts = [];
+    db.generations = [];
+    db.smsAudience = [];
+    db.v2Commitments = [];
+    db.v2CommsPrefs = [];
+    db.userProfiles = [];
+    db.smsSendEvents = [];
+    db.batches = [];
+    db.batchReadError = null;
+  });
+
+  it("shows two member-local occurrences independently and keeps legacy drafts separate", async () => {
+    seedSendableUser({ clerkUserId: "user_a", preferredName: "A" });
+    seedSendableUser({ clerkUserId: "user_legacy", preferredName: "Legacy" });
+    pushDraft({
+      id: "wed",
+      clerkUserId: "user_a",
+      day: "2026-01-14",
+      body: "Wednesday night",
+      metadata: scheduledMetadata("2026-01-14", "packet-wed"),
+    });
+    pushDraft({
+      id: "thu",
+      clerkUserId: "user_a",
+      day: "2026-01-15",
+      body: "Thursday morning",
+      metadata: scheduledMetadata("2026-01-15", "packet-thu"),
+    });
+    pushDraft({
+      id: "legacy",
+      clerkUserId: "user_legacy",
+      day: batchDate,
+      body: "Old Thursday draft",
+      metadata: { capture_present: true },
+    });
+    seedSendableUser({ clerkUserId: "user_other", preferredName: "Other" });
+    pushDraft({
+      id: "other-batch",
+      clerkUserId: "user_other",
+      day: batchDate,
+      body: "Belongs to Friday",
+      metadata: {
+        scheduled_generation_convention: "member_local_delivery_v1",
+        administrative_batch_date: "2026-01-16",
+        member_local_date: batchDate,
+        tto_owner: "morning",
+      },
+    });
+    db.batches = [
+      {
+        batch_date: batchDate,
+        send_slot: "morning",
+        opened_trigger: "automatic_schedule",
+        window_ends_at: "2026-01-15T02:00:00.000Z",
+        started_at: "2026-01-14T21:00:00.000Z",
+        initial_completed_at: "2026-01-14T21:05:12.000Z",
+        initial_completed_trigger: "automatic_schedule",
+        relevant_member_count: 4,
+        scheduled_member_count: 1,
+        scheduled_occurrence_count: 2,
+        occurrences: [
+          {
+            clerk_user_id: "user_a",
+            member_local_date: "2026-01-14",
+            utc_instant: "2026-01-15T04:45:00.000Z",
+            selected_local_minute: 23 * 60 + 45,
+            effective_local_minute: 23 * 60 + 45,
+            time_zone: "America/New_York",
+            state: "generated",
+            initial_set: true,
+            initial_outcome: "failed",
+          },
+          {
+            clerk_user_id: "user_a",
+            member_local_date: "2026-01-15",
+            utc_instant: "2026-01-15T15:00:00.000Z",
+            selected_local_minute: 7 * 60,
+            effective_local_minute: 7 * 60,
+            time_zone: "America/Los_Angeles",
+            state: "generated",
+            initial_set: true,
+            initial_outcome: "generated",
+          },
+        ],
+        non_scheduled: [
+          { clerk_user_id: "user_off", classification: "unscheduled", reason: "weekday_off" },
+          { clerk_user_id: "user_unread", classification: "unresolved", reason: "preference_read_failed" },
+        ],
+      },
+    ];
+
+    const loaded = await listSendableTylerTextOverviewRows({
+      draftForDayKey: batchDate,
+      now: new Date("2026-01-14T21:10:00.000Z"),
+    });
+    expect(loaded.rows.map((row) => row.occurrenceKey)).toEqual([
+      "user_a:2026-01-14",
+      "user_a:2026-01-15",
+    ]);
+    expect(loaded.rows.map((row) => row.currentBodyToSend)).toEqual([
+      "Wednesday night",
+      "Thursday morning",
+    ]);
+    expect(loaded.rows.map((row) => row.notebookHash)).toEqual(["notebook-wed", "notebook-thu"]);
+    expect(loaded.rows.map((row) => row.morningRelationshipPacketV1)).toEqual([
+      { label: "packet-wed" },
+      { label: "packet-thu" },
+    ]);
+    expect(loaded.rows[0]?.scheduledDelivery?.effectiveLocalMinute).toBe(23 * 60 + 45);
+    expect(loaded.rows[1]?.scheduledDelivery?.timeZone).toBe("America/Los_Angeles");
+    expect(loaded.historicalRows.map((row) => row.draftId)).toEqual(["legacy"]);
+    expect(loaded.batchStatistics?.status).toBe("completed_with_blocked");
+    expect(loaded.batchStatistics?.elapsedMs).toBe(5 * 60 * 1000 + 12 * 1000);
+    expect(loaded.batchStatistics?.initialOutcomes?.failed).toBe(1);
+    expect(loaded.batchStatistics?.currentOutcomes?.failed).toBe(0);
+    expect(loaded.batchStatistics?.currentOutcomes?.generated).toBe(2);
+    expect(loaded.batchStatistics?.currentOutcomes?.intentionalSpace).toBe(0);
+    expect(loaded.batchStatistics?.unscheduledMemberCount).toBe(1);
+    expect(loaded.batchStatistics?.unresolvedMemberCount).toBe(1);
+    expect(loaded.batchStatistics?.initialScheduledMemberCount).toBe(1);
+    expect(loaded.batchStatistics?.currentScheduledOccurrenceCount).toBe(2);
+  });
+
+  it("does not treat a failed batch read as not started", async () => {
+    seedSendableUser({ clerkUserId: "user_legacy", preferredName: "Legacy" });
+    pushDraft({
+      id: "legacy",
+      clerkUserId: "user_legacy",
+      day: batchDate,
+      body: "Old Thursday draft",
+      metadata: {},
+    });
+    db.batchReadError = "relation does not exist";
+    const loaded = await listSendableTylerTextOverviewRows({ draftForDayKey: batchDate });
+    expect(loaded.batchStatistics?.retrieval).toBe("unavailable");
+    expect(loaded.batchStatistics?.status).toBe("unavailable");
+    expect(loaded.rows).toEqual([]);
+    expect(loaded.historicalRows).toEqual([]);
+    expect(loaded.batchStatistics?.confirmedFailureCount).toBe(0);
+  });
+
+  it("keeps a historical day and hides a draft that belongs to another batch", async () => {
+    seedSendableUser({ clerkUserId: "user_legacy", preferredName: "Legacy" });
+    seedSendableUser({ clerkUserId: "user_foreign", preferredName: "Foreign" });
+    pushDraft({
+      id: "legacy",
+      clerkUserId: "user_legacy",
+      day: batchDate,
+      body: "Old Thursday draft",
+      metadata: { capture_present: true },
+    });
+    pushDraft({
+      id: "foreign",
+      clerkUserId: "user_foreign",
+      day: batchDate,
+      body: "Friday batch",
+      metadata: {
+        scheduled_generation_convention: "member_local_delivery_v1",
+        administrative_batch_date: "2026-01-16",
+        member_local_date: batchDate,
+      },
+    });
+    const loaded = await listSendableTylerTextOverviewRows({ draftForDayKey: batchDate });
+    expect(loaded.batchStatistics?.status).toBe("not_started");
+    expect(loaded.rows.find((row) => row.clerkUserId === "user_legacy")?.currentBodyToSend).toBe(
+      "Old Thursday draft"
+    );
+    expect(loaded.rows.find((row) => row.clerkUserId === "user_foreign")?.draftId).toBeNull();
+  });
+
+  it("labels an unfinished batch after the window without calling it active work", async () => {
+    seedSendableUser({ clerkUserId: "user_a", preferredName: "A" });
+    db.batches = [
+      {
+        batch_date: batchDate,
+        send_slot: "morning",
+        opened_trigger: "automatic_schedule",
+        window_ends_at: "2026-01-15T02:00:00.000Z",
+        started_at: "2026-01-14T21:00:00.000Z",
+        initial_completed_at: null,
+        relevant_member_count: 1,
+        scheduled_member_count: 1,
+        scheduled_occurrence_count: 2,
+        occurrences: [
+          {
+            clerk_user_id: "user_a",
+            member_local_date: "2026-01-15",
+            utc_instant: "2026-01-15T12:00:00.000Z",
+            effective_local_minute: 420,
+            selected_local_minute: 420,
+            time_zone: "America/New_York",
+            state: "pending",
+            initial_set: true,
+            initial_outcome: null,
+          },
+          {
+            clerk_user_id: "user_a",
+            member_local_date: "2026-01-16",
+            utc_instant: "2026-01-16T12:00:00.000Z",
+            effective_local_minute: 420,
+            selected_local_minute: 420,
+            time_zone: "America/New_York",
+            state: "pending",
+            initial_set: false,
+            initial_outcome: null,
+          },
+        ],
+        non_scheduled: [],
+      },
+    ];
+    const closed = await listSendableTylerTextOverviewRows({
+      draftForDayKey: batchDate,
+      now: new Date("2026-01-15T03:00:00.000Z"),
+    });
+    expect(closed.batchStatistics?.status).toBe("incomplete_after_window");
+    expect(closed.batchStatistics?.elapsedMs).toBeNull();
+    expect(closed.rows).toHaveLength(2);
+    expect(closed.rows.every((row) => row.draftId == null)).toBe(true);
+
+    db.batches[0]!.initial_completed_at = "2026-01-14T21:05:00.000Z";
+    const late = await listSendableTylerTextOverviewRows({
+      draftForDayKey: batchDate,
+      now: new Date("2026-01-14T21:06:00.000Z"),
+    });
+    expect(late.batchStatistics?.status).toBe("completed");
+    expect(late.batchStatistics?.latePendingOrClaimedCount).toBe(1);
+    expect(late.batchStatistics?.elapsedMs).toBe(5 * 60 * 1000);
+  });
+
+  it("bulk-saves only verified occurrence drafts across member-local dates", async () => {
+    seedSendableUser({ clerkUserId: "user_a", preferredName: "A" });
+    seedSendableUser({ clerkUserId: "user_legacy", preferredName: "Legacy" });
+    pushDraft({
+      id: "wed",
+      clerkUserId: "user_a",
+      day: "2026-01-14",
+      body: "Wednesday night",
+      metadata: scheduledMetadata("2026-01-14", "packet-wed"),
+    });
+    pushDraft({
+      id: "thu",
+      clerkUserId: "user_a",
+      day: "2026-01-15",
+      body: "Thursday morning",
+      metadata: scheduledMetadata("2026-01-15", "packet-thu"),
+    });
+    pushDraft({
+      id: "legacy",
+      clerkUserId: "user_legacy",
+      day: batchDate,
+      body: "Old Thursday draft",
+      metadata: { capture_present: true },
+    });
+    pushDraft({
+      id: "claim",
+      clerkUserId: "user_a",
+      day: "2026-01-13",
+      body: "",
+      metadata: {
+        ...scheduledMetadata("2026-01-13", "claim"),
+        record_kind: "generation_claim",
+      },
+      machineNoSendReason: "scheduled_generation_claim",
+    });
+    db.batches = [
+      {
+        batch_date: batchDate,
+        send_slot: "morning",
+        opened_trigger: "manual_schedule",
+        window_ends_at: "2026-01-15T02:00:00.000Z",
+        started_at: "2026-01-14T21:00:00.000Z",
+        initial_completed_at: "2026-01-14T21:05:00.000Z",
+        relevant_member_count: 2,
+        scheduled_member_count: 1,
+        scheduled_occurrence_count: 3,
+        occurrences: ["2026-01-14", "2026-01-15", "2026-01-13"].map((day) => ({
+          clerk_user_id: "user_a",
+          member_local_date: day,
+          utc_instant: "2026-01-15T15:00:00.000Z",
+          effective_local_minute: 420,
+          selected_local_minute: 420,
+          time_zone: "America/New_York",
+          state: day === "2026-01-13" ? "claimed" : "generated",
+          initial_set: true,
+          initial_outcome: day === "2026-01-13" ? null : "generated",
+        })),
+        non_scheduled: [],
+      },
+    ];
+
+    const result = await bulkSaveMorningTtoDraftBodies({
+      draftForDayKey: batchDate,
+      operation: "apply_all",
+      body: "Same saved text",
+    });
+    if ("status" in result) throw new Error(result.error);
+    expect(result.updated).toBe(2);
+    expect(db.drafts.find((draft) => draft.id === "wed")?.current_body_to_send).toBe("Same saved text");
+    expect(db.drafts.find((draft) => draft.id === "thu")?.current_body_to_send).toBe("Same saved text");
+    expect(db.drafts.find((draft) => draft.id === "legacy")?.current_body_to_send).toBe(
+      "Old Thursday draft"
+    );
+    expect(db.drafts.find((draft) => draft.id === "claim")?.current_body_to_send).toBe("");
+  });
+
+  function readableBatch(overrides: Record<string, unknown> = {}) {
+    return {
+      batch_date: batchDate,
+      send_slot: "morning",
+      opened_trigger: "automatic_schedule",
+      window_ends_at: "2026-01-15T02:00:00.000Z",
+      started_at: "2026-01-14T21:00:00.000Z",
+      initial_completed_at: null,
+      relevant_member_count: 4,
+      scheduled_member_count: 0,
+      scheduled_occurrence_count: 0,
+      occurrences: [],
+      non_scheduled: [],
+      ...overrides,
+    };
+  }
+
+  it("keeps a valid empty batch distinct from a missing or unreadable batch", async () => {
+    db.batches = [readableBatch()];
+    const loaded = await listSendableTylerTextOverviewRows({
+      draftForDayKey: batchDate,
+      now: new Date("2026-01-14T21:10:00.000Z"),
+    });
+    expect(loaded.batchStatistics?.retrieval).toBe("ok");
+    expect(loaded.batchStatistics?.status).toBe("started_idle");
+    expect(loaded.batchStatistics?.relevantMemberCount).toBe(4);
+    expect(loaded.batchStatistics?.currentScheduledOccurrenceCount).toBe(0);
+    expect(loaded.rows).toEqual([]);
+  });
+
+  it("does not turn a malformed occurrence list into zero counts or a legacy bulk save", async () => {
+    pushDraft({
+      id: "legacy",
+      clerkUserId: "user_legacy",
+      day: batchDate,
+      body: "Old Thursday draft",
+      metadata: { capture_present: true },
+    });
+    db.batches = [
+      readableBatch({
+        occurrences: [{ clerk_user_id: "user_a" }],
+        relevant_member_count: 4,
+        scheduled_member_count: 2,
+        scheduled_occurrence_count: 2,
+      }),
+    ];
+    const loaded = await listSendableTylerTextOverviewRows({
+      draftForDayKey: batchDate,
+      now: new Date("2026-01-14T21:10:00.000Z"),
+    });
+    expect(loaded.batchStatistics?.retrieval).toBe("unavailable");
+    expect(loaded.batchStatistics?.status).toBe("unavailable");
+    expect(loaded.rows).toEqual([]);
+    expect(loaded.historicalRows).toEqual([]);
+    expect(loaded.batchStatistics?.currentScheduledOccurrenceCount).toBeNull();
+
+    db.batches = [
+      readableBatch({
+        non_scheduled: [{ clerk_user_id: "user_off" }],
+      }),
+    ];
+    const badMembers = await listSendableTylerTextOverviewRows({
+      draftForDayKey: batchDate,
+      now: new Date("2026-01-14T21:10:00.000Z"),
+    });
+    expect(badMembers.batchStatistics?.retrieval).toBe("unavailable");
+
+    const saved = await bulkSaveMorningTtoDraftBodies({
+      draftForDayKey: batchDate,
+      operation: "apply_all",
+      body: "Should not save",
+    });
+    expect(saved).toMatchObject({ ok: false, status: 503 });
+    expect(db.drafts.find((draft) => draft.id === "legacy")?.current_body_to_send).toBe(
+      "Old Thursday draft"
+    );
   });
 });

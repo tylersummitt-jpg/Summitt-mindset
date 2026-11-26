@@ -379,19 +379,22 @@ describe("quiet relationship value — prompt law + clamp + writer skip", () => 
     }
   });
 
-  it("Weekly generate skips the writer only through the shared intentional_space clamp", () => {
+  it("the shared intentional-space clamp stays on daily generation, and retired weekly generation does not call the writer", () => {
+    const daily = readFileSync(
+      path.join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"),
+      "utf8"
+    );
+    expect(daily).toContain("resolveQuietRelationshipMechanicalFacts");
+    expect(daily).toContain("clampProactiveDecision");
+    expect(daily).toContain("isIntentionalSpaceDecision");
+    expect(daily).toContain("MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE");
     const weekly = readFileSync(
       path.join(process.cwd(), "src/lib/tyler-text-overview-weekly-generate.ts"),
       "utf8"
     );
-    expect(weekly).toContain("resolveQuietRelationshipMechanicalFacts");
-    expect(weekly).toContain("clampProactiveDecision");
-    expect(weekly).toContain("isIntentionalSpaceDecision");
-    expect(weekly).toContain("MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE");
-    expect(weekly.indexOf("isIntentionalSpaceDecision")).toBeLessThan(
-      weekly.indexOf("writeWeeklyTtoBody")
-    );
-    expect(weekly).not.toContain("weekly_accountability_events.length");
+    expect(weekly).toContain("weekly_delivery_retired");
+    expect(weekly).not.toContain("writeWeeklyTtoBody");
+    expect(weekly).not.toContain("runWeeklyBriefInterpreterV1");
   });
 
   it("send path does not read required-touch as an override of Tyler blank or delivery prefs", () => {
@@ -399,8 +402,16 @@ describe("quiet relationship value — prompt law + clamp + writer skip", () => 
       path.join(process.cwd(), "src/lib/tyler-text-overview-send.ts"),
       "utf8"
     );
-    expect(send).toContain("tto_blank_morning_body");
-    expect(send).not.toContain("message_required_today");
-    expect(send).not.toContain("intentional_space");
+    const space = send.slice(send.indexOf("if (noSend === MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE)"));
+    expect(space.indexOf("message_required_today")).toBeGreaterThan(-1);
+    expect(space.indexOf("message_required_today")).toBeLessThan(space.indexOf("scheduledDailyBodyAuthorization"));
+    const authorization = readFileSync(
+      path.join(process.cwd(), "src/lib/tto-scheduled-generate.ts"),
+      "utf8"
+    );
+    const decision = authorization.slice(authorization.indexOf("const body = (draft.body ?? \"\").trim();"));
+    expect(decision.indexOf('return { action: "silence", reason: "tyler_blank" }')).toBeLessThan(
+      decision.indexOf("messageRequiredToday")
+    );
   });
 });

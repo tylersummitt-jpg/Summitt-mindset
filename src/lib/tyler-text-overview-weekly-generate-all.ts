@@ -17,7 +17,6 @@ import {
   classifyTtoGenerateAllMember,
   generateAllSoftFailureError,
   isTtoGenerateAllWorkRemaining,
-  runPoolWithBudget,
   TTO_GENERATE_ALL_CHUNK_USER_CAP,
   TTO_GENERATE_ALL_CONCURRENCY,
   TTO_GENERATE_ALL_TIME_BUDGET_MS,
@@ -31,7 +30,6 @@ import {
   SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
   isTylerTextOverviewEnabled,
 } from "@/lib/tyler-text-overview-types";
-import { generateTylerTextOverviewWeeklyDraftForUser } from "@/lib/tyler-text-overview-weekly-generate";
 import { resolveTylerTextOverviewWeeklyPeriod } from "@/lib/tyler-text-overview-weekly-period";
 
 export const WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY = "missing_only" as const;
@@ -239,202 +237,18 @@ export type GenerateMissingWeeklyDraftsDeps = {
   getClerkUserFn?: typeof getClerkUser;
   hasWeeklySendEvent?: typeof hasSmsWeeklySendEventForUserWeek;
   findDraftForWeek?: typeof findWeeklyReviewDraftForWeek;
-  generateForUser?: typeof generateTylerTextOverviewWeeklyDraftForUser;
 };
 
 /**
  * Sequential missing/incomplete generate used by unit tests.
  * Live admin Generate All uses generateWeeklyTtoDraftBatch.
  */
-export async function generateMissingWeeklyDraftsForAllSendableUsers(args?: {
+export async function generateMissingWeeklyDraftsForAllSendableUsers(_args?: {
   mode?: WeeklyTtoGenerateAllMode;
   now?: Date;
   deps?: GenerateMissingWeeklyDraftsDeps;
 }): Promise<WeeklyTtoGenerateAllResult> {
-  const mode = args?.mode ?? WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY;
-  if (mode !== WEEKLY_TTO_GENERATE_ALL_MODE_MISSING_ONLY) {
-    throw new Error(`unsupported_mode:${String(mode)}`);
-  }
-
-  if (!isTylerTextOverviewEnabled()) {
-    throw new Error("tyler_text_overview_disabled");
-  }
-
-  const deps = args?.deps ?? {};
-  const loadAudience = deps.loadAudienceRows ?? loadTylerTextOverviewAudienceRows;
-  const getClerk = deps.getClerkUserFn ?? getClerkUser;
-  const hasEvent = deps.hasWeeklySendEvent ?? hasSmsWeeklySendEventForUserWeek;
-  const findDraft = deps.findDraftForWeek ?? findWeeklyReviewDraftForWeek;
-  const generateForUser = deps.generateForUser ?? generateTylerTextOverviewWeeklyDraftForUser;
-  const now = args?.now ?? new Date();
-
-  const audience = await loadAudience();
-  const weekKeysSeen = new Set<string>();
-  const draftForDayKeysSeen = new Set<string>();
-  const errorsPreview: WeeklyTtoGenerateAllErrorPreview[] = [];
-
-  let scanned = 0;
-  let generated = 0;
-  let skippedExistingCurrent = 0;
-  let skippedSent = 0;
-  let skippedAlreadyWeeklyEvent = 0;
-  let skippedNotEligible = 0;
-  let failed = 0;
-
-  function pushError(entry: WeeklyTtoGenerateAllErrorPreview) {
-    if (errorsPreview.length < ERRORS_PREVIEW_MAX) {
-      errorsPreview.push(entry);
-    }
-  }
-
-  for (const row of audience) {
-    scanned += 1;
-    const clerkUserId = row.clerk_user_id.trim();
-
-    if (!hasNonEmptyPhone(row.phone_number)) {
-      skippedNotEligible += 1;
-      continue;
-    }
-
-    let weekKey = "";
-    let draftForDayKey = "";
-
-    try {
-      const user = await getClerk(clerkUserId);
-      const md = (user.public_metadata ?? {}) as Record<string, unknown>;
-      const tzResolved = resolveSmsUserTimezone({
-        clerkMetadataTimezone: md.timezone,
-        audienceTimezone: row.timezone,
-      });
-      const period = resolveTylerTextOverviewWeeklyPeriod({
-        now,
-        timezone: tzResolved.timezone,
-      });
-      weekKey = period.weekKey;
-      draftForDayKey = period.draftForDayKey;
-      weekKeysSeen.add(weekKey);
-      draftForDayKeysSeen.add(draftForDayKey);
-    } catch (e) {
-      failed += 1;
-      pushError({
-        clerk_user_id: clerkUserId,
-        reason: "clerk_or_period_failed",
-        error: e instanceof Error ? e.message : String(e),
-      });
-      continue;
-    }
-
-    try {
-      if (await hasEvent({ clerkUserId, weekKey })) {
-        skippedAlreadyWeeklyEvent += 1;
-        continue;
-      }
-
-      const found = await findDraft({ clerkUserId, weekKey });
-      const classification = classifyWeeklyGenerateAllMember({
-        draft: found.draft,
-        machineDraftBody: found.machineDraftBody,
-        machineNoSendReason: found.machineNoSendReason,
-        hasSent: found.hasSent,
-      });
-      if (classification === "already_sent") {
-        skippedSent += 1;
-        continue;
-      }
-      if (!isTtoGenerateAllWorkRemaining(classification)) {
-        skippedExistingCurrent += 1;
-        continue;
-      }
-    } catch (e) {
-      failed += 1;
-      pushError({
-        clerk_user_id: clerkUserId,
-        week_key: weekKey,
-        reason: "skip_lookup_failed",
-        error: e instanceof Error ? e.message : String(e),
-      });
-      continue;
-    }
-
-    try {
-      const result = await generateForUser({ clerkUserId, now });
-      if (result.ok && result.currentDraftProtected === true) {
-        skippedExistingCurrent += 1;
-        continue;
-      }
-      if (result.ok) {
-        if (result.machineNoSendReason === MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE) {
-          generated += 1;
-          weekKeysSeen.add(result.weekKey);
-          draftForDayKeysSeen.add(result.draftForDayKey);
-          continue;
-        }
-        const softError = generateAllSoftFailureError({
-          body: result.machineDraftBody,
-          machineNoSendReason: result.machineNoSendReason,
-        });
-        if (softError) {
-          failed += 1;
-          pushError({
-            clerk_user_id: clerkUserId,
-            week_key: weekKey,
-            reason: "generation_incomplete",
-            error: softError,
-          });
-          continue;
-        }
-        generated += 1;
-        weekKeysSeen.add(result.weekKey);
-        draftForDayKeysSeen.add(result.draftForDayKey);
-        continue;
-      }
-
-      if (
-        result.reason === "audience" ||
-        result.reason === "comms_prefs" ||
-        result.reason === "not_v2" ||
-        result.reason === "no_commitment" ||
-        result.reason === "disabled"
-      ) {
-        skippedNotEligible += 1;
-        continue;
-      }
-
-      failed += 1;
-      pushError({
-        clerk_user_id: clerkUserId,
-        week_key: weekKey,
-        reason: result.reason,
-        error: result.error,
-      });
-    } catch (e) {
-      failed += 1;
-      pushError({
-        clerk_user_id: clerkUserId,
-        week_key: weekKey,
-        reason: "generate_threw",
-        error: e instanceof Error ? e.message : String(e),
-      });
-    }
-  }
-
-  const eligible = scanned - skippedNotEligible;
-
-  return {
-    ok: true,
-    mode,
-    scanned,
-    eligible,
-    generated,
-    skipped_existing_current: skippedExistingCurrent,
-    skipped_sent: skippedSent,
-    skipped_already_weekly_event: skippedAlreadyWeeklyEvent,
-    skipped_not_eligible: skippedNotEligible,
-    failed,
-    week_keys_seen: [...weekKeysSeen].sort(),
-    draft_for_day_keys_seen: [...draftForDayKeysSeen].sort(),
-    errors_preview: errorsPreview,
-  };
+  throw new Error("weekly_delivery_retired");
 }
 
 function parseFrozenAudienceIds(raw: unknown): string[] | null {
@@ -560,7 +374,7 @@ function summarizeWeeklyClasses(
   };
 }
 
-export async function generateWeeklyTtoDraftBatch(args?: {
+export async function generateWeeklyTtoDraftBatch(_args?: {
   now?: Date;
   audienceClerkUserIds?: string[] | null;
   excludeClerkUserIds?: string[] | null;
@@ -569,163 +383,5 @@ export async function generateWeeklyTtoDraftBatch(args?: {
   timeBudgetMs?: number;
   nowMs?: () => number;
 }): Promise<WeeklyTtoGenerateAllChunkResult | { ok: false; error: string; status: number }> {
-  if (!isTylerTextOverviewEnabled()) {
-    return { ok: false, error: "tyler_text_overview_disabled", status: 503 };
-  }
-
-  const now = args?.now ?? new Date();
-  const chunkCap = args?.chunkUserCap ?? WEEKLY_TTO_GENERATE_ALL_CHUNK_USER_CAP;
-  const concurrency = args?.concurrency ?? WEEKLY_TTO_GENERATE_ALL_CONCURRENCY;
-  const timeBudgetMs = args?.timeBudgetMs ?? WEEKLY_TTO_GENERATE_ALL_TIME_BUDGET_MS;
-  const nowMs = args?.nowMs ?? (() => Date.now());
-  const startedMs = nowMs();
-
-  let liveAudience: Array<{
-    clerkUserId: string;
-    timezone: string | null;
-    preferredName: string | null;
-  }>;
-  try {
-    liveAudience = await loadSendableTylerTextOverviewAudienceMembers(now);
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "audience_load_failed",
-      status: 500,
-    };
-  }
-
-  const liveById = new Map(liveAudience.map((m) => [m.clerkUserId, m]));
-
-  let audienceClerkUserIds = args?.audienceClerkUserIds?.filter((id) => id.trim()) ?? null;
-  if (!audienceClerkUserIds || audienceClerkUserIds.length === 0) {
-    audienceClerkUserIds = liveAudience.map((m) => m.clerkUserId);
-  }
-
-  const exclude = new Set(
-    (args?.excludeClerkUserIds ?? []).map((id) => id.trim()).filter(Boolean)
-  );
-
-  let classes: Map<string, TtoGenerateAllMemberClass>;
-  try {
-    classes = await classifyWeeklyFrozenAudience({
-      clerkUserIds: audienceClerkUserIds,
-      now,
-      liveById,
-    });
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "classify_failed",
-      status: 500,
-    };
-  }
-
-  const workQueue: string[] = [];
-  for (const id of audienceClerkUserIds) {
-    const c = classes.get(id) ?? "pending";
-    if (!isTtoGenerateAllWorkRemaining(c)) continue;
-    if (exclude.has(id)) continue;
-    workQueue.push(id);
-    if (workQueue.length >= chunkCap) break;
-  }
-
-  const failures: TtoGenerateAllFailure[] = [];
-  let generatedThisChunk = 0;
-
-  const { results, started } = await runPoolWithBudget({
-    items: workQueue,
-    concurrency,
-    shouldStop: () => nowMs() - startedMs >= timeBudgetMs,
-    worker: async (clerkUserId) => {
-      const member = liveById.get(clerkUserId) ?? null;
-      try {
-        const result = await generateTylerTextOverviewWeeklyDraftForUser({
-          clerkUserId,
-          now,
-        });
-        if (!result.ok) {
-          return {
-            clerkUserId,
-            member,
-            outcome: { ok: false as const, error: result.error ?? result.reason },
-          };
-        }
-        if (result.currentDraftProtected === true) {
-          return { clerkUserId, member, outcome: { ok: true as const } };
-        }
-        if (result.machineNoSendReason === MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE) {
-          return { clerkUserId, member, outcome: { ok: true as const } };
-        }
-        const softError = generateAllSoftFailureError({
-          body: result.machineDraftBody,
-          machineNoSendReason: result.machineNoSendReason,
-        });
-        if (softError) {
-          return { clerkUserId, member, outcome: { ok: false as const, error: softError } };
-        }
-        return { clerkUserId, member, outcome: { ok: true as const } };
-      } catch (err) {
-        return {
-          clerkUserId,
-          member,
-          outcome: {
-            ok: false as const,
-            error: err instanceof Error ? err.message : String(err),
-          },
-        };
-      }
-    },
-  });
-
-  for (const item of results) {
-    if (!item) continue;
-    if (item.outcome.ok) {
-      generatedThisChunk += 1;
-    } else {
-      failures.push({
-        clerkUserId: item.clerkUserId,
-        preferredName: item.member?.preferredName ?? null,
-        error: item.outcome.error,
-      });
-    }
-  }
-
-  try {
-    classes = await classifyWeeklyFrozenAudience({
-      clerkUserIds: audienceClerkUserIds,
-      now,
-      liveById,
-    });
-  } catch (err) {
-    return {
-      ok: false,
-      error: err instanceof Error ? err.message : "reclassify_failed",
-      status: 500,
-    };
-  }
-
-  const summary = summarizeWeeklyClasses(audienceClerkUserIds, classes);
-
-  return {
-    ok: failures.length === 0,
-    sendSlot: SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
-    targeted: audienceClerkUserIds.length,
-    generated_complete: summary.generated_complete,
-    protected_complete: summary.protected_complete,
-    already_sent: summary.already_sent,
-    noncurrent: summary.noncurrent,
-    failed: summary.failed,
-    pending: summary.pending,
-    remaining: summary.remaining,
-    processed_this_chunk: started,
-    is_complete: summary.remaining === 0,
-    audience_clerk_user_ids: audienceClerkUserIds,
-    failures,
-    generated_this_chunk: generatedThisChunk,
-    generated: generatedThisChunk,
-    protectedTylerAuthority: summary.protected_complete,
-    skippedAlreadySent: summary.already_sent,
-    skippedNonCurrent: summary.noncurrent,
-  };
+  return { ok: false, error: "weekly_delivery_retired", status: 410 };
 }

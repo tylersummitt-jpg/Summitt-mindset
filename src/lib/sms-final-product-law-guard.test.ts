@@ -457,8 +457,9 @@ describe("PR 2.1b route wiring invariants", () => {
     const weeklySrc = fs.readFileSync(WEEKLY_ROUTE, "utf8");
     expect(dailySrc).toContain('mode: "outbound_daily"');
     expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose");
-    expect(weeklySrc).toContain('mode: "outbound_weekly"');
-    expect(weeklySrc).toContain("buildWeeklyOutboundUnifiedGuardCtx");
+    expect(weeklySrc).toContain("weekly_delivery_retired");
+    expect(weeklySrc).not.toContain('mode: "outbound_weekly"');
+    expect(weeklySrc).not.toContain("buildWeeklyOutboundUnifiedGuardCtx");
   });
 
   it("15: contract + adaptive + handoff wired via dedicated pipelines; pending uses opt-in helper guard", () => {

@@ -18,10 +18,13 @@ describe("APP-041B2b path hardening wire", () => {
   });
 
   it("weekly authoritative send has deletion refusal codes", () => {
-    const src = read("src/lib/tyler-text-overview-weekly-send.ts");
-    expect(src).toContain("account_deletion_blocks_sms");
-    expect(src).toContain("deletion_lookup_failed");
-    expect(src).toContain("evaluateOutboundSmsForAccountDeletion");
+    const retired = read("src/lib/tyler-text-overview-weekly-send.ts");
+    expect(retired).toContain("weekly_delivery_retired");
+    expect(retired).not.toContain("sendSMS(");
+    const sender = read("src/lib/tyler-text-overview-send.ts");
+    expect(sender).toContain("evaluateOutboundSmsForAccountDeletion");
+    expect(sender).toContain("account_deletion");
+    expect(sender).toContain("deletion_lookup_failed");
   });
 
   it("evening manual send stays disabled; cron path has deletion guards before Twilio", () => {
@@ -65,9 +68,10 @@ describe("APP-041B2b path hardening wire", () => {
     expect(read("src/app/api/cron/daily-sms/route.ts")).toContain(
       "reservedSendEventPatchForDeletionError"
     );
-    expect(read("src/lib/tyler-text-overview-weekly-send.ts")).toContain(
-      "reservedSendEventPatchForDeletionError"
-    );
+    const sender = read("src/lib/tyler-text-overview-send.ts");
+    expect(sender).toContain("evaluateOutboundSmsForAccountDeletion");
+    expect(sender).toContain("account_deletion");
+    expect(read("src/lib/tyler-text-overview-weekly-send.ts")).not.toContain("sendSMS(");
     // Evening manual admin send fails closed; cron path uses sendSMS via shared twilio.ts.
     const evening = read("src/lib/tyler-text-overview-evening-send.ts");
     expect(evening).toContain("evening_proactive_send_disabled");

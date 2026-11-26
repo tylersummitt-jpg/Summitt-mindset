@@ -376,162 +376,56 @@ function seedAudienceAndDrafts() {
 }
 
 describe("bulkApplyWeeklyTtoDraftBodies", () => {
-  beforeEach(() => {
-    seedAudienceAndDrafts();
-  });
-
-  it("updates only safe current Weekly drafts for the selected Sunday", async () => {
+  it("refuses before a draft read, mutation, reservation, or Twilio submission", async () => {
     const result = await bulkApplyWeeklyTtoDraftBodies({
-      draftForDayKey: SUNDAY,
-      body: `  ${TEXT}  `,
+      draftForDayKey: "2026-07-12",
+      body: "Hello from the retired weekly editor",
       now: new Date("2026-07-12T15:00:00.000Z"),
     });
-    expect("status" in result).toBe(false);
-    if ("status" in result) return;
-
-    expect(result.textsSentByThisAction).toBe(0);
-    expect(result.updated).toBe(4);
-    expect(result.ok).toBe(true);
-    expect(result.skippedMissing).toBe(4);
-    expect(result.skippedNonCurrent).toBe(1);
-    expect(result.skippedBadWeekLinkage).toBe(1);
-    expect(result.skippedMissingGeneration).toBe(1);
-    expect(result.skippedSendEvent).toBe(5);
-    expect(result.skippedAmbiguous).toBe(1);
-    expect(result.audience).toBe(17);
+    expect(result).toEqual({
+      ok: false,
+      error: "weekly_delivery_retired",
+      status: 410,
+    });
     expect(db.directWrites).toBe(0);
-
-    const byId = (id: string) => db.drafts.find((row) => row.id === id);
-    for (const id of ["sunday-current", "tyler-text", "tyler-blank", "machine-false"]) {
-      expect(byId(id)?.current_body_to_send).toBe(TEXT);
-      expect(byId(id)?.current_body_source).toBe("tyler_edit");
-      expect(byId(id)?.edited_by_tyler).toBe(true);
-    }
-    expect(byId("other-sunday")?.current_body_to_send).toBe("other sunday");
-    expect(byId("morning")?.current_body_to_send).toBe("morning body");
-    expect(byId("evening")?.current_body_to_send).toBe("evening body");
-    expect(byId("sent")?.status).toBe("sent");
-    expect(byId("sent")?.current_body_to_send).toBe("already sent");
-    expect(byId("bad-week")?.current_body_to_send).toBe("bad week");
-    expect(byId("missing-gen")?.current_body_to_send).toBe("no gen");
-    expect(byId("ambiguous")?.current_body_to_send).toBe("ambiguous a");
-    expect(byId("ambiguous-other")?.current_body_to_send).toBe("ambiguous b");
-    expect(byId("reserved")?.current_body_to_send).toBe("reserved body");
-    expect(byId("accepted")?.current_body_to_send).toBe("accepted body");
-    expect(byId("failed-send")?.current_body_to_send).toBe("failed send body");
-    expect(byId("historical-skip")?.current_body_to_send).toBe("historical body");
-    expect(byId("historical-voice")?.current_body_to_send).toBe("voice skip body");
-    expect(db.drafts.some((row) => row.clerk_user_id === "user_missing")).toBe(false);
-
-    const machineGen = db.generations.find((row) => row.id === "gen-machine-false");
-    expect(machineGen?.machine_should_send).toBe(false);
-    expect(machineGen?.generation_metadata).toMatchObject({ model: "gpt-test", untouched: true });
-    expect(byId("machine-false")?.status).toBe("current");
-
-    const rpcDraftIds = db.rpcCalls.map((call) => call.p_draft_id);
-    expect(rpcDraftIds).toEqual(
-      expect.arrayContaining(["sunday-current", "tyler-text", "tyler-blank", "machine-false"])
-    );
-    expect(rpcDraftIds).not.toContain("morning");
-    expect(rpcDraftIds).not.toContain("sent");
-    expect(rpcDraftIds).not.toContain("reserved");
-    expect(db.rpcCalls[0]?.p_body).toBe(TEXT);
-    expect(String(db.rpcCalls[0]?.p_body)).toContain("\n");
+    expect(db.rpcCalls).toEqual([]);
   });
 
-  it("rejects an empty body and a footer-overflow body before any RPC", async () => {
-    const empty = await bulkApplyWeeklyTtoDraftBodies({
-      draftForDayKey: SUNDAY,
-      body: "   ",
-    });
-    expect(empty).toMatchObject({ ok: false, status: 400 });
-    expect(db.rpcCalls).toHaveLength(0);
-
-    const over = "y".repeat(MAX_WEEKLY_EDITABLE_BODY + 1);
-    expect(weeklyEditableBodyExceedsMax(over)).toBe(true);
-    const tooLong = await bulkApplyWeeklyTtoDraftBodies({
-      draftForDayKey: SUNDAY,
-      body: over,
-    });
-    expect(tooLong).toMatchObject({ ok: false, status: 400 });
-    expect(db.rpcCalls).toHaveLength(0);
-
-    const atMax = "y".repeat(MAX_WEEKLY_EDITABLE_BODY);
-    expect(weeklyEditableBodyExceedsMax(atMax)).toBe(false);
-    const ok = await bulkApplyWeeklyTtoDraftBodies({
-      draftForDayKey: SUNDAY,
-      body: atMax,
-    });
-    expect("status" in ok).toBe(false);
-    if ("status" in ok) return;
-    expect(ok.updated).toBeGreaterThan(0);
-    expect(db.rpcCalls.some((call) => call.p_body === atMax)).toBe(true);
-  });
-
-  it("reports the updated count when a later RPC fails and can reapply the same text", async () => {
-    loadAudience.mockResolvedValue([
-      member("user_sunday", "Sunday"),
-      member("user_tyler_text", "TylerText"),
-    ]);
-    db.failDraftIds.add("tyler-text");
-    const first = await bulkApplyWeeklyTtoDraftBodies({
-      draftForDayKey: SUNDAY,
-      body: TEXT,
-    });
-    expect("status" in first).toBe(false);
-    if ("status" in first) return;
-    expect(first.ok).toBe(false);
-    expect(first.updated).toBe(1);
-    expect(first.failed).toHaveLength(1);
-    expect(first.failed[0]?.preferredName).toBe("TylerText");
-    expect(first.failed[0]).not.toHaveProperty("clerkUserId");
-    expect(first.textsSentByThisAction).toBe(0);
-    expect(first.message).toContain("Updated 1");
-    expect(first.message).not.toMatch(/nothing happened/i);
-    expect(db.drafts.find((row) => row.id === "sunday-current")?.current_body_to_send).toBe(TEXT);
-
-    db.failDraftIds.clear();
-    const second = await bulkApplyWeeklyTtoDraftBodies({
-      draftForDayKey: SUNDAY,
-      body: TEXT,
-    });
-    expect("status" in second).toBe(false);
-    if ("status" in second) return;
-    expect(second.ok).toBe(true);
-    expect(second.updated).toBe(2);
-    expect(second.textsSentByThisAction).toBe(0);
-    expect(db.drafts.find((row) => row.id === "tyler-text")?.current_body_source).toBe("tyler_edit");
-    expect(db.drafts.find((row) => row.id === "tyler-text")?.current_body_to_send).toBe(TEXT);
-  });
-
-  it("does not call OpenAI or SMS and does not fall back to a direct draft write", () => {
+  it("the module does not apply a body, call a model, or submit SMS", () => {
     const src = readFileSync(
       join(process.cwd(), "src/lib/tyler-text-overview-weekly-bulk-save.ts"),
       "utf8"
     );
-    expect(src).toContain('rpc("weekly_tto_apply_tyler_body"');
-    expect(src).not.toContain("updateTylerTextOverviewDraftBody");
+    const fn = src.slice(src.indexOf("export async function bulkApplyWeeklyTtoDraftBodies"));
+    expect(fn.indexOf("weekly_delivery_retired")).toBeGreaterThan(-1);
+    expect(fn).not.toContain("weekly_tto_apply_tyler_body");
+    expect(fn).not.toContain(".update(");
+    expect(fn).not.toContain("updateTylerTextOverviewDraftBody");
     expect(src).not.toContain("openai");
     expect(src).not.toContain("sendSMS");
-    expect(src).not.toContain("blank_all");
-    expect(src).toContain("TTO_GENERATE_ALL_CONCURRENCY");
+    expect(src).not.toContain("runWeeklyBriefInterpreterV1");
+    expect(src).not.toContain("writeWeeklyTtoBody");
     const dashboard = readFileSync(
       join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-weekly-dashboard.tsx"),
+      "utf8"
+    );
+    const page = readFileSync(
+      join(process.cwd(), "src/app/admin/tyler-text-overview/weekly/page.tsx"),
       "utf8"
     );
     const copy = readFileSync(
       join(process.cwd(), "src/lib/tyler-text-overview-dashboard-copy.ts"),
       "utf8"
     );
-    expect(copy).toContain("Apply same text to all");
     expect(copy).toContain("This click sends no SMS.");
-    expect(copy).toContain("Search does not narrow it.");
     expect(dashboard).toContain("/api/admin/tyler-text-overview/weekly-bulk-save");
-    expect(dashboard).not.toContain("operation: \"blank_all\"");
+    expect(page).not.toContain("tyler-text-overview-weekly-dashboard");
+    expect(page).toContain("Weekly delivery is retired");
     const morning = readFileSync(
       join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
       "utf8"
     );
     expect(morning).not.toContain("weekly-bulk-save");
+    expect(morning).not.toContain("TylerTextOverviewWeeklyDashboard");
   });
 });

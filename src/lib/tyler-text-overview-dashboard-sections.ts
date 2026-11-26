@@ -170,7 +170,16 @@ export function formatPersistedMessageForLine(
       : messageFor.daypart === "weekly"
         ? "Weekly"
         : "Morning";
-  return `${messageFor.local_weekday}, ${messageFor.local_date} · ${daypartLabel} · ${messageFor.timezone}`;
+  if (!messageFor.intended_receive_time_local && !messageFor.administrative_batch_date) {
+    return `${messageFor.local_weekday}, ${messageFor.local_date} · ${daypartLabel} · ${messageFor.timezone}`;
+  }
+  const clock = messageFor.intended_receive_time_local
+    ? ` ${messageFor.intended_receive_time_local}`
+    : "";
+  const batch = messageFor.administrative_batch_date
+    ? ` · batch ${messageFor.administrative_batch_date}`
+    : "";
+  return `${messageFor.local_weekday}, ${messageFor.local_date}${clock} · ${daypartLabel} batch · ${messageFor.timezone}${batch}`;
 }
 
 export function getPersistedExactThreadMessages(

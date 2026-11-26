@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase-server", () => ({
 }));
 
 import {
+  loadSundayAccountabilityTape,
   loadWeeklyAccountabilityEventsReadOnly,
   weeklyAccountabilityWeekUtcRange,
   WEEKLY_ACCOUNTABILITY_IN_WEEK_EVENT_CAP,
@@ -26,6 +27,7 @@ type CapturedQuery = {
   eqs: Record<string, unknown>;
   inVals: unknown[] | null;
   gte: { col: string; val: string } | null;
+  lte: { col: string; val: string } | null;
   lt: { col: string; val: string } | null;
   orders: Array<{ col: string; ascending?: boolean }>;
   limit: number | null;
@@ -49,6 +51,7 @@ function makeEventTable(allRows: EventRow[]): { api: Record<string, unknown>; ca
     eqs: {},
     inVals: null,
     gte: null,
+    lte: null,
     lt: null,
     orders: [],
     limit: null,
@@ -67,6 +70,9 @@ function makeEventTable(allRows: EventRow[]): { api: Record<string, unknown>; ca
     }
     if (captured.gte?.col === "occurred_at") {
       rows = rows.filter((r) => r.occurred_at >= captured.gte!.val);
+    }
+    if (captured.lte?.col === "occurred_at") {
+      rows = rows.filter((r) => r.occurred_at <= captured.lte!.val);
     }
     if (captured.lt?.col === "occurred_at") {
       rows = rows.filter((r) => r.occurred_at < captured.lt!.val);
@@ -102,6 +108,10 @@ function makeEventTable(allRows: EventRow[]): { api: Record<string, unknown>; ca
   };
   api.gte = (col: string, val: string) => {
     captured.gte = { col, val };
+    return api;
+  };
+  api.lte = (col: string, val: string) => {
+    captured.lte = { col, val };
     return api;
   };
   api.lt = (col: string, val: string) => {
@@ -346,5 +356,62 @@ describe("weekly accountability event tape", () => {
     expect(events.some((e) => e.occurred_at === inWeek[50]?.occurred_at)).toBe(false);
     expect(captured?.limit).toBe(50);
     expect(captured?.orders.map((o) => o.col)).toEqual(["occurred_at", "id"]);
+    expect(captured?.orders.every((order) => order.ascending !== false)).toBe(true);
+  });
+});
+
+describe("sunday accountability tape", () => {
+  let captured: CapturedQuery | null = null;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    captured = null;
+  });
+
+  function install(rows: EventRow[]) {
+    const table = makeEventTable(rows);
+    captured = table.captured;
+    fromMock.mockReturnValue(table.api);
+    return table.captured;
+  }
+
+  it("keeps the newest 50 qualifying events and presents them chronologically", async () => {
+    const start = Date.parse("2026-07-08T14:00:00.000Z");
+    const inWeek: EventRow[] = [];
+    for (let i = 0; i < 51; i++) {
+      inWeek.push(
+        ev({
+          id: `cap-${String(i).padStart(2, "0")}`,
+          event_type: "user_yes",
+          occurred_at: new Date(start + i * 60_000).toISOString(),
+          payload_json: { user_visible_proof_line: `proof-${i}` },
+        })
+      );
+    }
+    const future = ev({
+      id: "future-1",
+      event_type: "user_yes",
+      occurred_at: "2026-07-12T20:00:00.000Z",
+    });
+    const q = install([...inWeek, future]);
+    const tape = await loadSundayAccountabilityTape({
+      ...WEEK_NY,
+      availableThrough: new Date("2026-07-12T16:00:00.000Z"),
+    });
+    expect(q.orders).toEqual([
+      { col: "occurred_at", ascending: false },
+      { col: "id", ascending: false },
+    ]);
+    expect(q.lte?.val).toBe("2026-07-12T16:00:00.000Z");
+    expect(tape.status).toBe("loaded");
+    if (tape.status !== "loaded") return;
+    expect(tape.events).toHaveLength(50);
+    expect(tape.events[0]?.id).toBe("cap-01");
+    expect(tape.events[49]?.id).toBe("cap-50");
+    expect(tape.events.some((event) => event.id === "cap-00" || event.id === "future-1")).toBe(false);
+    expect(tape.events[0]?.user_visible_proof_line).toBe("proof-1");
+    expect(tape.events.map((event) => event.occurred_at)).toEqual(
+      [...tape.events].map((event) => event.occurred_at).sort()
+    );
   });
 });

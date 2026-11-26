@@ -86,7 +86,12 @@ function listBody() {
 function chunkResult(args: {
   isComplete: boolean;
   processed: number;
-  failures?: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+  failures?: Array<{
+    clerkUserId: string;
+    preferredName: string | null;
+    error: string;
+    memberLocalDate?: string;
+  }>;
 }) {
   return {
     ok: true,
@@ -225,7 +230,14 @@ describe("Generate All Clerk bearer token", () => {
         chunkResult({
           isComplete: false,
           processed: 1,
-          failures: [{ clerkUserId: "user_failed", preferredName: null, error: "soft" }],
+          failures: [
+            {
+              clerkUserId: "user_failed",
+              preferredName: null,
+              error: "soft",
+              memberLocalDate: DAY,
+            },
+          ],
         }),
         chunkResult({ isComplete: true, processed: 1 }),
       ];
@@ -262,7 +274,7 @@ describe("Generate All Clerk bearer token", () => {
         body: {
           draft_for_day_key: DAY,
           audience_clerk_user_ids: FROZEN_AUDIENCE,
-          exclude_clerk_user_ids: ["user_failed"],
+          exclude_occurrence_keys: [`user_failed|${DAY}`],
         },
       });
       expect(generatePosts[1].authorization).not.toBe(generatePosts[0].authorization);

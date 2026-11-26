@@ -54,6 +54,7 @@ const QUESTION_POLICY = ["none", "one_useful_question", "unknown"] as const;
 const ACTION_GUIDANCE = ["none", "one_specific_next_step", "unknown"] as const;
 const PRESSURE = ["low", "normal", "firm", "unknown"] as const;
 const PROACTIVE_DECISION = ["send", "intentional_space"] as const;
+const EXISTING_TEXT_DECISION = ["keep", "replace", "not_applicable"] as const;
 const CONFIDENCE = ["low", "medium", "high"] as const;
 
 /** Exported for prompt contract + tests — exact parser tokens. */
@@ -69,6 +70,7 @@ export const MORNING_BRIEF_SCHEMA_ENUMS = {
   action_guidance: ACTION_GUIDANCE,
   pressure: PRESSURE,
   proactive_decision: PROACTIVE_DECISION,
+  existing_text_decision: EXISTING_TEXT_DECISION,
   confidence: CONFIDENCE,
 } as const;
 
@@ -288,6 +290,54 @@ export const MORNING_BRIEF_INTERPRETER_RESPONSE_FORMAT = {
     schema: MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1,
   },
 };
+
+/**
+ * Proactive Morning and Evening only. Reactive and Weekly keep the shared schema,
+ * which does not require existing_text_decision.
+ */
+export function proactiveMorningBriefResponseFormat(): {
+  type: "json_schema";
+  json_schema: {
+    name: typeof MORNING_BRIEF_INTERPRETER_JSON_SCHEMA_NAME;
+    strict: true;
+    schema: {
+      properties: {
+        coaching_direction: {
+          required: string[];
+          properties: {
+            existing_text_decision: { type: "string"; enum: string[] };
+          };
+        };
+      };
+    };
+  };
+} {
+  const coaching = MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1.properties.coaching_direction;
+  return {
+    type: "json_schema",
+    json_schema: {
+      name: MORNING_BRIEF_INTERPRETER_JSON_SCHEMA_NAME,
+      strict: true,
+      schema: {
+        ...MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1,
+        properties: {
+          ...MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1.properties,
+          coaching_direction: {
+            ...coaching,
+            required: [...coaching.required, "existing_text_decision"],
+            properties: {
+              ...coaching.properties,
+              existing_text_decision: {
+                type: "string",
+                enum: [...EXISTING_TEXT_DECISION],
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+}
 
 /** Compact prompt appendix — tokens only; structured output is authoritative. */
 export function buildMorningBriefExactContractPromptAppendix(): string {

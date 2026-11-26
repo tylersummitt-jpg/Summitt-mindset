@@ -1,3 +1,4 @@
+import type { AccountTimezoneSource, SmsWeeklySchedule } from "@/lib/sms-account-schedule";
 import type { V2AccountabilityPhase } from "@/lib/v2-accountability-phase";
 import type {
   V2SmsCommsCadenceOverride,
@@ -35,6 +36,26 @@ export type SmsPreferencesView = {
   compliance: {
     stopHelpStart: string;
   };
+  preferenceRecordPresent: boolean;
+  consentKnown: boolean;
+  weeklyScheduleExplicit: boolean;
+  weeklySchedule: SmsWeeklySchedule | null;
+  scheduleInvalid: boolean;
+  scheduleTimezone: string | null;
+  scheduleTimezoneExplicit: boolean;
+  effectiveTimezone: string;
+  effectiveTimezoneSource: AccountTimezoneSource;
+  pauseIndefinite: boolean;
+  timedPauseActive: boolean;
+  applicationPauseActive: boolean;
+  audienceTimezoneUnreadable: boolean;
+  /** Present on writes. True only after the preference row was stored. */
+  preferencesPersisted?: boolean;
+  /** Preference write succeeded, but a secondary lookup could not refresh every field. */
+  refreshRequired?: boolean;
+  /** False when the active-commitment lookup failed. lowPressureActive is then not confirmed. */
+  commitmentKnown?: boolean;
+  persistence?: "confirmed" | "failed" | "uncertain";
 };
 
 export const SMS_PREFS_COMPLIANCE_COPY =

@@ -3,63 +3,29 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROUTE = path.join(process.cwd(), "src/app/api/cron/daily-sms/route.ts");
-const HELPER = path.join(process.cwd(), "src/lib/sms-sunday-weekly-pause-eligibility.ts");
-const BEFORE_WRITER = path.join(process.cwd(), "src/lib/sms-daily-sunday-before-writer.ts");
+const SEND = path.join(process.cwd(), "src/lib/tyler-text-overview-send.ts");
+const SCHEDULED = path.join(process.cwd(), "src/lib/tto-scheduled-generate.ts");
+const GENERATE = path.join(process.cwd(), "src/lib/tyler-text-overview-generate.ts");
 
-describe("daily-sms — Sunday weekly pause suppression wire", () => {
-  const src = fs.readFileSync(ROUTE, "utf8");
-  const helperSrc = fs.readFileSync(HELPER, "utf8");
-  const beforeWriterSrc = fs.readFileSync(BEFORE_WRITER, "utf8");
+describe("scheduled daily coaching does not suppress Sunday for retired Weekly", () => {
+  const route = fs.readFileSync(ROUTE, "utf8");
+  const send = fs.readFileSync(SEND, "utf8");
+  const scheduled = fs.readFileSync(SCHEDULED, "utf8");
+  const generate = fs.readFileSync(GENERATE, "utf8");
 
-  it("imports Sunday weekly pause eligibility helpers", () => {
-    expect(src).toContain("isSundayWeeklyPatPauseEligible");
-    expect(src).toContain("shouldSuppressDailyForSundayWeeklyPause");
-    expect(src).toContain("buildSundayWeeklyPauseSkipMetadata");
-    expect(src).toContain("SUNDAY_WEEKLY_PAUSE_SKIP_STATUS");
-    expect(src).toContain("applySundayWeeklyPauseBeforeWriterIfNeeded");
+  it("does not call the old Sunday weekly pause from the live paths", () => {
+    for (const src of [route, send, scheduled, generate]) {
+      expect(src).not.toContain("shouldSuppressDailyForSundayWeeklyPause");
+      expect(src).not.toContain("applySundayWeeklyPauseBeforeWriterIfNeeded");
+      expect(src).not.toContain("applySundayWeeklyPauseSuppressionIfNeeded");
+      expect(src).not.toContain("skippedSundayWeeklyPause");
+      expect(src).not.toContain("SMS_SUNDAY_SUPPRESS_DAILY_FOR_WEEKLY");
+    }
   });
 
-  it("applies Sunday suppression before build_content on main and retry paths", () => {
-    expect(beforeWriterSrc).toContain("applySundayWeeklyPauseBeforeWriterIfNeeded");
-    const beforeWriterIdx = src.indexOf("applySundayWeeklyPauseBeforeWriterIfNeeded");
-    const buildIdx = src.indexOf('stage = "build_content"');
-    expect(beforeWriterIdx).toBeGreaterThanOrEqual(0);
-    expect(buildIdx).toBeGreaterThan(beforeWriterIdx);
-
-    const twilioIdx = src.indexOf("await sendSMS(");
-    expect(src.indexOf("applySundayWeeklyPauseSuppressionIfNeeded")).toBeLessThan(twilioIdx);
-  });
-
-  it("writes skipped_sunday_weekly_pause before Twilio on main and retry paths", () => {
-    expect(src).toContain("applySundayWeeklyPauseSuppressionIfNeeded");
-    const helperIdx = src.indexOf("async function applySundayWeeklyPauseSuppressionIfNeeded");
-    expect(helperIdx).toBeGreaterThanOrEqual(0);
-    const twilioIdx = src.indexOf("await sendSMS(");
-    expect(twilioIdx).toBeGreaterThan(helperIdx);
-
-    const mainSlice = src.slice(src.indexOf('stage = "build_content"'), twilioIdx);
-    expect(mainSlice).toContain("applySundayWeeklyPauseSuppressionIfNeeded");
-    expect(mainSlice).toContain("skippedSundayWeeklyPause");
-
-    const retrySlice = src.slice(
-      src.indexOf('if (existingEvent.status === "send_failed")'),
-      src.indexOf('stage = "v2_cadence_gate"')
-    );
-    expect(retrySlice).toContain("applySundayWeeklyPauseSuppressionIfNeeded");
-  });
-
-  it("skip metadata includes observability fields and no Twilio in suppression branch", () => {
-    expect(helperSrc).toContain("suppressed_daily_before_weekly");
-    expect(helperSrc).toContain("weekly_expected_send_window");
-    expect(helperSrc).toContain("would_have_route_kind");
-    expect(helperSrc).toContain("sunday_suppression_applied_before_writer");
-    expect(helperSrc).toContain("daily_writer_invoked");
-    expect(src).toContain("buildSundayWeeklyPauseSkipMetadata");
-    const helperBlock = src.slice(
-      src.indexOf("async function applySundayWeeklyPauseSuppressionIfNeeded"),
-      src.indexOf("async function reserveTodaySendOrSkip")
-    );
-    expect(helperBlock).toContain("buildSundayWeeklyPauseSkipMetadata");
-    expect(helperBlock).not.toContain("sendSMS");
+  it("Sunday eligibility stays on the shared schedule resolver", () => {
+    expect(scheduled).toContain("resolveProactiveSchedule");
+    expect(send).toContain("resolveProactiveSchedule");
+    expect(generate).toContain("attachSundayCoachingContext");
   });
 });

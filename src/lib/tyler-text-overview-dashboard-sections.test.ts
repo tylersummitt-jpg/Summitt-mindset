@@ -1,4 +1,8 @@
 import { describe, expect, it } from "vitest";
+import {
+  formatReconsiderationRecord,
+  mapMessageForFromMetadata,
+} from "@/lib/tyler-text-overview-admin";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -576,6 +580,68 @@ describe("weekly raw notebook / provenance", () => {
       })
     ).toBe("Thursday, 2026-08-06 · Weekly · America/New_York");
     expect(formatPersistedMessageForLine(null)).toBeNull();
+    const stored = mapMessageForFromMetadata({
+      message_for: {
+        timezone: "America/Los_Angeles",
+        local_date: "2026-08-06",
+        local_weekday: "Thursday",
+        daypart: "evening",
+        intended_receive_time_local: "07:00",
+        utc_instant: "2026-08-06T15:00:00.000Z",
+        administrative_batch_date: "2026-08-06",
+      },
+    });
+    expect(stored?.intended_receive_time_local).toBe("07:00");
+    expect(formatPersistedMessageForLine(stored)).toBe(
+      "Thursday, 2026-08-06 07:00 · Evening batch · America/Los_Angeles · batch 2026-08-06"
+    );
+    expect(
+      formatReconsiderationRecord({
+        reconsideration_evidence: {
+          succeeded: true,
+          model_existing_text_decision: "replace",
+          body_retention: "tyler_edit_policy",
+          delivery: { effective_local_minute: 420 },
+        },
+      })
+    ).toContain("Tyler edit retained by policy");
+    expect(
+      formatReconsiderationRecord({
+        reconsideration_failure_evidence: { succeeded: false },
+      })
+    ).toContain("failed");
+    expect(
+      formatReconsiderationRecord({
+        current_body_version: {
+          generation_id: "gen-1",
+          body_hash: "same-words",
+          edited_at: "2026-08-06T13:00:00.000Z",
+          body_source: "tyler_edit",
+          edited_by_tyler: true,
+        },
+        reconsideration_evidence: {
+          succeeded: true,
+          current_body_approval: false,
+          model_existing_text_decision: "keep",
+          body_retention: "model_keep",
+          applies_to_body_version: {
+            generation_id: "gen-1",
+            body_hash: "same-words",
+            edited_at: "2026-08-06T12:00:00.000Z",
+            body_source: "tyler_edit",
+            edited_by_tyler: true,
+          },
+        },
+      })
+    ).toBe("An earlier consideration does not approve the current body. Not send authorization.");
+    expect(formatReconsiderationRecord({
+      reconsideration_evidence: {
+        succeeded: true,
+        current_body_approval: false,
+        model_existing_text_decision: "keep",
+        body_retention: "model_keep",
+      },
+    })).toBe("An earlier consideration does not approve the current body. Not send authorization.");
 
     const packet = {
       version: "morning_relationship_packet_v1",

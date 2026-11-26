@@ -533,7 +533,8 @@ describe("Phase 2.1g-A memory confirmation — engagement-on-no-send cleanup", (
       "utf8"
     );
     expect(dailySrc).toContain("isOutboundDailyWiredRoutePurpose");
-    expect(weeklySrc).toContain('mode: "outbound_weekly"');
+    expect(weeklySrc).toContain("weekly_delivery_retired");
+    expect(weeklySrc).not.toContain('mode: "outbound_weekly"');
     expect(weeklySrc).not.toContain('mode: "outbound_daily"');
   });
 

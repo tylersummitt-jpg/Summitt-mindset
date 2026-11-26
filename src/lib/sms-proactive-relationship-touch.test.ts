@@ -16,6 +16,7 @@ import {
   clampProactiveDecision,
   evaluateMessageRequiredToday,
   evaluateQuietRelationshipEligibility,
+  observedSilenceDays,
   loadSuccessfulProactiveRelationshipTouchClock,
   resolveQuietRelationshipMechanicalFacts,
 } from "@/lib/sms-proactive-relationship-touch";
@@ -467,5 +468,40 @@ describe("quiet relationship eligibility + required-touch clock", () => {
     expect(clock.last?.sourceTable).toBe("sms_weekly_send_events");
     expect(clock.last?.localDayKey).toBe("2026-07-05");
     expect(clock.daysSinceLast).toBe(7);
+  });
+
+  it("observed silence uses the generation day, not a far-ahead draft day", () => {
+    const now = new Date("2026-08-05T20:00:00.000Z");
+    const reply = "2026-08-05T16:00:00.000Z";
+    expect(
+      observedSilenceDays({ replyAtUtc: reply, now, timezone: "America/New_York" })
+    ).toBe(0);
+    const nextDay = new Date("2026-08-06T16:00:00.000Z");
+    expect(
+      observedSilenceDays({ replyAtUtc: reply, now: nextDay, timezone: "America/New_York" })
+    ).toBe(1);
+    expect(
+      evaluateQuietRelationshipEligibility({
+        daysSinceLastUserResponse: 9,
+        neverReplied: false,
+        recentUnansweredOutboundCount: 0,
+        daysSinceFirstSuccessfulProactiveSend: 30,
+      }).eligible
+    ).toBe(false);
+    expect(
+      evaluateQuietRelationshipEligibility({
+        daysSinceLastUserResponse: 10,
+        neverReplied: false,
+        recentUnansweredOutboundCount: 0,
+        daysSinceFirstSuccessfulProactiveSend: 30,
+      }).eligible
+    ).toBe(true);
+    expect(
+      evaluateMessageRequiredToday({
+        quietEligible: false,
+        daysSinceLastSuccessfulProactiveSend: 10,
+        clockLookupFailed: false,
+      })
+    ).toBe(false);
   });
 });

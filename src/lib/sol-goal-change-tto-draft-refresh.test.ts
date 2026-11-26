@@ -163,19 +163,20 @@ describe("refreshUnsentTtoDraftsAfterRelationshipChange", () => {
     });
   });
 
-  it("A: saved Goal Change path refreshes current unsent Morning draft", async () => {
+  it("A: saved Goal Change leaves the Morning body for scheduled reconsideration", async () => {
     rows = [draft()];
     installDrafts(rows);
     const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
     expect(r.ok).toBe(true);
-    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
-    expect(rows[0]?.current_body_to_send).toBe("FRESH MORNING");
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+    expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
+    expect(rows[0]?.status).toBe("current");
     expect(r.outcomes).toEqual([
       {
         draftId: "d-morning",
         sendSlot: "morning",
         draftForDayKey: "2026-09-09",
-        status: "refreshed",
+        status: "deferred_reconsideration",
       },
     ]);
   });
@@ -190,9 +191,11 @@ describe("refreshUnsentTtoDraftsAfterRelationshipChange", () => {
       }),
     ];
     installDrafts(rows);
-    await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(generateTylerTextOverviewEveningPreviewForUser).toHaveBeenCalledTimes(1);
-    expect(rows[0]?.current_body_to_send).toBe("FRESH EVENING");
+    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
+    expect(generateTylerTextOverviewEveningPreviewForUser).not.toHaveBeenCalled();
+    expect(rows[0]?.current_body_to_send).toBe("OLD EVENING");
+    expect(rows[0]?.status).toBe("current");
+    expect(r.outcomes[0]?.status).toBe("deferred_reconsideration");
   });
 
   it("C: refreshes current unsent Weekly draft", async () => {
@@ -205,9 +208,10 @@ describe("refreshUnsentTtoDraftsAfterRelationshipChange", () => {
       }),
     ];
     installDrafts(rows);
-    await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(generateTylerTextOverviewWeeklyDraftForUser).toHaveBeenCalledTimes(1);
-    expect(rows[0]?.current_body_to_send).toBe("FRESH WEEKLY");
+    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
+    expect(generateTylerTextOverviewWeeklyDraftForUser).not.toHaveBeenCalled();
+    expect(rows[0]?.current_body_to_send).toBe("OLD WEEKLY");
+    expect(r.outcomes[0]?.status).toBe("retired_weekly");
   });
 
   it("D-F: one helper refreshes all relevant unsent M/E/W drafts", async () => {
@@ -228,14 +232,18 @@ describe("refreshUnsentTtoDraftsAfterRelationshipChange", () => {
     ];
     installDrafts(rows);
     const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
-    expect(generateTylerTextOverviewEveningPreviewForUser).toHaveBeenCalledTimes(1);
-    expect(generateTylerTextOverviewWeeklyDraftForUser).toHaveBeenCalledTimes(1);
-    expect(r.outcomes.map((o) => o.status)).toEqual(["refreshed", "refreshed", "refreshed"]);
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+    expect(generateTylerTextOverviewEveningPreviewForUser).not.toHaveBeenCalled();
+    expect(generateTylerTextOverviewWeeklyDraftForUser).not.toHaveBeenCalled();
+    expect(r.outcomes.map((o) => o.status)).toEqual([
+      "deferred_reconsideration",
+      "deferred_reconsideration",
+      "retired_weekly",
+    ]);
     expect(rows.map((row) => row.current_body_to_send)).toEqual([
-      "FRESH MORNING",
-      "FRESH EVENING",
-      "FRESH WEEKLY",
+      "OLD MORNING",
+      "OLD EVENING",
+      "OLD WEEKLY",
     ]);
   });
 
@@ -250,7 +258,8 @@ describe("refreshUnsentTtoDraftsAfterRelationshipChange", () => {
     await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
     expect(sent.current_body_to_send).toBe("SENT BODY");
     expect(sent.status).toBe("sent");
-    expect(generateTylerTextOverviewDraftForUser).toHaveBeenCalledTimes(1);
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+    expect(rows.find((row) => row.id === "d-current")?.status).toBe("current");
   });
 
   it("L: helper never writes historical/superseded generation rows", async () => {
@@ -279,100 +288,82 @@ describe("refreshUnsentTtoDraftsAfterRelationshipChange", () => {
     expect(r.outcomes[0]?.status).toBe("protected");
   });
 
-  it("N: regeneration does not pass a stale commitment snapshot", async () => {
+  it("N: Morning and Evening goal changes do not call a generator", async () => {
     rows = [draft(), draft({ id: "d-e", send_slot: "evening_checkin", draft_for_day_key: "2026-09-08" })];
     installDrafts(rows);
-    await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    const morningArgs = generateTylerTextOverviewDraftForUser.mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
-    expect(morningArgs).toMatchObject({
-      audienceUser: AUDIENCE,
-      now: NOW,
-      draftForDayKey: "2026-09-09",
-      generationReason: "manual_regenerate",
-      protectTylerProvenanceOnly: true,
-    });
-    expect(morningArgs).not.toHaveProperty("commitment");
-    expect(morningArgs).not.toHaveProperty("behavior_statement");
-    expect(morningArgs).not.toHaveProperty("packet");
-    const eveningArgs = generateTylerTextOverviewEveningPreviewForUser.mock.calls[0]?.[0] as Record<
-      string,
-      unknown
-    >;
-    expect(eveningArgs).not.toHaveProperty("commitment");
-    expect(eveningArgs).not.toHaveProperty("behavior_statement");
+    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+    expect(generateTylerTextOverviewEveningPreviewForUser).not.toHaveBeenCalled();
     expect(generateTylerTextOverviewWeeklyDraftForUser).not.toHaveBeenCalled();
+    expect(r.outcomes.map((item) => item.status)).toEqual([
+      "deferred_reconsideration",
+      "deferred_reconsideration",
+    ]);
+    expect(rows.map((row) => row.current_body_to_send)).toEqual(["OLD MORNING", "OLD MORNING"]);
   });
 
-  it("O: generation throw marks the unsent draft unusable and does not throw", async () => {
+  it("O: a Morning goal change does not disable the existing body", async () => {
     rows = [draft()];
     installDrafts(rows);
-    generateTylerTextOverviewDraftForUser.mockRejectedValue(new Error("writer down"));
     const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
     expect(r.ok).toBe(true);
-    expect(rows[0]?.status).toBe("skipped");
-    expect(r.outcomes[0]?.status).toBe("skipped_unusable");
+    expect(rows[0]?.status).toBe("current");
+    expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
+    expect(r.outcomes[0]?.status).toBe("deferred_reconsideration");
   });
 
-  it("P: exact-send body is the newly persisted draft body", async () => {
+  it("P: exact-send body stays the existing Morning body", async () => {
     rows = [draft()];
     installDrafts(rows);
     await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(rows[0]?.current_body_to_send).toBe("FRESH MORNING");
+    expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
+    expect(rows[0]?.status).toBe("current");
   });
 
-  it("generation ok:false marks current unsent draft skipped so stale cannot send", async () => {
+  it("generation failure cannot disable a Morning body from this helper", async () => {
     rows = [draft()];
     installDrafts(rows);
     generateTylerTextOverviewDraftForUser.mockResolvedValue({ ok: false, reason: "comms_prefs" });
     await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(rows[0]?.status).toBe("skipped");
-    expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
-  });
-
-  it("C: generator failure + skip succeeds → stale body non-sendable", async () => {
-    rows = [draft()];
-    installDrafts(rows);
-    generateTylerTextOverviewDraftForUser.mockResolvedValue({ ok: false, reason: "comms_prefs" });
-    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(r.ok).toBe(true);
-    expect(r.outcomes[0]?.status).toBe("skipped_unusable");
-    expect(rows[0]?.status).toBe("skipped");
-    expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
-  });
-
-  it("D: generator failure + first skip attempt fails + retry succeeds", async () => {
-    rows = [draft()];
-    installDrafts(rows, { skipUpdateErrors: ["transient"] });
-    generateTylerTextOverviewDraftForUser.mockRejectedValue(new Error("writer down"));
-    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(r.ok).toBe(true);
-    expect(r.outcomes[0]?.status).toBe("skipped_unusable");
-    expect(rows[0]?.status).toBe("skipped");
-  });
-
-  it("E: generator failure + all skip attempts fail → explicit unresolved failure", async () => {
-    rows = [draft()];
-    installDrafts(rows, { skipUpdateErrors: ["db1", "db2", "db3"] });
-    generateTylerTextOverviewDraftForUser.mockRejectedValue(new Error("writer down"));
-    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(r.ok).toBe(false);
-    if (!r.ok) {
-      expect(r.reason).toBe("stale_draft_could_not_be_disabled");
-    }
-    expect(r.outcomes[0]?.status).toBe("stale_draft_could_not_be_disabled");
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
     expect(rows[0]?.status).toBe("current");
     expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
   });
 
-  it("F: helper must not report skipped/safe when row remains current", async () => {
+  it("C: Morning goal change preserves a sendable current body", async () => {
+    rows = [draft()];
+    installDrafts(rows);
+    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
+    expect(r.ok).toBe(true);
+    expect(r.outcomes[0]?.status).toBe("deferred_reconsideration");
+    expect(rows[0]?.status).toBe("current");
+    expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
+  });
+
+  it("D: Morning goal change does not attempt to skip the draft", async () => {
+    rows = [draft()];
+    installDrafts(rows, { skipUpdateErrors: ["transient"] });
+    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
+    expect(r.ok).toBe(true);
+    expect(r.outcomes[0]?.status).toBe("deferred_reconsideration");
+    expect(rows[0]?.status).toBe("current");
+  });
+
+  it("E: Morning goal change stays current even when skip writes would fail", async () => {
     rows = [draft()];
     installDrafts(rows, { skipUpdateErrors: ["db1", "db2", "db3"] });
-    generateTylerTextOverviewDraftForUser.mockResolvedValue({ ok: false, reason: "insert_failed" });
     const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
-    expect(r.ok).toBe(false);
+    expect(r.ok).toBe(true);
+    expect(r.outcomes[0]?.status).toBe("deferred_reconsideration");
+    expect(rows[0]?.status).toBe("current");
+    expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
+  });
+
+  it("F: helper must not report skipped or refreshed for a deferred Morning body", async () => {
+    rows = [draft()];
+    installDrafts(rows, { skipUpdateErrors: ["db1", "db2", "db3"] });
+    const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
+    expect(r.ok).toBe(true);
     expect(r.outcomes.map((o) => o.status)).not.toContain("skipped_unusable");
     expect(r.outcomes.map((o) => o.status)).not.toContain("refreshed");
     expect(rows[0]?.status).toBe("current");
@@ -392,23 +383,13 @@ describe("refreshUnsentTtoDraftsAfterRelationshipChange", () => {
     generateTylerTextOverviewEveningPreviewForUser.mockRejectedValue(new Error("evening down"));
     const r = await refreshUnsentTtoDraftsAfterRelationshipChange({ clerkUserId: USER, now: NOW });
     expect(r.ok).toBe(true);
-    expect(r.outcomes).toEqual([
-      {
-        draftId: "d-morning",
-        sendSlot: "morning",
-        draftForDayKey: "2026-09-09",
-        status: "refreshed",
-      },
-      {
-        draftId: "d-evening",
-        sendSlot: "evening_checkin",
-        draftForDayKey: "2026-09-08",
-        status: "skipped_unusable",
-      },
+    expect(r.outcomes.map((item) => item.status)).toEqual([
+      "deferred_reconsideration",
+      "deferred_reconsideration",
     ]);
-    expect(rows[0]?.current_body_to_send).toBe("FRESH MORNING");
+    expect(rows[0]?.current_body_to_send).toBe("OLD MORNING");
     expect(rows[0]?.status).toBe("current");
-    expect(rows[1]?.status).toBe("skipped");
+    expect(rows[1]?.status).toBe("current");
     expect(rows[1]?.current_body_to_send).toBe("OLD EVENING");
   });
 
@@ -462,11 +443,12 @@ describe("stale M/E/W Goal Change draft refresh source law", () => {
     expect(refreshSrc).not.toContain("runSolGoalChangeSemanticInterpreter");
   });
 
-  it("reuses existing M/E/W generators and persist paths", () => {
-    expect(refreshSrc).toContain("generateTylerTextOverviewDraftForUser");
-    expect(refreshSrc).toContain("generateTylerTextOverviewEveningPreviewForUser");
-    expect(refreshSrc).toContain("generateTylerTextOverviewWeeklyDraftForUser");
-    expect(refreshSrc).toContain("protectTylerProvenanceOnly: true");
+  it("defers Morning and Evening and does not generate Weekly drafts", () => {
+    expect(refreshSrc).toContain("deferred_reconsideration");
+    expect(refreshSrc).toContain("retired_weekly");
+    expect(refreshSrc).not.toContain("generateTylerTextOverviewDraftForUser");
+    expect(refreshSrc).not.toContain("generateTylerTextOverviewEveningPreviewForUser");
+    expect(refreshSrc).not.toContain("generateTylerTextOverviewWeeklyDraftForUser");
     expect(refreshSrc).not.toContain("from(SMS_DAILY_DRAFT_GENERATIONS_TABLE");
   });
 

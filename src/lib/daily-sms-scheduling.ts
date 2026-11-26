@@ -168,6 +168,50 @@ export function isEveningLaneSendEligible(now: Date, timezone: string): boolean 
   return evaluateEveningLaneTiming({ now, timezone }).allowed;
 }
 
+/** Operational tolerance after the resolved UTC instant. Not a second coaching clock. */
+export const SCHEDULED_DAILY_DELIVERY_GRACE_MS = 15 * 60 * 1000;
+
+export type ScheduledDeliveryGraceReason =
+  | "before_instant"
+  | "grace_elapsed"
+  | "member_local_date_rolled"
+  | "instant_invalid"
+  | "instant_date_mismatch";
+
+/**
+ * Due only at or after the resolved instant, strictly before instant + 15 minutes,
+ * and only while `now` is still that occurrence's member-local date.
+ */
+export function evaluateScheduledDeliveryGrace(args: {
+  now: Date;
+  utcInstant: string;
+  memberLocalDate: string;
+  timeZone: string;
+}): { due: true } | { due: false; reason: ScheduledDeliveryGraceReason } {
+  const instantMs = Date.parse(args.utcInstant);
+  if (!Number.isFinite(instantMs)) return { due: false, reason: "instant_invalid" };
+  const nowMs = args.now.getTime();
+  if (nowMs < instantMs) return { due: false, reason: "before_instant" };
+  if (nowMs >= instantMs + SCHEDULED_DAILY_DELIVERY_GRACE_MS) {
+    return { due: false, reason: "grace_elapsed" };
+  }
+  let instantDate = "";
+  let nowDate = "";
+  try {
+    instantDate = getDateKeyInTimezone(new Date(instantMs), args.timeZone);
+    nowDate = getDateKeyInTimezone(args.now, args.timeZone);
+  } catch {
+    return { due: false, reason: "instant_invalid" };
+  }
+  if (instantDate !== args.memberLocalDate) {
+    return { due: false, reason: "instant_date_mismatch" };
+  }
+  if (nowDate !== args.memberLocalDate) {
+    return { due: false, reason: "member_local_date_rolled" };
+  }
+  return { due: true };
+}
+
 export function reservationAgeMs(createdAt: string | null | undefined, now: Date): number | null {
   if (typeof createdAt !== "string" || !createdAt.trim()) return null;
   const t = Date.parse(createdAt);

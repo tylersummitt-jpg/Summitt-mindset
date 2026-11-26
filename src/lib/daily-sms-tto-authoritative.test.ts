@@ -582,31 +582,13 @@ describe("daily-sms route authoritative wiring", () => {
     "utf8"
   );
 
-  it("calls assertMorningTtoDraftAuthoritativeForSend before reserve on first-send path", () => {
-    const mainGateIdx = route.indexOf("morningTtoAuthoritativeGateMain");
-    const reserveAfterMain = route.indexOf("reserveTodaySendOrSkip", mainGateIdx);
-    expect(mainGateIdx).toBeGreaterThan(-1);
-    expect(reserveAfterMain).toBeGreaterThan(mainGateIdx);
-    expect(route).toContain("hasSendEventRow: false");
-  });
-
-  it("runs shared TTO freshness before Morning authority on retry and first-send paths", () => {
-    expect(route).toContain("ensureCurrentTtoDraftFreshForSend");
-    const retryFresh = route.indexOf("morningFreshRetry");
-    const retryGate = route.indexOf("morningTtoAuthoritativeGateRetry");
-    expect(retryFresh).toBeGreaterThan(-1);
-    expect(retryGate).toBeGreaterThan(retryFresh);
-    const mainFresh = route.indexOf("morningFreshMain");
-    const mainGate = route.indexOf("morningTtoAuthoritativeGateMain");
-    expect(mainFresh).toBeGreaterThan(-1);
-    expect(mainGate).toBeGreaterThan(mainFresh);
-  });
-
-  it("calls authoritative gate on retry path before attemptMorningTtoTwilioSend", () => {
-    const retryGateIdx = route.indexOf("morningTtoAuthoritativeGateRetry");
-    const attemptAfterRetry = route.indexOf("attemptMorningTtoTwilioSend", retryGateIdx);
-    expect(retryGateIdx).toBeGreaterThan(-1);
-    expect(attemptAfterRetry).toBeGreaterThan(retryGateIdx);
+  it("production GET uses scheduled delivery and does not call the fixed-window sender", () => {
+    const production = route.slice(route.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).toContain("orderPotentiallyDueMembers");
+    expect(production).not.toContain("attemptMorningTtoTwilioSend(");
+    expect(production).not.toContain("morningTtoAuthoritativeGateMain");
+    expect(production).not.toContain("reserveTodaySendOrSkip");
   });
 
   it("exact body resolution runs inside attemptMorningTtoTwilioSend before Twilio", () => {

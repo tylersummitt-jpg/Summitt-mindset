@@ -287,7 +287,10 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     localDate: packet.message_for.local_date,
     localWeekday: packet.message_for.local_weekday,
     daypart: packet.message_for.daypart,
+    utcInstant: packet.message_for.utc_instant,
+    administrativeBatchDate: packet.message_for.administrative_batch_date,
     daysSinceLastUserResponse: packet.last_user_response.days_since,
+    daysSinceLastUserResponseObserved: packet.last_user_response.days_since_at_generation,
     neverReplied: packet.last_user_response.never_replied,
     recentUnansweredOutboundCount:
       countRecentUnansweredOutboundFromExactThread(packet.exact_thread.messages),
@@ -311,6 +314,10 @@ export function assembleMorningBriefInterpreterInputFromPacket(args: {
     historicalEvidence: packet.historical_evidence,
     coachRelationshipMemory: packet.coach_relationship_memory,
     answeredUserMessageLinks: packet.answered_user_message_links ?? [],
+    ...(packet.existing_saved_text
+      ? { existingSavedText: packet.existing_saved_text }
+      : {}),
+    ...(packet.sunday_coaching ? { sundayCoaching: packet.sunday_coaching } : {}),
   };
   const packetSlot = packet.message_for.intended_receive_time_local;
   if (typeof packetSlot === "string" && packetSlot.length > 0) {

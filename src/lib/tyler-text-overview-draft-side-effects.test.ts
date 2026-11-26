@@ -327,9 +327,13 @@ describe("daily-sms route send-mode wiring", () => {
       join(process.cwd(), "src/app/api/cron/daily-sms/route.ts"),
       "utf8"
     );
-    expect(route).toContain("attemptMorningTtoTwilioSend");
-    expect(route).toContain("resolveMorningTtoExactBodyImmediatelyBeforeTwilio");
-    expect(route).toContain("runMorningTtoPostSendBookkeeping");
+    expect(route).toContain("deliverScheduledDailyCoaching");
+    const sender = readFileSync(
+      join(process.cwd(), "src/lib/tyler-text-overview-send.ts"),
+      "utf8"
+    );
+    expect(sender).toContain("runMorningTtoPostSendBookkeeping");
+    expect(sender).toContain("recordScheduledPostSendBookkeeping");
     expect(route).not.toContain("buildDailySmsContent(");
     expect(route).not.toContain("prepareTylerTextOverviewDailyBuild");
     expect(route).not.toContain("resolveSilenceCadenceForDailyUser");

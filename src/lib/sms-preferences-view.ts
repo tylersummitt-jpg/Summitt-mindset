@@ -1,3 +1,9 @@
+import {
+  parseAccountScheduleTimezone,
+  parseWeeklySchedule,
+  resolveAccountSmsTimezone,
+  type SmsWeeklySchedule,
+} from "@/lib/sms-account-schedule";
 import { resolveUserTimezone } from "@/lib/timezone";
 import type { V2AccountabilityPhase } from "@/lib/v2-accountability-phase";
 import {
@@ -9,6 +15,7 @@ import {
 } from "@/lib/sms-preferences-types";
 
 import {
+  isAccountApplicationPauseActive,
   isPauseActive,
   MAX_PAUSE_DURATION_MS,
   type V2SmsCommsCadenceOverride,
@@ -49,6 +56,9 @@ const PATCH_ALLOWLIST = new Set([
   "clearCadenceOverride",
   "weekend_send_policy",
   "clearPause",
+  "weekly_schedule",
+  "schedule_timezone",
+  "account_pause",
 ]);
 
 function hasConfiguredPhone(phoneRaw: unknown): boolean {
@@ -74,7 +84,7 @@ export function deriveRelationshipStatus(args: {
 }): SmsRelationshipStatus {
   if (!args.phoneConfigured) return "not_configured";
   if (!args.smsEnabled) return "stopped";
-  if (isPauseActive(args.prefs, args.now)) return "paused";
+  if (isAccountApplicationPauseActive(args.prefs ?? null, args.now)) return "paused";
   return "active";
 }
 
@@ -86,12 +96,25 @@ export function buildSmsPreferencesViewModel(args: {
   smsDisclosureAccepted: boolean;
   prefs: V2UserSmsCommsPreferencesRow | null;
   accountabilityPhase: V2AccountabilityPhase | null;
+  audienceTimezone?: unknown;
+  audienceTimezoneUnreadable?: boolean;
+  commitmentKnown?: boolean;
   now?: Date;
 }): SmsPreferencesView {
   const now = args.now ?? new Date();
   const timezone = resolveUserTimezone(args.timezoneRaw);
   const phoneConfigured = hasConfiguredPhone(args.phoneNumber);
-  const pauseActive = isPauseActive(args.prefs, now);
+  const pauseActive = isAccountApplicationPauseActive(args.prefs, now);
+  const scheduleInvalid = args.prefs?.weekly_schedule_invalid === true;
+  const explicitSchedule =
+    !scheduleInvalid && args.prefs?.weekly_schedule != null ? args.prefs.weekly_schedule : null;
+  const scheduleTimezone = args.prefs?.schedule_timezone ?? null;
+  const resolvedTimezone = resolveAccountSmsTimezone({
+    scheduleTimezone,
+    clerkTimezone: args.timezoneRaw,
+    audienceTimezone: args.audienceTimezone,
+    audienceUnreadable: args.audienceTimezoneUnreadable === true,
+  });
 
   const cadenceOverride = args.prefs?.cadence_override ?? null;
   const weekendSendPolicy = args.prefs?.weekend_send_policy ?? null;
@@ -111,9 +134,9 @@ export function buildSmsPreferencesViewModel(args: {
       now,
     }),
     pauseActive,
-    pauseUntil: pauseActive ? args.prefs?.pause_until ?? null : null,
+    pauseUntil: isPauseActive(args.prefs, now) ? args.prefs?.pause_until ?? null : null,
     pauseReasonLabel:
-      pauseActive && args.prefs?.pause_reason_category
+      isPauseActive(args.prefs, now) && args.prefs?.pause_reason_category
         ? PAUSE_REASON_LABELS[args.prefs.pause_reason_category]
         : null,
     cadenceLabel: cadenceLabelFromOverride(cadenceOverride),
@@ -131,6 +154,20 @@ export function buildSmsPreferencesViewModel(args: {
     compliance: {
       stopHelpStart: SMS_PREFS_COMPLIANCE_COPY,
     },
+    preferenceRecordPresent: args.prefs != null,
+    consentKnown: true,
+    weeklyScheduleExplicit: explicitSchedule != null,
+    weeklySchedule: explicitSchedule,
+    scheduleInvalid,
+    scheduleTimezone,
+    scheduleTimezoneExplicit: scheduleTimezone != null,
+    effectiveTimezone: resolvedTimezone.zone,
+    effectiveTimezoneSource: resolvedTimezone.source,
+    pauseIndefinite: args.prefs?.pause_indefinite === true,
+    timedPauseActive: isPauseActive(args.prefs, now),
+    applicationPauseActive: pauseActive,
+    audienceTimezoneUnreadable: args.audienceTimezoneUnreadable === true,
+    commitmentKnown: args.commitmentKnown !== false,
   };
 }
 
@@ -142,9 +179,13 @@ export type SmsPreferencesPatchUpsert = {
       | "pause_reason_category"
       | "cadence_override"
       | "weekend_send_policy"
+      | "weekly_schedule"
+      | "schedule_timezone"
+      | "pause_indefinite"
     >
   >;
   clearPause?: boolean;
+  clearIndefinitePause?: boolean;
   clearCadenceOverride?: boolean;
 };
 
@@ -161,6 +202,9 @@ function hasSettingFields(body: Record<string, unknown>): boolean {
   if (body.pause_reason_category !== undefined && body.pause_reason_category !== null) return true;
   if (body.cadence_override !== undefined && body.cadence_override !== null) return true;
   if (body.weekend_send_policy !== undefined && body.weekend_send_policy !== null) return true;
+  if (body.weekly_schedule !== undefined) return true;
+  if (body.schedule_timezone !== undefined) return true;
+  if (body.account_pause !== undefined) return true;
   return false;
 }
 
@@ -275,6 +319,58 @@ export function validateSmsPreferencesPatch(
     } else {
       return { ok: false, error: "Invalid weekend_send_policy", status: 400 };
     }
+  }
+
+  const scheduleKeys = ["weekly_schedule", "schedule_timezone"].filter((key) =>
+    Object.prototype.hasOwnProperty.call(body, key)
+  );
+  if (body.account_pause !== undefined && Object.keys(body).length !== 1) {
+    return {
+      ok: false,
+      error: "Pause and resume must be sent on their own",
+      status: 400,
+    };
+  }
+  if (scheduleKeys.length > 0) {
+    const extra = Object.keys(body).filter((key) => !scheduleKeys.includes(key));
+    if (extra.length > 0) {
+      return {
+        ok: false,
+        error: "Schedule changes cannot include other preference fields",
+        status: 400,
+      };
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "account_pause")) {
+    if (body.account_pause === "indefinite") {
+      upsert.patch.pause_indefinite = true;
+      hasMutation = true;
+    } else if (body.account_pause === "resume") {
+      upsert.clearPause = true;
+      upsert.clearIndefinitePause = true;
+      hasMutation = true;
+    } else {
+      return { ok: false, error: "Invalid account_pause", status: 400 };
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "weekly_schedule")) {
+    const parsed = parseWeeklySchedule(body.weekly_schedule);
+    if (!parsed.ok) {
+      return { ok: false, error: "Invalid weekly_schedule", status: 400 };
+    }
+    upsert.patch.weekly_schedule = parsed.schedule as SmsWeeklySchedule | null;
+    hasMutation = true;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(body, "schedule_timezone")) {
+    const parsed = parseAccountScheduleTimezone(body.schedule_timezone);
+    if (!parsed.ok) {
+      return { ok: false, error: "Invalid schedule_timezone", status: 400 };
+    }
+    upsert.patch.schedule_timezone = parsed.zone;
+    hasMutation = true;
   }
 
   if (!hasMutation) {

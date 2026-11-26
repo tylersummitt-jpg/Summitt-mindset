@@ -512,316 +512,48 @@ describe("assertWeeklyTtoDraftAuthoritativeForManualSend", () => {
   });
 });
 
-describe("sendWeeklyTtoDraftManually", () => {
-  beforeEach(async () => {
-    seedWeeklyDraft();
-    sendSmsMock.mockReset();
-    sendSmsMock.mockResolvedValue({ sid: "SM-weekly-1", status: "queued" });
-    isTwilioReadyMock.mockReturnValue(true);
-    loadAudienceMock.mockResolvedValue({
-      clerk_user_id: "user_weekly",
-      phone_number: "+15551234567",
-      sms_enabled: true,
-      stopped_at: null,
-      timezone: "America/New_York",
-      summitt_subscribed: true,
-    });
-    resolveV2Mock.mockResolvedValue({ fullyOnV2: true });
-    fetchCommsMock.mockResolvedValue(null);
-    isPauseActiveMock.mockReturnValue(false);
-    getActiveCommitmentMock.mockResolvedValue({ id: COMMITMENT_ID });
-    upsertThreadMemoryMock.mockResolvedValue({ ok: true });
-    const { evaluateOutboundSmsForAccountDeletion } = await import(
-      "@/lib/account-deletion/deletion-guards"
-    );
-    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValue({
-      decision: "allowed",
-    });
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("sends Tyler-edited current_body_to_send with footer", async () => {
-    const edited = "Tyler edited weekly body — keep this exact text.";
-    seedWeeklyDraft({ draft: { current_body_to_send: edited } });
-
-    const result = await sendWeeklyTtoDraftManually({
+describe("retired weekly send functions", () => {
+  it("manual, cron, and shared send refuse before Twilio, reservation, or a draft write", async () => {
+    const manual = await sendWeeklyTtoDraftManually({
       draftId: "draft-weekly-1",
       requestedByClerkUserId: "admin_tyler",
     });
-
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(sendSmsMock).toHaveBeenCalledTimes(1);
-    const call = sendSmsMock.mock.calls[0]?.[0];
-    expect(call.body).toBe(buildWeeklyTtoFinalBodyWithFooter(edited));
-    expect(call.body).toContain(WEEKLY_TTO_COMPLIANCE_FOOTER);
-    expect(call.lastOutbound.messageKind).toBe("weekly");
-    expect(result.bodyWithoutFooter).toBe(edited);
-    expect(result.finalBodySent).toBe(call.body);
-  });
-
-  it("does not call weekly writer / proof pack / produceWeeklyV3RelationshipSms", async () => {
-    await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
+    const cron = await sendWeeklyTtoDraftViaCron({
+      clerkUserId: "user_weekly",
+      weekKey: "2026-W28",
+      phoneTo: "+15551234567",
     });
-    const sendSrc = readFileSync(
-      join(REPO, "src/lib/tyler-text-overview-weekly-send.ts"),
-      "utf8"
-    );
-    expect(sendSrc).not.toContain("produceWeeklyV3RelationshipSms");
-    expect(sendSrc).not.toContain("buildV2WeeklyProofPack");
-    expect(sendSrc).not.toMatch(/openai/i);
-    expect(sendSrc).not.toContain("v3-weekly-outbound-relationship-lane");
-    expect(sendSrc).not.toContain("v2-weekly-proof-sms");
-  });
-
-  it("reserves sms_weekly_send_events before Twilio", async () => {
-    sendSmsMock.mockImplementation(async () => {
-      expect(db.weeklyEvents).toHaveLength(1);
-      expect(db.weeklyEvents[0].status).toBe("reserved");
-      expect(db.weeklyEvents[0].message_sid).toBeUndefined();
-      return { sid: "SM-weekly-1", status: "queued" };
+    const authoritative = await sendWeeklyTtoDraftAuthoritative({
+      draft: {
+        draftId: "draft-weekly-1",
+        clerkUserId: "user_weekly",
+        weekKey: "2026-W28",
+        currentBodyToSend: "A saved weekly body",
+        generationId: "gen-1",
+      } as never,
+      sendSource: WEEKLY_TTO_CRON_SEND_SOURCE,
+      phoneTo: "+15551234567",
     });
-
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(true);
-    expect(sendSmsMock).toHaveBeenCalledTimes(1);
-    expect(db.weeklyEvents).toHaveLength(1);
-    expect(db.weeklyEvents[0].message_sid).toBe("SM-weekly-1");
-  });
-
-  it("blocks duplicate sms_weekly_send_events and does not send", async () => {
-    db.weeklyEvents.push({
-      id: "existing",
-      clerk_user_id: "user_weekly",
-      week_key: WEEK_KEY,
-      status: "queued",
-    });
-
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.refusalCode).toBe("duplicate_weekly_send");
+    for (const result of [manual, cron, authoritative]) {
+      expect(result.ok).toBe(false);
+      if (result.ok) continue;
+      expect(result.refusalCode).toBe("weekly_delivery_retired");
+    }
     expect(sendSmsMock).not.toHaveBeenCalled();
   });
 
-  it("Twilio failure updates event to send_failed and does not mark draft sent", async () => {
-    sendSmsMock.mockRejectedValue(new Error("twilio boom"));
-
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.refusalCode).toBe("twilio_failed");
-    expect(db.weeklyEvents[0].status).toBe("send_failed");
-    expect(db.drafts[0].status).toBe("current");
-    expect(db.drafts[0].final_body_sent).toBeUndefined();
-  });
-
-  it("APP-041B2b blocked_due_to_deletion → terminal skipped_account_deletion, no Twilio", async () => {
-    const { evaluateOutboundSmsForAccountDeletion } = await import(
-      "@/lib/account-deletion/deletion-guards"
-    );
-    vi.mocked(evaluateOutboundSmsForAccountDeletion).mockResolvedValueOnce({
-      decision: "blocked_due_to_deletion",
-      scope: "unresolved",
-    });
-
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.refusalCode).toBe("account_deletion_blocks_sms");
-    expect(result.recoverable).toBe(false);
-    expect(sendSmsMock).not.toHaveBeenCalled();
-    expect(db.weeklyEvents).toHaveLength(0);
-    expect(db.drafts[0].status).toBe("current");
-  });
-
-  it("APP-041B2b lookup_failed after reserve → send_failed retryable, not skipped_account_deletion", async () => {
-    const { AccountDeletionOutboundSmsError } = await import(
-      "@/lib/account-deletion/deletion-guards"
-    );
-    sendSmsMock.mockRejectedValueOnce(
-      new AccountDeletionOutboundSmsError("lookup_failed")
-    );
-
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.refusalCode).toBe("deletion_lookup_failed");
-    expect(result.recoverable).toBe(true);
-    expect(db.weeklyEvents[0].status).toBe("send_failed");
-    expect((db.weeklyEvents[0].metadata as { note?: string }).note).toBe(
-      "deletion_lookup_failed"
-    );
-    expect(db.drafts[0].status).toBe("current");
-    expect(db.drafts[0].final_body_sent).toBeUndefined();
-  });
-
-  it("success updates weekly event metadata and finalizes draft as sent", async () => {
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-
-    const evt = db.weeklyEvents[0];
-    expect(evt.message_sid).toBe("SM-weekly-1");
-    expect(evt.status).toBe("queued");
-    const meta = evt.metadata as Record<string, unknown>;
-    expect(meta.send_source).toBe(WEEKLY_TTO_MANUAL_SEND_SOURCE);
-    expect(meta.draft_id).toBe("draft-weekly-1");
-    expect(meta.generation_id).toBe("gen-weekly-1");
-    expect(meta.week_key).toBe(WEEK_KEY);
-    expect(meta.body_without_footer).toBe(WEEKLY_BODY);
-    expect(meta.sms_body).toBe(buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY));
-    expect(meta.draft_excludes_compliance_footer).toBe(true);
-    expect(meta.stripped_compliance_footer).toBe(true);
-    expect(typeof meta.sent_at).toBe("string");
-
-    expect(db.drafts[0].status).toBe("sent");
-    expect(db.drafts[0].final_body_sent).toBe(buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY));
-    expect(db.drafts[0].twilio_message_sid).toBe("SM-weekly-1");
-    expect(db.drafts[0].source_sms_send_event_id).toBe(evt.id);
-  });
-
-  it("writes thread memory with weekly_sms source and body without footer", async () => {
-    await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(upsertThreadMemoryMock).toHaveBeenCalledTimes(1);
-    const args = upsertThreadMemoryMock.mock.calls[0]?.[0];
-    expect(args.source).toBe("weekly_sms");
-    expect(args.sentBody).toBe(WEEKLY_BODY);
-    expect(args.sentBody).not.toContain(WEEKLY_TTO_COMPLIANCE_FOOTER);
-    expect(args.commitmentId).toBe(COMMITMENT_ID);
-  });
-
-  it("does not write sms_send_events, check_sent, or v2_commitment_event", async () => {
-    await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(db.smsSendEventsInsertCount).toBe(0);
-    expect(db.sendEvents).toHaveLength(0);
-    expect(db.checkSentWriteCount).toBe(0);
-    expect(db.commitmentEventInsertCount).toBe(0);
-
-    const sendSrc = readFileSync(
-      join(REPO, "src/lib/tyler-text-overview-weekly-send.ts"),
-      "utf8"
-    );
-    expect(sendSrc).not.toContain('from("sms_send_events")');
-    expect(sendSrc).not.toContain("onV2StandardCheckSent");
-    expect(sendSrc).not.toContain("v2_commitment_event");
-    expect(sendSrc).not.toContain('event_type: "check_sent"');
-  });
-
-  it("returns twilio_not_ready when Twilio is not configured", async () => {
-    isTwilioReadyMock.mockReturnValue(false);
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.refusalCode).toBe("twilio_not_ready");
-    expect(sendSmsMock).not.toHaveBeenCalled();
-    expect(db.weeklyEvents).toHaveLength(0);
-  });
-
-  it("pending manual Pat answer blocks manual Weekly send and keeps the draft", async () => {
-    db.inboundJobs = [
-      {
-        message_sid: "SMpark1",
-        clerk_user_id: "user_weekly",
-        status: "awaiting_manual_pat_answer",
-      },
-    ];
-    const bodyBefore = db.drafts[0]?.current_body_to_send;
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.refusalCode).toBe("awaiting_manual_pat_answer");
-    expect(sendSmsMock).not.toHaveBeenCalled();
-    expect(db.weeklyEvents).toHaveLength(0);
-    expect(db.drafts[0]?.current_body_to_send).toBe(bodyBefore);
-    expect(db.drafts[0]?.status).toBe("current");
-  });
-
-  it("an open SMS opt-out review blocks manual Weekly send, including a Tyler-edited body", async () => {
-    const edited = "Tyler edited weekly body — keep this exact text.";
-    seedWeeklyDraft({ draft: { current_body_to_send: edited, edited_by_tyler: true } });
-    db.inboundJobs = [
-      {
-        message_sid: "SMhold",
-        clerk_user_id: "user_weekly",
-        status: "awaiting_sms_opt_out_review",
-      },
-    ];
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.refusalCode).toBe("awaiting_sms_opt_out_review");
-    expect(sendSmsMock).not.toHaveBeenCalled();
-    expect(db.weeklyEvents).toHaveLength(0);
-  });
-
-  it("an opt-out review lookup error blocks manual Weekly send", async () => {
-    db.inboundJobLookupError = { message: "db down" };
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.refusalCode).toBe("awaiting_sms_opt_out_review");
-    expect(sendSmsMock).not.toHaveBeenCalled();
-  });
-
-  it("one answered and one still pending still blocks Weekly send", async () => {
-    db.inboundJobs = [
-      {
-        message_sid: "SMdone",
-        clerk_user_id: "user_weekly",
-        status: "sent",
-      },
-      {
-        message_sid: "SMstill",
-        clerk_user_id: "user_weekly",
-        status: "awaiting_manual_pat_answer",
-      },
-    ];
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.refusalCode).toBe("awaiting_manual_pat_answer");
-    expect(sendSmsMock).not.toHaveBeenCalled();
+  it("the send functions do not contain a model, reservation, or provider path", () => {
+    const src = readFileSync(join(REPO, "src/lib/tyler-text-overview-weekly-send.ts"), "utf8");
+    const fns = src.slice(src.indexOf("export async function sendWeeklyTtoDraftAuthoritative"));
+    expect(fns).toContain("weekly_delivery_retired");
+    expect(fns).not.toContain("sendSMS");
+    expect(fns).not.toContain("weekly_tto_reserve_send");
+    expect(fns).not.toContain("ensureCurrentTtoDraftFreshForSend");
+    expect(fns).not.toContain("runWeeklyBriefInterpreterV1");
+    expect(fns).not.toContain("writeWeeklyTtoBody");
+    expect(fns).not.toContain("persistMorningTtoGeneration");
+    expect(fns).not.toContain(".update(");
+    expect(fns).not.toContain(".insert(");
   });
 });
 
@@ -919,175 +651,6 @@ describe("assertWeeklyTtoDraftAuthoritativeForCronSend", () => {
   });
 });
 
-describe("sendWeeklyTtoDraftViaCron / shared core", () => {
-  beforeEach(() => {
-    seedWeeklyDraft();
-    sendSmsMock.mockReset();
-    sendSmsMock.mockResolvedValue({ sid: "SM-cron-1", status: "accepted" });
-    isTwilioReadyMock.mockReturnValue(true);
-    getActiveCommitmentMock.mockResolvedValue({ id: COMMITMENT_ID });
-    upsertThreadMemoryMock.mockResolvedValue({ ok: true });
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("cron send uses send_source weekly_tto_cron and footer body", async () => {
-    const result = await sendWeeklyTtoDraftViaCron({
-      clerkUserId: "user_weekly",
-      weekKey: WEEK_KEY,
-      phoneTo: "+15551234567",
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(sendSmsMock).toHaveBeenCalledTimes(1);
-    expect(sendSmsMock.mock.calls[0]?.[0].body).toBe(
-      buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY)
-    );
-    expect(sendSmsMock.mock.calls[0]?.[0].lastOutbound.messageKind).toBe("weekly");
-    expect(db.weeklyEvents[0].metadata).toMatchObject({
-      send_source: WEEKLY_TTO_CRON_SEND_SOURCE,
-      body_without_footer: WEEKLY_BODY,
-    });
-    expect(db.drafts[0].status).toBe("sent");
-    expect(db.drafts[0].final_body_sent).toBe(buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY));
-  });
-
-  it("stale freshness persist is what re-assert, footer, and Twilio send", async () => {
-    const freshBody = "FRESH WEEKLY BODY FROM PERSIST";
-    ensureCurrentTtoDraftFreshForSend.mockImplementationOnce(async () => {
-      const draft = db.drafts[0];
-      if (draft) {
-        draft.current_body_to_send = freshBody;
-        draft.current_generation_id = "gen-weekly-fresh";
-      }
-      db.generations = [
-        {
-          id: "gen-weekly-fresh",
-          send_slot: "weekly_review",
-          commitment_id: COMMITMENT_ID,
-          machine_should_send: true,
-          machine_no_send_reason: null,
-          timezone_snapshot: "America/New_York",
-          generation_metadata: {
-            week_key: WEEK_KEY,
-            week_start: "2026-07-06",
-            week_end: "2026-07-12",
-            timezone: "America/New_York",
-            send_slot: "weekly_review",
-            draft_excludes_compliance_footer: true,
-            generation_effective_ask: "I will be in bed by 9:30 pm nightly.",
-          },
-        },
-      ];
-      return {
-        ok: true as const,
-        status: "regenerated" as const,
-        draftId: "draft-weekly-1",
-        currentBodyToSend: freshBody,
-        currentGenerationId: "gen-weekly-fresh",
-      };
-    });
-    const result = await sendWeeklyTtoDraftViaCron({
-      clerkUserId: "user_weekly",
-      weekKey: WEEK_KEY,
-      phoneTo: "+15551234567",
-    });
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    const expectedFinal = buildWeeklyTtoFinalBodyWithFooter(freshBody);
-    expect(sendSmsMock).toHaveBeenCalledTimes(1);
-    expect(sendSmsMock.mock.calls[0]?.[0].body).toBe(expectedFinal);
-    expect(sendSmsMock.mock.calls[0]?.[0].body).toContain(freshBody);
-    expect(sendSmsMock.mock.calls[0]?.[0].body).toContain(WEEKLY_TTO_COMPLIANCE_FOOTER);
-    expect(sendSmsMock.mock.calls[0]?.[0].body).not.toBe(
-      buildWeeklyTtoFinalBodyWithFooter(WEEKLY_BODY)
-    );
-    expect(result.finalBodySent).toBe(expectedFinal);
-    expect(result.bodyWithoutFooter).toBe(freshBody);
-    expect(db.weeklyEvents[0].metadata).toMatchObject({
-      body_without_footer: freshBody,
-    });
-  });
-
-  it("already-generated Weekly draft cannot send while a manual Pat answer is pending", async () => {
-    db.inboundJobs = [
-      {
-        message_sid: "SMpark1",
-        clerk_user_id: "user_weekly",
-        status: "awaiting_manual_pat_answer",
-      },
-    ];
-    const result = await sendWeeklyTtoDraftViaCron({
-      clerkUserId: "user_weekly",
-      weekKey: WEEK_KEY,
-      phoneTo: "+15551234567",
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.refusalCode).toBe("awaiting_manual_pat_answer");
-    expect(sendSmsMock).not.toHaveBeenCalled();
-    expect(db.weeklyEvents).toHaveLength(0);
-    expect(db.drafts[0]?.status).toBe("current");
-    expect(db.drafts[0]?.current_body_to_send).toBe(WEEKLY_BODY);
-  });
-
-  it("an open SMS opt-out review blocks the Weekly cron send", async () => {
-    db.inboundJobs = [
-      {
-        message_sid: "SMhold",
-        clerk_user_id: "user_weekly",
-        status: "awaiting_sms_opt_out_review",
-      },
-    ];
-    const result = await sendWeeklyTtoDraftViaCron({
-      clerkUserId: "user_weekly",
-      weekKey: WEEK_KEY,
-      phoneTo: "+15551234567",
-    });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.refusalCode).toBe("awaiting_sms_opt_out_review");
-    expect(sendSmsMock).not.toHaveBeenCalled();
-    expect(db.weeklyEvents).toHaveLength(0);
-  });
-
-  it("manual-sent duplicate blocks cron before Twilio", async () => {
-    db.weeklyEvents.push({
-      id: "existing-manual",
-      clerk_user_id: "user_weekly",
-      week_key: WEEK_KEY,
-      status: "accepted",
-      metadata: { send_source: WEEKLY_TTO_MANUAL_SEND_SOURCE },
-    });
-    const result = await sendWeeklyTtoDraftViaCron({
-      clerkUserId: "user_weekly",
-      weekKey: WEEK_KEY,
-      phoneTo: "+15551234567",
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.refusalCode).toBe("duplicate_weekly_send");
-    expect(sendSmsMock).not.toHaveBeenCalled();
-  });
-
-  it("shared core does not double-append footer", async () => {
-    const auth = await assertWeeklyTtoDraftAuthoritativeForCronSend({
-      clerkUserId: "user_weekly",
-      weekKey: WEEK_KEY,
-    });
-    expect(auth.ok).toBe(true);
-    if (!auth.ok) return;
-    await sendWeeklyTtoDraftAuthoritative({
-      draft: auth.draft,
-      sendSource: WEEKLY_TTO_CRON_SEND_SOURCE,
-      phoneTo: "+15551234567",
-    });
-    const body = sendSmsMock.mock.calls[0]?.[0].body as string;
-    const footerCount = body.split(WEEKLY_TTO_COMPLIANCE_FOOTER).length - 1;
-    expect(footerCount).toBe(1);
-  });
-});
-
 describe("weekly send route / UI static contracts", () => {
   it("route exists and is POST-only one-row", () => {
     const routePath = join(
@@ -1097,9 +660,9 @@ describe("weekly send route / UI static contracts", () => {
     expect(existsSync(routePath)).toBe(true);
     const src = readFileSync(routePath, "utf8");
     expect(src).toContain("requireTylerAdmin");
-    expect(src).toContain("sendWeeklyTtoDraftManually");
-    expect(src).toContain("draft_id");
-    expect(src).toContain("bulk_not_supported");
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).not.toContain("sendWeeklyTtoDraftManually");
+    expect(src).not.toContain("sendSMS");
     expect(src).not.toContain("export async function GET");
   });
 
@@ -1166,84 +729,28 @@ describe("weekly send route / UI static contracts", () => {
 });
 
 describe("weekly send does not touch forbidden paths", () => {
-  it("weekly-sms cron is TTO draft-authoritative and imports weekly-send", () => {
+  it("weekly-sms cron refuses before a provider submission", () => {
     const src = readFileSync(join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).toContain("tyler-text-overview-weekly-send");
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).toContain("force_ignored");
+    expect(src).not.toContain("sendWeeklyTtoDraftAuthoritative");
     expect(src).not.toContain("produceWeeklyV3RelationshipSms");
     expect(src).not.toContain("buildV2WeeklyProofPack");
-    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
   });
 
-  it("vercel.json unchanged for weekly", () => {
+  it("vercel.json does not schedule weekly-sms", () => {
     const vercel = readFileSync(join(REPO, "vercel.json"), "utf8");
-    expect(vercel).toContain("/api/cron/weekly-sms");
+    expect(vercel).not.toContain("/api/cron/weekly-sms");
     expect(vercel).not.toContain("weekly-tto");
   });
 
-  it("reserves through weekly_tto_reserve_send and does not insert events directly", () => {
+  it("the send module does not reserve or submit a weekly text", () => {
     const src = readFileSync(join(REPO, "src/lib/tyler-text-overview-weekly-send.ts"), "utf8");
-    expect(src).toContain('rpc("weekly_tto_reserve_send"');
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).not.toContain("weekly_tto_reserve_send");
+    expect(src).not.toContain("sendSMS");
     expect(src).not.toContain(".insert(");
     expect(src).not.toContain("updateTylerTextOverviewDraftBody");
   });
 });
 
-describe("weekly reserve RPC body is the Twilio body", () => {
-  beforeEach(() => {
-    seedWeeklyDraft();
-    sendSmsMock.mockReset();
-    sendSmsMock.mockResolvedValue({ sid: "SM-weekly-rpc", status: "queued" });
-    isTwilioReadyMock.mockReturnValue(true);
-    loadAudienceMock.mockResolvedValue({
-      clerk_user_id: "user_weekly",
-      phone_number: "+15551234567",
-      sms_enabled: true,
-      stopped_at: null,
-      timezone: "America/New_York",
-      summitt_subscribed: true,
-    });
-    resolveV2Mock.mockResolvedValue({ fullyOnV2: true });
-    fetchCommsMock.mockResolvedValue(null);
-    isPauseActiveMock.mockReturnValue(false);
-    getActiveCommitmentMock.mockResolvedValue({ id: COMMITMENT_ID });
-    upsertThreadMemoryMock.mockResolvedValue({ ok: true });
-  });
-
-  it("appends the footer once to the RPC body", async () => {
-    db.reserveReturnedBody = "LOCKED BODY FROM RESERVE";
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(true);
-    const sent = sendSmsMock.mock.calls[0]?.[0].body as string;
-    expect(sent).toBe(buildWeeklyTtoFinalBodyWithFooter("LOCKED BODY FROM RESERVE"));
-    expect(sent.split(WEEKLY_TTO_COMPLIANCE_FOOTER).length - 1).toBe(1);
-    expect(sent).not.toContain(WEEKLY_BODY);
-  });
-
-  it("does not call Twilio when the reserve RPC errors", async () => {
-    db.forceReserveRpcError = "function weekly_tto_reserve_send does not exist";
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.refusalCode).toBe("reservation_failed");
-    expect(sendSmsMock).not.toHaveBeenCalled();
-    expect(db.weeklyEvents).toHaveLength(0);
-  });
-
-  it("Twilio failure leaves a send event that later bulk must treat as a block", async () => {
-    sendSmsMock.mockRejectedValue(new Error("twilio boom"));
-    const result = await sendWeeklyTtoDraftManually({
-      draftId: "draft-weekly-1",
-      requestedByClerkUserId: "admin_tyler",
-    });
-    expect(result.ok).toBe(false);
-    expect(db.weeklyEvents).toHaveLength(1);
-    expect(db.weeklyEvents[0]?.status).toBe("send_failed");
-    expect(db.drafts[0]?.status).toBe("current");
-  });
-});

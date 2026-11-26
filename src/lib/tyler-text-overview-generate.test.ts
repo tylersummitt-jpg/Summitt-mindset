@@ -20,6 +20,7 @@ import {
 } from "@/lib/tyler-text-overview-generate";
 import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
 import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
+import { observedSilenceDays } from "@/lib/sms-proactive-relationship-touch";
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
@@ -428,6 +429,22 @@ vi.mock("@/lib/supabase-server", () => {
         makeChain({ table: name, action: "select", payload: {} })
       ),
       rpc: vi.fn(async (fn: string, args: Record<string, unknown>) => {
+        if (fn === "tto_insert_generation_row") {
+          const row = (args.p_row ?? {}) as Record<string, unknown>;
+          const dup = db.generations.some(
+            (g) =>
+              g.clerk_user_id === row.clerk_user_id &&
+              g.draft_for_day_key === row.draft_for_day_key &&
+              g.send_slot === row.send_slot &&
+              g.generation_number === row.generation_number
+          );
+          if (dup) {
+            return { data: null, error: { code: "23505", message: "duplicate" } };
+          }
+          const id = `gen-${db.nextGenId++}`;
+          db.generations.push({ ...row, id });
+          return { data: id, error: null };
+        }
         if (fn !== "tto_finish_generation_persistence") {
           return { data: null, error: { message: `missing_rpc:${fn}` } };
         }
@@ -505,6 +522,37 @@ const MORNING_PACKET = {
   },
   answered_user_message_links: [],
 };
+
+function quietPacket(daysSince: number) {
+  const reply = new Date(Date.UTC(2026, 6, 2, 16, 0, 0));
+  reply.setUTCDate(reply.getUTCDate() - daysSince);
+  return {
+    ...MORNING_PACKET,
+    last_user_response: {
+      ...MORNING_PACKET.last_user_response,
+      at_utc: reply.toISOString(),
+      days_since: daysSince,
+      never_replied: false,
+    },
+  };
+}
+
+function packetObservedAtGeneration<T extends { last_user_response: { at_utc: string } }>(
+  packet: T,
+  now = new Date("2026-07-02T16:00:00.000Z")
+): T {
+  return {
+    ...packet,
+    last_user_response: {
+      ...packet.last_user_response,
+      days_since_at_generation: observedSilenceDays({
+        replyAtUtc: packet.last_user_response.at_utc,
+        now,
+        timezone: "America/New_York",
+      }),
+    },
+  };
+}
 
 const WRITER_CAPTURE = buildWriterOpenAiCapture({
   messages: [
@@ -918,7 +966,7 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       })
     );
     expect(writeMorningTtoBodyMock).toHaveBeenCalledWith({
-      packet: MORNING_PACKET,
+      packet: packetObservedAtGeneration(MORNING_PACKET),
       morningCoachingBrief: expect.objectContaining({
         version: "morning_coaching_brief_v1",
       }),
@@ -1084,11 +1132,12 @@ describe("generateTylerTextOverviewDailyDrafts", () => {
       callOrder.push("writer");
       expect(args).toEqual(
         expect.objectContaining({
-          packet: MORNING_PACKET,
+          packet: packetObservedAtGeneration(MORNING_PACKET),
           morningCoachingBrief: briefForWriter,
         })
       );
-      expect(JSON.stringify(args.packet)).toBe(JSON.stringify(MORNING_PACKET));
+      expect(JSON.stringify(args.packet)).toBe(JSON.stringify(packetObservedAtGeneration(MORNING_PACKET)));
+      expect(MORNING_PACKET.last_user_response).not.toHaveProperty("days_since_at_generation");
       const messages = [
         { role: "system" as const, content: "Morning brief writer system" },
         {
@@ -1815,17 +1864,6 @@ describe("canonical batch persists one day across US timezones", () => {
         },
       },
     });
-  }
-
-  function quietPacket(daysSince: number) {
-    return {
-      ...MORNING_PACKET,
-      last_user_response: {
-        ...MORNING_PACKET.last_user_response,
-        days_since: daysSince,
-        never_replied: false,
-      },
-    };
   }
 
   function seedStrongDaily(dayKey: string, slot = "morning") {
@@ -2679,11 +2717,15 @@ describe("generateTylerTextOverviewEveningPreviewForUser", () => {
       join(process.cwd(), "src/lib/tyler-text-overview-weekly-generate.ts"),
       "utf8"
     );
-    expect(weeklySrc).toContain("respectProtectedMorningDraft: true");
-    expect(weeklySrc).toContain("protectTylerProvenanceOnly: true");
+    expect(weeklySrc).toContain("weekly_delivery_retired");
+    expect(weeklySrc).not.toContain("persistMorningTtoGeneration");
+    expect(weeklySrc).not.toContain("respectProtectedMorningDraft");
 
     const writerSrc = readFileSync(join(process.cwd(), "src/lib/morning-tto-writer.ts"), "utf8");
-    expect(writerSrc).toContain("message_for day and daypart");
+    expect(writerSrc).toContain(
+      "packet.message_for.local_date, local_weekday, timezone, and intended_receive_time_local are the authoritative clock"
+    );
+    expect(writerSrc).toContain("daypart is the administrative Morning or Evening batch");
     expect(writerSrc).not.toMatch(/bedtime parser|weekday rule engine/i);
     expect(writerSrc).not.toContain("EveningCoachingBriefV1");
 
@@ -2968,12 +3010,7 @@ describe("optional Morning/Evening Pat source evidence", () => {
     loadMorningPacketMock.mockResolvedValue({
       ok: true,
       packet: {
-        ...MORNING_PACKET,
-        last_user_response: {
-          ...MORNING_PACKET.last_user_response,
-          days_since: 10,
-          never_replied: false,
-        },
+        ...quietPacket(10),
       },
       commitmentId: "cmt-phase3",
     });
@@ -3124,7 +3161,7 @@ describe("optional Morning/Evening Pat source evidence", () => {
     });
     expect(getPatEvidenceForSmsMock).not.toHaveBeenCalled();
     expect(writeMorningTtoBodyMock).toHaveBeenCalledWith({
-      packet: MORNING_PACKET,
+      packet: packetObservedAtGeneration(MORNING_PACKET),
       morningCoachingBrief: expect.objectContaining({
         version: "morning_coaching_brief_v1",
       }),
@@ -3160,7 +3197,7 @@ describe("optional Morning/Evening Pat source evidence", () => {
       draftForDayKey: "2026-07-03",
     });
     expect(writeMorningTtoBodyMock).toHaveBeenCalledWith({
-      packet: MORNING_PACKET,
+      packet: packetObservedAtGeneration(MORNING_PACKET),
       morningCoachingBrief: brief,
       optionalPatSourceEvidence: { excerpts: [excerpt] },
     });

@@ -1,11 +1,12 @@
 /**
- * Read-only current-week canonical accountability event tape for Weekly Sol.
+ * Read-only current-week accountability event tapes.
  * No English interpretation. No week score. No pattern labels.
  *
- * Query is week-scoped in UTC before any cap. Oldest lifetime rows are never
- * the fetch window. If more than WEEKLY_ACCOUNTABILITY_IN_WEEK_EVENT_CAP
- * in-week outcome rows exist, the oldest 50 (occurred_at ASC, then id ASC)
- * are returned.
+ * Queries are week-scoped before any cap. Rows outside the week are not the
+ * fetch window. The historical Weekly reader keeps the oldest 50 in-week rows.
+ * The Sunday delivery tape keeps the newest 50 qualifying rows and presents
+ * them chronologically. Fifty events are not complete weekly history when
+ * older rows were omitted.
  */
 
 import { supabaseServer } from "@/lib/supabase-server";
@@ -28,7 +29,7 @@ export type WeeklyAccountabilityEventV1 = {
   user_visible_proof_line: string | null;
 };
 
-/** Cap after the target-week UTC filter. Excess newest in-week rows are dropped. */
+/** Cap after the week filter. Sunday keeps the newest 50. The historical Weekly reader keeps the oldest 50. */
 export const WEEKLY_ACCOUNTABILITY_IN_WEEK_EVENT_CAP = 50;
 
 function isOutcomeType(raw: string): raw is WeeklyAccountabilityEventType {
@@ -136,6 +137,132 @@ export function weeklyAccountabilityWeekUtcRange(args: {
   return {
     weekStartUtcIso: weekStartUtc.toISOString(),
     nextWeekStartUtcIso: nextWeekStartUtc.toISOString(),
+  };
+}
+
+/** Monday through the intended Sunday, using the date key itself. */
+export function mondayThroughSundayEnding(sundayLocalDate: string): {
+  weekStartLocalDate: string;
+  weekEndLocalDate: string;
+} | null {
+  const weekEnd = sundayLocalDate.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekEnd)) return null;
+  const [y, m, d] = weekEnd.split("-").map((part) => Number(part));
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(y, m - 1, d, 12, 0, 0)));
+  if (weekday !== "Sunday") return null;
+  return {
+    weekStartLocalDate: addCalendarDays(weekEnd, -6),
+    weekEndLocalDate: weekEnd,
+  };
+}
+
+/**
+ * Drop events that have not occurred, then keep the newest `cap` rows.
+ * The result is chronological: occurred_at, then id.
+ * The cutoff is the read time, not the later delivery instant.
+ * When older rows are omitted, this is not the complete weekly history.
+ */
+export function selectAccountabilityEventsBeforeCap<T extends { occurred_at: string; id?: string }>(
+  rows: T[],
+  availableThroughMs: number,
+  cap: number = WEEKLY_ACCOUNTABILITY_IN_WEEK_EVENT_CAP
+): T[] {
+  const occurred = rows.filter((row) => {
+    const ms = Date.parse(row.occurred_at);
+    return Number.isFinite(ms) && ms <= availableThroughMs;
+  });
+  occurred.sort((a, b) => {
+    const delta = Date.parse(a.occurred_at) - Date.parse(b.occurred_at);
+    if (delta !== 0) return delta;
+    return (a.id ?? "").localeCompare(b.id ?? "");
+  });
+  const limit = Math.max(0, cap);
+  if (occurred.length <= limit) return occurred;
+  return occurred.slice(occurred.length - limit);
+}
+
+export type SundayAccountabilityTape =
+  | {
+      status: "loaded";
+      events: Array<WeeklyAccountabilityEventV1 & { id: string }>;
+    }
+  | { status: "unavailable" };
+
+/**
+ * Current-week tape for an intended Sunday delivery.
+ * The availability cutoff and outcome filters run before the 50-row cap.
+ * The cap keeps the newest qualifying rows. They are returned chronologically.
+ * A database error is unavailable, not an empty tape.
+ * More than 50 qualifying events means older events in the week were omitted.
+ */
+export async function loadSundayAccountabilityTape(args: {
+  commitmentId: string;
+  clerkUserId: string;
+  timezone: string;
+  weekStartLocalDate: string;
+  weekEndLocalDate: string;
+  availableThrough: Date;
+}): Promise<SundayAccountabilityTape> {
+  const range = weeklyAccountabilityWeekUtcRange({
+    weekStartLocalDate: args.weekStartLocalDate,
+    weekEndLocalDate: args.weekEndLocalDate,
+    timezone: args.timezone,
+  });
+  if (!range) return { status: "unavailable" };
+  const availableThroughMs = args.availableThrough.getTime();
+  if (!Number.isFinite(availableThroughMs)) return { status: "unavailable" };
+  const availableThroughIso = new Date(availableThroughMs).toISOString();
+  const upper =
+    availableThroughIso < range.nextWeekStartUtcIso
+      ? availableThroughIso
+      : range.nextWeekStartUtcIso;
+
+  const { data, error } = await supabaseServer
+    .from("v2_commitment_event")
+    .select("id, event_type, occurred_at, source, payload_json")
+    .eq("commitment_id", args.commitmentId)
+    .eq("clerk_user_id", args.clerkUserId)
+    .in("event_type", [...WEEKLY_ACCOUNTABILITY_EVENT_TYPES])
+    .gte("occurred_at", range.weekStartUtcIso)
+    .lte("occurred_at", upper)
+    .lt("occurred_at", range.nextWeekStartUtcIso)
+    .order("occurred_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(WEEKLY_ACCOUNTABILITY_IN_WEEK_EVENT_CAP);
+
+  if (error) {
+    console.warn("[weekly-tto-accountability-events] sunday tape load failed", {
+      commitment_id: args.commitmentId,
+      message: error.message,
+    });
+    return { status: "unavailable" };
+  }
+
+  const mapped: Array<WeeklyAccountabilityEventV1 & { id: string }> = [];
+  for (const row of data ?? []) {
+    const id = typeof row.id === "string" ? row.id.trim() : "";
+    const eventType = typeof row.event_type === "string" ? row.event_type : "";
+    if (!id || !isOutcomeType(eventType)) continue;
+    const occurredAt = typeof row.occurred_at === "string" ? row.occurred_at : "";
+    const occurredMs = Date.parse(occurredAt);
+    if (!occurredAt || !Number.isFinite(occurredMs) || occurredMs > availableThroughMs) continue;
+    const localDayKey = getDateKeyInTimezone(new Date(occurredMs), args.timezone);
+    if (localDayKey < args.weekStartLocalDate || localDayKey > args.weekEndLocalDate) continue;
+    mapped.push({
+      id,
+      event_type: eventType,
+      occurred_at: occurredAt,
+      local_day_key: localDayKey,
+      source: sourceFromRow(row.source),
+      user_visible_proof_line: proofLineFromPayload(row.payload_json),
+    });
+  }
+  return {
+    status: "loaded",
+    events: selectAccountabilityEventsBeforeCap(mapped, availableThroughMs),
   };
 }
 

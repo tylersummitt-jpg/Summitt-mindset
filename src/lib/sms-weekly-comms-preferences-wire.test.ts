@@ -10,17 +10,12 @@ describe("weekly-sms — comms preferences wire (TTO cutover)", () => {
   const src = fs.readFileSync(ROUTE, "utf8");
   const send = fs.readFileSync(SEND, "utf8");
 
-  it("loads prefs before TTO authority / send", () => {
-    expect(src).toContain("fetchV2UserSmsCommsPreferences");
-    expect(src).toContain("shouldSkipWeeklyForCommsPrefs");
-    const loadIdx = src.indexOf("fetchV2UserSmsCommsPreferences");
-    const authIdx = src.indexOf("assertWeeklyTtoDraftAuthoritativeForCronSend");
-    expect(loadIdx).toBeGreaterThanOrEqual(0);
-    expect(authIdx).toBeGreaterThan(loadIdx);
-  });
-
-  it("pause skip still counted", () => {
-    expect(src).toContain("skippedV2WeeklyUserPause");
+  it("refuses before preference reads or a weekly send", () => {
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).toContain("force_ignored");
+    expect(src).not.toContain("fetchV2UserSmsCommsPreferences");
+    expect(src).not.toContain("shouldSkipWeeklyForCommsPrefs");
+    expect(src).not.toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
   });
 
   it("live builders are gone from cron; footer lives in shared send core", () => {

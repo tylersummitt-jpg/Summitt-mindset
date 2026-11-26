@@ -94,54 +94,29 @@ describe("newest conversation send ownership", () => {
     const evening = read("src/lib/tyler-text-overview-evening-send.ts");
     const weekly = read("src/lib/tyler-text-overview-weekly-send.ts");
 
-    expect(daily.split("ensureCurrentTtoDraftFreshForSend(").length - 1).toBe(2);
-    expect(evening.split("ensureCurrentTtoDraftFreshForSend(").length - 1).toBe(1);
-    expect(weekly.split("ensureCurrentTtoDraftFreshForSend(").length - 1).toBe(1);
-
-    for (const src of [daily, evening, weekly]) {
-      const freshAt = src.indexOf("ensureCurrentTtoDraftFreshForSend(");
-      const optOutAt = src.indexOf("await shouldSkipDailyForAwaitingSmsOptOutReview") !== -1
-        ? src.indexOf("await shouldSkipDailyForAwaitingSmsOptOutReview")
-        : src.indexOf("await hasAwaitingSmsOptOutReview");
-      const patAt = src.indexOf("await shouldSkipDailyForAwaitingManualPatAnswer") !== -1
-        ? src.indexOf("await shouldSkipDailyForAwaitingManualPatAnswer")
-        : src.indexOf("await hasAwaitingManualPatAnswer");
-      expect(optOutAt).toBeGreaterThan(-1);
-      expect(patAt).toBeGreaterThan(-1);
-      expect(optOutAt).toBeLessThan(freshAt);
-      expect(patAt).toBeLessThan(freshAt);
-    }
-
-    const morningSend = daily.slice(daily.indexOf("async function attemptMorningTtoTwilioSend"));
-    const morningRace = morningSend.indexOf("savedProactiveSentenceOutgrownByRealConversation(");
-    const morningTwilio = morningSend.indexOf("await sendSMS(");
-    expect(morningRace).toBeGreaterThan(-1);
-    expect(morningTwilio).toBeGreaterThan(morningRace);
-    expect(daily.indexOf("ensureCurrentTtoDraftFreshForSend(")).toBeLessThan(
-      daily.indexOf("const retrySendAttempt = await attemptMorningTtoTwilioSend")
+    const production = daily.slice(daily.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toContain("attemptMorningTtoTwilioSend(");
+    expect(production).not.toContain("ensureCurrentTtoDraftFreshForSend(");
+    const send = read("src/lib/tyler-text-overview-send.ts");
+    const prepare = send.slice(send.indexOf("async function prepareScheduledDailyDelivery"));
+    expect(prepare.indexOf("hasAwaitingManualPatAnswer")).toBeGreaterThan(-1);
+    expect(prepare.indexOf("hasAwaitingSmsOptOutReview")).toBeGreaterThan(-1);
+    expect(prepare.indexOf("hasAwaitingManualPatAnswer")).toBeLessThan(prepare.indexOf("scheduledDailyBodyAuthorization"));
+    expect(read("src/app/api/cron/evening-sms/route.ts")).not.toContain(
+      "sendEveningTtoAuthoritativeCronSend"
     );
-    expect(
-      daily.indexOf("ensureCurrentTtoDraftFreshForSend(", daily.indexOf("path: \"main\""))
-    ).toBeLessThan(daily.indexOf("const mainSendAttempt = await attemptMorningTtoTwilioSend"));
-
-    for (const src of [evening, weekly]) {
-      const freshAt = src.indexOf("ensureCurrentTtoDraftFreshForSend(");
-      const raceAt = src.indexOf("savedProactiveSentenceOutgrownByRealConversation(");
-      const twilioAt = src.indexOf("await sendSMS(");
-      expect(raceAt).toBeGreaterThan(freshAt);
-      expect(twilioAt).toBeGreaterThan(raceAt);
-    }
-
-    expect(daily.indexOf("stopped_at")).toBeLessThan(
-      daily.indexOf("ensureCurrentTtoDraftFreshForSend(")
+    expect(weekly).not.toContain("await sendSMS(");
+    expect(prepare.indexOf("evaluateOutboundSmsForAccountDeletion")).toBeGreaterThan(-1);
+    expect(prepare.indexOf("evaluateOutboundSmsForAccountDeletion")).toBeLessThan(
+      prepare.indexOf("hasAwaitingManualPatAnswer")
     );
-    expect(evening.indexOf("stopped_at")).toBeLessThan(
-      evening.indexOf("ensureCurrentTtoDraftFreshForSend(")
+    expect(prepare.indexOf("stopped_at")).toBeLessThan(
+      prepare.indexOf("scheduledDailyBodyAuthorization")
     );
-    expect(weekly.indexOf("stopped_at")).toBeLessThan(
-      weekly.indexOf("ensureCurrentTtoDraftFreshForSend(")
-    );
-    expect(daily).toContain('morningFreshRetry.reason !== "conversation_moved_again"');
+    expect(evening).toContain("evening_proactive_send_disabled");
+    expect(weekly).toContain("weekly_delivery_retired");
+    expect(production).not.toContain("morningFreshRetry");
   });
 
   it("does not give Admin Generate, Goal Change, or the idle refresher the replace flag", () => {

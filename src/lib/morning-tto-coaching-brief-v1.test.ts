@@ -184,6 +184,23 @@ describe("morning-tto-coaching-brief-v1 contract", () => {
     ).toBeNull();
   });
 
+  it("defaults a missing existing-text decision and rejects an invalid one", () => {
+    expect(
+      parseMorningCoachingBriefV1(validBrief())?.coaching_direction.existing_text_decision
+    ).toBe("not_applicable");
+    const direction = validBrief().coaching_direction;
+    if (direction == null || typeof direction !== "object" || Array.isArray(direction)) {
+      throw new Error("coaching_direction missing");
+    }
+    expect(
+      parseMorningCoachingBriefV1(
+        validBrief({
+          coaching_direction: { ...direction, existing_text_decision: "rewrite" },
+        })
+      )
+    ).toBeNull();
+  });
+
   it("enforces strict size limits on string arrays", () => {
     const tooMany = Array.from({ length: 20 }, (_, i) => `topic ${i}`);
     const parsed = parseMorningCoachingBriefV1(

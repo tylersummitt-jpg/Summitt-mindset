@@ -321,6 +321,23 @@ export function evaluateMessageRequiredToday(args: {
   return args.daysSinceLastSuccessfulProactiveSend >= QUIET_RELATIONSHIP_MAX_GAP_DAYS;
 }
 
+/**
+ * Calendar days from a reply's local day to the generation-local day.
+ * A future draft day is not added. A reply day after generation counts as 0.
+ */
+export function observedSilenceDays(args: {
+  replyAtUtc: string | null;
+  now: Date;
+  timezone: string;
+}): number | null {
+  if (!args.replyAtUtc) return null;
+  const replyMs = Date.parse(args.replyAtUtc);
+  if (!Number.isFinite(replyMs)) return null;
+  const replyDay = getDateKeyInTimezone(new Date(replyMs), args.timezone);
+  const generationDay = getDateKeyInTimezone(args.now, args.timezone);
+  return wholeCalendarDaysBetweenDayKeys(replyDay, generationDay);
+}
+
 export async function resolveQuietRelationshipMechanicalFacts(args: {
   clerkUserId: string;
   timezone: string;
@@ -328,6 +345,11 @@ export async function resolveQuietRelationshipMechanicalFacts(args: {
   daysSinceLastUserResponse: number | null;
   neverReplied: boolean;
   recentUnansweredOutboundCount: number;
+  /**
+   * When set, the never-replied first-send age used for quiet eligibility
+   * is measured to this day. Required-touch still uses the message day.
+   */
+  observedAsOfLocalDate?: string;
 }): Promise<{
   quiet_relationship_eligible: boolean;
   message_required_today: boolean;
@@ -341,11 +363,16 @@ export async function resolveQuietRelationshipMechanicalFacts(args: {
     timezone: args.timezone,
     localDate: args.localDate,
   });
+  const observedDay = args.observedAsOfLocalDate?.trim() ?? "";
+  const firstDaysForEligibility =
+    clock.ok && clock.first && /^\d{4}-\d{2}-\d{2}$/.test(observedDay)
+      ? wholeCalendarDaysBetweenDayKeys(clock.first.localDayKey, observedDay)
+      : clock.daysSinceFirst;
   const eligibility = evaluateQuietRelationshipEligibility({
     daysSinceLastUserResponse: args.daysSinceLastUserResponse,
     neverReplied: args.neverReplied,
     recentUnansweredOutboundCount: args.recentUnansweredOutboundCount,
-    daysSinceFirstSuccessfulProactiveSend: clock.daysSinceFirst,
+    daysSinceFirstSuccessfulProactiveSend: firstDaysForEligibility,
     firstSendLookupFailed: clock.lookupFailed,
   });
   const message_required_today = evaluateMessageRequiredToday({

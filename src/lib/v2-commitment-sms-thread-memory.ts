@@ -509,7 +509,20 @@ async function updateV2CommitmentSmsThreadMemory(
   return { ok: true };
 }
 
-export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
+export type ScheduledThreadMemoryOp =
+  | {
+      op: "update";
+      patch: Record<string, unknown>;
+      cas: { text: string; asked_at: string } | null;
+    }
+  | { op: "insert"; row: Record<string, unknown> };
+
+/**
+ * The outbound thread-memory decision, without a write.
+ * Scheduled bookkeeping sends the operations through the deletion-fenced RPC.
+ * Legacy callers still apply them here.
+ */
+export async function planCommitmentSmsThreadMemoryFromOutbound(args: {
   commitmentId: string;
   clerkUserId: string;
   sentBody: string;
@@ -517,9 +530,8 @@ export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
   messageSid?: string | null;
   source: V2CommitmentSmsThreadMemoryOutboundSource;
   expectedAnswerType?: string | null;
-  /** Slice 2A — clear stale proposal_yes_no / contract_yes_no open question before applying new extraction. */
   clearBindingOpenQuestion?: boolean;
-}): Promise<{ ok: true } | { ok: false; error: string }> {
+}): Promise<{ ok: true; ops: ScheduledThreadMemoryOp[] } | { ok: false; error: string }> {
   const commitmentId = args.commitmentId.trim();
   const clerkUserId = args.clerkUserId.trim();
   const sentBody = args.sentBody.trim();
@@ -529,9 +541,7 @@ export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
 
   const sentAtIso = args.sentAt.toISOString();
   const messageSid = args.messageSid?.trim() || null;
-
   const existing = await loadV2CommitmentSmsThreadMemory({ commitmentId });
-
   const extractedQuestion = extractCoachQuestionFromOutboundBody({
     sentBody,
     expectedAnswerType: args.expectedAnswerType ?? null,
@@ -573,81 +583,121 @@ export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
 
   if (existing) {
     if (extractedQuestion) {
-      return updateV2CommitmentSmsThreadMemory(commitmentId, {
-        ...statementPatch,
-        last_5_coach_questions: last5,
-        do_not_repeat_phrases: dnr,
-        open_question_text: extractedQuestion,
-        open_question_pending: true,
-        open_question_asked_at: sentAtIso,
-        open_question_source_message_sid: messageSid,
-        open_question_expected_answer_type: args.expectedAnswerType?.trim() || null,
-        open_question_answer_text: null,
-        open_question_answered_at: null,
-      });
+      return {
+        ok: true,
+        ops: [
+          {
+            op: "update",
+            patch: {
+              ...statementPatch,
+              last_5_coach_questions: last5,
+              do_not_repeat_phrases: dnr,
+              open_question_text: extractedQuestion,
+              open_question_pending: true,
+              open_question_asked_at: sentAtIso,
+              open_question_source_message_sid: messageSid,
+              open_question_expected_answer_type: args.expectedAnswerType?.trim() || null,
+              open_question_answer_text: null,
+              open_question_answered_at: null,
+            },
+            cas: null,
+          },
+        ],
+      };
     }
 
-    const statementWrite = await updateV2CommitmentSmsThreadMemory(commitmentId, statementPatch);
-    if (!statementWrite.ok) return statementWrite;
-
+    const ops: ScheduledThreadMemoryOp[] = [{ op: "update", patch: statementPatch, cas: null }];
     const wantsClear =
       args.clearBindingOpenQuestion === true && snapshotEligibleForOpenQuestionClear(existing);
-    if (!wantsClear) return { ok: true };
-
     const snapshotText = existing.open_question_text?.trim() ?? "";
     const snapshotAskedAt = existing.open_question_asked_at?.trim() ?? "";
-    if (!snapshotText || !snapshotAskedAt || existing.open_question_pending !== true) {
-      return { ok: true };
+    if (wantsClear && snapshotText && snapshotAskedAt && existing.open_question_pending === true) {
+      ops.push({
+        op: "update",
+        patch: clearedOpenQuestionPatch,
+        cas: { text: existing.open_question_text!, asked_at: existing.open_question_asked_at! },
+      });
     }
-
-    const clearWrite = await updateV2CommitmentSmsThreadMemory(
-      commitmentId,
-      clearedOpenQuestionPatch,
-      { text: existing.open_question_text!, askedAt: existing.open_question_asked_at! }
-    );
-    if (!clearWrite.ok) return clearWrite;
-    return { ok: true };
+    return { ok: true, ops };
   }
 
-  const insertRow: Record<string, unknown> = {
-    commitment_id: commitmentId,
-    clerk_user_id: clerkUserId,
-    projection_version: V2_SMS_THREAD_MEMORY_PROJECTION_VERSION,
-    ...statementPatch,
-    last_inbound_full_body: null,
-    last_inbound_at: null,
-    last_inbound_message_sid: null,
-    last_5_coach_questions: last5,
-    last_5_user_answers: [],
-    recent_frustration_corrections: [],
-    do_not_repeat_phrases: extractedQuestion ? dnr : [],
-    current_live_thread_summary: null,
-    last_recomputed_from_spine_at: null,
-    created_at: sentAtIso,
-    ...(extractedQuestion
-      ? {
-          open_question_text: extractedQuestion,
-          open_question_pending: true,
-          open_question_asked_at: sentAtIso,
-          open_question_source_message_sid: messageSid,
-          open_question_expected_answer_type: args.expectedAnswerType?.trim() || null,
-          open_question_answer_text: null,
-          open_question_answered_at: null,
-        }
-      : clearedOpenQuestionPatch),
+  return {
+    ok: true,
+    ops: [
+      {
+        op: "insert",
+        row: {
+          commitment_id: commitmentId,
+          clerk_user_id: clerkUserId,
+          projection_version: V2_SMS_THREAD_MEMORY_PROJECTION_VERSION,
+          ...statementPatch,
+          last_inbound_full_body: null,
+          last_inbound_at: null,
+          last_inbound_message_sid: null,
+          last_5_coach_questions: last5,
+          last_5_user_answers: [],
+          recent_frustration_corrections: [],
+          do_not_repeat_phrases: extractedQuestion ? dnr : [],
+          current_live_thread_summary: null,
+          last_recomputed_from_spine_at: null,
+          created_at: sentAtIso,
+          ...(extractedQuestion
+            ? {
+                open_question_text: extractedQuestion,
+                open_question_pending: true,
+                open_question_asked_at: sentAtIso,
+                open_question_source_message_sid: messageSid,
+                open_question_expected_answer_type: args.expectedAnswerType?.trim() || null,
+                open_question_answer_text: null,
+                open_question_answered_at: null,
+              }
+            : clearedOpenQuestionPatch),
+        },
+      },
+    ],
   };
+}
 
-  const { error } = await supabaseServer.from("v2_commitment_sms_thread_memory").insert(insertRow);
-
-  if (error) {
-    console.error("[v2-commitment-sms-thread-memory] outbound upsert insert failed", {
-      commitment_id: commitmentId,
-      message: error.message,
-    });
-    return { ok: false, error: error.message };
+async function applyOutboundThreadMemoryOps(
+  commitmentId: string,
+  ops: ScheduledThreadMemoryOp[]
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  for (const op of ops) {
+    if (op.op === "update") {
+      const written = await updateV2CommitmentSmsThreadMemory(
+        commitmentId,
+        op.patch,
+        op.cas ? { text: op.cas.text, askedAt: op.cas.asked_at } : undefined
+      );
+      if (!written.ok) return written;
+      continue;
+    }
+    const { error } = await supabaseServer.from("v2_commitment_sms_thread_memory").insert(op.row);
+    if (error) {
+      console.error("[v2-commitment-sms-thread-memory] outbound upsert insert failed", {
+        commitment_id: commitmentId,
+        message: error.message,
+      });
+      return { ok: false, error: error.message };
+    }
   }
-
   return { ok: true };
+}
+
+export async function upsertCommitmentSmsThreadMemoryFromOutbound(args: {
+  commitmentId: string;
+  clerkUserId: string;
+  sentBody: string;
+  sentAt: Date;
+  messageSid?: string | null;
+  source: V2CommitmentSmsThreadMemoryOutboundSource;
+  expectedAnswerType?: string | null;
+  /** Slice 2A — clear stale proposal_yes_no / contract_yes_no open question before applying new extraction. */
+  clearBindingOpenQuestion?: boolean;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const plan = await planCommitmentSmsThreadMemoryFromOutbound(args);
+  if (!plan.ok) return plan;
+  return applyOutboundThreadMemoryOps(args.commitmentId.trim(), plan.ops);
 }
 
 export async function upsertCommitmentSmsThreadMemoryFromInbound(args: {

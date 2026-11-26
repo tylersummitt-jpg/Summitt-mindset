@@ -9,43 +9,32 @@ describe("weekly-sms TTO cutover — event / dryRun / force contracts", () => {
   const route = readFileSync(ROUTE_PATH, "utf8");
   const send = readFileSync(SEND_PATH, "utf8");
 
-  it("real send path goes through shared authoritative send (not route-local sendSMS)", () => {
-    expect(route).toContain("sendWeeklyTtoDraftAuthoritative");
+  it("the cron refuses before any provider submission", () => {
+    expect(route).toContain("weekly_delivery_retired");
+    expect(route).toContain("force_ignored");
+    expect(route).not.toContain("sendWeeklyTtoDraftAuthoritative");
     expect(route).not.toMatch(/\bsendSMS\s*\(/);
-    expect(send).toMatch(/\bsendSMS\s*\(/);
+    const sendFn = send.slice(send.indexOf("export async function sendWeeklyTtoDraftAuthoritative"));
+    expect(sendFn).toContain("weekly_delivery_retired");
+    expect(sendFn).not.toContain("await sendSMS(");
+    expect(sendFn).not.toContain("sms_weekly_send_events");
   });
 
-  it("shared success metadata includes sms_body, body_without_footer, sent_at, send_source", () => {
-    expect(send).toContain("sms_body: finalBody");
-    expect(send).toContain("body_without_footer: bodyWithoutFooter");
-    expect(send).toContain("sent_at: sentAtIso");
-    expect(send).toContain("send_source: args.sendSource");
-    expect(send).toContain("message_sid: twilioMessageSid");
+  it("the retired send functions do not write a sent weekly body", () => {
+    const sendFn = send.slice(send.indexOf("export async function sendWeeklyTtoDraftAuthoritative"));
+    expect(sendFn).not.toContain("sms_body:");
+    expect(sendFn).not.toContain("body_without_footer:");
+    expect(sendFn).not.toContain("sent_at:");
+    expect(sendFn).not.toContain("message_sid:");
+    expect(sendFn).not.toContain("twilioMessageSid");
   });
 
-  it("dryRun never reserves sms_weekly_send_events in the route", () => {
-    const dryStart = route.indexOf("if (dryRun)");
-    const afterDry = route.indexOf("if (!isTwilioReady())", dryStart);
-    expect(dryStart).toBeGreaterThanOrEqual(0);
-    expect(afterDry).toBeGreaterThan(dryStart);
-    expect(route.slice(dryStart, afterDry)).not.toContain("sms_weekly_send_events");
-  });
-
-  it("force does not skip TTO authority", () => {
-    expect(route).toMatch(/force[\s\S]*assertWeeklyTtoDraftAuthoritativeForCronSend/);
-    // After window check, authority always runs for non-dry and dry paths
-    expect(route).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
-  });
-
-  it("duplicate weekly events are counted via refusal mapping", () => {
-    expect(route).toContain("skippedDuplicateWeeklySend");
-    expect(route).toContain("skippedV2WeeklyDuplicate");
+  it("the retired cron does not reserve, dry-run, or count a weekly send", () => {
+    expect(route).not.toContain("sms_weekly_send_events");
+    expect(route).not.toContain("if (dryRun)");
+    expect(route).not.toContain("skippedDuplicateWeeklySend");
+    expect(route).toContain("force_ignored");
+    expect(route).not.toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
     expect(send).toContain("duplicate_weekly_send");
-  });
-
-  it("does not write sent_at on dryRun path in route", () => {
-    const dryStart = route.indexOf("if (dryRun)");
-    const afterDry = route.indexOf("if (!isTwilioReady())", dryStart);
-    expect(route.slice(dryStart, afterDry)).not.toMatch(/sent_at/);
   });
 });

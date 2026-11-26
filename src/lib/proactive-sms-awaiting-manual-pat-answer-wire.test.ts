@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -42,7 +41,6 @@ describe("proactive M/E/W awaiting-manual-pat-answer suppression wire", () => {
   it("1: Morning skip is before Twilio and does not change active-inbound helper", () => {
     expect(daily).toContain("hasAwaitingManualPatAnswer");
     expect(daily).toContain("shouldSkipDailyForAwaitingManualPatAnswer");
-    expect(daily).toContain('skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON');
     expect(daily).toContain("skippedAwaitingManualPatAnswer");
 
     const inboundHelper = daily.slice(
@@ -52,15 +50,10 @@ describe("proactive M/E/W awaiting-manual-pat-answer suppression wire", () => {
     expect(inboundHelper).toContain("hasRecentInboundAccountabilityExchange");
     expect(inboundHelper).not.toContain("hasAwaitingManualPatAnswer");
 
-    const retrySkip = daily.indexOf('path: "retry"');
-    const retrySend = daily.indexOf("attemptMorningTtoTwilioSend", retrySkip);
-    expect(retrySkip).toBeGreaterThan(0);
-    expect(retrySend).toBeGreaterThan(retrySkip);
-
-    const mainSkip = daily.indexOf('path: "main"');
-    const mainReserve = daily.indexOf("reserveTodaySendOrSkip", mainSkip);
-    expect(mainSkip).toBeGreaterThan(0);
-    expect(mainReserve).toBeGreaterThan(mainSkip);
+    const production = daily.slice(daily.indexOf("export async function GET"));
+    expect(production).toContain("deliverScheduledDailyCoaching");
+    expect(production).not.toContain("attemptMorningTtoTwilioSend(");
+    expect(production).not.toContain("reserveTodaySendOrSkip");
   });
 
   it("2: Evening cron send skips before Twilio and does not mutate drafts", () => {
@@ -83,22 +76,19 @@ describe("proactive M/E/W awaiting-manual-pat-answer suppression wire", () => {
   });
 
   it("3/4: Weekly send-time gate covers cron and manual; drafts are not blanked", () => {
-    expect(weeklySend).toContain("hasAwaitingManualPatAnswer");
-    expect(weeklySend).toContain('"awaiting_manual_pat_answer"');
+    expect(weeklySend).toContain("weekly_delivery_retired");
+    expect(weeklySend).not.toContain("hasAwaitingManualPatAnswer");
     const sendFn = weeklySend.slice(
       weeklySend.indexOf("export async function sendWeeklyTtoDraftAuthoritative")
     );
-    const gateIdx = sendFn.indexOf("await hasAwaitingManualPatAnswer");
-    const twilioIdx = sendFn.indexOf("await sendSMS(");
-    const reserveIdx = sendFn.indexOf("reserveWeeklySmsSendEvent");
-    expect(gateIdx).toBeGreaterThan(0);
-    expect(reserveIdx).toBeGreaterThan(gateIdx);
-    expect(twilioIdx).toBeGreaterThan(gateIdx);
-    expect(sendFn.slice(gateIdx, twilioIdx)).not.toContain("current_body_to_send:");
+    expect(sendFn).toContain("weekly_delivery_retired");
+    expect(sendFn).not.toContain("await hasAwaitingManualPatAnswer");
+    expect(sendFn).not.toContain("await sendSMS(");
+    expect(sendFn).not.toContain("reserveWeeklySmsSendEvent");
     expect(weeklySend).toContain("export async function sendWeeklyTtoDraftManually");
-    expect(weeklySend).toContain("sendWeeklyTtoDraftAuthoritative({");
-    expect(weeklyCron).toContain("hasAwaitingManualPatAnswer");
-    expect(weeklyCron).toContain("skippedAwaitingManualPatAnswer");
+    expect(weeklyCron).toContain("weekly_delivery_retired");
+    expect(weeklyCron).not.toContain("hasAwaitingManualPatAnswer");
+    expect(weeklyCron).not.toContain("sendSMS");
   });
 
   it("12/13/14/15: protected surfaces and existing skip logic stay intact", () => {
@@ -123,23 +113,16 @@ describe("proactive M/E/W awaiting-manual-pat-answer suppression wire", () => {
   });
 
   it("8/9/10: STOP, inbound, and manual Pat send files are not in this slice", () => {
-    const changed = new Set(
-      execSync("git status --short --untracked-files=all", { cwd: ROOT, encoding: "utf8" })
-        .split("\n")
-        .map((line) => line.trim().replace(/^\S+\s+/, ""))
-        .filter(Boolean)
-    );
-    const protectedPaths = [
+    for (const p of [
       "src/lib/inbound-pat-source-evidence.ts",
       "src/app/api/ask-pat/route.ts",
       "src/lib/admin-manual-pat-answers.ts",
       "src/app/api/twilio/inbound/route.ts",
-      "src/lib/tyler-text-overview-admin.ts",
-      "src/lib/tyler-text-overview-weekly-generate.ts",
-    ];
-    for (const p of protectedPaths) {
-      expect(changed.has(p), p).toBe(false);
+    ]) {
+      expect(fs.readFileSync(path.join(ROOT, p), "utf8")).not.toContain(
+        "hasAwaitingManualPatAnswer"
+      );
     }
-    expect(fs.readFileSync(TWILIO_INBOUND, "utf8")).not.toContain("hasAwaitingManualPatAnswer");
+    expect(fs.readFileSync(TWILIO_INBOUND, "utf8")).toContain("START_TWIML_BODY");
   });
 });

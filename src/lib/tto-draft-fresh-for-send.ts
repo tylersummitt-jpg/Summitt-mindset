@@ -18,7 +18,6 @@ import {
   generateTylerTextOverviewEveningPreviewForUser,
   loadTylerTextOverviewAudienceRow,
 } from "@/lib/tyler-text-overview-generate";
-import { generateTylerTextOverviewWeeklyDraftForUser } from "@/lib/tyler-text-overview-weekly-generate";
 import {
   isProtectedTylerProvenanceDraft,
   readTtoGenerationEffectiveAsk,
@@ -45,7 +44,9 @@ export type EnsureCurrentTtoDraftFreshForSendFailureReason =
   | "authority_reread_failed"
   | "generation_effective_ask_unproven"
   | "conversation_lookup_failed"
-  | "conversation_moved_again";
+  | "conversation_moved_again"
+  | "scheduled_delivery_requires_authorization"
+  | "weekly_delivery_retired";
 
 export type EnsureCurrentTtoDraftFreshForSendResult =
   | {
@@ -123,6 +124,9 @@ export async function ensureCurrentTtoDraftFreshForSend(args: {
 }): Promise<EnsureCurrentTtoDraftFreshForSendResult> {
   const clerkUserId = args.clerkUserId.trim();
   const draftForDayKey = args.draftForDayKey.trim();
+  if (args.sendSlot === SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT) {
+    return { ok: false, reason: "weekly_delivery_retired" };
+  }
   if (!clerkUserId || !draftForDayKey) {
     return { ok: false, reason: "no_current_draft" };
   }
@@ -134,6 +138,16 @@ export async function ensureCurrentTtoDraftFreshForSend(args: {
   });
   if (!loaded.ok) return { ok: false, reason: loaded.reason };
   const draft = loaded.draft;
+
+  if (
+    args.sendSlot !== SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT &&
+    draft.generation_metadata?.scheduled_generation_convention ===
+      "member_local_delivery_v1"
+  ) {
+    // The scheduled delivery path authorizes this body itself.
+    // A convention match is not freshness, and this function must not regenerate it.
+    return { ok: false, reason: "scheduled_delivery_requires_authorization" };
+  }
 
   const latest = await readLatestRealConversationAt(clerkUserId);
   if (!latest.ok) {
@@ -511,12 +525,7 @@ async function dispatchExistingSlotGenerator(args: {
   }
 
   if (args.sendSlot === SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT) {
-    const generated = await generateTylerTextOverviewWeeklyDraftForUser({
-      clerkUserId: args.clerkUserId,
-      now: args.now,
-      ...replace,
-    });
-    return generated.ok ? { ok: true } : { ok: false, reason: generated.reason };
+    return { ok: false, reason: "weekly_delivery_retired" };
   }
 
   return { ok: false, reason: "unsupported_slot" };

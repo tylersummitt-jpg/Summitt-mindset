@@ -49,7 +49,7 @@ export async function notifySmsOptOutReviewNeeded(
     "They said:",
     triggeringText,
     "",
-    "Morning, Evening, and Weekly texts are currently being held.",
+    "Morning and Evening texts are currently being held.",
     "",
     `Review: ${reviewUrl}`,
   ].join("\n");
@@ -58,7 +58,7 @@ export async function notifySmsOptOutReviewNeeded(
     <p><strong>Member:</strong> ${escapeHtml(memberName)}</p>
     <p><strong>They said:</strong></p>
     <pre style="white-space:pre-wrap;font-family:inherit;">${escapeHtml(triggeringText)}</pre>
-    <p>Morning, Evening, and Weekly texts are currently being held.</p>
+    <p>Morning and Evening texts are currently being held.</p>
     <p><a href="${escapeHtml(reviewUrl)}">Open the SMS opt-out review</a></p>
   `;
 

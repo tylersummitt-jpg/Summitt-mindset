@@ -255,7 +255,7 @@ export function eveningSendButtonLabel(isSending: boolean): string {
 }
 
 export const EVENING_PROACTIVE_SEND_DISABLED_UI_COPY =
-  "Evening drafts auto-send between 7–9 PM in the member's local time.";
+  "Manual Evening send is off. Saving a draft does not send it or promise delivery.";
 
 export function weeklySendButtonLabel(isSending: boolean): string {
   return isSending ? "Sending Weekly Text…" : "Send Weekly Text";
@@ -583,7 +583,6 @@ export function tylerTextOverviewNavPages(
   const pages: Array<{ page: TylerTextOverviewSiblingPage; label: string }> = [
     { page: "morning", label: "Morning" },
     { page: "evening", label: "Evening" },
-    { page: "weekly", label: "Weekly" },
     { page: "reply-report", label: "Reply report" },
   ];
   return pages
@@ -773,9 +772,7 @@ export function formatTtoGenerateAllConfirm(args: {
   const dayLabel = formatTtoGenerateAllDayLabel(args.draftForDayKey);
   const slotLabel = args.slot === "evening_checkin" ? "Evening" : "Morning";
   const windowCopy =
-    args.slot === "evening_checkin"
-      ? "Successful nonblank current drafts are only eligible during each member's local 7–9 PM Evening window."
-      : "Successful nonblank current drafts are only eligible during each member's local 7–9 AM Morning window.";
+    "Morning and Evening are batch labels, not a fixed local delivery window. Delivery time is each member's saved schedule. Generating a draft does not send it.";
   const lines = [
     args.resumeAvailable
       ? `Resume ${slotLabel} generation for ${dayLabel} (${args.draftForDayKey})?`
@@ -804,8 +801,14 @@ export function formatTtoGenerateAllProgressLine(args: {
   targeted: number;
   failed: number;
   remaining: number;
+  generatedTexts?: number | null;
+  intentionalSpaces?: number | null;
 }): string {
-  return `${args.generatedComplete} / ${args.targeted} generated · ${args.failed} failed · ${args.remaining} remaining`;
+  const settled =
+    args.generatedTexts != null && args.intentionalSpaces != null
+      ? `${args.generatedTexts} generated texts, ${args.intentionalSpaces} intentional space / ${args.targeted}`
+      : `${args.generatedComplete} / ${args.targeted} finished, including intentional spaces`;
+  return `${settled} · ${args.failed} failed · ${args.remaining} remaining`;
 }
 
 export function formatTtoGenerateAllResultMessage(args: {
@@ -823,6 +826,8 @@ export function formatTtoGenerateAllResultMessage(args: {
   pending?: number;
   remaining?: number;
   failures?: Array<{ clerkUserId: string; preferredName: string | null; error: string }>;
+  generatedTexts?: number | null;
+  intentionalSpaces?: number | null;
 }): string {
   const slotLabel = args.slot === "evening_checkin" ? "Evening" : "Morning";
   const generatedComplete = args.generated_complete ?? args.generated ?? 0;
@@ -841,6 +846,8 @@ export function formatTtoGenerateAllResultMessage(args: {
       targeted: args.targeted,
       failed: failedCount,
       remaining,
+      generatedTexts: args.generatedTexts,
+      intentionalSpaces: args.intentionalSpaces,
     }),
     `${protectedComplete} Tyler-protected current drafts preserved.`,
     `${alreadySent} already-sent skipped.`,
@@ -920,7 +927,7 @@ export function formatEveningBulkApplyConfirm(args: {
     "This overwrites existing Tyler edits.",
     "Already-sent / non-current drafts are skipped.",
     "This saves the text but does not send it now.",
-    "Nonblank saved Evening bodies may auto-send later during each member's 7–9 PM local Evening window.",
+    "Delivery follows each member's saved schedule. Saving does not promise delivery.",
     "",
     "Exact text:",
     args.body,

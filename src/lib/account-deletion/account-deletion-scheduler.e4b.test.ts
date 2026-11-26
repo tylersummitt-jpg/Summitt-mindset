@@ -727,7 +727,6 @@ describe("APP-041E4d disabled Vercel cron schedule", () => {
   const EXPECTED_CRONS = [
     { path: "/api/cron/daily-sms", schedule: "*/5 * * * *" },
     { path: "/api/cron/evening-sms", schedule: "*/5 * * * *" },
-    { path: "/api/cron/weekly-sms", schedule: "*/5 * * * *" },
     { path: "/api/cron/challenge", schedule: "0 * * * *" },
     { path: "/api/cron/recovery", schedule: "15 * * * *" },
     { path: "/api/cron/acquisition", schedule: "45 * * * *" },
@@ -735,6 +734,8 @@ describe("APP-041E4d disabled Vercel cron schedule", () => {
     { path: "/api/cron/quotes-book-fulfillment", schedule: "0 15 * * *" },
     { path: "/api/cron/account-deletions", schedule: "*/5 * * * *" },
     { path: "/api/cron/victory-media", schedule: "* * * * *" },
+    { path: "/api/cron/ad-lab-insights", schedule: "15 11,21 * * *" },
+    { path: "/api/cron/tto-scheduled-generate", schedule: "*/5 * * * *" },
   ] as const;
 
   function loadCrons(): Array<{ path: string; schedule: string }> {

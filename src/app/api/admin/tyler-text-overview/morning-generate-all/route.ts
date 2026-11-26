@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
-import {
-  generateMorningTtoDraftBatch,
-  parseGenerateAllRequestBody,
-} from "@/lib/tyler-text-overview-generate-all";
+import { parseGenerateAllRequestBody } from "@/lib/tyler-text-overview-generate-all";
+import { runManualScheduledGenerateAll } from "@/lib/tto-scheduled-generate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,11 +38,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: parsed.error }, { status: 400 });
     }
 
-    // Slot is server-authoritative: morning. Never trust client slot.
-    const result = await generateMorningTtoDraftBatch({
+    // The posted date is the administrative batch date. Draft keys are member-local.
+    const result = await runManualScheduledGenerateAll({
       draftForDayKey: parsed.draftForDayKey,
+      owner: "morning",
       audienceClerkUserIds: parsed.audienceClerkUserIds,
-      excludeClerkUserIds: parsed.excludeClerkUserIds,
+      excludeOccurrenceKeys: parsed.excludeOccurrenceKeys,
+      failedOnly: parsed.failedOnly,
     });
 
     if ("status" in result) {

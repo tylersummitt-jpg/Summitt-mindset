@@ -287,6 +287,88 @@ export async function insertSmsPlannedInterruptionMemorySignal(args: {
   }
 }
 
+export type SundayPlannedInterruption =
+  | {
+      status: "active";
+      occurred_at: string;
+      reason_category: string | null;
+      resume_hint: string | null;
+    }
+  | { status: "none"; occurred_at: null; reason_category: null; resume_hint: null }
+  | { status: "unavailable"; occurred_at: null; reason_category: null; resume_hint: null };
+
+/**
+ * Stored interruption only. A failed read is unavailable, not a confirmed absence.
+ * Quiet stretches do not create an interruption.
+ */
+export async function loadSundayPlannedInterruption(args: {
+  commitmentId: string;
+  clerkUserId: string;
+  now?: Date;
+}): Promise<SundayPlannedInterruption> {
+  const now = args.now ?? new Date();
+  const cutoff = new Date(now.getTime() - 10 * MS_DAY).toISOString();
+  const absent: SundayPlannedInterruption = {
+    status: "none",
+    occurred_at: null,
+    reason_category: null,
+    resume_hint: null,
+  };
+  const unavailable: SundayPlannedInterruption = {
+    status: "unavailable",
+    occurred_at: null,
+    reason_category: null,
+    resume_hint: null,
+  };
+  try {
+    const { supabaseServer } = await import("@/lib/supabase-server");
+    const { data, error } = await supabaseServer
+      .from("v2_commitment_event")
+      .select("occurred_at, payload_json")
+      .eq("commitment_id", args.commitmentId)
+      .eq("clerk_user_id", args.clerkUserId)
+      .eq("event_type", "sms_memory_signal")
+      .gte("occurred_at", cutoff)
+      .lte("occurred_at", now.toISOString())
+      .order("occurred_at", { ascending: false })
+      .limit(12);
+    if (error) {
+      console.warn("[sms-planned-interruption] sunday load failed", {
+        commitment_id: args.commitmentId,
+        message: error.message,
+      });
+      return unavailable;
+    }
+    for (const row of data ?? []) {
+      const payload = row.payload_json;
+      const ms = parsePayloadMemorySignal(payload);
+      if (!ms || ms.planned_interruption !== true) continue;
+      if (!isActivePlannedInterruptionSignal(payload, now)) continue;
+      const occurredAt = typeof row.occurred_at === "string" ? row.occurred_at : "";
+      if (!occurredAt || Date.parse(occurredAt) > now.getTime()) continue;
+      const reason =
+        typeof ms.reason_category === "string" && ms.reason_category.trim()
+          ? ms.reason_category.trim()
+          : null;
+      const resume =
+        typeof ms.resume_hint === "string" && ms.resume_hint.trim() ? ms.resume_hint.trim() : null;
+      return {
+        status: "active",
+        occurred_at: occurredAt,
+        reason_category: reason,
+        resume_hint: resume,
+      };
+    }
+    return absent;
+  } catch (err) {
+    console.warn("[sms-planned-interruption] sunday load failed", {
+      commitment_id: args.commitmentId,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    return unavailable;
+  }
+}
+
 export async function loadRecentPlannedInterruptionSignalForCommitment(args: {
   commitmentId: string;
   clerkUserId: string;

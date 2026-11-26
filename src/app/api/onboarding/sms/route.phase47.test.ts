@@ -140,11 +140,14 @@ describe("Onboarding SMS route — no outbound send (static)", () => {
       path.join(REPO_ROOT, "src/app/api/cron/weekly-sms/route.ts"),
       "utf8"
     );
-    expect(daily).toContain("[07:00, 09:00)");
-    expect(daily).toMatch(/\bsendSMS\s*\(/);
-    expect(evening).toContain("[19:00, 21:00)");
-    expect(weekly).toContain("weekly-sms is Weekly TTO draft-authoritative");
-    expect(weekly).toContain("sendWeeklyTtoDraftAuthoritative");
+    const dailyProduction = daily.slice(daily.indexOf("export async function GET"));
+    const eveningProduction = evening.slice(evening.indexOf("export async function GET"));
+    expect(dailyProduction).toContain("deliverScheduledDailyCoaching");
+    expect(dailyProduction).not.toContain("[07:00, 09:00)");
+    expect(eveningProduction).toContain("deliverScheduledDailyCoaching");
+    expect(eveningProduction).not.toContain("[19:00, 21:00)");
+    expect(weekly).toContain("weekly_delivery_retired");
+    expect(weekly).not.toContain("sendWeeklyTtoDraftAuthoritative");
   });
 
   it("inbound STOP/HELP/START still resolve identity via sms_identities", () => {

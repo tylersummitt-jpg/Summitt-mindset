@@ -59,6 +59,7 @@ import {
   ttoGenerateAllSessionStorageKey,
   formatTtoGenerateAllConfirm,
   formatTtoGenerateAllDayLabel,
+  formatTtoGenerateAllProgressLine,
   formatTtoGenerateAllResultMessage,
   TTO_GENERATE_ALL_SEARCH_WARNING,
   TTO_GENERATE_ALL_SELECT_DAY_HINT,
@@ -169,7 +170,7 @@ describe("tyler-text-overview-dashboard-copy evening send/generate UI helpers", 
     expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
     expect(eveningSendButtonLabel(true)).toBe("Send Evening Text");
     expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toBe(
-      "Evening drafts auto-send between 7–9 PM in the member's local time."
+      "Manual Evening send is off. Saving a draft does not send it or promise delivery."
     );
   });
 
@@ -540,7 +541,7 @@ describe("tyler-text-overview two-page UI wiring", () => {
   it("evening Generate/Regenerate prefers selectedDayKey and omits stale row day when blank", () => {
     expect(dashboard).toContain("isEveningPage");
     expect(dashboard).toMatch(
-      /const dayKey = isEveningPage\s*\?\s*selectedDayKey\.trim\(\) \|\| undefined/
+      /const batchDate = isEveningPage\s*\?\s*selectedDayKey\.trim\(\) \|\| row\.draftForDayKey\?\.trim\(\) \|\| ""/
     );
     expect(dashboard).not.toMatch(
       /const dayKey = row\.draftForDayKey\?\.trim\(\) \|\| selectedDayKey\.trim\(\) \|\| undefined/
@@ -632,7 +633,8 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("ttoBulkSearchWarning");
     expect(dashboard).toContain("forceOverwrite: true");
     expect(dashboard).toContain('bulkUiSlot = isEveningPage ? ("evening_checkin" as const)');
-    expect(dashboard).toContain("7–9 PM local window");
+    expect(dashboard).toContain("Delivery follows each member's saved schedule.");
+    expect(dashboard).not.toContain("7–9");
     expect(dashboard).not.toContain("weekly-bulk-save");
     expect(dashboard).not.toContain("{!isEveningPage ? (");
     expect(ttoBulkSaveEndpoint("morning")).toBe(
@@ -653,8 +655,8 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("pageBatchBusy");
     expect(dashboard).toContain("TTO_GENERATE_ALL_SEARCH_WARNING");
     expect(dashboard).toContain("forceOverwrite: true");
-    expect(dashboard).toContain("7–9 AM Morning window");
-    expect(dashboard).toContain("7–9 PM Evening window");
+    expect(dashboard).toContain("Morning and Evening are the batch labels, not the delivery clock.");
+    expect(dashboard).not.toContain("7–9");
     expect(dashboard).toContain("generateEveningPreview");
     expect(dashboard).toContain("eveningGenerateButtonLabel");
     expect(dashboard).not.toContain("/api/cron/tyler-text-overview-generate");
@@ -699,7 +701,9 @@ describe("TTO Generate All confirmation copy", () => {
     expect(copy).toContain("Successful current machine drafts are not regenerated");
     expect(copy).toContain("resumable chunks");
     expect(copy).toContain("does not send texts now");
-    expect(copy).toContain("7–9 AM Morning window");
+    expect(copy).toContain("saved schedule");
+    expect(copy).toContain("does not send it");
+    expect(copy).not.toContain("7–9");
     expect(copy).toContain("selected date exactly");
   });
 
@@ -719,7 +723,9 @@ describe("TTO Generate All confirmation copy", () => {
       searchActive: false,
     });
     expect(copy).toContain("Evening");
-    expect(copy).toContain("7–9 PM Evening window");
+    expect(copy).toContain("saved schedule");
+    expect(copy).toContain("does not send it");
+    expect(copy).not.toContain("7–9");
     expect(copy).not.toContain("Active search does not narrow");
     expect(TTO_GENERATE_ALL_SEARCH_WARNING).toContain("full selected-day sendable audience");
     expect(TTO_GENERATE_ALL_SELECT_DAY_HINT).toContain("Select a Draft day");
@@ -738,12 +744,34 @@ describe("TTO Generate All confirmation copy", () => {
       remaining: 1,
       failures: [{ clerkUserId: "user_x", preferredName: "Pat", error: "sol_failed" }],
     });
-    expect(msg).toContain("31 / 40 generated · 1 failed · 1 remaining");
+    expect(msg).toContain("31 / 40 finished, including intentional spaces · 1 failed · 1 remaining");
+    expect(msg).not.toContain("31 / 40 generated");
     expect(msg).toContain("5 Tyler-protected");
     expect(msg).toContain("2 already-sent skipped.");
     expect(msg).toContain("1 non-current skipped.");
     expect(msg).toContain("Morning Generate All targeted 40.");
     expect(msg).toContain("Pat: sol_failed");
+  });
+
+  it("progress line keeps intentional space out of the generated-text count", () => {
+    const separate = formatTtoGenerateAllProgressLine({
+      generatedComplete: 4,
+      generatedTexts: 3,
+      intentionalSpaces: 1,
+      targeted: 8,
+      failed: 0,
+      remaining: 2,
+    });
+    expect(separate).toContain("3 generated texts, 1 intentional space");
+    expect(separate).not.toContain("4 generated");
+    const aggregate = formatTtoGenerateAllProgressLine({
+      generatedComplete: 4,
+      targeted: 8,
+      failed: 0,
+      remaining: 2,
+    });
+    expect(aggregate).toContain("finished, including intentional spaces");
+    expect(aggregate).not.toContain("4 generated");
   });
 
   it("Resume button label and confirm when resumeAvailable", () => {
@@ -850,7 +878,9 @@ describe("evening bulk confirmation copy", () => {
     expect(copy).toContain(body);
     expect(copy).toContain("overwrites existing Tyler edits");
     expect(copy).toContain("does not send it now");
-    expect(copy).toContain("7–9 PM local Evening window");
+    expect(copy).toContain("saved schedule");
+    expect(copy).toContain("does not promise delivery");
+    expect(copy).not.toContain("7–9");
     expect(copy).toContain("Active search does not narrow");
   });
 

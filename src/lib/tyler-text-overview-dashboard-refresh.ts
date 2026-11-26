@@ -21,6 +21,34 @@ export function shouldShowTtoFullPageLoader(args: {
   return true;
 }
 
+export type TtoDashboardSelectionView = "current" | "loading_selection" | "unavailable";
+
+/**
+ * The loaded payload may be shown only when its day and slot are the selection.
+ * A different day stays on the loader, or on unavailable after that day's load fails.
+ * Same-day refresh keeps "current" so a failed refresh can remain visibly stale.
+ */
+export function resolveTtoDashboardSelectionView(args: {
+  selectedDayKey: string;
+  selectedSlot: string;
+  loadedDayKey: string | null;
+  loadedSlot: string | null;
+  loading: boolean;
+  selectionLoadFailed: boolean;
+}): TtoDashboardSelectionView {
+  const matches =
+    args.loadedSlot != null &&
+    args.loadedSlot === args.selectedSlot &&
+    (args.loadedDayKey?.trim() ?? null) === args.selectedDayKey.trim();
+  if (!matches) {
+    if (args.loading || !args.selectionLoadFailed) return "loading_selection";
+    return "unavailable";
+  }
+  if (args.loading && args.selectionLoadFailed) return "loading_selection";
+  if (args.selectionLoadFailed) return "unavailable";
+  return "current";
+}
+
 export function shouldShowTtoBackgroundRefreshing(args: {
   loading: boolean;
   showFullPageLoader: boolean;

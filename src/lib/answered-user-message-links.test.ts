@@ -527,6 +527,7 @@ describe("exact-thread + packet answered_user_message_links", () => {
           "sender",
           "sent_at_local",
           "sent_at_utc",
+          "source_id",
         ].sort()
       );
     }

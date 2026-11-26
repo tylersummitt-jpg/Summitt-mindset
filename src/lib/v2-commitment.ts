@@ -45,18 +45,20 @@ export type V2EventRowForAi = {
 
 const BLOCKER_CAPTURE_TTL_MS = 6 * 60 * 60 * 1000;
 
+const ACTIVE_COMMITMENT_COLUMNS =
+  "id, clerk_user_id, status, behavior_statement, title, success_criteria, blocker_capture_expires_at, blocker_capture_after_event, adaptive_ask_text, adaptive_ask_active_from, adaptive_ask_expires_at, adaptive_proposal_text, adaptive_proposal_created_at, adaptive_proposal_expires_at, accountability_phase, reactivation_entered_at, reactivation_last_sent_at, reactivation_entry_reason_code, refresh_session, commitment_refresh_last_prompted_at, pending_resolution_kind, pending_resolution_created_at, pending_resolution_expires_at, pending_resolution_payload, updated_at, started_at";
+
 /**
  * Returns the user's active V2 commitment, if any.
  * Legacy SMS paths should treat a null result as "not on V2 accountability".
+ * A null result does not distinguish a missing row from a failed read.
  */
 export async function getActiveCommitment(
   clerkUserId: string
 ): Promise<ActiveV2CommitmentRow | null> {
   const { data, error } = await supabaseServer
     .from("v2_commitment")
-    .select(
-      "id, clerk_user_id, status, behavior_statement, title, success_criteria, blocker_capture_expires_at, blocker_capture_after_event, adaptive_ask_text, adaptive_ask_active_from, adaptive_ask_expires_at, adaptive_proposal_text, adaptive_proposal_created_at, adaptive_proposal_expires_at, accountability_phase, reactivation_entered_at, reactivation_last_sent_at, reactivation_entry_reason_code, refresh_session, commitment_refresh_last_prompted_at, pending_resolution_kind, pending_resolution_created_at, pending_resolution_expires_at, pending_resolution_payload, updated_at, started_at"
-    )
+    .select(ACTIVE_COMMITMENT_COLUMNS)
     .eq("clerk_user_id", clerkUserId)
     .eq("status", "active")
     .maybeSingle();
@@ -75,6 +77,34 @@ export async function getActiveCommitment(
 
   const row = data as Record<string, unknown>;
   return mapRowToActiveV2Commitment(row);
+}
+
+/**
+ * Same active-commitment query as getActiveCommitment.
+ * Distinguishes a failed read from a successful read with no active commitment.
+ * getActiveCommitment is unchanged for existing callers.
+ */
+export async function readActiveCommitmentForCadence(
+  clerkUserId: string
+): Promise<
+  | { ok: true; commitment: ActiveV2CommitmentRow | null }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await supabaseServer
+    .from("v2_commitment")
+    .select(ACTIVE_COMMITMENT_COLUMNS)
+    .eq("clerk_user_id", clerkUserId)
+    .eq("status", "active")
+    .maybeSingle();
+
+  if (error) return { ok: false, error: error.message };
+  if (!data || typeof data.behavior_statement !== "string") {
+    return { ok: true, commitment: null };
+  }
+  return {
+    ok: true,
+    commitment: mapRowToActiveV2Commitment(data as Record<string, unknown>),
+  };
 }
 
 function parseAccountabilityPhase(v: unknown): V2AccountabilityPhase {
@@ -392,6 +422,39 @@ export async function getLastV2CheckSentForCommitment(
   const dk = payload.day_key;
   if (typeof dk !== "string" || !dk.trim()) return null;
   return { day_key: dk.trim(), payload_json: payload };
+}
+
+/**
+ * Same check_sent row as getLastV2CheckSentForCommitment.
+ * A missing row is successful empty history. A query error stays a failure.
+ * Existing callers of getLastV2CheckSentForCommitment are unchanged.
+ */
+export async function readLastV2CheckSentForCadence(
+  commitmentId: string
+): Promise<{ ok: true; dayKey: string | null } | { ok: false; error: string }> {
+  const { data, error } = await supabaseServer
+    .from("v2_commitment_event")
+    .select("payload_json")
+    .eq("commitment_id", commitmentId)
+    .eq("event_type", "check_sent")
+    .order("occurred_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, error: error.message };
+  }
+
+  const payload =
+    data?.payload_json != null &&
+    typeof data.payload_json === "object" &&
+    !Array.isArray(data.payload_json)
+      ? (data.payload_json as Record<string, unknown>)
+      : null;
+  if (!payload) return { ok: true, dayKey: null };
+  const dk = payload.day_key;
+  if (typeof dk !== "string" || !dk.trim()) return { ok: true, dayKey: null };
+  return { ok: true, dayKey: dk.trim() };
 }
 
 /** Latest N successful `check_sent` rows (Twilio success path), newest first. */

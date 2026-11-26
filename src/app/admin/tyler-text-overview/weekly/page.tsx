@@ -1,25 +1,29 @@
-import { Suspense } from "react";
+import Link from "next/link";
 
 import { requireTylerAdmin } from "@/lib/auth/require-tyler-admin";
-
-import TylerTextOverviewWeeklyDashboard from "../tyler-text-overview-weekly-dashboard";
 
 export default async function AdminTylerTextOverviewWeeklyPage() {
   await requireTylerAdmin();
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Weekly Text Overview</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Review and edit weekly_review drafts. This page does not send. Live weekly SMS still
-          comes from /api/cron/weekly-sms until cutover.
-        </p>
-      </div>
-
-      <Suspense fallback={<p className="text-sm text-gray-500">Loading drafts…</p>}>
-        <TylerTextOverviewWeeklyDashboard />
-      </Suspense>
+    <div className="max-w-3xl space-y-4">
+      <h1 className="text-3xl font-bold text-gray-900">Weekly Text Overview</h1>
+      <p className="text-sm text-gray-700">
+        Weekly delivery is retired. Sunday coaching is the member&apos;s ordinary scheduled daily
+        text. This page does not generate, edit, or send. Historical weekly drafts, generations,
+        Notebook records, Hallway records, and sent messages stay in their original records.
+      </p>
+      <p className="text-sm">
+        <Link href="/admin/tyler-text-overview/morning" className="font-medium text-gray-900 underline">
+          Morning TTO
+        </Link>
+        <Link
+          href="/admin/tyler-text-overview/evening"
+          className="ml-3 font-medium text-gray-900 underline"
+        >
+          Evening TTO
+        </Link>
+      </p>
     </div>
   );
 }

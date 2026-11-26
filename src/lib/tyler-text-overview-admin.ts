@@ -19,6 +19,8 @@ import {
   SMS_DAILY_PRODUCTION_SEND_SLOT,
   type AuthoritativeMachineDraftStatus,
   type SmsDailySendSlot,
+  type TtoBatchStatistics,
+  type TtoGenerationOutcomeCounts,
   type TylerTextOverviewAdminCounts,
   type TylerTextOverviewAdminDraftRow,
   type TylerTextOverviewDraftStatus,
@@ -30,7 +32,22 @@ import {
   type TylerTextOverviewSlotCoachingContextPanel,
 } from "@/lib/tyler-text-overview-types";
 import { requireTylerTextOverviewDraftDayKey } from "@/lib/tyler-text-overview-draft-day-key";
-import { isPauseActive, type V2UserSmsCommsPreferencesRow } from "@/lib/v2-sms-comms-preferences";
+import {
+  isPauseActive,
+  readV2UserSmsCommsPreferences,
+  type V2UserSmsCommsPreferencesRow,
+} from "@/lib/v2-sms-comms-preferences";
+import { getClerkUserOrNull } from "@/lib/clerk-rest";
+import { isValidIanaTimezone } from "@/lib/timezone";
+import {
+  resolveProactiveSchedule,
+  scheduledDeliveryTupleIsCoherent,
+  type ProactiveSchedulePreferenceRead,
+} from "@/lib/sms-proactive-schedule";
+import {
+  persistedDeliveryFactsFromMetadata,
+  type TtoCurrentDeliveryFacts,
+} from "@/lib/tyler-text-overview-generate";
 import {
   WEEKLY_TTO_DRAFT_BODY_EXCEEDS_EDITABLE_MAX,
   weeklyEditableBodyExceedsMax,
@@ -341,15 +358,59 @@ export function emptyTylerTextOverviewManifestIntegrity(
   return { ...base, ...overrides };
 }
 
-function isSendableSmsAudienceRow(row: Record<string, unknown>): boolean {
-  if (typeof row.clerk_user_id !== "string" || !row.clerk_user_id.trim()) return false;
-  if (row.summitt_subscribed !== true) return false;
-  if (row.sms_enabled !== true) return false;
+export type SmsAudienceSendability =
+  | { sendable: true }
+  | {
+      sendable: false;
+      reason: "absent" | "identity" | "membership" | "sms_disabled" | "phone" | "stopped";
+    };
+
+/** Same consent rules as the sendable audience loader, for one already-fetched row. */
+export function classifySmsAudienceSendability(
+  row: Record<string, unknown> | null
+): SmsAudienceSendability {
+  if (!row) return { sendable: false, reason: "absent" };
+  if (typeof row.clerk_user_id !== "string" || !row.clerk_user_id.trim()) {
+    return { sendable: false, reason: "identity" };
+  }
+  if (row.summitt_subscribed !== true) return { sendable: false, reason: "membership" };
+  if (row.sms_enabled !== true) return { sendable: false, reason: "sms_disabled" };
   const phone = row.phone_number;
-  if (typeof phone !== "string" || !phone.trim()) return false;
+  if (typeof phone !== "string" || !phone.trim()) return { sendable: false, reason: "phone" };
   const stoppedAt = row.stopped_at;
-  if (stoppedAt != null && stoppedAt !== "") return false;
-  return true;
+  if (stoppedAt != null && stoppedAt !== "") return { sendable: false, reason: "stopped" };
+  return { sendable: true };
+}
+
+function isSendableSmsAudienceRow(row: Record<string, unknown>): boolean {
+  return classifySmsAudienceSendability(row).sendable;
+}
+
+/**
+ * One member's current SMS consent row. Does not load the rest of the audience.
+ * A query error stays unresolved. A missing or non-sendable row is confirmed.
+ */
+export async function readMemberSmsSendability(clerkUserId: string): Promise<
+  | { ok: true; sendable: true; timezone: string | null }
+  | {
+      ok: true;
+      sendable: false;
+      reason: "absent" | "identity" | "membership" | "sms_disabled" | "phone" | "stopped";
+    }
+  | { ok: false; error: string }
+> {
+  const { data, error } = await supabaseServer
+    .from("sms_audience")
+    .select("clerk_user_id, phone_number, timezone, sms_enabled, stopped_at, summitt_subscribed")
+    .eq("clerk_user_id", clerkUserId)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  const row =
+    data != null && typeof data === "object" ? (data as Record<string, unknown>) : null;
+  const classified = classifySmsAudienceSendability(row);
+  if (!classified.sendable) return { ok: true, sendable: false, reason: classified.reason };
+  const timezone = typeof row?.timezone === "string" ? row.timezone : null;
+  return { ok: true, sendable: true, timezone };
 }
 
 async function paginateExactQueryRows<T extends Record<string, unknown>>(args: {
@@ -579,7 +640,8 @@ async function fetchPreferredNamesByUserIds(
 }
 
 export async function loadSendableTylerTextOverviewAudienceMembers(
-  now: Date = new Date()
+  now: Date = new Date(),
+  options?: { includeCurrentlyPaused?: boolean }
 ): Promise<SendableAudienceMember[]> {
   let audienceRows: Array<Record<string, unknown>>;
   try {
@@ -622,7 +684,12 @@ export async function loadSendableTylerTextOverviewAudienceMembers(
         ? commitment.behavior_statement.trim()
         : "";
     if (!behavior) continue;
-    if (isPauseActive(prefsByUserId.get(clerkUserId) ?? null, now)) continue;
+    if (
+      !options?.includeCurrentlyPaused &&
+      isPauseActive(prefsByUserId.get(clerkUserId) ?? null, now)
+    ) {
+      continue;
+    }
 
     members.push({
       clerkUserId,
@@ -1119,7 +1186,77 @@ export function mapMessageForFromMetadata(
       ? m.daypart
       : null;
   if (!timezone || !local_date || !local_weekday || !daypart) return null;
-  return { timezone, local_date, local_weekday, daypart };
+  const intended =
+    typeof m.intended_receive_time_local === "string" ? m.intended_receive_time_local.trim() : "";
+  const utc = typeof m.utc_instant === "string" ? m.utc_instant.trim() : "";
+  const batch = typeof m.administrative_batch_date === "string" ? m.administrative_batch_date.trim() : "";
+  return {
+    timezone,
+    local_date,
+    local_weekday,
+    daypart,
+    ...(intended ? { intended_receive_time_local: intended } : {}),
+    ...(utc ? { utc_instant: utc } : {}),
+    ...(batch ? { administrative_batch_date: batch } : {}),
+  };
+}
+
+function considerationVersionsDisagree(
+  record: Record<string, unknown>,
+  metadata: Record<string, unknown>
+): boolean {
+  const applied = record.applies_to_body_version;
+  const current = metadata.current_body_version;
+  if (!applied || typeof applied !== "object" || Array.isArray(applied)) return false;
+  if (!current || typeof current !== "object" || Array.isArray(current)) return false;
+  const left = applied as Record<string, unknown>;
+  const right = current as Record<string, unknown>;
+  return left.generation_id !== right.generation_id
+    || (left.body_hash ?? null) !== (right.body_hash ?? null)
+    || (left.edited_at ?? null) !== (right.edited_at ?? null)
+    || (left.body_source ?? null) !== (right.body_source ?? null)
+    || left.edited_by_tyler !== right.edited_by_tyler;
+}
+
+/** Recorded reconsideration only. Does not reconstruct a missing model clock. */
+export function formatReconsiderationRecord(metadata: Record<string, unknown>): string | null {
+  const success = metadata.reconsideration_evidence;
+  const failure = metadata.reconsideration_failure_evidence;
+  const record =
+    success && typeof success === "object" && !Array.isArray(success)
+      ? (success as Record<string, unknown>)
+      : null;
+  if (record && record.succeeded === true) {
+    if (record.current_body_approval === false || considerationVersionsDisagree(record, metadata)) {
+      return "An earlier consideration does not approve the current body. Not send authorization.";
+    }
+    const decision =
+      record.model_existing_text_decision === "keep" ||
+      record.model_existing_text_decision === "replace"
+        ? record.model_existing_text_decision
+        : "unrecorded";
+    const retention =
+      record.body_retention === "model_keep"
+        ? "affirmative model KEEP"
+        : record.body_retention === "tyler_edit_policy"
+          ? record.delivery_mismatch_unresolved === true
+            ? "Tyler edit retained by policy with an unresolved delivery context"
+            : "Tyler edit retained by policy"
+          : "body retained";
+    const minute = record.delivery && typeof record.delivery === "object"
+      ? (record.delivery as { effective_local_minute?: unknown }).effective_local_minute
+      : null;
+    const clock = typeof minute === "number" ? ` Delivery minute ${minute}.` : "";
+    return `Latest reconsideration: model ${decision}; ${retention}.${clock} Not send authorization.`;
+  }
+  if (failure && typeof failure === "object" && !Array.isArray(failure)) {
+    const failed = failure as Record<string, unknown>;
+    if (considerationVersionsDisagree(failed, metadata)) {
+      return "An earlier failure does not apply to the current body.";
+    }
+    return "Latest reconsideration failed. The saved body was not replaced.";
+  }
+  return null;
 }
 
 /** Persisted generation-time packet only — never rebuild from current DB. */
@@ -1344,6 +1481,7 @@ export function mapDraftRowsToAdminDto(args: {
         typeof draft.source_sms_send_event_id === "string"
           ? draft.source_sms_send_event_id
           : null,
+      reconsiderationRecord: formatReconsiderationRecord(metadata),
       currentBodyToSend: draft.current_body_to_send,
       currentBodySource:
         draft.current_body_source === "machine" ||
@@ -1534,6 +1672,7 @@ export async function fetchCompleteTtoManifestDrafts(args: {
   sendSlot: SmsDailySendSlot;
   clerkUserIds: string[];
   draftForDayKey: string | null;
+  draftForDayKeys?: string[] | null;
 }): Promise<{
   drafts: DraftDbRow[];
   exactCount: number;
@@ -1569,7 +1708,10 @@ export async function fetchCompleteTtoManifestDrafts(args: {
         .order("id", { ascending: true })
         .range(from, from + pageSize - 1);
 
-      if (args.draftForDayKey) {
+      const dayKeys = (args.draftForDayKeys ?? []).map((key) => key.trim()).filter(Boolean);
+      if (dayKeys.length > 0) {
+        query = query.in("draft_for_day_key", [...new Set(dayKeys)]);
+      } else if (args.draftForDayKey) {
         query = query.eq("draft_for_day_key", args.draftForDayKey);
       }
 
@@ -1707,6 +1849,601 @@ async function fetchGenerationsByIdsComplete(
   return { generationsById, missingIds };
 }
 
+/** Matches Stage 3 scheduled_generation_convention. Kept local to avoid a loader cycle. */
+const DASHBOARD_SCHEDULED_GENERATION_CONVENTION = "member_local_delivery_v1";
+const SMS_TTO_GENERATION_BATCHES_TABLE = "sms_tto_generation_batches";
+const CLAIM_PLACEHOLDER_REASON = "scheduled_generation_claim";
+
+type DashboardOccurrence = {
+  clerkUserId: string;
+  memberLocalDate: string;
+  utcInstant: string;
+  selectedLocalMinute: number;
+  effectiveLocalMinute: number;
+  timeZone: string;
+  state: string;
+  initialSet: boolean;
+  initialOutcome: string | null;
+};
+
+type DashboardBatch = {
+  batchDate: string;
+  sendSlot: string;
+  openedTrigger: "automatic_schedule" | "manual_schedule";
+  windowEndsAt: string;
+  startedAt: string;
+  initialCompletedAt: string | null;
+  initialCompletedTrigger: "automatic_schedule" | "manual_schedule" | null;
+  relevantMemberCount: number;
+  scheduledMemberCount: number;
+  scheduledOccurrenceCount: number;
+  occurrences: DashboardOccurrence[];
+  nonScheduled: Array<{ clerkUserId: string; classification: "unscheduled" | "unresolved"; reason: string }>;
+};
+
+function emptyOutcomeCounts(): TtoGenerationOutcomeCounts {
+  return {
+    generated: 0,
+    intentionalSpace: 0,
+    protected: 0,
+    failed: 0,
+    pending: 0,
+    claimed: 0,
+    sent: 0,
+    legacyConflict: 0,
+    expired: 0,
+    ineligible: 0,
+  };
+}
+
+function addOutcome(counts: TtoGenerationOutcomeCounts, state: string | null | undefined) {
+  switch (state) {
+    case "generated":
+      counts.generated += 1;
+      break;
+    case "intentional_space":
+      counts.intentionalSpace += 1;
+      break;
+    case "protected":
+      counts.protected += 1;
+      break;
+    case "failed":
+      counts.failed += 1;
+      break;
+    case "pending":
+      counts.pending += 1;
+      break;
+    case "claimed":
+      counts.claimed += 1;
+      break;
+    case "sent":
+      counts.sent += 1;
+      break;
+    case "legacy_conflict":
+      counts.legacyConflict += 1;
+      break;
+    case "expired":
+      counts.expired += 1;
+      break;
+    case "ineligible":
+      counts.ineligible += 1;
+      break;
+    default:
+      break;
+  }
+}
+
+function dashboardProgress(args: {
+  initialCompletedAt: string | null;
+  windowEndsAt: string | null;
+  now: Date;
+}): "completed" | "incomplete_after_window" | "active" {
+  if (args.initialCompletedAt) return "completed";
+  const end = Date.parse(args.windowEndsAt ?? "");
+  if (Number.isFinite(end) && args.now.getTime() >= end) return "incomplete_after_window";
+  return "active";
+}
+
+export function notStartedBatchStatistics(): TtoBatchStatistics {
+  return {
+    retrieval: "missing",
+    error: null,
+    status: "not_started",
+    startedAt: null,
+    initialCompletedAt: null,
+    elapsedMs: null,
+    openedTrigger: null,
+    initialCompletedTrigger: null,
+    windowEndsAt: null,
+    relevantMemberCount: null,
+    initialScheduledMemberCount: null,
+    initialScheduledOccurrenceCount: null,
+    currentScheduledMemberCount: null,
+    currentScheduledOccurrenceCount: null,
+    initialOutcomes: null,
+    currentOutcomes: null,
+    unscheduledMemberCount: 0,
+    unresolvedMemberCount: 0,
+    latePendingOrClaimedCount: 0,
+    confirmedFailureCount: 0,
+  };
+}
+
+export function unavailableBatchStatistics(error: string): TtoBatchStatistics {
+  return {
+    ...notStartedBatchStatistics(),
+    retrieval: "unavailable",
+    error,
+    status: "unavailable",
+  };
+}
+
+export function summarizeDashboardBatch(args: {
+  batch: DashboardBatch;
+  now: Date;
+}): TtoBatchStatistics {
+  const current = emptyOutcomeCounts();
+  const initial = emptyOutcomeCounts();
+  let latePendingOrClaimedCount = 0;
+  for (const occurrence of args.batch.occurrences) {
+    addOutcome(current, occurrence.state);
+    if (occurrence.initialSet === false) {
+      if (occurrence.state === "pending" || occurrence.state === "claimed") {
+        latePendingOrClaimedCount += 1;
+      }
+      continue;
+    }
+    addOutcome(initial, occurrence.initialOutcome);
+  }
+  const unresolvedMemberCount = args.batch.nonScheduled.filter(
+    (item) => item.classification === "unresolved"
+  ).length;
+  const unscheduledMemberCount = args.batch.nonScheduled.filter(
+    (item) => item.classification === "unscheduled"
+  ).length;
+  const progress = dashboardProgress({
+    initialCompletedAt: args.batch.initialCompletedAt,
+    windowEndsAt: args.batch.windowEndsAt,
+    now: args.now,
+  });
+  const blocked =
+    current.failed +
+      current.legacyConflict +
+      current.expired +
+      current.ineligible +
+      unresolvedMemberCount >
+    0;
+  const status =
+    progress === "incomplete_after_window"
+      ? "incomplete_after_window"
+      : progress === "completed"
+        ? blocked
+          ? "completed_with_blocked"
+          : "completed"
+        : current.pending + current.claimed > 0
+          ? "in_progress"
+          : "started_idle";
+  const startedMs = Date.parse(args.batch.startedAt);
+  const completedMs = Date.parse(args.batch.initialCompletedAt ?? "");
+  const elapsedMs =
+    args.batch.initialCompletedAt && Number.isFinite(startedMs) && Number.isFinite(completedMs)
+      ? completedMs - startedMs
+      : null;
+  return {
+    retrieval: "ok",
+    error: null,
+    status,
+    startedAt: args.batch.startedAt,
+    initialCompletedAt: args.batch.initialCompletedAt,
+    elapsedMs: elapsedMs != null && elapsedMs >= 0 ? elapsedMs : null,
+    openedTrigger: args.batch.openedTrigger,
+    initialCompletedTrigger: args.batch.initialCompletedTrigger,
+    windowEndsAt: args.batch.windowEndsAt,
+    relevantMemberCount: args.batch.relevantMemberCount,
+    initialScheduledMemberCount: args.batch.scheduledMemberCount,
+    initialScheduledOccurrenceCount: args.batch.scheduledOccurrenceCount,
+    currentScheduledMemberCount: new Set(args.batch.occurrences.map((item) => item.clerkUserId)).size,
+    currentScheduledOccurrenceCount: args.batch.occurrences.length,
+    initialOutcomes: initial,
+    currentOutcomes: current,
+    unscheduledMemberCount,
+    unresolvedMemberCount,
+    latePendingOrClaimedCount,
+    confirmedFailureCount: current.failed,
+  };
+}
+
+function asDashboardString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function asDashboardNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function asDashboardBoolean(value: unknown): boolean {
+  return value === true || value === "true";
+}
+
+function parseDashboardOccurrence(value: unknown): DashboardOccurrence | null {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const clerkUserId = asDashboardString(row.clerk_user_id) ?? asDashboardString(row.clerkUserId);
+  const memberLocalDate = asDashboardString(row.member_local_date) ?? asDashboardString(row.memberLocalDate);
+  const utcInstant = asDashboardString(row.utc_instant) ?? asDashboardString(row.utcInstant);
+  const state = asDashboardString(row.state);
+  const effectiveLocalMinute =
+    asDashboardNumber(row.effective_local_minute) ?? asDashboardNumber(row.effectiveLocalMinute);
+  const timeZone = asDashboardString(row.time_zone) ?? asDashboardString(row.timeZone);
+  if (!clerkUserId || !memberLocalDate || !utcInstant || !state) return null;
+  if (effectiveLocalMinute == null || !timeZone) return null;
+  return {
+    clerkUserId,
+    memberLocalDate,
+    utcInstant,
+    selectedLocalMinute:
+      asDashboardNumber(row.selected_local_minute) ?? asDashboardNumber(row.selectedLocalMinute) ?? 0,
+    effectiveLocalMinute,
+    timeZone,
+    state,
+    initialSet:
+      row.initial_set == null && row.initialSet == null
+        ? true
+        : asDashboardBoolean(row.initial_set ?? row.initialSet),
+    initialOutcome: asDashboardString(row.initial_outcome) ?? asDashboardString(row.initialOutcome),
+  };
+}
+
+function parseDashboardBatch(value: unknown): DashboardBatch | null {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const batchDate = asDashboardString(row.batch_date);
+  const sendSlot = asDashboardString(row.send_slot);
+  const startedAt = asDashboardString(row.started_at);
+  const windowEndsAt = asDashboardString(row.window_ends_at);
+  const opened = asDashboardString(row.opened_trigger);
+  const relevantMemberCount = asDashboardNumber(row.relevant_member_count);
+  const scheduledMemberCount = asDashboardNumber(row.scheduled_member_count);
+  const scheduledOccurrenceCount = asDashboardNumber(row.scheduled_occurrence_count);
+  if (!batchDate || !sendSlot || !startedAt || !windowEndsAt) return null;
+  if (opened !== "manual_schedule" && opened !== "automatic_schedule") return null;
+  if (relevantMemberCount == null || scheduledMemberCount == null || scheduledOccurrenceCount == null) {
+    return null;
+  }
+  if (!Array.isArray(row.occurrences) || !Array.isArray(row.non_scheduled)) return null;
+  const occurrences: DashboardOccurrence[] = [];
+  for (const item of row.occurrences) {
+    const occurrence = parseDashboardOccurrence(item);
+    if (!occurrence) return null;
+    occurrences.push(occurrence);
+  }
+  const nonScheduled: DashboardBatch["nonScheduled"] = [];
+  for (const item of row.non_scheduled) {
+    if (item == null || typeof item !== "object" || Array.isArray(item)) return null;
+    const record = item as Record<string, unknown>;
+    const clerkUserId = asDashboardString(record.clerk_user_id) ?? asDashboardString(record.clerkUserId);
+    const classification = asDashboardString(record.classification);
+    const reason = asDashboardString(record.reason);
+    if (!clerkUserId || !reason) return null;
+    if (classification !== "unscheduled" && classification !== "unresolved") return null;
+    nonScheduled.push({ clerkUserId, classification, reason });
+  }
+  const completedTrigger = asDashboardString(row.initial_completed_trigger);
+  return {
+    batchDate,
+    sendSlot,
+    openedTrigger: opened,
+    windowEndsAt,
+    startedAt,
+    initialCompletedAt: asDashboardString(row.initial_completed_at),
+    initialCompletedTrigger:
+      completedTrigger === "manual_schedule" || completedTrigger === "automatic_schedule"
+        ? completedTrigger
+        : null,
+    relevantMemberCount,
+    scheduledMemberCount,
+    scheduledOccurrenceCount,
+    occurrences,
+    nonScheduled,
+  };
+}
+
+export function scheduledDraftMatchesOccurrence(args: {
+  metadata: unknown;
+  draftClerkUserId: string;
+  draftForDayKey: string;
+  draftSendSlot: string;
+  clerkUserId: string;
+  memberLocalDate: string;
+  sendSlot: string;
+  batchDate: string;
+}): boolean {
+  if (args.draftClerkUserId !== args.clerkUserId) return false;
+  if (args.draftForDayKey !== args.memberLocalDate) return false;
+  if (args.draftSendSlot !== args.sendSlot) return false;
+  const metadata = parseGenerationMetadata(args.metadata);
+  if (metadata.scheduled_generation_convention !== DASHBOARD_SCHEDULED_GENERATION_CONVENTION) {
+    return false;
+  }
+  if (metadata.administrative_batch_date !== args.batchDate) return false;
+  if (
+    typeof metadata.member_local_date === "string" &&
+    metadata.member_local_date !== args.memberLocalDate
+  ) {
+    return false;
+  }
+  if (typeof metadata.tto_owner === "string" && metadata.tto_owner !== args.sendSlot) return false;
+  return true;
+}
+
+export function scheduledDraftBelongsToAnotherBatch(metadataRaw: unknown, selectedDay: string): boolean {
+  const metadata = parseGenerationMetadata(metadataRaw);
+  if (metadata.scheduled_generation_convention !== DASHBOARD_SCHEDULED_GENERATION_CONVENTION) {
+    return false;
+  }
+  const batchDate = metadata.administrative_batch_date;
+  return typeof batchDate === "string" && batchDate.trim() !== "" && batchDate !== selectedDay;
+}
+
+function generatedDeliveryFromMetadata(metadataRaw: unknown): TylerTextOverviewAdminDraftRow["generatedDelivery"] {
+  const metadata = parseGenerationMetadata(metadataRaw);
+  if (metadata.scheduled_generation_convention !== DASHBOARD_SCHEDULED_GENERATION_CONVENTION) {
+    return null;
+  }
+  return {
+    memberLocalDate: asDashboardString(metadata.member_local_date),
+    effectiveLocalMinute: asDashboardNumber(metadata.effective_local_minute),
+    timeZone: asDashboardString(metadata.time_zone),
+  };
+}
+
+function isClaimPlaceholderGeneration(generation: GenerationDbRow | undefined): boolean {
+  if (!generation) return false;
+  if (generation.machine_no_send_reason === CLAIM_PLACEHOLDER_REASON) return true;
+  const metadata = parseGenerationMetadata(generation.generation_metadata);
+  return metadata.record_kind === "generation_claim";
+}
+
+type BatchRowRead =
+  | { kind: "missing" }
+  | { kind: "failed"; error: string }
+  | { kind: "found"; batch: DashboardBatch };
+
+async function readDashboardGenerationBatch(
+  batchDate: string,
+  sendSlot: SmsDailySendSlot
+): Promise<BatchRowRead> {
+  const { data, error } = await supabaseServer
+    .from(SMS_TTO_GENERATION_BATCHES_TABLE)
+    .select("*")
+    .eq("batch_date", batchDate)
+    .eq("send_slot", sendSlot)
+    .maybeSingle();
+  if (error) return { kind: "failed", error: error.message };
+  if (!data) return { kind: "missing" };
+  const batch = parseDashboardBatch(data);
+  if (!batch) return { kind: "failed", error: "batch_record_unreadable" };
+  return { kind: "found", batch };
+}
+
+async function readDashboardBatchDates(
+  sendSlot: SmsDailySendSlot
+): Promise<{ ok: true; dates: string[] } | { ok: false; error: string }> {
+  const { data, error } = await supabaseServer
+    .from(SMS_TTO_GENERATION_BATCHES_TABLE)
+    .select("batch_date")
+    .eq("send_slot", sendSlot);
+  if (error) return { ok: false, error: error.message };
+  const dates: string[] = [];
+  for (const row of Array.isArray(data) ? data : []) {
+    if (row == null || typeof row !== "object") continue;
+    const batchDate = asDashboardString((row as { batch_date?: unknown }).batch_date);
+    if (batchDate) dates.push(batchDate);
+  }
+  return { ok: true, dates };
+}
+
+function mergeDashboardDayKeys(draftKeys: string[], batchDates: string[]): string[] {
+  return [...new Set([...draftKeys, ...batchDates])].sort((a, b) => b.localeCompare(a));
+}
+
+function occurrenceIdentity(clerkUserId: string, memberLocalDate: string): string {
+  return `${clerkUserId}:${memberLocalDate}`;
+}
+
+async function buildScheduledBatchDashboard(args: {
+  audience: SendableAudienceMember[];
+  sendSlot: SmsDailySendSlot;
+  dayKey: string;
+  searchQuery: string | null;
+  now: Date;
+  lastRefreshedAt: string;
+  batch: DashboardBatch;
+  batchDates: string[];
+  batchDateListFailed: boolean;
+}): Promise<{
+  rows: TylerTextOverviewAdminDraftRow[];
+  historicalRows: TylerTextOverviewAdminDraftRow[];
+  counts: TylerTextOverviewAdminCounts;
+  availableDayKeys: string[];
+  manifest: TylerTextOverviewManifestIntegrity;
+  batchStatistics: TtoBatchStatistics;
+}> {
+  const audienceById = new Map(args.audience.map((member) => [member.clerkUserId, member]));
+  const occurrenceUserIds = args.batch.occurrences.map((item) => item.clerkUserId);
+  const clerkUserIds = [
+    ...new Set([...args.audience.map((member) => member.clerkUserId), ...occurrenceUserIds]),
+  ];
+  const dayKeys = [
+    ...new Set([
+      args.dayKey,
+      ...args.batch.occurrences.map((item) => item.memberLocalDate),
+    ]),
+  ];
+  const availableDayKeysPromise = fetchAvailableDraftDayKeys(args.sendSlot);
+  const { drafts, exactCount, returnedCount } =
+    clerkUserIds.length === 0
+      ? { drafts: [] as DraftDbRow[], exactCount: 0, returnedCount: 0 }
+      : await fetchCompleteTtoManifestDrafts({
+          sendSlot: args.sendSlot,
+          clerkUserIds,
+          draftForDayKey: null,
+          draftForDayKeys: dayKeys,
+        });
+  const generationIds = drafts
+    .map((draft) => draft.current_generation_id)
+    .filter((id): id is string => typeof id === "string" && id.trim().length > 0);
+  const [{ generationsById, missingIds }, latestGenerationsByKey, availableDayKeys] =
+    await Promise.all([
+      fetchGenerationsByIdsComplete(generationIds),
+      fetchLatestGenerationsForDrafts(drafts, args.sendSlot),
+      availableDayKeysPromise,
+    ]);
+
+  const draftsByIdentity = new Map<string, DraftDbRow>();
+  for (const draft of drafts) {
+    draftsByIdentity.set(occurrenceIdentity(draft.clerk_user_id, draft.draft_for_day_key), draft);
+  }
+
+  const attachedDraftIds = new Set<string>();
+  const occurrenceRows = args.batch.occurrences.map((occurrence) => {
+    const member = audienceById.get(occurrence.clerkUserId) ?? {
+      clerkUserId: occurrence.clerkUserId,
+      phoneNumber: "",
+      timezone: occurrence.timeZone || null,
+      preferredName: null,
+    };
+    const draft = draftsByIdentity.get(
+      occurrenceIdentity(occurrence.clerkUserId, occurrence.memberLocalDate)
+    );
+    const generation = draft ? generationsById.get(draft.current_generation_id) : undefined;
+    const matches =
+      draft != null &&
+      scheduledDraftMatchesOccurrence({
+        metadata: generation?.generation_metadata,
+        draftClerkUserId: draft.clerk_user_id,
+        draftForDayKey: draft.draft_for_day_key,
+        draftSendSlot: mapDbSendSlotToAdminDto(draft.send_slot),
+        clerkUserId: occurrence.clerkUserId,
+        memberLocalDate: occurrence.memberLocalDate,
+        sendSlot: args.sendSlot,
+        batchDate: args.batch.batchDate,
+      });
+    if (draft && matches) attachedDraftIds.add(draft.id);
+    const row = mapAudienceOverlayToAdminRow({
+      member,
+      sendSlot: args.sendSlot,
+      draft: matches && draft ? draft : null,
+      generation: matches ? generation : undefined,
+      latestGenerationsByKey,
+      overlayDayKey: occurrence.memberLocalDate,
+    });
+    const generatedDelivery = matches ? generatedDeliveryFromMetadata(generation?.generation_metadata) : null;
+    const deliveryDiffers =
+      generatedDelivery != null &&
+      (generatedDelivery.memberLocalDate !== occurrence.memberLocalDate ||
+        generatedDelivery.effectiveLocalMinute !== occurrence.effectiveLocalMinute ||
+        generatedDelivery.timeZone !== occurrence.timeZone);
+    return {
+      ...row,
+      occurrenceKey: occurrenceIdentity(occurrence.clerkUserId, occurrence.memberLocalDate),
+      rowRole: "scheduled_occurrence" as const,
+      occurrenceState: occurrence.state,
+      scheduledDelivery: {
+        memberLocalDate: occurrence.memberLocalDate,
+        effectiveLocalMinute: occurrence.effectiveLocalMinute,
+        selectedLocalMinute: occurrence.selectedLocalMinute,
+        timeZone: occurrence.timeZone,
+      },
+      generatedDelivery: deliveryDiffers ? generatedDelivery : null,
+      generationLinkageError:
+        Boolean(matches && draft?.current_generation_id && !generation) ||
+        Boolean(matches && draft && missingIds.includes(draft.current_generation_id)),
+    };
+  });
+
+  const historicalRows: TylerTextOverviewAdminDraftRow[] = [];
+  for (const draft of drafts) {
+    if (draft.draft_for_day_key !== args.dayKey) continue;
+    if (attachedDraftIds.has(draft.id)) continue;
+    const generation = generationsById.get(draft.current_generation_id);
+    if (scheduledDraftBelongsToAnotherBatch(generation?.generation_metadata, args.dayKey)) continue;
+    if (
+      parseGenerationMetadata(generation?.generation_metadata).scheduled_generation_convention ===
+      DASHBOARD_SCHEDULED_GENERATION_CONVENTION
+    ) {
+      continue;
+    }
+    const member = audienceById.get(draft.clerk_user_id) ?? {
+      clerkUserId: draft.clerk_user_id,
+      phoneNumber: "",
+      timezone: null,
+      preferredName: null,
+    };
+    const row = mapAudienceOverlayToAdminRow({
+      member,
+      sendSlot: args.sendSlot,
+      draft,
+      generation,
+      latestGenerationsByKey,
+      overlayDayKey: draft.draft_for_day_key,
+    });
+    historicalRows.push({
+      ...row,
+      rowRole: "historical_legacy",
+      occurrenceKey: null,
+      occurrenceState: null,
+      scheduledDelivery: null,
+      generatedDelivery: null,
+    });
+  }
+
+  const statistics = summarizeDashboardBatch({ batch: args.batch, now: args.now });
+  const counts = computeTylerTextOverviewAdminCounts(occurrenceRows);
+  counts.sendableUsers = args.audience.length;
+  const match = (row: TylerTextOverviewAdminDraftRow) =>
+    !args.searchQuery || matchesTylerTextOverviewSearchQuery(row, args.searchQuery);
+  const linkageErrors = occurrenceRows.filter((row) => row.generationLinkageError === true).length;
+  const listedDayKeys = mergeDashboardDayKeys(availableDayKeys, args.batchDates);
+  const incompletenessReason = args.batchDateListFailed
+    ? "batch_date_list_unavailable"
+    : linkageErrors > 0
+      ? "generation_linkage_incomplete"
+      : null;
+
+  return {
+    rows: occurrenceRows.filter(match),
+    historicalRows: historicalRows.filter(match),
+    counts,
+    availableDayKeys: listedDayKeys,
+    batchStatistics: statistics,
+    manifest: emptyTylerTextOverviewManifestIntegrity({
+      manifestComplete: incompletenessReason == null && returnedCount === exactCount,
+      selectedDayKey: args.dayKey,
+      lastRefreshedAt: args.lastRefreshedAt,
+      incompletenessReason,
+      expectedAudienceCount: args.audience.length,
+      audienceDraftOverlayCount: occurrenceRows.filter((row) => row.draftId != null).length,
+      genuineMissingAudienceDraftCount: occurrenceRows.filter((row) => row.draftId == null).length,
+      selectedDayDraftCount: occurrenceRows.filter((row) => row.draftId != null).length,
+      genuineMissingDraftCount: occurrenceRows.filter((row) => row.draftId == null).length,
+      allSelectedDayDraftCount: returnedCount,
+      queriedDraftExactCount: exactCount,
+      returnedDraftCount: returnedCount,
+      generationLinkageErrorCount: linkageErrors,
+      audienceComplete: true,
+      commitmentLookupComplete: true,
+      preferenceLookupComplete: true,
+      profileLookupComplete: true,
+      draftQueryComplete: returnedCount === exactCount,
+      generationQueryComplete: linkageErrors === 0,
+      historicalSentCountComplete: true,
+      twilioCountComplete: true,
+      audienceOverlayInvariantComplete: true,
+    }),
+  };
+}
+
 export async function listSendableTylerTextOverviewRows(args?: {
   draftForDayKey?: string | null;
   sendSlot?: SmsDailySendSlot;
@@ -1714,18 +2451,59 @@ export async function listSendableTylerTextOverviewRows(args?: {
   now?: Date;
 }): Promise<{
   rows: TylerTextOverviewAdminDraftRow[];
+  historicalRows: TylerTextOverviewAdminDraftRow[];
   /** Unfiltered complete-audience counts (search must not shrink these). */
   counts: TylerTextOverviewAdminCounts;
   availableDayKeys: string[];
   manifest: TylerTextOverviewManifestIntegrity;
+  batchStatistics: TtoBatchStatistics | null;
 }> {
   const sendSlot = args?.sendSlot ?? SMS_DAILY_PRODUCTION_SEND_SLOT;
   const dayKey = args?.draftForDayKey?.trim() || null;
   const searchQuery = args?.searchQuery?.trim() || null;
   const now = args?.now ?? new Date();
   const lastRefreshedAt = now.toISOString();
+  const batchDateList = await readDashboardBatchDates(sendSlot);
+  const batchRead = dayKey ? await readDashboardGenerationBatch(dayKey, sendSlot) : null;
+
+  if (batchRead?.kind === "failed") {
+    let draftKeys: string[] = [];
+    try {
+      draftKeys = await fetchAvailableDraftDayKeys(sendSlot);
+    } catch {
+      draftKeys = [];
+    }
+    return {
+      rows: [],
+      historicalRows: [],
+      counts: emptyTylerTextOverviewAdminCounts(),
+      availableDayKeys: mergeDashboardDayKeys(draftKeys, batchDateList.ok ? batchDateList.dates : []),
+      batchStatistics: unavailableBatchStatistics(batchRead.error),
+      manifest: emptyTylerTextOverviewManifestIntegrity({
+        manifestComplete: false,
+        selectedDayKey: dayKey,
+        lastRefreshedAt,
+        incompletenessReason: "batch_read_failed",
+        draftQueryComplete: false,
+        generationQueryComplete: false,
+      }),
+    };
+  }
 
   const audience = await loadSendableTylerTextOverviewAudienceMembers(now);
+  if (batchRead?.kind === "found") {
+    return buildScheduledBatchDashboard({
+      audience,
+      sendSlot,
+      dayKey: dayKey ?? batchRead.batch.batchDate,
+      searchQuery,
+      now,
+      lastRefreshedAt,
+      batch: batchRead.batch,
+      batchDates: batchDateList.ok ? batchDateList.dates : [],
+      batchDateListFailed: !batchDateList.ok,
+    });
+  }
   const audienceComplete = true;
   const commitmentLookupComplete = true;
   const preferenceLookupComplete = true;
@@ -1746,8 +2524,13 @@ export async function listSendableTylerTextOverviewRows(args?: {
     }
     return {
       rows: [],
+      historicalRows: [],
       counts: emptyTylerTextOverviewAdminCounts(),
-      availableDayKeys,
+      availableDayKeys: mergeDashboardDayKeys(
+        availableDayKeys,
+        batchDateList.ok ? batchDateList.dates : []
+      ),
+      batchStatistics: dayKey ? notStartedBatchStatistics() : null,
       manifest: emptyTylerTextOverviewManifestIntegrity({
         manifestComplete: Boolean(dayKey),
         selectedDayKey: dayKey,
@@ -1819,10 +2602,16 @@ export async function listSendableTylerTextOverviewRows(args?: {
 
   const allRows = audience.map((member) => {
     const userDrafts = draftsByUserId.get(member.clerkUserId) ?? [];
-    const overlay = pickTylerTextOverviewDraftOverlay(userDrafts, dayKey);
-    const generation = overlay
-      ? generationsById.get(overlay.current_generation_id)
+    const picked = pickTylerTextOverviewDraftOverlay(userDrafts, dayKey);
+    const pickedGeneration = picked
+      ? generationsById.get(picked.current_generation_id)
       : undefined;
+    const foreignScheduledDraft =
+      dayKey != null &&
+      picked != null &&
+      scheduledDraftBelongsToAnotherBatch(pickedGeneration?.generation_metadata, dayKey);
+    const overlay = foreignScheduledDraft ? null : picked;
+    const generation = foreignScheduledDraft ? undefined : pickedGeneration;
     const row = mapAudienceOverlayToAdminRow({
       member,
       sendSlot,
@@ -1889,10 +2678,18 @@ export async function listSendableTylerTextOverviewRows(args?: {
     (dayKey ? twilioCountComplete : true) &&
     audienceOverlayInvariantComplete;
 
+  const listedDayKeys = mergeDashboardDayKeys(
+    availableDayKeys,
+    batchDateList.ok ? batchDateList.dates : []
+  );
+  const dayListReason = !batchDateList.ok && dayKey ? "batch_date_list_unavailable" : null;
+
   return {
     rows: displayRows,
+    historicalRows: [],
     counts,
-    availableDayKeys,
+    availableDayKeys: listedDayKeys,
+    batchStatistics: dayKey ? notStartedBatchStatistics() : null,
     manifest: {
       expectedAudienceCount: audience.length,
       audienceDraftOverlayCount,
@@ -1902,7 +2699,7 @@ export async function listSendableTylerTextOverviewRows(args?: {
       allSelectedDayDraftCount: returnedCount,
       allSelectedDaySentDraftCount: dayKey ? daySentTotal : counts.draftSent,
       generationLinkageErrorCount,
-      manifestComplete,
+      manifestComplete: manifestComplete && dayListReason == null,
       queriedDraftExactCount: exactCount,
       returnedDraftCount: returnedCount,
       draftsMarkedSentDayTotal: dayKey ? daySentTotal : counts.draftSent,
@@ -1910,7 +2707,7 @@ export async function listSendableTylerTextOverviewRows(args?: {
       twilioAcceptedDayTotal: twilioAccepted,
       selectedDayKey: dayKey,
       lastRefreshedAt,
-      incompletenessReason,
+      incompletenessReason: dayListReason ?? incompletenessReason,
       audienceComplete,
       commitmentLookupComplete,
       preferenceLookupComplete,
@@ -1928,6 +2725,145 @@ export type UpdateTylerTextOverviewDraftBodyResult =
   | { ok: true; row: TylerTextOverviewAdminDraftRow }
   | { ok: false; error: string; status: number };
 
+export type DisplayedDeliveryEcho = {
+  clerkUserId?: string;
+  memberLocalDate: string;
+  effectiveLocalMinute: number;
+  timeZone: string;
+};
+
+export function parseDisplayedDeliveryEcho(value: unknown): DisplayedDeliveryEcho | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const memberLocalDate = typeof row.memberLocalDate === "string" ? row.memberLocalDate.trim() : "";
+  const timeZone = typeof row.timeZone === "string" ? row.timeZone.trim() : "";
+  const minute = row.effectiveLocalMinute;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(memberLocalDate) || !isValidIanaTimezone(timeZone)) return null;
+  if (typeof minute !== "number" || !Number.isInteger(minute) || minute < 0 || minute > 1439) return null;
+  const clerkUserId = typeof row.clerkUserId === "string" ? row.clerkUserId.trim() : undefined;
+  return {
+    ...(clerkUserId ? { clerkUserId } : {}),
+    memberLocalDate,
+    effectiveLocalMinute: minute,
+    timeZone,
+  };
+}
+
+export function parseDisplayedDeliveryEchoes(value: unknown): DisplayedDeliveryEcho[] {
+  if (!Array.isArray(value)) return [];
+  const found: DisplayedDeliveryEcho[] = [];
+  for (const item of value) {
+    const parsed = parseDisplayedDeliveryEcho(item);
+    if (parsed) found.push(parsed);
+  }
+  return found;
+}
+
+function deliveryFactsMatchEcho(fact: TtoCurrentDeliveryFacts, echo: DisplayedDeliveryEcho): boolean {
+  return (
+    fact.memberLocalDate === echo.memberLocalDate &&
+    fact.effectiveLocalMinute === echo.effectiveLocalMinute &&
+    fact.timeZone === echo.timeZone
+  );
+}
+
+function coherentDeliveryFact(fact: TtoCurrentDeliveryFacts, batchDate?: string | null): boolean {
+  const owner = fact.owner === "evening_checkin" || fact.owner === "evening"
+    ? "evening"
+    : fact.owner === "morning"
+      ? "morning"
+      : null;
+  if (!owner || !fact.utcInstant) return false;
+  return scheduledDeliveryTupleIsCoherent({
+    utcInstant: fact.utcInstant,
+    memberLocalDate: fact.memberLocalDate,
+    effectiveLocalMinute: fact.effectiveLocalMinute,
+    timeZone: fact.timeZone,
+    owner,
+    administrativeBatchDate: batchDate,
+  });
+}
+
+function knownContextPayload(fact: TtoCurrentDeliveryFacts): Record<string, unknown> {
+  return {
+    status: "known",
+    member_local_date: fact.memberLocalDate,
+    effective_local_minute: fact.effectiveLocalMinute,
+    time_zone: fact.timeZone,
+    utc_instant: fact.utcInstant || null,
+    owner: fact.owner,
+  };
+}
+
+async function confirmedTylerEditDeliveryContext(args: {
+  clerkUserId: string;
+  memberLocalDate: string;
+  displayed: DisplayedDeliveryEcho | null;
+  metadata: Record<string, unknown> | null;
+}): Promise<Record<string, unknown>> {
+  const echo = args.displayed;
+  if (!echo || echo.memberLocalDate !== args.memberLocalDate) return { status: "unavailable" };
+  const preference = await readV2UserSmsCommsPreferences(args.clerkUserId);
+  let clerkTimezone: string | null = null;
+  const scheduleZone = preference.ok ? preference.row?.schedule_timezone?.trim() ?? "" : "";
+  if (!scheduleZone) {
+    const user = await getClerkUserOrNull(args.clerkUserId);
+    const metadata = user?.public_metadata;
+    const timezone = metadata && typeof metadata === "object"
+      ? (metadata as { timezone?: unknown }).timezone
+      : null;
+    clerkTimezone = typeof timezone === "string" ? timezone : null;
+  }
+  if (preference.ok) {
+    const cadence = preference.row?.cadence_override ?? null;
+    const weekend = preference.row?.weekend_send_policy ?? null;
+    const preferenceRead: ProactiveSchedulePreferenceRead =
+      cadence != null &&
+      cadence !== "daily" &&
+      cadence !== "every_other_day" &&
+      cadence !== "every_3_days"
+        ? { ok: false }
+        : weekend != null && weekend !== "all" && weekend !== "weekdays_only"
+          ? { ok: false }
+          : {
+              ok: true,
+              row: preference.row
+                ? {
+                    weekly_schedule: preference.row.weekly_schedule ?? null,
+                    schedule_timezone: preference.row.schedule_timezone ?? null,
+                    pause_indefinite: preference.row.pause_indefinite === true,
+                    pause_until: preference.row.pause_until,
+                    cadence_override: cadence,
+                    weekend_send_policy: weekend,
+                  }
+                : null,
+            };
+    const live = resolveProactiveSchedule({
+      preferenceRead,
+      clerkTimezone,
+      audienceTimezone: null,
+      memberLocalDate: args.memberLocalDate,
+      proactiveDeliveryAllowed: true,
+    });
+    if (live.kind === "scheduled") {
+      const liveFacts: TtoCurrentDeliveryFacts = {
+        memberLocalDate: live.memberLocalDate,
+        effectiveLocalMinute: live.effectiveLocalMinute,
+        timeZone: live.timeZone,
+        utcInstant: live.utcInstant,
+        owner: live.owner === "evening" ? "evening_checkin" : "morning",
+      };
+      if (deliveryFactsMatchEcho(liveFacts, echo) && coherentDeliveryFact(liveFacts, live.batchDate)) {
+        return knownContextPayload(liveFacts);
+      }
+    }
+  }
+  const stored = persistedDeliveryFactsFromMetadata(args.metadata).find((fact) =>
+    deliveryFactsMatchEcho(fact, echo) && coherentDeliveryFact(fact)
+  );
+  return stored ? knownContextPayload(stored) : { status: "unavailable" };
+}
+
 export async function updateTylerTextOverviewDraftBody(args: {
   draftId: string;
   body: string;
@@ -1936,6 +2872,8 @@ export async function updateTylerTextOverviewDraftBody(args: {
   expectedDraftForDayKey?: string;
   /** When set, refuses if the draft row's send_slot does not match. */
   expectedSendSlot?: SmsDailySendSlot;
+  /** Schedule the dashboard presented. Ignored unless the server can confirm it. */
+  displayedDelivery?: DisplayedDeliveryEcho | null;
 }): Promise<UpdateTylerTextOverviewDraftBodyResult> {
   const draftId = args.draftId.trim();
   if (!draftId) {
@@ -2035,34 +2973,88 @@ export async function updateTylerTextOverviewDraftBody(args: {
         ? machineDraftBody.length
         : null;
 
-  const { data: updatedRow, error: updateError } = await supabaseServer
-    .from(SMS_DAILY_DRAFTS_TABLE)
-    .update({
+  let updatedRow: DraftDbRow | null = null;
+  if (isMorningOrEveningTtoTransportGuardedSlot(draftSendSlot)) {
+    const metadata =
+      generation.generation_metadata &&
+      typeof generation.generation_metadata === "object" &&
+      !Array.isArray(generation.generation_metadata)
+        ? (generation.generation_metadata as Record<string, unknown>)
+        : null;
+    const deliveryContext = tylerApproved
+      ? await confirmedTylerEditDeliveryContext({
+          clerkUserId: draft.clerk_user_id,
+          memberLocalDate: draft.draft_for_day_key,
+          displayed: args.displayedDelivery ?? null,
+          metadata,
+        })
+      : { status: "unavailable" };
+    const { data: saved, error: saveError } = await supabaseServer.rpc("tto_save_tyler_draft_body", {
+      p_draft_id: draftId,
+      p_expected_generation_id: draft.current_generation_id,
+      p_expected_day: draft.draft_for_day_key,
+      p_expected_slot: draft.send_slot,
+      p_body: normalizedBody,
+      p_body_source: tylerApproved ? "tyler_edit" : "machine",
+      p_edited_by_tyler: tylerApproved,
+      p_edited_at: tylerApproved ? nowIso : null,
+      p_edit_distance: editDistanceChars,
+      p_body_hash: currentBodyHash,
+      p_now: nowIso,
+      p_delivery_context: deliveryContext,
+    });
+    if (saveError) {
+      return {
+        ok: false,
+        error: `draft_update_failed:${saveError.message}`,
+        status: 500,
+      };
+    }
+    const savedRow = saved && typeof saved === "object" && !Array.isArray(saved)
+      ? (saved as Record<string, unknown>)
+      : null;
+    if (!savedRow || savedRow.ok !== true) {
+      return { ok: false, error: "Draft update did not apply", status: 409 };
+    }
+    updatedRow = {
+      ...(draft as DraftDbRow),
       current_body_to_send: normalizedBody,
       current_body_source: tylerApproved ? "tyler_edit" : "machine",
       edited_by_tyler: tylerApproved,
       edited_at: tylerApproved ? nowIso : null,
-      edit_distance_chars: editDistanceChars,
-      current_body_hash: currentBodyHash,
-      updated_at: nowIso,
-    })
-    .eq("id", draftId)
-    .eq("status", "current")
-    .select(
-      "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, edited_at, status"
-    )
-    .maybeSingle();
-
-  if (updateError) {
-    return {
-      ok: false,
-      error: `draft_update_failed:${updateError.message}`,
-      status: 500,
+      status: "current",
     };
-  }
+  } else {
+    const { data: directRow, error: updateError } = await supabaseServer
+      .from(SMS_DAILY_DRAFTS_TABLE)
+      .update({
+        current_body_to_send: normalizedBody,
+        current_body_source: tylerApproved ? "tyler_edit" : "machine",
+        edited_by_tyler: tylerApproved,
+        edited_at: tylerApproved ? nowIso : null,
+        edit_distance_chars: editDistanceChars,
+        current_body_hash: currentBodyHash,
+        updated_at: nowIso,
+      })
+      .eq("id", draftId)
+      .eq("status", "current")
+      .select(
+        "id, clerk_user_id, draft_for_day_key, send_slot, current_generation_id, current_body_to_send, current_body_source, edited_by_tyler, edited_at, status"
+      )
+      .maybeSingle();
 
-  if (!updatedRow) {
-    return { ok: false, error: "Draft update did not apply", status: 409 };
+    if (updateError) {
+      return {
+        ok: false,
+        error: `draft_update_failed:${updateError.message}`,
+        status: 500,
+      };
+    }
+
+    if (!directRow) {
+      return { ok: false, error: "Draft update did not apply", status: 409 };
+    }
+    updatedRow = directRow as DraftDbRow;
   }
 
   const dtoDraft = {
@@ -2126,6 +3118,9 @@ type TtoBulkDraftTargetRow = {
   draft_for_day_key: string;
   send_slot: string | null;
   status: string;
+  current_generation_id?: string | null;
+  edited_by_tyler?: boolean | null;
+  current_body_source?: string | null;
 };
 
 type TtoBulkSaveableSlot =
@@ -2134,6 +3129,7 @@ type TtoBulkSaveableSlot =
 
 async function fetchTtoDraftsForBulkDay(args: {
   draftForDayKey: string;
+  draftForDayKeys?: string[];
   sendSlot: TtoBulkSaveableSlot;
   clerkUserIds: string[];
 }): Promise<TtoBulkDraftTargetRow[]> {
@@ -2146,12 +3142,19 @@ async function fetchTtoDraftsForBulkDay(args: {
   for (const chunk of chunkIdsForTtoManifestQuery(uniqueUserIds)) {
     let from = 0;
     for (;;) {
-      const { data, error } = await supabaseServer
+      let query = supabaseServer
         .from(SMS_DAILY_DRAFTS_TABLE)
-        .select("id, clerk_user_id, draft_for_day_key, send_slot, status")
-        .eq("draft_for_day_key", args.draftForDayKey)
+        .select(
+          "id, clerk_user_id, draft_for_day_key, send_slot, status, current_generation_id, edited_by_tyler, current_body_source"
+        )
         .eq("send_slot", args.sendSlot)
-        .in("clerk_user_id", chunk)
+        .in("clerk_user_id", chunk);
+      const dayKeys = (args.draftForDayKeys ?? []).filter((key) => key.trim());
+      query =
+        dayKeys.length > 0
+          ? query.in("draft_for_day_key", dayKeys)
+          : query.eq("draft_for_day_key", args.draftForDayKey);
+      const { data, error } = await query
         .order("clerk_user_id", { ascending: true })
         .order("id", { ascending: true })
         .range(from, from + pageSize - 1);
@@ -2190,6 +3193,7 @@ export async function bulkSaveTtoDraftBodies(args: {
   operation: TtoBulkSaveOperation;
   body?: string;
   now?: Date;
+  displayedDeliveries?: DisplayedDeliveryEcho[];
 }): Promise<TtoBulkSaveResult | { ok: false; error: string; status: number }> {
   const sendSlot = args.sendSlot;
   if (
@@ -2236,18 +3240,34 @@ export async function bulkSaveTtoDraftBodies(args: {
     }
   }
 
+  const batchRead = await readDashboardGenerationBatch(draftForDayKey, sendSlot);
+  if (batchRead.kind === "failed") {
+    return {
+      ok: false,
+      error: `batch_read_failed:${batchRead.error}`,
+      status: 503,
+    };
+  }
+
   const audience = await loadSendableTylerTextOverviewAudienceMembers(args.now ?? new Date());
   const preferredNameByUserId = new Map(
     audience.map((m) => [m.clerkUserId, m.preferredName] as const)
   );
   const audienceIds = audience.map((m) => m.clerkUserId);
+  const occurrenceIds =
+    batchRead.kind === "found" ? batchRead.batch.occurrences.map((item) => item.clerkUserId) : [];
+  const clerkUserIds = [...new Set([...audienceIds, ...occurrenceIds])];
 
   let dayDrafts: TtoBulkDraftTargetRow[];
   try {
     dayDrafts = await fetchTtoDraftsForBulkDay({
       draftForDayKey,
+      draftForDayKeys:
+        batchRead.kind === "found"
+          ? batchRead.batch.occurrences.map((item) => item.memberLocalDate)
+          : undefined,
       sendSlot,
-      clerkUserIds: audienceIds,
+      clerkUserIds,
     });
   } catch (err) {
     return {
@@ -2257,28 +3277,91 @@ export async function bulkSaveTtoDraftBodies(args: {
     };
   }
 
-  const draftsByUserId = new Map<string, TtoBulkDraftTargetRow>();
-  for (const draft of dayDrafts) {
-    if (draft.draft_for_day_key !== draftForDayKey) continue;
-    const slot = mapDbSendSlotToAdminDto(draft.send_slot);
-    if (slot !== sendSlot) continue;
-    draftsByUserId.set(draft.clerk_user_id, draft);
+  let generationsById = new Map<string, GenerationDbRow>();
+  try {
+    const loaded = await fetchGenerationsByIdsComplete(
+      dayDrafts
+        .map((draft) => draft.current_generation_id ?? "")
+        .filter((id) => id.trim().length > 0)
+    );
+    generationsById = loaded.generationsById;
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "tto_bulk_generation_query_failed",
+      status: 500,
+    };
   }
 
   const currentTargets: TtoBulkDraftTargetRow[] = [];
   let skippedNonCurrent = 0;
   let skippedMissing = 0;
 
-  for (const clerkUserId of audienceIds) {
-    const draft = draftsByUserId.get(clerkUserId);
-    if (!draft) {
-      skippedMissing += 1;
-      continue;
-    }
-    if (draft.status === "current") {
+  if (batchRead.kind === "found") {
+    for (const occurrence of batchRead.batch.occurrences) {
+      const draft = dayDrafts.find(
+        (item) =>
+          item.clerk_user_id === occurrence.clerkUserId &&
+          item.draft_for_day_key === occurrence.memberLocalDate &&
+          mapDbSendSlotToAdminDto(item.send_slot) === sendSlot
+      );
+      const generation = draft?.current_generation_id
+        ? generationsById.get(draft.current_generation_id)
+        : undefined;
+      const matches =
+        draft != null &&
+        scheduledDraftMatchesOccurrence({
+          metadata: generation?.generation_metadata,
+          draftClerkUserId: draft.clerk_user_id,
+          draftForDayKey: draft.draft_for_day_key,
+          draftSendSlot: mapDbSendSlotToAdminDto(draft.send_slot),
+          clerkUserId: occurrence.clerkUserId,
+          memberLocalDate: occurrence.memberLocalDate,
+          sendSlot,
+          batchDate: batchRead.batch.batchDate,
+        });
+      if (!draft || !matches) {
+        skippedMissing += 1;
+        continue;
+      }
+      const tylerEdited =
+        draft.edited_by_tyler === true || draft.current_body_source === "tyler_edit";
+      if (draft.status !== "current") {
+        skippedNonCurrent += 1;
+        continue;
+      }
+      if (isClaimPlaceholderGeneration(generation) && !tylerEdited) {
+        skippedNonCurrent += 1;
+        continue;
+      }
       currentTargets.push(draft);
-    } else {
-      skippedNonCurrent += 1;
+    }
+  } else {
+    const draftsByUserId = new Map<string, TtoBulkDraftTargetRow>();
+    for (const draft of dayDrafts) {
+      if (draft.draft_for_day_key !== draftForDayKey) continue;
+      const slot = mapDbSendSlotToAdminDto(draft.send_slot);
+      if (slot !== sendSlot) continue;
+      const generation = draft.current_generation_id
+        ? generationsById.get(draft.current_generation_id)
+        : undefined;
+      if (scheduledDraftBelongsToAnotherBatch(generation?.generation_metadata, draftForDayKey)) {
+        continue;
+      }
+      draftsByUserId.set(draft.clerk_user_id, draft);
+    }
+
+    for (const clerkUserId of audienceIds) {
+      const draft = draftsByUserId.get(clerkUserId);
+      if (!draft) {
+        skippedMissing += 1;
+        continue;
+      }
+      if (draft.status === "current") {
+        currentTargets.push(draft);
+      } else {
+        skippedNonCurrent += 1;
+      }
     }
   }
 
@@ -2286,12 +3369,18 @@ export async function bulkSaveTtoDraftBodies(args: {
   let updated = 0;
 
   for (const draft of currentTargets) {
+    const displayed = (args.displayedDeliveries ?? []).find(
+      (item) =>
+        item.clerkUserId === draft.clerk_user_id &&
+        item.memberLocalDate === draft.draft_for_day_key
+    );
     const result = await updateTylerTextOverviewDraftBody({
       draftId: draft.id,
       body: bodyToSave,
       now: args.now,
-      expectedDraftForDayKey: draftForDayKey,
+      expectedDraftForDayKey: draft.draft_for_day_key,
       expectedSendSlot: sendSlot,
+      displayedDelivery: displayed ?? null,
     });
 
     if (result.ok) {
@@ -2336,6 +3425,7 @@ export async function bulkSaveMorningTtoDraftBodies(args: {
   operation: MorningTtoBulkSaveOperation;
   body?: string;
   now?: Date;
+  displayedDeliveries?: DisplayedDeliveryEcho[];
 }): Promise<
   | MorningTtoBulkSaveResult
   | { ok: false; error: string; status: number }
@@ -2346,6 +3436,7 @@ export async function bulkSaveMorningTtoDraftBodies(args: {
     operation: args.operation,
     body: args.body,
     now: args.now,
+    displayedDeliveries: args.displayedDeliveries,
   });
 }
 
@@ -2358,6 +3449,7 @@ export async function bulkSaveEveningTtoDraftBodies(args: {
   operation: TtoBulkSaveOperation;
   body?: string;
   now?: Date;
+  displayedDeliveries?: DisplayedDeliveryEcho[];
 }): Promise<TtoBulkSaveResult | { ok: false; error: string; status: number }> {
   return bulkSaveTtoDraftBodies({
     draftForDayKey: args.draftForDayKey,
@@ -2365,5 +3457,6 @@ export async function bulkSaveEveningTtoDraftBodies(args: {
     operation: args.operation,
     body: args.body,
     now: args.now,
+    displayedDeliveries: args.displayedDeliveries,
   });
 }

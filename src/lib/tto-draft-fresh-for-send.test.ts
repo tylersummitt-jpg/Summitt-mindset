@@ -137,6 +137,7 @@ function seedMachineDraft(args: {
   editedAt?: string | null;
   generatedAt?: string | null;
   machineShouldSend?: boolean | null;
+  scheduledConvention?: boolean;
 }) {
   const draftId = args.draftId ?? `d-${args.sendSlot}`;
   const generationId = args.generationId ?? `g-${args.sendSlot}`;
@@ -157,6 +158,9 @@ function seedMachineDraft(args: {
   const metadata: Record<string, unknown> = {};
   if (args.generationAsk != null) {
     metadata.generation_effective_ask = args.generationAsk;
+  }
+  if (args.scheduledConvention) {
+    metadata.scheduled_generation_convention = "member_local_delivery_v1";
   }
   db.generations = [
     {
@@ -282,6 +286,31 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
     });
   });
 
+  it("scheduled convention preserves the Morning body without a generator or disable", async () => {
+    seedMachineDraft({
+      sendSlot: "morning",
+      body: "SAVED MORNING",
+      generationAsk: ASK_A,
+      editedByTyler: true,
+      currentBodySource: "tyler_edit",
+      editedAt: "2026-09-08T18:00:00.000Z",
+      scheduledConvention: true,
+    });
+    readLatestRealConversationAt.mockResolvedValue({
+      ok: true,
+      at: CONVERSATION_AFTER_GENERATION,
+    });
+    const result = await freshFor("morning");
+    expect(result).toEqual({
+      ok: false,
+      reason: "scheduled_delivery_requires_authorization",
+    });
+    expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
+    expect(markCurrentTtoDraftUnusable).not.toHaveBeenCalled();
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    expect(db.drafts[0]?.current_body_to_send).toBe("SAVED MORNING");
+  });
+
   it("A. temp B generated then overlay expires to current A is stale", async () => {
     seedMachineDraft({ sendSlot: "morning", body: "BODY B", generationAsk: ASK_B });
     getActiveCommitment.mockResolvedValue(
@@ -329,14 +358,11 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
     expect(generateTylerTextOverviewDraftForUser).not.toHaveBeenCalled();
   });
 
-  it("D. stale Weekly regenerates, persists, and re-reads fresh body", async () => {
+  it("D. stale Weekly does not generate or mutate the historical draft", async () => {
     seedMachineDraft({ sendSlot: "weekly_review", body: "STALE WEEKLY", generationAsk: ASK_B });
     const result = await freshFor("weekly_review");
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.status).toBe("regenerated");
-    expect(result.currentBodyToSend).toBe("FRESH WEEKLY");
-    expect(generateTylerTextOverviewWeeklyDraftForUser).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: false, reason: "weekly_delivery_retired" });
+    expect(generateTylerTextOverviewWeeklyDraftForUser).not.toHaveBeenCalled();
   });
 
   it("E. same effective ask does zero regeneration", async () => {
@@ -481,10 +507,8 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
       generationAsk: ASK_A,
     });
     const result = await freshFor("weekly_review");
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.status).toBe("fresh");
-    expect(result.currentBodyToSend).toBe("ORDINARY WEEKLY");
+    expect(result).toEqual({ ok: false, reason: "weekly_delivery_retired" });
+    expect(db.drafts[0]?.current_body_to_send).toBe("ORDINARY WEEKLY");
     expect(generateTylerTextOverviewWeeklyDraftForUser).not.toHaveBeenCalled();
   });
 
@@ -724,10 +748,8 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
       at: CONVERSATION_AFTER_GENERATION,
     });
     const result = await freshFor("weekly_review");
-    expect(result.ok).toBe(true);
-    if (!result.ok) return;
-    expect(result.currentBodyToSend).toBe("FRESH WEEKLY");
-    expect(generateTylerTextOverviewWeeklyDraftForUser).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ ok: false, reason: "weekly_delivery_retired" });
+    expect(generateTylerTextOverviewWeeklyDraftForUser).not.toHaveBeenCalled();
   });
 
   it("generator failure does not send the stale sentence", async () => {
@@ -773,13 +795,12 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
     expect(markCurrentTtoDraftUnusable).not.toHaveBeenCalled();
   });
 
-  it("morning evening and weekly each use the existing generator once", async () => {
+  it("morning and evening each use the existing generator once", async () => {
     const generators = {
       morning: generateTylerTextOverviewDraftForUser,
       evening_checkin: generateTylerTextOverviewEveningPreviewForUser,
-      weekly_review: generateTylerTextOverviewWeeklyDraftForUser,
     };
-    for (const slot of ["morning", "evening_checkin", "weekly_review"] as const) {
+    for (const slot of ["morning", "evening_checkin"] as const) {
       generateTylerTextOverviewDraftForUser.mockClear();
       generateTylerTextOverviewEveningPreviewForUser.mockClear();
       generateTylerTextOverviewWeeklyDraftForUser.mockClear();
@@ -792,6 +813,10 @@ describe("ensureCurrentTtoDraftFreshForSend", () => {
       expect(result.ok).toBe(true);
       expect(generators[slot]).toHaveBeenCalledTimes(1);
     }
+    generateTylerTextOverviewWeeklyDraftForUser.mockClear();
+    const weekly = await freshFor("weekly_review");
+    expect(weekly).toEqual({ ok: false, reason: "weekly_delivery_retired" });
+    expect(generateTylerTextOverviewWeeklyDraftForUser).not.toHaveBeenCalled();
   });
 
   it("nonempty Tyler with no edited_at is not treated as fresh", async () => {

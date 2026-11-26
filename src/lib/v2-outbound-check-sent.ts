@@ -135,6 +135,8 @@ export async function applyCheckSentPostSendBookkeepingMutation(args: {
   includeContractOverlayProposal?: boolean;
   proposalText?: string | null;
   contractKind?: V2ContractOverlayProposalKind | null;
+  /** Scheduled post-send only. Legacy callers leave this unset. */
+  scheduledDeletionFence?: boolean;
 }): Promise<
   | { ok: true; result: V2CheckSentPostSendMutationResult }
   | { ok: false; result?: V2CheckSentPostSendMutationResult; error: string }
@@ -152,34 +154,57 @@ export async function applyCheckSentPostSendBookkeepingMutation(args: {
     send_slot: sendSlot,
   };
 
-  const { data, error } = await supabaseServer.rpc(
-    "v2_apply_check_sent_post_send_bookkeeping_mutation",
-    {
-      p_commitment_id: args.commitmentId,
-      p_clerk_user_id: args.clerkUserId,
-      p_day_key: args.dayKey,
-      p_message_sid: args.messageSid,
-      p_template_id: args.templateId,
-      p_template_family: args.templateFamily,
-      p_body_preview: args.bodyPreview.slice(0, 160),
-      p_effective_ask_text: args.effectiveAskText.slice(0, 240),
-      p_prompt_kind: args.promptKind,
-      p_expected_reply_semantics: args.expectedReplySemantics,
-      p_check_payload_json: checkPayloadJson,
-      p_now: new Date().toISOString(),
-      p_include_contract_overlay_proposal: include,
-      p_proposal_text: include ? args.proposalText!.trim() : null,
-      p_contract_kind: include ? args.contractKind! : null,
-    }
-  );
+  const replayAt = new Date().toISOString();
+  const { data, error } = args.scheduledDeletionFence
+    ? await supabaseServer.rpc("tto_record_scheduled_post_send_bookkeeping", {
+        p_clerk_user_id: args.clerkUserId,
+        p_commitment_id: args.commitmentId,
+        p_replay: {
+          kind: "check_sent",
+          day_key: args.dayKey,
+          message_sid: args.messageSid,
+          template_id: args.templateId,
+          template_family: args.templateFamily,
+          body_preview: args.bodyPreview.slice(0, 160),
+          effective_ask_text: args.effectiveAskText.slice(0, 240),
+          prompt_kind: args.promptKind,
+          expected_reply_semantics: args.expectedReplySemantics,
+          check_payload_json: checkPayloadJson,
+          now: replayAt,
+          include_contract_overlay_proposal: include,
+          proposal_text: include ? args.proposalText!.trim() : null,
+          contract_kind: include ? args.contractKind! : null,
+        },
+      })
+    : await supabaseServer.rpc("v2_apply_check_sent_post_send_bookkeeping_mutation", {
+        p_commitment_id: args.commitmentId,
+        p_clerk_user_id: args.clerkUserId,
+        p_day_key: args.dayKey,
+        p_message_sid: args.messageSid,
+        p_template_id: args.templateId,
+        p_template_family: args.templateFamily,
+        p_body_preview: args.bodyPreview.slice(0, 160),
+        p_effective_ask_text: args.effectiveAskText.slice(0, 240),
+        p_prompt_kind: args.promptKind,
+        p_expected_reply_semantics: args.expectedReplySemantics,
+        p_check_payload_json: checkPayloadJson,
+        p_now: replayAt,
+        p_include_contract_overlay_proposal: include,
+        p_proposal_text: include ? args.proposalText!.trim() : null,
+        p_contract_kind: include ? args.contractKind! : null,
+      });
 
   if (error) {
     return { ok: false, error: `check_sent_post_send_rpc_failed:${error.message}` };
   }
 
   const row = Array.isArray(data) ? data[0] : null;
+  const resultValue =
+    args.scheduledDeletionFence && typeof row?.outcome === "string"
+      ? row.outcome
+      : row?.result;
   const result =
-    typeof row?.result === "string" ? (row.result as V2CheckSentPostSendMutationResult) : "error";
+    typeof resultValue === "string" ? (resultValue as V2CheckSentPostSendMutationResult) : "error";
   if (result === "applied" || result === "already_applied") {
     return { ok: true, result };
   }
@@ -456,6 +481,8 @@ export async function reconcileCheckSentPostSendBookkeepingForCommitment(args: {
   commitmentId: string;
   clerkUserId: string;
   maxCandidates?: number;
+  /** Scheduled post-send only. Legacy and reactive callers leave this unset. */
+  scheduledDeletionFence?: boolean;
 }): Promise<{
   attempted: number;
   recovered: number;
@@ -559,6 +586,7 @@ export async function reconcileCheckSentPostSendBookkeepingForCommitment(args: {
       includeContractOverlayProposal: snapshot.prompt_kind === "contract_overlay_proposal",
       proposalText: proposalParsed?.proposalText ?? null,
       contractKind: proposalParsed?.contractKind ?? null,
+      ...(args.scheduledDeletionFence ? { scheduledDeletionFence: true } : {}),
     });
     if (replay.ok) {
       recovered += 1;
@@ -608,6 +636,7 @@ export async function reconcileCheckSentPostSendBookkeepingForCommitment(args: {
         promptKind: fallback.promptKind,
         expectedReplySemantics: fallback.expectedReplySemantics,
         checkPayloadJson: fallback.payloadJson,
+        ...(args.scheduledDeletionFence ? { scheduledDeletionFence: true } : {}),
       });
       if (replay.ok) {
         recovered += 1;

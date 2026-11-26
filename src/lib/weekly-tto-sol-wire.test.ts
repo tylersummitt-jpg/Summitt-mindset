@@ -10,15 +10,15 @@ function liveGenerateSrc() {
 }
 
 describe("weekly TTO Sol W1 wire", () => {
-  it("live generate is exactly packet → interpreter → writer → block-only → persist", () => {
+  it("live generate refuses before the packet, interpreter, writer, or persist", () => {
     const live = liveGenerateSrc();
-    expect(live).toContain("loadWeeklyRelationshipPacket");
-    expect(live).toContain("runWeeklyBriefInterpreterV1");
-    expect(live).toContain("writeWeeklyTtoBody");
-    expect(live).toContain("evaluateWeeklySolBlockOnlyBody");
-    expect(live).toContain("persistMorningTtoGeneration");
-    expect(live.indexOf("runWeeklyBriefInterpreterV1")).toBeLessThan(live.indexOf("writeWeeklyTtoBody"));
-    expect(live.indexOf("writeWeeklyTtoBody")).toBeLessThan(live.indexOf("evaluateWeeklySolBlockOnlyBody"));
+    expect(live).toContain("weekly_delivery_retired");
+    expect(live).not.toContain("loadWeeklyRelationshipPacket");
+    expect(live).not.toContain("runWeeklyBriefInterpreterV1");
+    expect(live).not.toContain("writeWeeklyTtoBody");
+    expect(live).not.toContain("evaluateWeeklySolBlockOnlyBody");
+    expect(live).not.toContain("persistMorningTtoGeneration");
+    expect(live).not.toContain("sendSMS");
   });
 
   it("does not call old proof AI, V3 weekly lane, FVG repair, or anti-repeat repair", () => {
@@ -47,10 +47,10 @@ describe("weekly TTO Sol W1 wire", () => {
     expect(live).not.toMatch(/shadow/i);
     expect(live).not.toContain("writeMorningTtoBody");
     expect(live).not.toContain("produceWeeklyV3");
-    expect(live).toContain('coaching_stack: "shared_sol_v1"');
-    expect(live).toContain("weekly_v3_lane_used: false");
-    expect(live).toContain("currentDraftProtected ? false : true");
-    expect(live).toContain('currentDraftProtected ? "current_draft_protected" : null');
+    expect(live).not.toContain('coaching_stack: "shared_sol_v1"');
+    expect(live).not.toContain("weekly_v3_lane_used");
+    expect(live).not.toContain("currentDraftProtected");
+    expect(live).toContain("weekly_delivery_retired");
   });
 
   it("interpreter and writer modules are gpt-5.6-sol with no temperature on the OpenAI create call", () => {

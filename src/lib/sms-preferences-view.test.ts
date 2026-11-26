@@ -6,6 +6,7 @@ vi.mock("@/lib/supabase-server", () => ({
 
 import { maskSmsPhoneDisplay } from "@/lib/sms-preferences-types";
 import {
+  assertSmsPreferencesPatchAllowed,
   buildSmsPreferencesViewModel,
   deriveRelationshipStatus,
   isClearOnlySmsPreferencesPatch,
@@ -170,5 +171,188 @@ describe("sms-preferences-view", () => {
         now,
       })
     ).toBe("not_configured");
+  });
+
+  it("missing preference row resolves to the default without calling it saved", () => {
+    const view = buildSmsPreferencesViewModel({
+      uiEnabled: true,
+      smsEnabled: true,
+      phoneNumber: "+15551234567",
+      timezoneRaw: "America/Chicago",
+      smsDisclosureAccepted: true,
+      prefs: null,
+      accountabilityPhase: null,
+      now,
+    });
+    expect(view.preferenceRecordPresent).toBe(false);
+    expect(view.weeklyScheduleExplicit).toBe(false);
+    expect(view.weeklySchedule).toBeNull();
+    expect(view.effectiveTimezone).toBe("America/Chicago");
+    expect(view.effectiveTimezoneSource).toBe("clerk");
+    expect(view.applicationPauseActive).toBe(false);
+    expect(view.consentKnown).toBe(true);
+  });
+
+  it("an explicit all-off schedule is not the default and does not pause", () => {
+    const view = buildSmsPreferencesViewModel({
+      uiEnabled: true,
+      smsEnabled: true,
+      phoneNumber: "+15551234567",
+      timezoneRaw: "America/New_York",
+      smsDisclosureAccepted: true,
+      prefs: baseRow({
+        weekly_schedule: {
+          monday: null,
+          tuesday: null,
+          wednesday: null,
+          thursday: null,
+          friday: null,
+          saturday: null,
+          sunday: null,
+        },
+        cadence_override: "every_other_day",
+        weekend_send_policy: "weekdays_only",
+        preferred_local_hour: 8,
+      }),
+      accountabilityPhase: null,
+      now,
+    });
+    expect(view.weeklyScheduleExplicit).toBe(true);
+    expect(view.weeklySchedule?.sunday).toBeNull();
+    expect(view.applicationPauseActive).toBe(false);
+    expect(view.cadenceOverride).toBe("every_other_day");
+    expect(view.weekendSendPolicy).toBe("weekdays_only");
+    expect(view).not.toHaveProperty("preferredLocalHour");
+  });
+
+  it("indefinite pause stays paused without erasing a future timed pause", () => {
+    const view = buildSmsPreferencesViewModel({
+      uiEnabled: true,
+      smsEnabled: true,
+      phoneNumber: "+15551234567",
+      timezoneRaw: "America/New_York",
+      smsDisclosureAccepted: true,
+      prefs: baseRow({
+        pause_indefinite: true,
+        pause_until: "2026-12-01T11:00:00.000Z",
+        schedule_timezone: "America/Denver",
+      }),
+      accountabilityPhase: null,
+      now,
+    });
+    expect(view.pauseIndefinite).toBe(true);
+    expect(view.timedPauseActive).toBe(true);
+    expect(view.applicationPauseActive).toBe(true);
+    expect(view.relationshipStatus).toBe("paused");
+    expect(view.pauseUntil).toBe("2026-12-01T11:00:00.000Z");
+    expect(view.effectiveTimezone).toBe("America/Denver");
+  });
+
+  it("keeps a valid time zone that is not one of the seven standard labels", () => {
+    const view = buildSmsPreferencesViewModel({
+      uiEnabled: true,
+      smsEnabled: true,
+      phoneNumber: "+15551234567",
+      timezoneRaw: "America/New_York",
+      smsDisclosureAccepted: true,
+      prefs: baseRow({ schedule_timezone: "Europe/Paris" }),
+      accountabilityPhase: null,
+      now,
+    });
+    expect(view.scheduleTimezoneExplicit).toBe(true);
+    expect(view.effectiveTimezone).toBe("Europe/Paris");
+    expect(view.effectiveTimezoneSource).toBe("schedule");
+  });
+
+  it("does not treat an unreadable audience zone as Eastern when Clerk has no zone", () => {
+    const view = buildSmsPreferencesViewModel({
+      uiEnabled: true,
+      smsEnabled: true,
+      phoneNumber: "+15551234567",
+      timezoneRaw: null,
+      smsDisclosureAccepted: true,
+      prefs: null,
+      audienceTimezoneUnreadable: true,
+      accountabilityPhase: null,
+      now,
+    });
+    expect(view.effectiveTimezoneSource).toBe("unknown");
+    expect(view.effectiveTimezone).toBe("");
+  });
+
+  it("schedule validation accepts minute values and rejects malformed schedules", () => {
+    const valid = validateSmsPreferencesPatch({
+      weekly_schedule: {
+        monday: 421,
+        tuesday: 0,
+        wednesday: null,
+        thursday: 1439,
+        friday: null,
+        saturday: null,
+        sunday: null,
+      },
+      schedule_timezone: "America/Los_Angeles",
+    });
+    expect(valid.ok).toBe(true);
+    if (valid.ok) {
+      expect(valid.upsert.patch.weekly_schedule?.monday).toBe(421);
+      expect(valid.upsert.patch.schedule_timezone).toBe("America/Los_Angeles");
+      expect(valid.upsert.patch).not.toHaveProperty("pause_indefinite");
+    }
+
+    const timezoneOnly = validateSmsPreferencesPatch({ schedule_timezone: "Pacific/Honolulu" });
+    expect(timezoneOnly.ok).toBe(true);
+    if (timezoneOnly.ok) {
+      expect(timezoneOnly.upsert.patch).toEqual({ schedule_timezone: "Pacific/Honolulu" });
+    }
+
+    const bad = [
+      { weekly_schedule: { monday: 1440 } },
+      { weekly_schedule: { monday: -1 } },
+      { weekly_schedule: { monday: 7.25 } },
+      { weekly_schedule: { monday: "420" } },
+      { weekly_schedule: ["monday"] },
+      { schedule_timezone: "Not a zone" },
+      { schedule_timezone: "America/Not_A_Real_Place" },
+      { account_pause: "resume", weekly_schedule: { monday: 420 } },
+    ];
+    for (const body of bad) {
+      const result = validateSmsPreferencesPatch(body);
+      expect(result.ok).toBe(false);
+    }
+  });
+
+  it("account resume clears pause without being allowed after STOP", () => {
+    const resume = validateSmsPreferencesPatch({ account_pause: "resume" });
+    expect(resume.ok).toBe(true);
+    if (resume.ok) {
+      expect(resume.upsert.clearPause).toBe(true);
+      expect(resume.upsert.clearIndefinitePause).toBe(true);
+      expect(resume.upsert.patch).not.toHaveProperty("cadence_override");
+      expect(resume.upsert.patch).not.toHaveProperty("weekly_schedule");
+      expect(resume.upsert.patch).not.toHaveProperty("schedule_timezone");
+      expect(resume.upsert.patch).not.toHaveProperty("pause_indefinite");
+    }
+    expect(isClearOnlySmsPreferencesPatch({ account_pause: "resume" })).toBe(false);
+    expect(isClearOnlySmsPreferencesPatch({ account_pause: "indefinite" })).toBe(false);
+    expect(
+      assertSmsPreferencesPatchAllowed({
+        smsEnabled: false,
+        body: { account_pause: "resume" },
+      }).ok
+    ).toBe(false);
+
+    const legacy = validateSmsPreferencesPatch({ clearPause: true });
+    expect(legacy.ok).toBe(true);
+    if (legacy.ok) {
+      expect(legacy.upsert.clearPause).toBe(true);
+      expect(legacy.upsert.clearIndefinitePause).toBeUndefined();
+    }
+    const legacyNull = validateSmsPreferencesPatch({ pause_until: null });
+    expect(legacyNull.ok).toBe(true);
+    if (legacyNull.ok) {
+      expect(legacyNull.upsert.clearPause).toBe(true);
+      expect(legacyNull.upsert.clearIndefinitePause).toBeUndefined();
+    }
   });
 });

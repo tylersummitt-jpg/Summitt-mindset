@@ -107,16 +107,18 @@ describe("weekly generate isolation (static)", () => {
 
   it("excludes compliance footer from draft body by design", () => {
     expect(WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER).toBe(true);
-    expect(weeklyGenerate).toContain("draft_excludes_compliance_footer");
+    expect(weeklyGenerate).toContain("WEEKLY_TTO_DRAFT_EXCLUDES_COMPLIANCE_FOOTER");
+    expect(weeklyGenerate).not.toContain("buildWeeklyTtoFinalBodyWithFooter");
   });
 
   it("stores weekly writer prompt path constant", () => {
     expect(WEEKLY_TTO_WRITER_PROMPT_PATH).toBe("weekly_brief_writer_v1");
   });
 
-  it("per-user generate reports current_draft_protected instead of advertising discarded copy", () => {
-    expect(weeklyRoute).toContain("current_draft_protected");
-    expect(weeklyDash).toContain("currentDraftProtected");
+  it("the generate route refuses before calling the weekly generator", () => {
+    expect(weeklyRoute).toContain("weekly_delivery_retired");
+    expect(weeklyRoute).not.toContain("generateTylerTextOverviewWeeklyDraftForUser");
+    expect(weeklyRoute).not.toContain("sendSMS");
   });
 });
 
@@ -203,18 +205,28 @@ describe("weekly page / copy", () => {
   });
 });
 
-describe("weekly slice weekly-sms cutover contracts", () => {
-  it("weekly-sms cron is TTO draft-authoritative (no live-build)", () => {
+describe("weekly slice weekly-sms retirement", () => {
+  it("weekly-sms cron cannot submit a text", () => {
     const src = readFileSync(join(REPO, "src/app/api/cron/weekly-sms/route.ts"), "utf8");
-    expect(src).toContain("tyler-text-overview-weekly-send");
-    expect(src).toContain("assertWeeklyTtoDraftAuthoritativeForCronSend");
+    expect(src).toContain("weekly_delivery_retired");
+    expect(src).toContain("force_ignored");
+    expect(src).not.toContain("sendWeeklyTtoDraftAuthoritative");
     expect(src).not.toContain("produceWeeklyV3RelationshipSms");
     expect(src).not.toContain("buildV2WeeklyProofPack");
   });
 
-  it("vercel.json still schedules weekly-sms and was not rewritten for TTO send", () => {
+  it("vercel.json no longer schedules weekly-sms", () => {
     const vercel = readFileSync(join(REPO, "vercel.json"), "utf8");
-    expect(vercel).toContain("/api/cron/weekly-sms");
-    expect(vercel).not.toContain("weekly-tto-send");
+    expect(vercel).not.toContain("/api/cron/weekly-sms");
+    expect(vercel).toContain("/api/cron/daily-sms");
+    expect(vercel).toContain("/api/cron/evening-sms");
+  });
+
+  it("the weekly page is not an operations console", () => {
+    const page = readFileSync(join(REPO, "src/app/admin/tyler-text-overview/weekly/page.tsx"), "utf8");
+    expect(page).toContain("Weekly delivery is retired");
+    expect(page).not.toContain("TylerTextOverviewWeeklyDashboard");
+    expect(page).not.toContain("weekly-generate");
+    expect(page).not.toContain("weekly-send");
   });
 });

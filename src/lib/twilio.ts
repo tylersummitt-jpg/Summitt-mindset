@@ -229,10 +229,13 @@ export async function sendSMS({
   to,
   body,
   lastOutbound,
+  beforeCreate,
 }: {
   to: string;
   body: string;
   lastOutbound?: LastOutboundSmsMeta;
+  /** Scheduled-daily only. Runs after deletion preflight and immediately before messages.create. */
+  beforeCreate?: () => Promise<void>;
 }) {
   const client = getTwilioClient();
 
@@ -266,6 +269,8 @@ export async function sendSMS({
     }
     throw err;
   }
+
+  if (beforeCreate) await beforeCreate();
 
   const message = await client.messages.create(
     messagingServiceSid

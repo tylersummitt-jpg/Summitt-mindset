@@ -190,9 +190,6 @@ export default async function AdminTylerTextOverviewReplyReportPage({
           <Link href="/admin/tyler-text-overview/evening" className="underline text-gray-800">
             Evening TTO
           </Link>
-          <Link href="/admin/tyler-text-overview/weekly" className="underline text-gray-800">
-            Weekly TTO
-          </Link>
         </div>
       </div>
 

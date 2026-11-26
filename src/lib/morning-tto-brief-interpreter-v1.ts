@@ -14,7 +14,7 @@ import {
 } from "@/lib/morning-tto-coaching-brief-v1";
 import {
   buildMorningBriefExactContractPromptAppendix,
-  MORNING_BRIEF_INTERPRETER_RESPONSE_FORMAT,
+  proactiveMorningBriefResponseFormat,
 } from "@/lib/morning-tto-coaching-brief-json-schema-v1";
 import {
   mapSpineOutcomeToBriefOutcome,
@@ -66,7 +66,8 @@ Your job is to interpret the human situation from canonical facts and the exact 
 
 Hard rules:
 - Interpret the human situation. Use canonical facts as hard boundaries.
-- message_for (local_date, local_weekday, daypart, timezone) is the authoritative target for this interpretation — not the wall-clock time when generation ran.
+- message_for.local_date, local_weekday, timezone, and intended_receive_time_local are when this SMS is meant to reach the member. That intended delivery clock is the target for this interpretation — not the wall-clock time when generation ran.
+- message_for.daypart names the administrative Morning or Evening batch. It does not by itself mean the beginning or the end of the member's day.
 - Canonical outcome, proof claims, evidence strength, consistency, Current Goal, and pending goal state win over any guess.
 - Identity is context, not proof of action.
 - Important people may be selected only when naturally relevant to the live conversation or when a specific open question about that known relationship is itself a grounded, useful coaching move. Never infer current events, feelings, or behavior from the person's mere existence.
@@ -85,6 +86,9 @@ Before choosing another tactic, principle, generic encouragement, or standalone 
 - Never include keys: body, sms_body, message, final_message, reply.
 - Never mutate state. You do not change goals, identity, people, proof, outcomes, or timing.
 - coaching_direction.proactive_decision is send or intentional_space. It is the only send/space judgment. send includes both normal conversational coaching and standalone value.
+- coaching_direction.existing_text_decision is keep, replace, or not_applicable.
+- When existing_saved_text is absent, existing_text_decision must be not_applicable. Do not invent a saved text.
+- When existing_saved_text is present, decide whether that exact saved body is still the right text for this message_for target after the supplied thread, goal, and delivery facts. keep means the saved body is still appropriate, including when a different sentence could also be written. replace means subsequent information makes the saved body inappropriate, redundant, outdated, or otherwise inferior. A stylistic variation alone is not replace. An intentional blank or intentional space can be keep. Do not output the replacement SMS.
 - When mechanical.quiet_relationship_eligible is not true, proactive_decision must be send.
 - selected_person must be null or exactly one person from available_important_people (same name and relationship).
 - Do not invent outcomes, proof, or pending confirmation.
@@ -108,16 +112,19 @@ Do not behave as though continue / keep checking in was selected. Do not assign 
 
 Do not create intentional SPACE from this law. When mechanical.quiet_relationship_eligible is not true, proactive_decision remains send. Unresolved focus is semantic context only; existing Quiet Relationship laws still decide SEND vs SPACE when eligible. Do not convert active coaching into passive inspirational copy.
 
-TEMPORAL POSTURE (message_for.daypart — shared Morning and Evening):
-- Morning (daypart=morning): treat the target as a beginning-of-day receive context. Do not reason as if today's outcome is already known unless exact thread, evidence, and timing actually support that. Morning may answer, reconnect, acknowledge yesterday, prepare for later today, challenge, clarify, celebrate prior proof, ask one useful question, or ask none — it does not automatically mean "make a plan."
-- Evening (daypart=evening): treat the target as a near-end-of-day receive context. Avoid start-of-day framing (generic fresh planning for a day already underway or when an earlier plan/open loop already exists). Evening may answer, support, clarify, reconnect, prepare for tomorrow, challenge, ask one useful question, or ask none — it does not automatically mean "the day is over."
-- Late opportunity: evening alone must not imply every goal/action opportunity has already happened. If timing/context points to a later-night action, do not invent a miss or demand completion evidence merely because it is evening — use actual timing, context, and evidence.
+TEMPORAL POSTURE (intended delivery clock — shared Morning and Evening):
+- Coach from message_for.intended_receive_time_local on message_for.local_date in message_for.timezone. A text generated on an earlier day is still for that later local date and clock. Do not treat an administrative Morning batch as a beginning-of-day receive context unless that clock is actually early. Do not treat an administrative Evening batch as a near-end-of-day receive context unless that clock is actually late. A Morning-batch text at night is a night text. An Evening-batch text in the morning is a morning text.
+- An early-day delivery may answer, reconnect, acknowledge yesterday, prepare for later today, challenge, clarify, celebrate prior proof, ask one useful question, or ask none — it does not automatically mean "make a plan." Do not reason as if today's outcome is already known unless exact thread, evidence, and timing actually support that.
+- A late-day delivery may answer, support, clarify, reconnect, prepare for tomorrow, challenge, ask one useful question, or ask none — it does not automatically mean "the day is over." Avoid start-of-day framing when the intended clock is already late and an earlier plan or open loop is already in the thread.
+- Late opportunity: a late receive time alone must not imply every goal/action opportunity has already happened. If timing/context points to a later-night action, do not invent a miss or demand completion evidence merely because the clock is late — use actual timing, context, and evidence.
 - Receive-time boundary: if the member's own words place a timed plan, routine, or opportunity at this SMS's intended_receive_time_local, or in a stated time span that covers that receive time, do not treat that opportunity as safely still ahead. Do not assign that time-bound action as the next step. Do not ask whether it already happened. Do not call it completed. Do not call it missed. Preserve the temporal uncertainty for that opportunity. A clearly earlier stated time remains an elapsed opportunity whose outcome is still unknown unless the thread itself says what happened. A clearly later stated time remains still ahead. A later user statement that it happened, or that it was missed, outranks this boundary. Multi-day or untimed context with no receive-time boundary is outside this clause.
-- Relative time: words like today / tonight / tomorrow / yesterday / this morning / this afternoon / this evening / last night in older turns belong to that turn's local timestamp and day_relation_to_message — do not blindly re-anchor them to the new message_for target.
-- Evidence: daypart alone never creates evidence of completion, miss, attempt, consistency, failure, or success.
+- Relative time: words like today / tonight / tomorrow / yesterday / this morning / this afternoon / this evening / last night in older turns belong to that turn's local timestamp and day_relation_to_message — do not blindly re-anchor them to the new message_for target. A Wednesday noon accomplishment is yesterday relative to a Thursday delivery, and the member's own words still belong to Wednesday.
+- existing_saved_text.original_model_delivery is an earlier model clock. latest_affirmed_delivery, when present, is a later clock at which this same saved body was affirmatively kept. tyler_edit_delivery with status known is the delivery context bound to the current Tyler edit. An unavailable or absent edit context does not mean the edit was written for the current message_for. Judge the saved body against the current message_for.
+- days_since_last_user_response is the calendar gap from the last reply to the intended message day. days_since_last_user_response_observed is silence that has already elapsed at generation. Days still between generation and delivery are not silence the member has already spent.
+- Evidence: daypart alone never creates evidence of completion, miss, attempt, consistency, failure, or success. The clock alone does not either.
 
 QUIET RELATIONSHIP VALUE
-When mechanical.quiet_relationship_eligible is true (member has not replied for at least 10 days, or has never replied despite meaningful outbound history), additional proactive options become available. Quiet eligibility expands the available coaching moves. It does not force a passive posture.
+When mechanical.quiet_relationship_eligible is true (member has not replied for at least 10 days, or has never replied despite meaningful outbound history), additional proactive options become available. Quiet eligibility expands the available coaching moves. It does not force a passive posture. Those 10 days are silence already elapsed at generation. A draft for a later date must not be treated as ten days of silence that have not happened yet. Do not choose intentional_space for that future gap.
 
 Do not treat elapsed silence alone as evidence that conversation should stop, that the member is disengaged, struggling, avoiding, failing, preferring no questions, or that Current Goal missed.
 
@@ -142,6 +149,22 @@ When mechanical.quiet_relationship_eligible is not true: existing live-relations
 Return a single JSON object with sections: version, confidence, human_situation, truth_and_evidence, conversation_continuity, goal_role_today, coaching_direction, boundaries.
 
 ${buildMorningBriefExactContractPromptAppendix()}`;
+
+/** Appended only when the intended delivery date is Sunday. The daily prompt stays intact. */
+export const SUNDAY_COACHING_INTERPRETER_SUPPLEMENT = `SUNDAY COACHING
+This remains the ordinary daily text for message_for. daypart is still the administrative Morning or Evening batch. Do not treat it as a separate weekly delivery. Do not use a fixed noon clock. Coach from message_for.intended_receive_time_local on this Sunday in message_for.timezone.
+- An early Sunday clock still has Sunday ahead. An afternoon clock is Sunday afternoon. A late clock is Sunday night, and Monday has not begun. Do not say Sunday is finished before that clock.
+- sunday_coaching is a lens, not an assignment. Use it only when it shows something the latest turn does not.
+- Prefer one meaningful synthesis over a list. Do not write a newsletter, performance report, or checklist, and do not require a weekly summary.
+- Recognize genuine progress and actual accomplishments the tape or thread supports. Reflect on a real challenge without inventing a pattern. Help prepare for the coming week only when that is useful. One next step is optional. One useful question is optional. Rest, or leaving Monday for Monday, is valid.
+- Do not manufacture a lesson because the date is Sunday. A recent member message, an unresolved need, or an urgent circumstance may take precedence.
+- accountability_events.status loaded with an empty events array means no qualifying canonical events were found. That is not failure, consistency, or a pattern.
+- accountability_events.status unavailable means the tape was not read. It is not an empty tape and not zero accomplishments.
+- One completion is not consistency. One miss is not a pattern. A plan is not proof. Do not invent completion, failure, or a pattern from missing information.
+- Each event keeps its own occurred_at and local_day_key. Do not treat an event as having happened merely because this Sunday delivery is later than generation.
+- planned_interruption.status active is a stored signal with its own occurred_at, reason_category, and resume_hint. status none means no applicable stored interruption was found. status unavailable means the read failed. Do not infer an interruption from silence.
+- Identity, important people, and relationship memory are not mandatory mentions.
+- Sunday is not by itself a reason to send. intentional_space remains available under the existing quiet-relationship and required-touch rules. When mechanical.message_required_today is true, intentional_space stays unavailable.`;
 
 
 const FIXED_UNSUPPORTED_CAPABILITIES = [
@@ -450,8 +473,11 @@ export function buildMorningBriefInterpreterUserMessage(
 export function buildMorningBriefInterpreterMessages(
   input: MorningBriefInterpreterInputV1
 ): ChatCompletionMessageParam[] {
+  const system = input.sunday_coaching
+    ? `${MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT}\n\n${SUNDAY_COACHING_INTERPRETER_SUPPLEMENT}`
+    : MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT;
   return [
-    { role: "system", content: MORNING_BRIEF_INTERPRETER_SYSTEM_PROMPT },
+    { role: "system", content: system },
     { role: "user", content: buildMorningBriefInterpreterUserMessage(input) },
   ];
 }
@@ -596,7 +622,7 @@ export async function runMorningBriefInterpreterV1(args: {
       model: MORNING_BRIEF_INTERPRETER_MODEL,
       reasoning_effort: MORNING_BRIEF_INTERPRETER_REASONING_EFFORT,
       max_completion_tokens: MORNING_BRIEF_INTERPRETER_MAX_COMPLETION_TOKENS,
-      response_format: MORNING_BRIEF_INTERPRETER_RESPONSE_FORMAT,
+      response_format: proactiveMorningBriefResponseFormat(),
       messages: msgs,
     });
 

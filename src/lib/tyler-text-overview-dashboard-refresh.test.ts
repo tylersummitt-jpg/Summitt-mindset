@@ -4,10 +4,62 @@ import { join } from "node:path";
 
 import {
   MORNING_TTO_FOCUS_REFRESH_COOLDOWN_MS,
+  resolveTtoDashboardSelectionView,
   shouldShowTtoBackgroundRefreshing,
   shouldShowTtoFullPageLoader,
   shouldSkipMorningTtoFocusRefresh,
 } from "@/lib/tyler-text-overview-dashboard-refresh";
+
+describe("resolveTtoDashboardSelectionView", () => {
+  it("keeps a loaded day visible during a same-day refresh", () => {
+    expect(
+      resolveTtoDashboardSelectionView({
+        selectedDayKey: "2026-01-15",
+        selectedSlot: "morning",
+        loadedDayKey: "2026-01-15",
+        loadedSlot: "morning",
+        loading: true,
+        selectionLoadFailed: false,
+      })
+    ).toBe("current");
+  });
+
+  it("does not show the previous day while the newly selected day is loading", () => {
+    expect(
+      resolveTtoDashboardSelectionView({
+        selectedDayKey: "2026-01-16",
+        selectedSlot: "morning",
+        loadedDayKey: "2026-01-15",
+        loadedSlot: "morning",
+        loading: true,
+        selectionLoadFailed: false,
+      })
+    ).toBe("loading_selection");
+  });
+
+  it("shows unavailable after the selected day fails, including a slower earlier response that must not be applied", () => {
+    expect(
+      resolveTtoDashboardSelectionView({
+        selectedDayKey: "2026-01-16",
+        selectedSlot: "evening_checkin",
+        loadedDayKey: "2026-01-16",
+        loadedSlot: "evening_checkin",
+        loading: false,
+        selectionLoadFailed: true,
+      })
+    ).toBe("unavailable");
+    expect(
+      resolveTtoDashboardSelectionView({
+        selectedDayKey: "2026-01-16",
+        selectedSlot: "evening_checkin",
+        loadedDayKey: "2026-01-15",
+        loadedSlot: "evening_checkin",
+        loading: false,
+        selectionLoadFailed: false,
+      })
+    ).toBe("loading_selection");
+  });
+});
 
 describe("shouldShowTtoFullPageLoader", () => {
   it("shows full loader on initial empty load", () => {
@@ -129,6 +181,13 @@ describe("TTO dashboard non-destructive refresh architecture", () => {
     join(process.cwd(), "src/app/admin/tyler-text-overview/tyler-text-overview-dashboard.tsx"),
     "utf8"
   );
+
+  it("binds displayed rows to the selected date and ignores an earlier response", () => {
+    expect(src).toContain("resolveTtoDashboardSelectionView");
+    expect(src).toContain("selectionLoadFailed");
+    expect(src).toContain("if (generation !== loadGenerationRef.current)");
+    expect(src).toContain("This date could not be loaded");
+  });
 
   it("gates the list-replacing loader on showFullPageLoader, not bare loading", () => {
     expect(src).toContain("showFullPageLoader ?");

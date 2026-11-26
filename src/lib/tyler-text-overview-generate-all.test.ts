@@ -1241,6 +1241,8 @@ describe("processGenerateAllChunk / Generate All", () => {
       draftForDayKey: DAY,
       audienceClerkUserIds: ["a", "b"],
       excludeClerkUserIds: ["a"],
+      excludeOccurrenceKeys: null,
+      failedOnly: false,
     });
   });
 
@@ -1314,13 +1316,15 @@ describe("processGenerateAllChunk / Generate All", () => {
       "utf8"
     );
     expect(morning).toContain("requireTylerAdmin");
-    expect(morning).toContain("generateMorningTtoDraftBatch");
+    expect(morning).toContain("runManualScheduledGenerateAll");
+    expect(morning).toContain('owner: "morning"');
     expect(morning).toContain("maxDuration = 300");
     expect(evening).toContain("requireTylerAdmin");
-    expect(evening).toContain("generateEveningTtoDraftBatch");
+    expect(evening).toContain("runManualScheduledGenerateAll");
+    expect(evening).toContain('owner: "evening"');
     expect(evening).toContain("maxDuration = 300");
-    expect(morning).not.toContain("generateEveningTtoDraftBatch");
-    expect(evening).not.toContain("generateMorningTtoDraftBatch");
+    expect(morning).not.toContain('owner: "evening"');
+    expect(evening).not.toContain('owner: "morning"');
   });
 
   it("dashboard auto-chains Generate All and uses sessionStorage snapshot", () => {
@@ -1333,7 +1337,7 @@ describe("processGenerateAllChunk / Generate All", () => {
     );
     expect(dashboard).toContain("ttoGenerateAllSessionStorageKey");
     expect(dashboard).toContain("audience_clerk_user_ids");
-    expect(dashboard).toContain("exclude_clerk_user_ids");
+    expect(dashboard).toContain("exclude_occurrence_keys");
     expect(dashboard).toContain("processed_this_chunk");
     expect(dashboard).toContain("resumeAvailable");
     expect(dashboard).not.toContain("/api/cron/tyler-text-overview-generate");
@@ -1355,7 +1359,13 @@ describe("processGenerateAllChunk / Generate All", () => {
     );
     expect(eveningPreview).not.toContain("processGenerateAllChunk");
     expect(eveningPreview).not.toContain("classifyTtoGenerateAllMember");
-    expect(eveningPreview).toContain("generateTylerTextOverviewEveningPreviewForUser");
+    expect(eveningPreview).toContain("resolveMemberPreviewDecision");
+    expect(eveningPreview).toContain("runScheduledTtoGeneration");
+    const scheduled = readFileSync(
+      join(process.cwd(), "src/lib/tto-scheduled-generate.ts"),
+      "utf8"
+    );
+    expect(scheduled).toContain("generateTylerTextOverviewEveningPreviewForUser");
   });
 
   it("ok:true + null body + openai_request_failed becomes Generate All failure/exclude", async () => {

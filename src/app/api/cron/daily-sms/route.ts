@@ -7,44 +7,27 @@ import { NextResponse } from "next/server";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { supabaseServer } from "@/lib/supabase-server";
-import { getDateKeyInTimezone, resolveSmsUserTimezone } from "@/lib/timezone";
+import { getDateKeyInTimezone } from "@/lib/timezone";
 import { sendSMS, isTwilioReady } from "@/lib/twilio";
 import {
   evaluateOutboundSmsForAccountDeletion,
   isAccountDeletionOutboundSmsError,
   reservedSendEventPatchForDeletionError,
 } from "@/lib/account-deletion/deletion-guards";
-import { clearStaleAdaptiveContractColumns } from "@/lib/v2-adaptive-contract";
-import { shouldSendV2CadenceToday } from "@/lib/v2-cadence";
 import {
   getActiveCommitment,
   hasRecentInboundAccountabilityExchange,
-  getLastV2CheckSentForCommitment,
 } from "@/lib/v2-commitment";
-import { maybeRecordV2WeakNoReplyFromPriorAccountabilityDay } from "@/lib/v2-send-time-weak-no-reply";
 import {
-  buildMorningLaneSchedulingTelemetry,
-  evaluateMorningLaneTiming,
-  isMorningReservationWithinLease,
-  isSafeMorningRetryFailure,
-  reservationAgeMs,
-} from "@/lib/daily-sms-scheduling";
-import {
-  fetchV2UserSmsCommsPreferences,
-  shouldApplyUserCadenceOverride,
-  shouldSkipDailyForCommsPrefs,
-} from "@/lib/v2-sms-comms-preferences";
-import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
-import { runMorningTtoPostSendBookkeeping } from "@/lib/morning-tto-post-send-bookkeeping";
-import { runMorningTtoPreSendCanonicalStateMaintenance } from "@/lib/morning-tto-canonical-state-maintenance";
-import { applySundayWeeklyPauseBeforeWriterIfNeeded } from "@/lib/sms-daily-sunday-before-writer";
-import {
-  assertMorningTtoDraftAuthoritativeForSend,
   buildTylerTextOverviewSendMetadata,
   finalizeTylerTextOverviewDraftAfterSend,
   markTylerTextOverviewDraftSkippedAfterGuard,
   mergeTylerTextOverviewSendMetadata,
   resolveMorningTtoExactBodyImmediatelyBeforeTwilio,
+  deliverScheduledDailyCoaching,
+  orderPotentiallyDueMembers,
+  SCHEDULED_SEND_MEMBER_BUDGET_MS,
+  SCHEDULED_SEND_TICK_BUDGET_MS,
   withTylerTextOverviewFinalBodyOnContext,
   type MorningTtoAuthoritativeGateSuccess,
   type MorningTtoAuthoritativeSkipReason,
@@ -52,18 +35,9 @@ import {
   type TylerTextOverviewSendContext,
 } from "@/lib/tyler-text-overview-send";
 import { SMS_DAILY_PRODUCTION_SEND_SLOT, isTylerTextOverviewEnabled } from "@/lib/tyler-text-overview-types";
-import {
-  ensureCurrentTtoDraftFreshForSend,
-  savedProactiveSentenceOutgrownByRealConversation,
-} from "@/lib/tto-draft-fresh-for-send";
-import {
-  AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
-  hasAwaitingManualPatAnswer,
-} from "@/lib/has-awaiting-manual-pat-answer";
-import {
-  AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
-  hasAwaitingSmsOptOutReview,
-} from "@/lib/sms-opt-out-review-hold";
+import { savedProactiveSentenceOutgrownByRealConversation } from "@/lib/tto-draft-fresh-for-send";
+import { hasAwaitingManualPatAnswer } from "@/lib/has-awaiting-manual-pat-answer";
+import { hasAwaitingSmsOptOutReview } from "@/lib/sms-opt-out-review-hold";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -860,7 +834,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
 
-  const force = url.searchParams.get("force") === "1";
   const dryRunOverride = url.searchParams.get("dryRun") === "1";
   const SMS_DRY_RUN = ENV_SMS_DRY_RUN || dryRunOverride;
 
@@ -906,7 +879,6 @@ export async function GET(req: Request) {
     skippedUserWeekendPolicy: 0,
     twilioAccepted: 0,
     skippedNoSafeV3Voice: 0,
-    skippedSundayWeeklyPause: 0,
     skippedTtoNoCurrentMorningDraft: 0,
     skippedTtoBlankMorningBody: 0,
     skippedTtoBodyTooLong: 0,
@@ -939,787 +911,54 @@ export async function GET(req: Request) {
     stats.audienceSelfHealMerged = healed.mergedCount;
   }
 
-  for (const audienceUser of audienceUsers) {
+  const dueIds = await orderPotentiallyDueMembers({
+    members: audienceUsers.map((audienceUser) => ({
+      clerkUserId: audienceUser.clerk_user_id,
+      audienceTimezone: audienceUser.timezone,
+    })),
+    sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+  });
+  const tickDeadline = Date.now() + SCHEDULED_SEND_TICK_BUDGET_MS;
+  const audienceById = new Map(audienceUsers.map((audienceUser) => [audienceUser.clerk_user_id, audienceUser]));
+  for (const clerkUserId of dueIds) {
+      if (Date.now() >= tickDeadline) break;
+      const audienceUser = audienceById.get(clerkUserId);
+      if (!audienceUser) continue;
       stats.scanned += 1;
-
-      // APP-041B2b: early skip so we do not do expensive work for deleting users.
-      // Transport still re-checks immediately before messages.create.
-      const earlyDeletion = await evaluateOutboundSmsForAccountDeletion(
-        audienceUser.clerk_user_id
-      );
-      if (earlyDeletion.decision === "blocked_due_to_deletion") {
-        stats.skippedAccountDeletion += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-      if (earlyDeletion.decision === "lookup_failed") {
-        stats.skippedDeletionLookupFailed += 1;
-        stats.skippedUnexpected += 1;
-        // No send_event written — later cron pass in-window can retry.
-        continue;
-      }
-      if (earlyDeletion.decision === "missing_clerk_user_id") {
-        stats.skippedUnexpected += 1;
-        continue;
-      }
-
-      let stage = "getClerkUser";
+      const executionGate = { expired: false };
+      let scheduledDelivery:
+        | Awaited<ReturnType<typeof deliverScheduledDailyCoaching>>
+        | { outcome: "deferred"; reason: "member_budget" };
       try {
-      const user = await getClerkUser(audienceUser.clerk_user_id);
-      const md = user.public_metadata || {};
-
-      if (typeof audienceUser.stopped_at === "string") {
-        stats.skippedOptedOut += 1;
-        continue;
-      }
-
-      const commsPrefs = await fetchV2UserSmsCommsPreferences(audienceUser.clerk_user_id);
-
-      const tzResolved = resolveSmsUserTimezone({
-        clerkMetadataTimezone: md.timezone,
-        audienceTimezone: audienceUser.timezone,
-      });
-      const timezone = tzResolved.timezone;
-      const now = new Date();
-
-      // localNow = "now" interpreted in that user's timezone
-      const localNow = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
-
-      const commsSkip = shouldSkipDailyForCommsPrefs(commsPrefs, localNow, now);
-      if (commsSkip.skip && commsSkip.reason === "user_pause") {
-        stats.skippedUserPause += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-      if (commsSkip.skip && commsSkip.reason === "weekend_policy") {
-        stats.skippedUserWeekendPolicy += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-
-      // Key used for dedupe
-      const todayKey = getDateKeyInTimezone(now, timezone);
-
-      await maybeRecordV2WeakNoReplyFromPriorAccountabilityDay({
-        clerkUserId: audienceUser.clerk_user_id,
-        timezone,
-        now,
-      });
-
-      const v2CutoverStatus = await resolveUserFullyOnV2ForCutoverMessaging(
-        audienceUser.clerk_user_id
-      );
-      const skipLegacyDailyCompletionCheck = v2CutoverStatus.fullyOnV2;
-      const activeForPolicy = v2CutoverStatus.fullyOnV2
-        ? await getActiveCommitment(audienceUser.clerk_user_id)
-        : null;
-      const hasActiveBehavior = Boolean(activeForPolicy?.behavior_statement?.trim());
-      const activationAt =
-        v2CutoverStatus.fullyOnV2 && hasActiveBehavior
-          ? await resolveActiveV2CommitmentActivationAt(audienceUser.clerk_user_id)
-          : null;
-      const isNewActive14Days = Boolean(
-        v2CutoverStatus.fullyOnV2 && hasActiveBehavior && isWithinFirst14Days(activationAt, now)
-      );
-      const isExpectedDailyAttemptUser = Boolean(v2CutoverStatus.fullyOnV2 && hasActiveBehavior);
-      if (isExpectedDailyAttemptUser) {
-        stats.expectedDailyAttemptUsers += 1;
-        if (isNewActive14Days) stats.expectedNewActiveUsers += 1;
-        else stats.expectedNormalActiveUsers += 1;
-      }
-
-      // STEP 1: Read existing event before reserve (and before window check)
-      stage = "query_send_events";
-      const { data: existingRow } = await supabaseServer
-        .from("sms_send_events")
-        .select("id, status, metadata, message_sid, created_at")
-        .eq("clerk_user_id", audienceUser.clerk_user_id)
-        .eq("day_key", todayKey)
-        .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT)
-        .maybeSingle();
-
-      let existingEvent = existingRow;
-
-      const morningTiming = evaluateMorningLaneTiming({ now, timezone });
-      const sendTimeWindowOk = morningTiming.allowed;
-
-      // First attempts and retries both require the fixed Morning window. force=1 does not bypass it.
-      if (!sendTimeWindowOk) {
-        if (isExpectedDailyAttemptUser && morningTiming.reason === "after_morning_window") {
-          stats.skippedPastSafeLocalCutoff += 1;
-        } else {
-          stats.skippedPreferredWindowWaiting += 1;
-        }
-        stats.skippedIntentional += 1;
-        stats.skippedNotTime += 1;
-        continue;
-      }
-
-      const resAgeMs = reservationAgeMs(
-        typeof existingEvent?.created_at === "string" ? existingEvent.created_at : null,
-        now
-      );
-      const schedulingTelemetry = buildMorningLaneSchedulingTelemetry({
-        timezone,
-        timing: morningTiming,
-        attemptKind: existingEvent ? "safe_retry" : "first_attempt",
-        reservationAgeMs: resAgeMs,
-      });
-
-      stats.eligible += 1;
-
-      // STEP 2 & 3: Handle existing row or proceed to reserve
-      if (existingEvent) {
-        const hasMessageSid = hasAnyTwilioSidOnSendEvent(existingEvent);
-
-        // Fresh reserved/no-SID = in-flight or unknown. Never reclaim on the next poll.
-        if (existingEvent.status === "reserved" && !hasMessageSid) {
-          const createdAt =
-            typeof existingEvent.created_at === "string" ? existingEvent.created_at : null;
-          if (isMorningReservationWithinLease(createdAt, now)) {
-            stats.alreadyReservedOrSentToday += 1;
-            stats.skippedIntentional += 1;
-            continue;
-          }
-
-          // Past lease with no SID: unknown outcome — fail closed, no automatic Twilio retry.
-          const reservedMeta = (existingEvent.metadata || {}) as Record<string, unknown>;
-          const recoveredMeta = {
-            ...reservedMeta,
-            note: "unknown_outcome_lease_expired",
-            unknown_outcome_no_automatic_retry: true,
-            lease_expired_at: now.toISOString(),
-            reservation_age_ms: reservationAgeMs(createdAt, now),
-          };
-
-          console.log("[daily-sms] reserved/no-SID past lease — mark unknown, no auto-retry", {
-            clerk_user_id: audienceUser.clerk_user_id,
-            created_at: createdAt,
-          });
-
-          stats.recoveredReserved += 1;
-
-          await supabaseServer
-            .from("sms_send_events")
-            .update({
-              status: "send_failed",
-              metadata: recoveredMeta,
-            })
-            .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey)
-            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
-
-          stats.alreadyReservedOrSentToday += 1;
-          stats.skippedIntentional += 1;
-          continue;
-        }
-
-        // CASE A: send_failed with safe retry only (never retry after Twilio SID is known)
-        if (existingEvent.status === "send_failed") {
-          if (hasMessageSid) {
-            stats.alreadyReservedOrSentToday += 1;
-            stats.skippedIntentional += 1;
-            continue;
-          }
-
-          const existingMeta = (existingEvent.metadata || {}) as Record<string, unknown>;
-          const retryCount = typeof existingMeta.retry_count === "number" ? existingMeta.retry_count : 0;
-
-          if (!isSafeMorningRetryFailure(existingMeta) || retryCount >= 3) {
-            stats.alreadyReservedOrSentToday += 1;
-            stats.skippedIntentional += 1;
-            continue;
-          }
-
-          if (retryCount < 3) {
-            // Legacy app completion only; V2 accountability does not use daily_completion_events.
-            if (!skipLegacyDailyCompletionCheck) {
-              const { data: completed } = await supabaseServer
-                .from("daily_completion_events")
-                .select("id")
-                .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey)
-                .limit(1);
-
-              if (completed && completed.length > 0) {
-                await supabaseServer
-                  .from("sms_send_events")
-                  .update({
-                    status: "skipped_already_completed",
-                    metadata: { ...existingMeta, note: "user_completed_today" },
-                  })
-                  .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey)
-            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
-                stats.skippedAlreadyCompleted += 1;
-                stats.skippedIntentional += 1;
-                continue;
-              }
-            }
-
-            if (await shouldSkipDailyForAwaitingManualPatAnswer(audienceUser.clerk_user_id)) {
-              console.log("[daily-sms] skip awaiting_manual_pat_answer", {
-                clerk_user_id: audienceUser.clerk_user_id,
-                day_key: todayKey,
-                path: "retry",
-                skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
-              });
-              stats.skippedAwaitingManualPatAnswer += 1;
-              stats.skippedIntentional += 1;
-              continue;
-            }
-
-            if (await shouldSkipDailyForAwaitingSmsOptOutReview(audienceUser.clerk_user_id)) {
-              console.log("[daily-sms] skip awaiting_sms_opt_out_review", {
-                clerk_user_id: audienceUser.clerk_user_id,
-                day_key: todayKey,
-                path: "retry",
-                skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
-              });
-              stats.skippedAwaitingSmsOptOutReview += 1;
-              stats.skippedIntentional += 1;
-              continue;
-            }
-
-            stage = "active_inbound_thread_gate";
-            if (await shouldSkipDailyForActiveInboundThread(audienceUser.clerk_user_id)) {
-              await supabaseServer
-                .from("sms_send_events")
-                .update({
-                  status: "skipped_active_inbound_thread",
-                  metadata: {
-                    note: "recent_inbound_accountability_exchange",
-                    window_ms: 3 * 60 * 60 * 1000,
-                    timezone,
-                    local_time: localNow.toISOString(),
-                  },
-                })
-                .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey)
-            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
-
-              stats.skippedActiveInboundThread += 1;
-              stats.skippedIntentional += 1;
-              continue;
-            }
-
-            if (
-              await applySundayWeeklyPauseBeforeWriterIfNeeded({
-                clerkUserId: audienceUser.clerk_user_id,
-                todayKey,
-                localNow,
-                timezone,
-                now,
-                force,
-                fullyOnV2: skipLegacyDailyCompletionCheck,
-                commitment: activeForPolicy,
-                commsPrefs,
-                existingMeta,
-              })
-            ) {
-              stats.skippedSundayWeeklyPause += 1;
-              stats.skippedIntentional += 1;
-              continue;
-            }
-
-            stage = "canonical_state_maintenance";
-            await runMorningTtoPreSendCanonicalStateMaintenance({
-              clerkUserId: audienceUser.clerk_user_id,
-              commitment: activeForPolicy,
-              nowMs: now.getTime(),
-            });
-
-            if (!SMS_DRY_RUN) {
-              stage = "morning_tto_draft_freshness";
-              const morningFreshRetry = await ensureCurrentTtoDraftFreshForSend({
-                clerkUserId: audienceUser.clerk_user_id,
-                sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
-                draftForDayKey: todayKey,
-                now,
-              });
-              if (!morningFreshRetry.ok) {
-                if (morningFreshRetry.reason !== "conversation_moved_again") {
-                  await recordMorningTtoAuthoritativeGateFailure({
-                    clerkUserId: audienceUser.clerk_user_id,
-                    todayKey,
-                    reason: `tto_draft_not_fresh:${morningFreshRetry.reason}`,
-                    hasSendEventRow: true,
-                    existingMeta,
-                    retryCount,
-                    timezone,
-                    localNow,
-                  });
-                }
-                stats.skippedTtoAuthoritativeFailClosed += 1;
-                stats.skippedIntentional += 1;
-                continue;
-              }
-            }
-
-            stage = "morning_tto_authoritative_gate";
-            const morningTtoAuthoritativeGateRetry = await assertMorningTtoDraftAuthoritativeForSend({
-              clerkUserId: audienceUser.clerk_user_id,
-              draftForDayKey: todayKey,
-            });
-            if (!morningTtoAuthoritativeGateRetry.ok) {
-              await recordMorningTtoAuthoritativeGateFailure({
-                clerkUserId: audienceUser.clerk_user_id,
-                todayKey,
-                reason: morningTtoAuthoritativeGateRetry.reason,
-                hasSendEventRow: true,
-                existingMeta,
-                retryCount,
-                timezone,
-                localNow,
-                gateMetadata: morningTtoAuthoritativeGateRetry.metadata,
-              });
-              incrementMorningTtoAuthoritativeSkipStat(stats, morningTtoAuthoritativeGateRetry.reason);
-              stats.skippedIntentional += 1;
-              continue;
-            }
-
-            stage = "resolve_morning_tto_body";
-            const retrySendAttempt = await attemptMorningTtoTwilioSend({
-              gate: morningTtoAuthoritativeGateRetry,
-              clerkUserId: audienceUser.clerk_user_id,
-              phoneNumber: audienceUser.phone_number,
-              todayKey,
-              md: md as Record<string, unknown>,
-              existingMeta,
-              timezone,
-              localNow,
-              retryCount,
-              dryRun: SMS_DRY_RUN,
-            });
-
-            if (retrySendAttempt.outcome === "blocked") {
-              stats.skippedTtoAuthoritativeFailClosed += 1;
-              stats.skippedIntentional += 1;
-              continue;
-            }
-
-            if (retrySendAttempt.outcome === "dry_run") {
-              await supabaseServer
-                .from("sms_send_events")
-                .update({
-                  status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
-                  metadata: {
-                    ...existingMeta,
-                    ...schedulingTelemetry,
-                    note: SMS_DRY_RUN ? "dry_run_enabled" : "twilio_not_ready",
-                    twilio_send_attempted: false,
-                    retry_count: retryCount,
-                    timezone,
-                    local_time: localNow.toISOString(),
-                  },
-                })
-                .eq("clerk_user_id", audienceUser.clerk_user_id)
-                .eq("day_key", todayKey)
-                .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
-              if (SMS_DRY_RUN) stats.dryRun += 1;
-              else {
-                stats.skippedMissingTwilio += 1;
-                stats.skippedUnexpected += 1;
-              }
-              continue;
-            }
-
-            if (retrySendAttempt.outcome === "failed") {
-              stats.failed += 1;
-              stats.sendFailed += 1;
-              stats.retried += 1;
-              stats.skippedUnexpected += 1;
-              continue;
-            }
-
-            const {
-              messageSid: retryMessageSid,
-              twilioStatus: retryTwilioStatus,
-              smsBody,
-              sendContext: tylerTextOverviewCtx,
-            } = retrySendAttempt;
-            stats.twilioAccepted += 1;
-
-            const retrySuccessPayload = dailySmsTwilioSuccessSendEventFields({
-              messageSid: retryMessageSid,
-              twilioStatus: retryTwilioStatus,
-              smsBody,
-              metadata: {
-                ...existingMeta,
-                ...schedulingTelemetry,
-                retry_count: retryCount + 1,
-                note: "retry_success",
-                timezone,
-                local_time: localNow.toISOString(),
-                ...mergeTylerTextOverviewSendMetadata(
-                  {},
-                  tylerTextOverviewMetadataForSend(tylerTextOverviewCtx, smsBody)
-                ),
-              },
-            });
-            const recordResult = await recordDailyTwilioSuccessOrFallback({
-              clerkUserId: audienceUser.clerk_user_id,
-              dayKey: todayKey,
-              pathLabel: "retry",
-              primaryPayload: retrySuccessPayload,
-              messageSid: retryMessageSid,
-              smsBody,
-              twilioStatus: retryTwilioStatus,
-            });
-            if (recordResult.recordOk) {
-              if (!recordResult.usedFallback) {
-                stats.sent += 1;
-                stats.retried += 1;
-              }
-              await finalizeTylerTextOverviewAfterOutboundBestEffort({
-                ctx: tylerTextOverviewCtx,
-                draftBodyUsed: true,
-                clerkUserId: audienceUser.clerk_user_id,
-                dayKey: todayKey,
-                smsBody,
-                messageSid: retryMessageSid,
-              });
-              if (!recordResult.usedFallback && activeForPolicy?.id) {
-                await runMorningTtoPostSendBookkeeping({
-                  commitmentId: activeForPolicy.id,
-                  clerkUserId: audienceUser.clerk_user_id,
-                  dayKey: todayKey,
-                  sentBody: smsBody,
-                  messageSid: retryMessageSid,
-                  sentAt: now,
-                });
-              }
-            } else {
-              stats.failed += 1;
-              stats.sendFailed += 1;
-              stats.skippedUnexpected += 1;
-            }
-            continue;
-          }
-
-          stats.alreadyReservedOrSentToday += 1;
-          stats.skippedIntentional += 1;
-          continue;
-        }
-
-        // Already reserved/sent/skipped for this slot today
-        stats.alreadyReservedOrSentToday += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-
-      // MAIN PATH: no existing event — reserve and send inside Morning window only.
-      // (force does not bypass window, TTO, or duplicate protections.)
-
-      // V2 cadence gate (explicit override only; silence cadence decoupled).
-      stage = "cadence_gate";
-      let activeCadence = await getActiveCommitment(audienceUser.clerk_user_id);
-      if (activeCadence?.behavior_statement?.trim()) {
-        await clearStaleAdaptiveContractColumns(activeCadence.id);
-        const refreshedCadence = await getActiveCommitment(audienceUser.clerk_user_id);
-        if (refreshedCadence?.behavior_statement?.trim()) {
-          activeCadence = refreshedCadence;
-        }
-        const nowCadence = new Date();
-        const userCadenceOverride = shouldApplyUserCadenceOverride(commsPrefs, nowCadence);
-        if (userCadenceOverride != null) {
-          const lastCheckCadence = await getLastV2CheckSentForCommitment(activeCadence.id);
-          if (
-            !shouldSendV2CadenceToday({
-              lastSuccessfulCheckSentDayKey: lastCheckCadence?.day_key ?? null,
-              todayLocalDayKey: todayKey,
-              cadenceLevel: userCadenceOverride,
-            })
-          ) {
-            stats.skippedCadence += 1;
-            stats.skippedIntentional += 1;
-            continue;
-          }
-        }
-      }
-
-      if (await shouldSkipDailyForAwaitingManualPatAnswer(audienceUser.clerk_user_id)) {
-        console.log("[daily-sms] skip awaiting_manual_pat_answer", {
-          clerk_user_id: audienceUser.clerk_user_id,
-          day_key: todayKey,
-          path: "main",
-          skip_reason: AWAITING_MANUAL_PAT_ANSWER_SKIP_REASON,
-        });
-        stats.skippedAwaitingManualPatAnswer += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-
-      if (await shouldSkipDailyForAwaitingSmsOptOutReview(audienceUser.clerk_user_id)) {
-        console.log("[daily-sms] skip awaiting_sms_opt_out_review", {
-          clerk_user_id: audienceUser.clerk_user_id,
-          day_key: todayKey,
-          path: "main",
-          skip_reason: AWAITING_SMS_OPT_OUT_REVIEW_SKIP_REASON,
-        });
-        stats.skippedAwaitingSmsOptOutReview += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-
-      stage = "canonical_state_maintenance";
-      const stateMaintenance = await runMorningTtoPreSendCanonicalStateMaintenance({
-        clerkUserId: audienceUser.clerk_user_id,
-        commitment: activeCadence?.behavior_statement?.trim()
-          ? activeCadence
-          : activeForPolicy,
-        nowMs: now.getTime(),
-      });
-      if (stateMaintenance.commitment?.behavior_statement?.trim()) {
-        activeCadence = stateMaintenance.commitment;
-      }
-
-      if (!SMS_DRY_RUN) {
-        stage = "morning_tto_draft_freshness";
-        const morningFreshMain = await ensureCurrentTtoDraftFreshForSend({
-          clerkUserId: audienceUser.clerk_user_id,
-          sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
-          draftForDayKey: todayKey,
-          now,
-        });
-        if (!morningFreshMain.ok) {
-          await recordMorningTtoAuthoritativeGateFailure({
+        scheduledDelivery = await Promise.race([
+          deliverScheduledDailyCoaching({
             clerkUserId: audienceUser.clerk_user_id,
-            todayKey,
-            reason: `tto_draft_not_fresh:${morningFreshMain.reason}`,
-            hasSendEventRow: false,
-            timezone,
-            localNow,
-          });
-          stats.skippedTtoAuthoritativeFailClosed += 1;
-          stats.skippedIntentional += 1;
-          continue;
-        }
-      }
-
-      stage = "morning_tto_authoritative_gate";
-      const morningTtoAuthoritativeGateMain = await assertMorningTtoDraftAuthoritativeForSend({
-        clerkUserId: audienceUser.clerk_user_id,
-        draftForDayKey: todayKey,
-      });
-      if (!morningTtoAuthoritativeGateMain.ok) {
-        await recordMorningTtoAuthoritativeGateFailure({
-          clerkUserId: audienceUser.clerk_user_id,
-          todayKey,
-          reason: morningTtoAuthoritativeGateMain.reason,
-          hasSendEventRow: false,
-          timezone,
-          localNow,
-          gateMetadata: morningTtoAuthoritativeGateMain.metadata,
-        });
-        incrementMorningTtoAuthoritativeSkipStat(stats, morningTtoAuthoritativeGateMain.reason);
-        stats.skippedIntentional += 1;
-        continue;
-      }
-
-      // STEP 3: Only reserve if no row exists
-      stage = "reserve";
-      const reservation = await reserveTodaySendOrSkip({
-        userId: audienceUser.clerk_user_id,
-        todayKey,
-      });
-
-      if (!reservation.reserved) {
-        if (reservation.reason === "already_reserved_or_sent_today") {
-          stats.alreadyReservedOrSentToday += 1;
-          stats.skippedIntentional += 1;
-        } else {
-          stats.reservationErrors += 1;
-          stats.skippedUnexpected += 1;
-        }
-        continue;
-      }
-
-      stats.reserved += 1;
-
-      // Legacy: skip send if old app completion row exists for today. Not used for full V2 path.
-      if (!skipLegacyDailyCompletionCheck) {
-        const { data: completed } = await supabaseServer
-          .from("daily_completion_events")
-          .select("id")
-          .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey)
-          .limit(1);
-
-        if (completed && completed.length > 0) {
-          await supabaseServer
-            .from("sms_send_events")
-            .update({
-              status: "skipped_already_completed",
-              metadata: { note: "user_completed_today" },
-            })
-            .eq("clerk_user_id", audienceUser.clerk_user_id)
-            .eq("day_key", todayKey)
-            .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
-
-          stats.skippedAlreadyCompleted += 1;
-          stats.skippedIntentional += 1;
-          continue;
-        }
-      }
-
-      stage = "active_inbound_thread_gate";
-      if (await shouldSkipDailyForActiveInboundThread(audienceUser.clerk_user_id)) {
-        await supabaseServer
-          .from("sms_send_events")
-          .update({
-            status: "skipped_active_inbound_thread",
-            metadata: {
-              note: "recent_inbound_accountability_exchange",
-              window_ms: 3 * 60 * 60 * 1000,
-              timezone,
-              local_time: localNow.toISOString(),
-            },
-          })
-          .eq("clerk_user_id", audienceUser.clerk_user_id)
-                  .eq("day_key", todayKey)
-                  .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
-
-        stats.skippedActiveInboundThread += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-
-      if (
-        await applySundayWeeklyPauseBeforeWriterIfNeeded({
-          clerkUserId: audienceUser.clerk_user_id,
-          todayKey,
-          localNow,
-          timezone,
-          now,
-          force,
-          fullyOnV2: skipLegacyDailyCompletionCheck,
-          commitment: activeForPolicy,
-          commsPrefs,
-        })
-      ) {
-        stats.skippedSundayWeeklyPause += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-
-      stage = "resolve_morning_tto_body";
-      const mainSendAttempt = await attemptMorningTtoTwilioSend({
-        gate: morningTtoAuthoritativeGateMain,
-        clerkUserId: audienceUser.clerk_user_id,
-        phoneNumber: audienceUser.phone_number,
-        todayKey,
-        md: md as Record<string, unknown>,
-        existingMeta: { note: "reserved_by_cron" },
-        timezone,
-        localNow,
-        dryRun: SMS_DRY_RUN,
-      });
-      if (mainSendAttempt.outcome === "blocked") {
-        stats.skippedUnexpected += 1;
-        stats.skippedIntentional += 1;
-        continue;
-      }
-      if (mainSendAttempt.outcome === "dry_run") {
-        await supabaseServer
-          .from("sms_send_events")
-          .update({
-            status: SMS_DRY_RUN ? "dry_run" : "skipped_missing_twilio",
-            metadata: {
-              ...schedulingTelemetry,
-              note: SMS_DRY_RUN ? "dry_run_enabled" : "twilio_not_ready",
-              timezone,
-              local_time: localNow.toISOString(),
-            },
-          })
-          .eq("clerk_user_id", audienceUser.clerk_user_id)
-          .eq("day_key", todayKey)
-          .eq("send_slot", SMS_DAILY_PRODUCTION_SEND_SLOT);
-
-        if (SMS_DRY_RUN) stats.dryRun += 1;
-        else {
-          stats.skippedMissingTwilio += 1;
-          stats.skippedUnexpected += 1;
-        }
-        continue;
-      }
-      if (mainSendAttempt.outcome === "failed") {
-        stats.failed += 1;
-        stats.sendFailed += 1;
+            sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+            dryRun: SMS_DRY_RUN,
+            executionGate,
+          }),
+          new Promise<{ outcome: "deferred"; reason: "member_budget" }>((resolve) => {
+            setTimeout(() => {
+              executionGate.expired = true;
+              resolve({ outcome: "deferred", reason: "member_budget" });
+            }, SCHEDULED_SEND_MEMBER_BUDGET_MS);
+          }),
+        ]);
+      } catch (error) {
+        console.error("[daily-sms] scheduled delivery threw", audienceUser.clerk_user_id, error);
         stats.skippedUnexpected += 1;
         continue;
       }
+      if (scheduledDelivery.outcome === "sent") stats.sent += 1;
+      else if (scheduledDelivery.outcome === "dry_run") stats.dryRun += 1;
+      else if (scheduledDelivery.outcome === "not_due" || scheduledDelivery.outcome === "not_this_owner") stats.skippedNotTime += 1;
+      else if (scheduledDelivery.outcome === "blocked" && scheduledDelivery.reason === "account_deletion") stats.skippedAccountDeletion += 1;
+      else if (scheduledDelivery.outcome === "blocked" && scheduledDelivery.reason === "stopped") stats.skippedOptedOut += 1;
+      else if (scheduledDelivery.outcome === "unscheduled" && (scheduledDelivery.reason === "pause_indefinite" || scheduledDelivery.reason === "pause_until")) stats.skippedUserPause += 1;
+      else if (scheduledDelivery.outcome === "silence") stats.skippedIntentional += 1;
+      else stats.skippedUnexpected += 1;
+      continue;
 
-      const {
-        messageSid: mainMessageSid,
-        twilioStatus: mainTwilioStatus,
-        smsBody,
-        sendContext: tylerTextOverviewCtx,
-      } = mainSendAttempt;
-      stats.twilioAccepted += 1;
-
-      const mainSuccessPayload = dailySmsTwilioSuccessSendEventFields({
-        messageSid: mainMessageSid,
-        twilioStatus: mainTwilioStatus,
-        smsBody,
-        metadata: {
-          ...schedulingTelemetry,
-          note: "sent_to_twilio",
-          timezone,
-          local_time: localNow.toISOString(),
-          ...mergeTylerTextOverviewSendMetadata(
-            {},
-            tylerTextOverviewMetadataForSend(tylerTextOverviewCtx, smsBody)
-          ),
-        },
-      });
-      const recordResult = await recordDailyTwilioSuccessOrFallback({
-        clerkUserId: audienceUser.clerk_user_id,
-        dayKey: todayKey,
-        pathLabel: "main",
-        primaryPayload: mainSuccessPayload,
-        messageSid: mainMessageSid,
-        smsBody,
-        twilioStatus: mainTwilioStatus,
-      });
-      if (recordResult.recordOk) {
-        if (!recordResult.usedFallback) {
-          stats.sent += 1;
-        }
-        await finalizeTylerTextOverviewAfterOutboundBestEffort({
-          ctx: tylerTextOverviewCtx,
-          draftBodyUsed: true,
-          clerkUserId: audienceUser.clerk_user_id,
-          dayKey: todayKey,
-          smsBody,
-          messageSid: mainMessageSid,
-        });
-        if (!recordResult.usedFallback && activeForPolicy?.id) {
-          await runMorningTtoPostSendBookkeeping({
-            commitmentId: activeForPolicy.id,
-            clerkUserId: audienceUser.clerk_user_id,
-            dayKey: todayKey,
-            sentBody: smsBody,
-            messageSid: mainMessageSid,
-          });
-        }
-      } else if (recordResult.orphanLogged) {
-        stats.failed += 1;
-        stats.sendFailed += 1;
-        stats.skippedUnexpected += 1;
-      }
-      } catch (userErr: unknown) {
-        const message =
-          userErr instanceof Error ? userErr.message : String(userErr);
-        console.error("[daily-sms] user processing error", {
-          clerk_user_id: audienceUser.clerk_user_id,
-          stage,
-          message,
-        });
-        stats.userLoopErrors += 1;
-        stats.skippedUnexpected += 1;
-        continue;
-      }
   }
 
   // Persist daily summary for observability (do not block cron success)

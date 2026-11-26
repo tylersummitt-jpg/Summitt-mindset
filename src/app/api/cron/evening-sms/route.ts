@@ -1,34 +1,26 @@
 /**
  * /api/cron/evening-sms
  *
- * Evening TTO draft-authoritative auto-send for user-local [19:00, 21:00).
- * Does not compose SMS at Twilio send time.
- * Pre-send freshness may invoke the existing Evening generator when a persisted
- * machine draft is stale; Twilio then sends the persisted current body.
- * Does not branch into Morning daily-sms.
+ * Evening owner delivery for the member's resolved local instant, inside a 15-minute grace.
+ * Does not use the old 19:00–21:00 window and does not branch into Morning daily-sms.
  */
 
 import crypto from "crypto";
 import { NextResponse } from "next/server";
-import { getClerkUser } from "@/lib/clerk-rest";
-import {
-  evaluateEveningLaneTiming,
-} from "@/lib/daily-sms-scheduling";
 import { supabaseServer } from "@/lib/supabase-server";
-import { resolveSmsUserTimezone } from "@/lib/timezone";
-import { isTwilioReady } from "@/lib/twilio";
 import {
   evaluateOutboundSmsForAccountDeletion,
 } from "@/lib/account-deletion/deletion-guards";
 import {
-  sendEveningTtoAuthoritativeCronSend,
   type TylerTextOverviewEveningSendRefusalCode,
 } from "@/lib/tyler-text-overview-evening-send";
-import { SMS_DAILY_EVENING_PREVIEW_SEND_SLOT } from "@/lib/tyler-text-overview-types";
 import {
-  fetchV2UserSmsCommsPreferences,
-  shouldSkipDailyForCommsPrefs,
-} from "@/lib/v2-sms-comms-preferences";
+  deliverScheduledDailyCoaching,
+  orderPotentiallyDueMembers,
+  SCHEDULED_SEND_MEMBER_BUDGET_MS,
+  SCHEDULED_SEND_TICK_BUDGET_MS,
+} from "@/lib/tyler-text-overview-send";
+import { SMS_DAILY_EVENING_PREVIEW_SEND_SLOT } from "@/lib/tyler-text-overview-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -219,7 +211,19 @@ export async function GET(req: Request) {
       (r.stopped_at == null || r.stopped_at === "")
   );
 
-  for (const audienceUser of rows) {
+  const dueIds = await orderPotentiallyDueMembers({
+    members: rows.map((audienceUser) => ({
+      clerkUserId: audienceUser.clerk_user_id,
+      audienceTimezone: audienceUser.timezone,
+    })),
+    sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+  });
+  const tickDeadline = Date.now() + SCHEDULED_SEND_TICK_BUDGET_MS;
+  const audienceById = new Map(rows.map((audienceUser) => [audienceUser.clerk_user_id, audienceUser]));
+  for (const clerkUserId of dueIds) {
+    if (Date.now() >= tickDeadline) break;
+    const audienceUser = audienceById.get(clerkUserId);
+    if (!audienceUser) continue;
     stats.scanned += 1;
 
     const deletion = await evaluateOutboundSmsForAccountDeletion(audienceUser.clerk_user_id);
@@ -232,78 +236,36 @@ export async function GET(req: Request) {
       continue;
     }
 
-    let md: Record<string, unknown> = {};
-    try {
-      const user = await getClerkUser(audienceUser.clerk_user_id);
-      md = (user.public_metadata || {}) as Record<string, unknown>;
-    } catch (e) {
-      console.error("[evening-sms] getClerkUser failed", audienceUser.clerk_user_id, e);
-      stats.skippedOther += 1;
-      continue;
-    }
-
-    const tzResolved = resolveSmsUserTimezone({
-      clerkMetadataTimezone: md.timezone,
-      audienceTimezone: audienceUser.timezone,
-    });
-    const timezone = tzResolved.timezone;
-    const now = new Date();
-    const localNow = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
-
-    const commsPrefs = await fetchV2UserSmsCommsPreferences(audienceUser.clerk_user_id);
-    const commsSkip = shouldSkipDailyForCommsPrefs(commsPrefs, localNow, now);
-    if (commsSkip.skip && commsSkip.reason === "user_pause") {
-      stats.skippedUserPause += 1;
-      continue;
-    }
-    if (commsSkip.skip && commsSkip.reason === "weekend_policy") {
-      stats.skippedUserWeekendPolicy += 1;
-      continue;
-    }
-
-    const timing = evaluateEveningLaneTiming({ now, timezone });
-    if (!timing.allowed) {
-      stats.skippedOutsideEveningWindow += 1;
-      stats.skippedNotTime += 1;
-      continue;
-    }
-
     stats.eligible += 1;
-
-    if (!isTwilioReady() && !dryRun) {
-      stats.skippedMissingTwilio += 1;
-      continue;
-    }
-
-    let result;
+    const executionGate = { expired: false };
+    let scheduledDelivery:
+      | Awaited<ReturnType<typeof deliverScheduledDailyCoaching>>
+      | { outcome: "deferred"; reason: "member_budget" };
     try {
-      result = await sendEveningTtoAuthoritativeCronSend({
-        clerkUserId: audienceUser.clerk_user_id,
-        phoneNumber: audienceUser.phone_number.trim(),
-        timezone,
-        now,
-        dryRun,
-      });
-    } catch (e) {
-      console.error(
-        "[evening-sms] sendEveningTtoAuthoritativeCronSend threw",
-        audienceUser.clerk_user_id,
-        e
-      );
+      scheduledDelivery = await Promise.race([
+        deliverScheduledDailyCoaching({
+          clerkUserId: audienceUser.clerk_user_id,
+          sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+          dryRun,
+          executionGate,
+        }),
+        new Promise<{ outcome: "deferred"; reason: "member_budget" }>((resolve) => {
+          setTimeout(() => {
+            executionGate.expired = true;
+            resolve({ outcome: "deferred", reason: "member_budget" });
+          }, SCHEDULED_SEND_MEMBER_BUDGET_MS);
+        }),
+      ]);
+    } catch (error) {
+      console.error("[evening-sms] scheduled delivery threw", audienceUser.clerk_user_id, error);
       stats.skippedOther += 1;
       continue;
     }
-
-    if (dryRun) {
-      stats.dryRun += 1;
-    }
-
-    if (result.ok) {
-      stats.sent += 1;
-      continue;
-    }
-
-    bumpSkip(stats, result.refusalCode);
+    if (scheduledDelivery.outcome === "sent") stats.sent += 1;
+    else if (scheduledDelivery.outcome === "dry_run") stats.dryRun += 1;
+    else if (scheduledDelivery.outcome === "not_due" || scheduledDelivery.outcome === "not_this_owner") stats.skippedNotTime += 1;
+    else if (scheduledDelivery.outcome === "unscheduled" && (scheduledDelivery.reason === "pause_indefinite" || scheduledDelivery.reason === "pause_until")) stats.skippedUserPause += 1;
+    else stats.skippedOther += 1;
   }
 
   return NextResponse.json({

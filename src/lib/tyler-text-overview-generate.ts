@@ -17,7 +17,17 @@ import {
   runMorningBriefInterpreterV1,
 } from "@/lib/morning-tto-brief-interpreter-v1";
 import type { MorningCoachingBriefV1 } from "@/lib/morning-tto-coaching-brief-v1";
-import type { MorningRelationshipPacket } from "@/lib/morning-tto-relationship-packet";
+import {
+  sundayContextEvidenceFromCoaching,
+  type MorningRelationshipPacket,
+  type SundayContextEvidence,
+  type TtoSavedTextDeliveryContext,
+} from "@/lib/morning-tto-relationship-packet";
+import { attachSundayCoachingContext } from "@/lib/weekly-tto-relationship-packet";
+import {
+  isProactiveConversationComplianceBody,
+  type ExactThreadExcludedSource,
+} from "@/lib/sms-recent-exact-thread-72h";
 import { getClerkUser } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { smsTimePreferenceFromClerkMetadata } from "@/lib/sms-daily-delivery-body";
@@ -29,15 +39,17 @@ import type { TylerTextOverviewWriterOpenAiMessage } from "@/lib/tyler-text-over
 import {
   isTylerTextOverviewEnabled,
   SMS_DAILY_DRAFT_GENERATIONS_TABLE,
+  SMS_DAILY_DRAFTS_TABLE,
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
   SMS_DAILY_PRODUCTION_SEND_SLOT,
-  SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
   TTO_GENERATION_EFFECTIVE_ASK_KEY,
   type SmsDailySendSlot,
   type TylerTextOverviewGenerationReason,
   type TylerTextOverviewNotebookVerdict,
 } from "@/lib/tyler-text-overview-types";
-import { resolveSmsUserTimezone } from "@/lib/timezone";
+import { formatMinuteOfDayAsHhMm } from "@/lib/daily-sms-scheduling";
+import { scheduledDeliveryTupleIsCoherent } from "@/lib/sms-proactive-schedule";
+import { getDateKeyInTimezone, isValidIanaTimezone, resolveSmsUserTimezone } from "@/lib/timezone";
 import { staleTylerConversationReplacementMetadata } from "@/lib/tto-stale-tyler-replacement";
 import { hashSmsSnippet } from "@/lib/v2-human-visible-sms/validate-human-visible-sms";
 import { resolveUserFullyOnV2ForCutoverMessaging } from "@/lib/v2-cutover-gates";
@@ -50,6 +62,7 @@ import {
   MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
   clampProactiveDecision,
   isIntentionalSpaceDecision,
+  observedSilenceDays,
   resolveQuietRelationshipMechanicalFacts,
 } from "@/lib/sms-proactive-relationship-touch";
 
@@ -572,6 +585,10 @@ export async function persistMorningTtoGeneration(args: {
   allowReplaceStaleTylerNonempty?: boolean;
   replacedStaleTylerBody?: string | null;
   replacedStaleTylerEditedAt?: string | null;
+  /** Facts added to generation_metadata. Existing writer and interpreter fields stay. */
+  scheduledGenerationMetadata?: Record<string, unknown> | null;
+  /** When set, finish must still own this scheduled-generation claim. */
+  claimOwnerId?: string | null;
   routeKind?: string;
   notebookVerdictReason?: string;
 }): Promise<
@@ -594,10 +611,12 @@ export async function persistMorningTtoGeneration(args: {
     };
   }
 
-  const generationMetadataExtra =
-    args.allowReplaceStaleTylerNonempty === true
+  const callerMetadata = args.generationMetadataExtra ?? {};
+  const generationMetadataExtra = {
+    ...(args.scheduledGenerationMetadata ?? {}),
+    ...(args.allowReplaceStaleTylerNonempty === true
       ? {
-          ...(args.generationMetadataExtra ?? {}),
+          ...callerMetadata,
           ...staleTylerConversationReplacementMetadata({
             body:
               typeof args.replacedStaleTylerBody === "string"
@@ -609,7 +628,8 @@ export async function persistMorningTtoGeneration(args: {
                 : null,
           }),
         }
-      : args.generationMetadataExtra;
+      : callerMetadata),
+  };
 
   const generationRow = mapMorningWriterToGenerationRow({
     clerkUserId: args.clerkUserId,
@@ -653,6 +673,7 @@ export async function persistMorningTtoGeneration(args: {
     nowIso,
     protectTylerProvenanceOnly: args.protectTylerProvenanceOnly,
     allowReplaceStaleTylerNonempty: args.allowReplaceStaleTylerNonempty === true,
+    ...(args.claimOwnerId ? { claimOwnerId: args.claimOwnerId } : {}),
   });
   if (!finished.ok) {
     return { ok: false, reason: "upsert_failed", error: finished.error };
@@ -674,14 +695,13 @@ async function insertGenerationRow(
 
   while (attempt < 2) {
     const payload = { ...row, generation_number: generationNumber };
-    const { data, error } = await supabaseServer
-      .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-      .insert(payload)
-      .select("id")
-      .single();
+    const { data, error } = await supabaseServer.rpc("tto_insert_generation_row", {
+      p_row: payload,
+    });
+    const insertedId = typeof data === "string" && data.length > 0 ? data : null;
 
-    if (!error && data?.id) {
-      return { id: data.id as string };
+    if (!error && insertedId) {
+      return { id: insertedId };
     }
 
     if (isUniqueViolation(error) && attempt === 0) {
@@ -709,6 +729,827 @@ async function insertGenerationRow(
   return { error: "generation_insert_retry_exhausted" };
 }
 
+export type TtoInputEvidence = {
+  succeeded: boolean;
+  /** Source ids of the turns actually included in this generation's packet. */
+  considered_source_ids?: string[];
+  thread_oldest_sent_at?: string | null;
+  omitted_older_turn_count?: number;
+  /** Clock captured before the conversation read. Not generated_at. */
+  conversation_read_at?: string | null;
+  /** Set when this attempt failed before a complete conversation read. */
+  retrieval_failed?: boolean;
+  /**
+   * Discovery identities the failed retrieval did not supply to a model.
+   * Not considered, and not a deliberate exclusion.
+   */
+  retrieval_unavailable_source_ids?: string[];
+  thread_tail: {
+    source_id?: string;
+    sender: "coach" | "user";
+    sent_at_utc: string;
+    body_sha256?: string;
+  } | null;
+  thread_message_count?: number;
+  goal_text: string;
+  existing_body_sha256: string | null;
+  existing_body_source: string | null;
+  edited_by_tyler: boolean;
+  edited_at: string | null;
+  delivery: {
+    utc_instant: string | null;
+    member_local_date: string | null;
+    batch_date: string | null;
+    effective_local_minute: number | null;
+    time_zone: string | null;
+    send_slot: string | null;
+    preference_updated_at?: string | null;
+  };
+  attempt_id: string;
+  /** Interpreter token from this attempt. Not a delivery-freshness flag. */
+  model_existing_text_decision?: "keep" | "replace" | "not_applicable";
+  /**
+   * Why the saved body remained. model_keep is an affirmative interpreter KEEP.
+   * tyler_edit_policy retains the body after REPLACE when the edit is authoritative.
+   * Neither value authorizes delivery.
+   */
+  body_retention?: "model_keep" | "tyler_edit_policy";
+  /**
+   * Observed during packet selection and deliberately left out of the model input.
+   * Not a lifetime ban, and not proof the model saw the body.
+   */
+  excluded_source_ids?: ExactThreadExcludedSource[];
+  /**
+   * Policy retention of a Tyler edit whose delivery context is unknown while the
+   * current schedule is not the context already on record. Not send authorization.
+   */
+  delivery_mismatch_unresolved?: boolean;
+  /**
+   * The body this evidence belongs to. Hash alone is not the version.
+   * False means the record is knowledge of an earlier consideration, not approval of the current body.
+   */
+  current_body_approval?: boolean;
+  applies_to_body_version?: TtoBodyVersion;
+  /**
+   * Source edit the model actually received on a successful KEEP or REPLACE.
+   * Absent on failure evidence, so a failed attempt does not count as consideration.
+   */
+  evaluated_cross_owner_source?: CrossOwnerSourceVersion;
+  /**
+   * Sunday tape and interruption for this attempt.
+   * On a successful KEEP or REPLACE this is the evidence supplied to the interpreter.
+   * On a failure it is the snapshot loaded for the attempt, and
+   * sunday_context_supplied_to_model is false when the interpreter never received it.
+   * Absent on Monday–Saturday. Unavailable is not an empty tape.
+   */
+  sunday_context?: SundayContextEvidence;
+  /**
+   * False when sunday_context was loaded for the attempt and the attempt failed
+   * before the interpreter received the packet. Absent when the packet supplied it.
+   */
+  sunday_context_supplied_to_model?: boolean;
+};
+
+export type TtoBodyVersion = {
+  generation_id: string | null;
+  body_hash: string | null;
+  edited_at: string | null;
+  body_source: string | null;
+  edited_by_tyler: boolean;
+};
+
+export type TtoEditDeliveryContext = TtoSavedTextDeliveryContext & {
+  body_hash: string | null;
+  generation_id: string | null;
+  edited_at: string | null;
+};
+
+export type TtoReconsiderationFence = {
+  claimOwnerId: string;
+  expectedGenerationId: string;
+  expectedEditedAt: string | null;
+  expectedBodyHash: string | null;
+  expectedBodySource: string | null;
+  expectedEditedByTyler: boolean;
+  currentBody: string | null;
+  delivery: TtoInputEvidence["delivery"];
+  /**
+   * The current body is a newer Tyler edit and no post-edit member message
+   * authorizes replacement. Goal and schedule changes may still be interpreted.
+   */
+  preserveTylerEdit?: boolean;
+  /** Clock the earlier model input actually contained. Not inferred from schedule metadata. */
+  originalModelDelivery?: OriginalModelDelivery;
+  /** Affirmative KEEP of this same body. Absent when the last success was policy retention. */
+  latestAffirmedDelivery?: TtoSavedTextDeliveryContext | null;
+  /** Context bound to this Tyler body. Null when the edit has no reliable context. */
+  tylerEditDelivery?: TtoSavedTextDeliveryContext | null;
+  /**
+   * The saved Tyler edit has no reliable delivery context and the current schedule
+   * is not the context already recorded. Policy retention must say so.
+   */
+  deliveryMismatchUnresolved?: boolean;
+  /** Discovery identities this attempt must account for before a model call. */
+  observedDiscoverySourceIds?: string[];
+  /** Source version copied onto the target before this claim. Not itself a successful consideration. */
+  transferredSourceEdit?: CrossOwnerSourceVersion;
+  /**
+   * Sunday snapshot already loaded for this reconsideration attempt.
+   * A failure may record it without claiming the interpreter received it.
+   */
+  attemptedSundayContext?: SundayContextEvidence | "not_sunday";
+};
+
+export type CrossOwnerSourceVersion = {
+  sourceDraftId: string;
+  sourceGenerationId: string;
+  sourceBodyHash: string | null;
+  sourceEditedAt: string | null;
+  sourceBodySource: string | null;
+  sourceEditedByTyler: boolean;
+};
+
+export type OriginalModelDelivery = NonNullable<
+  NonNullable<MorningRelationshipPacket["existing_saved_text"]>["original_model_delivery"]
+>;
+
+const SCHEDULED_DELIVERY_CONVENTION = "member_local_delivery_v1";
+
+export type ScheduledProactiveDelivery = {
+  timeZone: string;
+  memberLocalDate: string;
+  effectiveLocalMinute: number;
+  utcInstant: string;
+  batchDate: string;
+  owner: "morning" | "evening";
+  sendSlot: string;
+  preferenceUpdatedAt: string | null;
+};
+
+function dayKey(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+}
+
+function ownerFromUnknown(value: unknown): "morning" | "evening" | null {
+  if (value === "morning" || value === SMS_DAILY_PRODUCTION_SEND_SLOT) return "morning";
+  if (value === "evening" || value === "evening_checkin" || value === SMS_DAILY_EVENING_PREVIEW_SEND_SLOT) {
+    return "evening";
+  }
+  return null;
+}
+
+export function scheduledDeliveryFromParts(parts: {
+  timeZone: unknown;
+  memberLocalDate: unknown;
+  effectiveLocalMinute: unknown;
+  utcInstant: unknown;
+  batchDate: unknown;
+  owner: unknown;
+  sendSlot: string;
+  preferenceUpdatedAt?: unknown;
+}): ScheduledProactiveDelivery | null {
+  const timeZone = typeof parts.timeZone === "string" ? parts.timeZone.trim() : "";
+  const memberLocalDate = dayKey(parts.memberLocalDate);
+  const batchDate = dayKey(parts.batchDate);
+  const utcInstant = typeof parts.utcInstant === "string" ? parts.utcInstant.trim() : "";
+  const minute =
+    typeof parts.effectiveLocalMinute === "number"
+      ? parts.effectiveLocalMinute
+      : typeof parts.effectiveLocalMinute === "string" && parts.effectiveLocalMinute.trim()
+        ? Number(parts.effectiveLocalMinute)
+        : NaN;
+  const owner = ownerFromUnknown(parts.owner);
+  if (!timeZone || !isValidIanaTimezone(timeZone) || !memberLocalDate || !batchDate || !owner) {
+    return null;
+  }
+  if (!Number.isInteger(minute) || minute < 0 || minute > 1439) return null;
+  if (!Number.isFinite(Date.parse(utcInstant))) return null;
+  if (!scheduledDeliveryTupleIsCoherent({
+    utcInstant,
+    memberLocalDate,
+    effectiveLocalMinute: minute,
+    timeZone,
+    owner,
+    administrativeBatchDate: batchDate,
+  })) {
+    return null;
+  }
+  const preference =
+    typeof parts.preferenceUpdatedAt === "string" && parts.preferenceUpdatedAt.trim()
+      ? parts.preferenceUpdatedAt
+      : null;
+  return {
+    timeZone,
+    memberLocalDate,
+    effectiveLocalMinute: minute,
+    utcInstant,
+    batchDate,
+    owner,
+    sendSlot: parts.sendSlot,
+    preferenceUpdatedAt: preference,
+  };
+}
+
+/** Legacy callers receive null. A required schedule with missing facts is unresolved. */
+export function scheduledDeliveryForGeneration(args: {
+  requireScheduled: boolean;
+  metadata?: Record<string, unknown> | null;
+  fenceDelivery?: TtoInputEvidence["delivery"] | null;
+  sendSlot: string;
+  fallbackOwner: "morning" | "evening";
+  draftForDayKey: string;
+}): ScheduledProactiveDelivery | null | "unresolved" {
+  const meta = args.metadata ?? null;
+  const fence = args.fenceDelivery ?? null;
+  const metaScheduled = meta?.scheduled_generation_convention === SCHEDULED_DELIVERY_CONVENTION;
+  const fencePresent =
+    fence != null &&
+    (fence.effective_local_minute != null ||
+      fence.utc_instant != null ||
+      (typeof fence.time_zone === "string" && fence.time_zone.trim() !== ""));
+  if (!args.requireScheduled && !metaScheduled && !fencePresent) return null;
+  const fromFence = fence
+    ? scheduledDeliveryFromParts({
+        timeZone: fence.time_zone,
+        memberLocalDate: fence.member_local_date,
+        effectiveLocalMinute: fence.effective_local_minute,
+        utcInstant: fence.utc_instant,
+        batchDate: fence.batch_date,
+        owner: args.fallbackOwner,
+        sendSlot: typeof fence.send_slot === "string" && fence.send_slot.trim() ? fence.send_slot : args.sendSlot,
+        preferenceUpdatedAt: fence.preference_updated_at,
+      })
+    : null;
+  const fromMeta = meta
+    ? scheduledDeliveryFromParts({
+        timeZone: meta.time_zone,
+        memberLocalDate: meta.member_local_date,
+        effectiveLocalMinute: meta.effective_local_minute,
+        utcInstant: meta.utc_instant,
+        batchDate: meta.administrative_batch_date,
+        owner: meta.tto_owner ?? args.fallbackOwner,
+        sendSlot: args.sendSlot,
+      })
+    : null;
+  const delivery = fromFence ?? fromMeta;
+  if (!delivery || delivery.memberLocalDate !== args.draftForDayKey || delivery.owner !== args.fallbackOwner) {
+    return "unresolved";
+  }
+  return delivery;
+}
+
+export function evidenceDeliveryFromSchedule(
+  delivery: ScheduledProactiveDelivery
+): TtoInputEvidence["delivery"] {
+  return {
+    utc_instant: delivery.utcInstant,
+    member_local_date: delivery.memberLocalDate,
+    batch_date: delivery.batchDate,
+    effective_local_minute: delivery.effectiveLocalMinute,
+    time_zone: delivery.timeZone,
+    send_slot: delivery.sendSlot,
+    preference_updated_at: delivery.preferenceUpdatedAt,
+  };
+}
+
+function readStoredMessageFor(value: unknown): OriginalModelDelivery["message_for"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const messageFor = (value as { message_for?: unknown }).message_for ?? value;
+  if (!messageFor || typeof messageFor !== "object" || Array.isArray(messageFor)) return null;
+  const row = messageFor as Record<string, unknown>;
+  const timezone = typeof row.timezone === "string" ? row.timezone.trim() : "";
+  const local_date = typeof row.local_date === "string" ? row.local_date.trim() : "";
+  const local_weekday = typeof row.local_weekday === "string" ? row.local_weekday.trim() : "";
+  const daypart = typeof row.daypart === "string" ? row.daypart.trim() : "";
+  const intended = typeof row.intended_receive_time_local === "string" ? row.intended_receive_time_local.trim() : "";
+  if (!timezone || !local_date || !local_weekday || !daypart || !intended) return null;
+  return {
+    timezone,
+    local_date,
+    local_weekday,
+    daypart,
+    intended_receive_time_local: intended,
+    utc_instant: typeof row.utc_instant === "string" ? row.utc_instant : null,
+    administrative_batch_date:
+      typeof row.administrative_batch_date === "string" ? row.administrative_batch_date : null,
+  };
+}
+
+/** Uses the stored model packet or interpreter input. Schedule metadata alone is not the model clock. */
+export function originalModelDeliveryFromMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+  editedByTyler: boolean
+): OriginalModelDelivery {
+  const packetClock = readStoredMessageFor(metadata?.morning_relationship_packet_v1);
+  const interpreter = metadata?.morning_brief_interpreter_v1;
+  const interpreterInput =
+    interpreter && typeof interpreter === "object" && !Array.isArray(interpreter)
+      ? (interpreter as { exact_input_object?: unknown }).exact_input_object
+      : null;
+  const interpreterClock = readStoredMessageFor(interpreterInput);
+  const messageFor = packetClock ?? interpreterClock;
+  if (!messageFor) {
+    return { status: "unavailable", describes_saved_body: false, message_for: null };
+  }
+  return {
+    status: "known",
+    describes_saved_body: editedByTyler !== true,
+    message_for: messageFor,
+  };
+}
+
+function withObservedSilence(
+  packet: MorningRelationshipPacket,
+  now: Date,
+  timezone: string
+): MorningRelationshipPacket {
+  return {
+    ...packet,
+    last_user_response: {
+      ...packet.last_user_response,
+      days_since_at_generation: observedSilenceDays({
+        replyAtUtc: packet.last_user_response.at_utc,
+        now,
+        timezone,
+      }),
+    },
+  };
+}
+
+function unavailableDeliveryContext(): TtoSavedTextDeliveryContext {
+  return {
+    status: "unavailable",
+    member_local_date: null,
+    effective_local_minute: null,
+    time_zone: null,
+    utc_instant: null,
+    owner: null,
+  };
+}
+
+export function minuteFromHhMm(value: string | null | undefined): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value?.trim() ?? "");
+  if (!match) return null;
+  const minute = Number(match[1]) * 60 + Number(match[2]);
+  return minute >= 0 && minute <= 1439 ? minute : null;
+}
+
+export function normalizeDeliveryOwner(owner: string | null | undefined): string | null {
+  if (owner === "morning" || owner === "evening_checkin") return owner;
+  if (owner === "evening") return "evening_checkin";
+  return null;
+}
+
+function readDeliveryFact(value: unknown): TtoSavedTextDeliveryContext | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  const memberLocalDate = typeof row.member_local_date === "string" ? row.member_local_date.trim() : "";
+  const timeZone = typeof row.time_zone === "string" ? row.time_zone.trim() : "";
+  const minute = row.effective_local_minute;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(memberLocalDate) || !timeZone) return null;
+  if (typeof minute !== "number" || !Number.isInteger(minute) || minute < 0 || minute > 1439) return null;
+  const owner = normalizeDeliveryOwner(typeof row.owner === "string" ? row.owner : typeof row.send_slot === "string" ? row.send_slot : null);
+  return {
+    status: "known",
+    member_local_date: memberLocalDate,
+    effective_local_minute: minute,
+    time_zone: timeZone,
+    utc_instant: typeof row.utc_instant === "string" ? row.utc_instant : null,
+    owner,
+  };
+}
+
+export function readTylerEditDeliveryContext(
+  metadata: Record<string, unknown> | null | undefined
+): TtoEditDeliveryContext | null {
+  const raw = metadata?.tyler_edit_delivery_context;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const row = raw as Record<string, unknown>;
+  const status = row.status === "known" ? "known" : row.status === "unavailable" ? "unavailable" : null;
+  if (!status) return null;
+  const known = status === "known" ? readDeliveryFact(row) : null;
+  return {
+    ...(known ?? unavailableDeliveryContext()),
+    status,
+    body_hash: typeof row.body_hash === "string" ? row.body_hash : row.body_hash === null ? null : null,
+    generation_id: typeof row.generation_id === "string" ? row.generation_id : null,
+    edited_at: typeof row.edited_at === "string" ? row.edited_at : null,
+  };
+}
+
+export type TtoCurrentDeliveryFacts = {
+  memberLocalDate: string;
+  effectiveLocalMinute: number;
+  timeZone: string;
+  utcInstant: string;
+  owner: string;
+};
+
+/** True only for a known context bound to this exact body and a real schedule difference. */
+export function tylerEditDeliveryMateriallyDiffers(args: {
+  context: TtoEditDeliveryContext | null;
+  currentBodyHash: string | null;
+  current: TtoCurrentDeliveryFacts;
+}): boolean {
+  const context = args.context;
+  if (!context || context.status !== "known") return false;
+  if ((context.body_hash ?? null) !== (args.currentBodyHash ?? null)) return false;
+  if (context.member_local_date !== args.current.memberLocalDate) return true;
+  if (context.effective_local_minute !== args.current.effectiveLocalMinute) return true;
+  if ((context.time_zone ?? "") !== args.current.timeZone) return true;
+  const contextOwner = normalizeDeliveryOwner(context.owner);
+  const currentOwner = normalizeDeliveryOwner(args.current.owner);
+  if (contextOwner && currentOwner && contextOwner !== currentOwner) return true;
+  if (
+    context.utc_instant &&
+    args.current.utcInstant &&
+    context.utc_instant !== args.current.utcInstant
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/** Same instant. Both absent matches. An unparseable value never matches. */
+export function recordedInstantsMatch(
+  left: string | null | undefined,
+  right: string | null | undefined
+): boolean {
+  if (left == null && right == null) return true;
+  if (typeof left !== "string" || typeof right !== "string") return false;
+  if (!left.trim() || !right.trim()) return false;
+  const leftMs = Date.parse(left);
+  const rightMs = Date.parse(right);
+  if (!Number.isFinite(leftMs) || !Number.isFinite(rightMs)) return false;
+  return leftMs === rightMs;
+}
+
+/** Known edit context for this generation, hash, and edit instant. The hash alone is not the version. */
+export function editContextBelongsToBodyVersion(
+  context: TtoEditDeliveryContext | null,
+  version: TtoBodyVersion
+): boolean {
+  if (!context || context.status !== "known") return false;
+  if ((context.generation_id ?? null) !== (version.generation_id ?? null)) return false;
+  if ((context.body_hash ?? null) !== (version.body_hash ?? null)) return false;
+  return recordedInstantsMatch(context.edited_at, version.edited_at);
+}
+
+export function considerationMatchesCurrentDelivery(
+  considered: TtoInputEvidence | null | undefined,
+  current: { utcInstant: string; effectiveLocalMinute: number; timeZone: string }
+): boolean {
+  if (!considered) return false;
+  return considered.delivery.utc_instant === current.utcInstant
+    && considered.delivery.effective_local_minute === current.effectiveLocalMinute
+    && (considered.delivery.time_zone ?? "") === current.timeZone;
+}
+
+/**
+ * The current body's confirmed context differs from the live schedule, and this
+ * exact body has not already been successfully considered for that live delivery.
+ * Approval of another version, or of this version for a different delivery, does not suppress it.
+ */
+export function currentBodyEditContextRequiresReconsideration(args: {
+  context: TtoEditDeliveryContext | null;
+  currentBodyHash: string | null;
+  current: TtoCurrentDeliveryFacts;
+  considered: TtoInputEvidence | null;
+  currentVersion: TtoBodyVersion;
+}): boolean {
+  if (!editContextBelongsToBodyVersion(args.context, args.currentVersion)) return false;
+  if (!tylerEditDeliveryMateriallyDiffers({
+    context: args.context,
+    currentBodyHash: args.currentBodyHash,
+    current: args.current,
+  })) {
+    return false;
+  }
+  if (
+    evidenceApprovesCurrentBody(args.considered, args.currentVersion)
+    && considerationMatchesCurrentDelivery(args.considered, args.current)
+  ) {
+    return false;
+  }
+  return true;
+}
+
+export function bodyVersionsMatch(
+  left: TtoBodyVersion | null | undefined,
+  right: TtoBodyVersion | null | undefined
+): boolean {
+  if (!left || !right) return false;
+  return left.generation_id === right.generation_id
+    && (left.body_hash ?? null) === (right.body_hash ?? null)
+    && recordedInstantsMatch(left.edited_at, right.edited_at)
+    && (left.body_source ?? null) === (right.body_source ?? null)
+    && left.edited_by_tyler === right.edited_by_tyler;
+}
+
+export function fenceBodyVersion(fence: TtoReconsiderationFence): TtoBodyVersion {
+  return {
+    generation_id: fence.expectedGenerationId,
+    body_hash: fence.expectedBodyHash,
+    edited_at: fence.expectedEditedAt,
+    body_source: fence.expectedBodySource,
+    edited_by_tyler: fence.expectedEditedByTyler,
+  };
+}
+
+/** True only when this evidence approves this exact body version. */
+export function evidenceApprovesCurrentBody(
+  evidence: TtoInputEvidence | null | undefined,
+  version: TtoBodyVersion
+): boolean {
+  if (!evidence || evidence.succeeded !== true || evidence.current_body_approval === false) return false;
+  if (evidence.applies_to_body_version) return bodyVersionsMatch(evidence.applies_to_body_version, version);
+  return (evidence.existing_body_sha256 ?? null) === (version.body_hash ?? null)
+    && recordedInstantsMatch(evidence.edited_at, version.edited_at)
+    && (evidence.existing_body_source ?? null) === (version.body_source ?? null)
+    && evidence.edited_by_tyler === version.edited_by_tyler;
+}
+
+export function bindFinishedConsiderationEvidence(args: {
+  evidence: TtoInputEvidence;
+  result: "keep" | "release" | "replace";
+  version: TtoBodyVersion;
+}): TtoInputEvidence {
+  if (args.result === "release") {
+    return {
+      ...args.evidence,
+      succeeded: false,
+      current_body_approval: false,
+      applies_to_body_version: args.evidence.applies_to_body_version ?? args.version,
+    };
+  }
+  if (args.evidence.current_body_approval === false) {
+    return { ...args.evidence, succeeded: true, current_body_approval: false };
+  }
+  return {
+    ...args.evidence,
+    succeeded: true,
+    current_body_approval: true,
+    applies_to_body_version: args.result === "replace"
+      ? args.version
+      : (args.evidence.applies_to_body_version ?? args.version),
+  };
+}
+
+/**
+ * Sunday input known when the attempt failed.
+ * Not proof the interpreter received it, and not a successful empty tape.
+ */
+export function attemptedSundayFailureFields(
+  attempted: SundayContextEvidence | "not_sunday" | undefined
+): Partial<TtoInputEvidence> {
+  if (!attempted || attempted === "not_sunday") {
+    return {
+      sunday_context: undefined,
+      sunday_context_supplied_to_model: undefined,
+    };
+  }
+  return {
+    sunday_context: attempted,
+    sunday_context_supplied_to_model: false,
+  };
+}
+
+export function retrievalFailureEvidence(fence: TtoReconsiderationFence): TtoInputEvidence {
+  return {
+    succeeded: false,
+    retrieval_failed: true,
+    considered_source_ids: [],
+    excluded_source_ids: [],
+    retrieval_unavailable_source_ids: fence.observedDiscoverySourceIds ?? [],
+    thread_tail: null,
+    goal_text: "",
+    existing_body_sha256: fence.expectedBodyHash,
+    existing_body_source: fence.expectedBodySource,
+    edited_by_tyler: fence.expectedEditedByTyler,
+    edited_at: fence.expectedEditedAt,
+    delivery: fence.delivery,
+    attempt_id: fence.claimOwnerId,
+    current_body_approval: false,
+    applies_to_body_version: fenceBodyVersion(fence),
+    evaluated_cross_owner_source: undefined,
+    ...attemptedSundayFailureFields(fence.attemptedSundayContext),
+  };
+}
+
+export function unobservedDiscoverySourceIds(args: {
+  discoveredSourceIds: string[];
+  consideredSourceIds: string[];
+  excludedSourceIds: Array<{ source_id?: string | null }>;
+}): string[] {
+  const seen = new Set(args.consideredSourceIds);
+  for (const item of args.excludedSourceIds) {
+    if (typeof item.source_id === "string" && item.source_id.trim()) seen.add(item.source_id.trim());
+  }
+  return args.discoveredSourceIds.filter((sourceId) => sourceId.trim() !== "" && !seen.has(sourceId));
+}
+
+export function failureAppliesToCurrentBody(
+  evidence: TtoInputEvidence | null | undefined,
+  version: TtoBodyVersion
+): boolean {
+  if (!evidence) return false;
+  if (!evidence.applies_to_body_version) return true;
+  return bodyVersionsMatch(evidence.applies_to_body_version, version);
+}
+
+export function latestAffirmedDeliveryFromMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+  currentBodyHash: string | null,
+  currentVersion?: TtoBodyVersion | null
+): TtoSavedTextDeliveryContext | null {
+  const raw = metadata?.reconsideration_evidence;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const record = raw as TtoInputEvidence;
+  if (record.succeeded !== true || record.body_retention !== "model_keep") return null;
+  if (record.current_body_approval === false) return null;
+  if (currentVersion) {
+    if (!evidenceApprovesCurrentBody(record, currentVersion)) return null;
+  } else if (record.applies_to_body_version) {
+    if ((record.applies_to_body_version.body_hash ?? null) !== (currentBodyHash ?? null)) return null;
+    if (
+      record.applies_to_body_version.edited_by_tyler === true ||
+      record.applies_to_body_version.edited_at != null
+    ) {
+      return null;
+    }
+  } else if ((record.existing_body_sha256 ?? null) !== (currentBodyHash ?? null)) return null;
+  const delivery = record.delivery;
+  if (!delivery) return null;
+  return readDeliveryFact({
+    member_local_date: delivery.member_local_date,
+    effective_local_minute: delivery.effective_local_minute,
+    time_zone: delivery.time_zone,
+    utc_instant: delivery.utc_instant,
+    send_slot: delivery.send_slot,
+  });
+}
+
+export function persistedDeliveryFactsFromMetadata(
+  metadata: Record<string, unknown> | null | undefined
+): TtoCurrentDeliveryFacts[] {
+  if (!metadata) return [];
+  const found: TtoCurrentDeliveryFacts[] = [];
+  const push = (fact: TtoSavedTextDeliveryContext | null) => {
+    if (!fact || fact.status !== "known" || fact.member_local_date == null || fact.effective_local_minute == null || !fact.time_zone) return;
+    const owner = normalizeDeliveryOwner(fact.owner) ?? "morning";
+    if (found.some((item) =>
+      item.memberLocalDate === fact.member_local_date &&
+      item.effectiveLocalMinute === fact.effective_local_minute &&
+      item.timeZone === fact.time_zone &&
+      item.utcInstant === (fact.utc_instant ?? "")
+    )) return;
+    found.push({
+      memberLocalDate: fact.member_local_date,
+      effectiveLocalMinute: fact.effective_local_minute,
+      timeZone: fact.time_zone,
+      utcInstant: fact.utc_instant ?? "",
+      owner,
+    });
+  };
+  push(readDeliveryFact({
+    member_local_date: metadata.member_local_date,
+    effective_local_minute: metadata.effective_local_minute,
+    time_zone: metadata.time_zone,
+    utc_instant: metadata.utc_instant,
+    owner: metadata.tto_owner,
+  }));
+  const evidenceObjects = [metadata.input_evidence, metadata.reconsideration_evidence];
+  for (const evidence of evidenceObjects) {
+    if (!evidence || typeof evidence !== "object" || Array.isArray(evidence)) continue;
+    const delivery = (evidence as { delivery?: unknown }).delivery;
+    push(readDeliveryFact(delivery));
+  }
+  const messageFor = readStoredMessageFor(metadata.morning_relationship_packet_v1);
+  if (messageFor) {
+    const minute = minuteFromHhMm(messageFor.intended_receive_time_local);
+    if (minute != null) {
+      push(readDeliveryFact({
+        member_local_date: messageFor.local_date,
+        effective_local_minute: minute,
+        time_zone: messageFor.timezone,
+        utc_instant: messageFor.utc_instant,
+        owner: messageFor.daypart === "evening" ? "evening_checkin" : messageFor.daypart,
+      }));
+    }
+  }
+  return found;
+}
+
+function savedTextForFence(fence: TtoReconsiderationFence): MorningRelationshipPacket["existing_saved_text"] {
+  const tylerEdit = fence.expectedEditedByTyler
+    ? fence.tylerEditDelivery ?? unavailableDeliveryContext()
+    : undefined;
+  return {
+    body: fence.currentBody,
+    body_source: fence.expectedBodySource,
+    edited_by_tyler: fence.expectedEditedByTyler,
+    edited_at: fence.expectedEditedAt,
+    original_model_delivery: fence.originalModelDelivery ?? {
+      status: "unavailable",
+      describes_saved_body: false,
+      message_for: null,
+    },
+    ...(fence.latestAffirmedDelivery ? { latest_affirmed_delivery: fence.latestAffirmedDelivery } : {}),
+    ...(tylerEdit ? { tyler_edit_delivery: tylerEdit } : {}),
+  };
+}
+
+/** What the loaded packet actually contained. Not the completion clock. */
+export function buildTtoInputEvidence(args: {
+  packet: MorningRelationshipPacket;
+  attemptId: string;
+  existingBody?: string | null;
+  existingBodySource?: string | null;
+  editedByTyler?: boolean;
+  editedAt?: string | null;
+  delivery?: TtoInputEvidence["delivery"] | null;
+  conversationReadAt?: string | null;
+  excludedSourceIds?: ExactThreadExcludedSource[];
+}): TtoInputEvidence {
+  const messages = args.packet.exact_thread.messages;
+  const last = messages.at(-1) ?? null;
+  const body = args.existingBody ?? null;
+  const consideredSourceIds = messages
+    .map((message) => (typeof message.source_id === "string" ? message.source_id.trim() : ""))
+    .filter(Boolean)
+    .slice(0, 30);
+  const sundayContext = args.packet.sunday_coaching
+    ? sundayContextEvidenceFromCoaching(args.packet.sunday_coaching)
+    : undefined;
+  return {
+    succeeded: false,
+    considered_source_ids: consideredSourceIds,
+    excluded_source_ids: args.excludedSourceIds ?? [],
+    thread_oldest_sent_at: messages[0]?.sent_at_utc ?? null,
+    omitted_older_turn_count: args.packet.exact_thread.omitted_older_turn_count,
+    conversation_read_at: args.conversationReadAt ?? null,
+    thread_tail: last
+      ? {
+          source_id: typeof last.source_id === "string" ? last.source_id : undefined,
+          sender: last.sender,
+          sent_at_utc: last.sent_at_utc,
+        }
+      : null,
+    thread_message_count: messages.length,
+    goal_text: args.packet.current_goal.text,
+    existing_body_sha256: body && body.trim() ? hashSmsSnippet(body) : null,
+    existing_body_source: args.existingBodySource ?? null,
+    edited_by_tyler: args.editedByTyler === true,
+    edited_at: args.editedAt ?? null,
+    delivery: args.delivery ?? {
+      utc_instant: null,
+      member_local_date: args.packet.message_for.local_date,
+      batch_date: null,
+      effective_local_minute: null,
+      time_zone: args.packet.message_for.timezone,
+      send_slot: null,
+    },
+    attempt_id: args.attemptId,
+    ...(sundayContext ? { sunday_context: sundayContext } : {}),
+  };
+}
+
+export function successfulConsiderationEvidence(
+  metadata: Record<string, unknown> | null | undefined
+): TtoInputEvidence | null {
+  if (!metadata) return null;
+  const reconsideration = metadata.reconsideration_evidence;
+  if (reconsideration && typeof reconsideration === "object" && !Array.isArray(reconsideration)) {
+    const record = reconsideration as TtoInputEvidence;
+    if (record.succeeded === true) return record;
+  }
+  const input = metadata.input_evidence;
+  if (input && typeof input === "object" && !Array.isArray(input)) {
+    return input as TtoInputEvidence;
+  }
+  return null;
+}
+
+export function reconsiderationFailureEvidence(
+  metadata: Record<string, unknown> | null | undefined
+): TtoInputEvidence | null {
+  if (!metadata) return null;
+  const failure = metadata.reconsideration_failure_evidence;
+  if (failure && typeof failure === "object" && !Array.isArray(failure)) {
+    return failure as TtoInputEvidence;
+  }
+  return null;
+}
+
+export function reconsiderationFailureCount(
+  metadata: Record<string, unknown> | null | undefined
+): number {
+  const count = metadata?.reconsideration_failure_count;
+  return typeof count === "number" && Number.isFinite(count) ? count : 0;
+}
+
 async function finishTtoGenerationPersistence(args: {
   clerkUserId: string;
   draftForDayKey: string;
@@ -719,6 +1560,10 @@ async function finishTtoGenerationPersistence(args: {
   nowIso: string;
   protectTylerProvenanceOnly?: boolean;
   allowReplaceStaleTylerNonempty?: boolean;
+  claimOwnerId?: string | null;
+  reconsiderationFinish?: TtoReconsiderationFence & {
+    evidence: TtoInputEvidence;
+  };
 }): Promise<{ ok: true; protected: boolean } | { ok: false; error: string }> {
   const { data, error } = await supabaseServer.rpc("tto_finish_generation_persistence", {
     p_clerk_user_id: args.clerkUserId,
@@ -730,6 +1575,41 @@ async function finishTtoGenerationPersistence(args: {
     p_now: args.nowIso,
     p_protect_tyler_provenance_only: args.protectTylerProvenanceOnly === true,
     p_allow_replace_stale_tyler_nonempty: args.allowReplaceStaleTylerNonempty === true,
+    ...(args.claimOwnerId
+      ? {
+          p_claim_owner_id: args.claimOwnerId,
+          p_require_claim_owner: true,
+        }
+      : {}),
+    ...(args.reconsiderationFinish
+      ? {
+          p_reconsideration: true,
+          p_reconsideration_result: "replace",
+          p_claim_owner_id: args.reconsiderationFinish.claimOwnerId,
+          p_require_claim_owner: false,
+          p_expected_generation_id: args.reconsiderationFinish.expectedGenerationId,
+          p_expected_edited_at: args.reconsiderationFinish.expectedEditedAt,
+          p_expected_body_hash: args.reconsiderationFinish.expectedBodyHash,
+          p_expected_body_source: args.reconsiderationFinish.expectedBodySource,
+          p_expected_edited_by_tyler: args.reconsiderationFinish.expectedEditedByTyler,
+          p_reconsideration_evidence: {
+            ...bindFinishedConsiderationEvidence({
+              evidence: args.reconsiderationFinish.evidence,
+              result: "replace",
+              version: {
+                generation_id: args.generationId,
+                body_hash: args.machineBodyHash,
+                edited_at: null,
+                body_source: "machine",
+                edited_by_tyler: false,
+              },
+            }),
+            ...(args.reconsiderationFinish.transferredSourceEdit
+              ? { evaluated_cross_owner_source: args.reconsiderationFinish.transferredSourceEdit }
+              : {}),
+          },
+        }
+      : {}),
   });
   if (error) {
     console.error("[tyler-text-overview] tto_finish_generation_persistence_failed", {
@@ -758,6 +1638,75 @@ async function finishTtoGenerationPersistence(args: {
     return { ok: false, error: reason };
   }
   return { ok: true, protected: row.protected === true };
+}
+
+export async function finishReconsiderationDecision(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  sendSlot: SmsDailySendSlot;
+  fence: TtoReconsiderationFence;
+  result: "keep" | "release";
+  evidence: TtoInputEvidence;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const bound = bindFinishedConsiderationEvidence({
+    evidence: args.evidence,
+    result: args.result,
+    version: fenceBodyVersion(args.fence),
+  });
+  const evidence = args.result === "keep" && args.fence.transferredSourceEdit
+    ? { ...bound, evaluated_cross_owner_source: args.fence.transferredSourceEdit }
+    : bound;
+  const { data, error } = await supabaseServer.rpc("tto_finish_generation_persistence", {
+    p_clerk_user_id: args.clerkUserId,
+    p_draft_for_day_key: args.draftForDayKey,
+    p_send_slot: args.sendSlot,
+    p_new_generation_id: args.fence.expectedGenerationId,
+    p_machine_body: null,
+    p_machine_body_hash: null,
+    p_now: new Date().toISOString(),
+    p_protect_tyler_provenance_only: true,
+    p_reconsideration: true,
+    p_reconsideration_result: args.result,
+    p_claim_owner_id: args.fence.claimOwnerId,
+    p_expected_generation_id: args.fence.expectedGenerationId,
+    p_expected_edited_at: args.fence.expectedEditedAt,
+    p_expected_body_hash: args.fence.expectedBodyHash,
+    p_expected_body_source: args.fence.expectedBodySource,
+    p_expected_edited_by_tyler: args.fence.expectedEditedByTyler,
+    p_reconsideration_evidence: evidence,
+  });
+  if (error) return { ok: false, error: error.message };
+  const row = (Array.isArray(data) ? data[0] : data) as { ok?: boolean; reason?: string } | null;
+  if (!row || row.ok !== true) {
+    return { ok: false, error: row?.reason ?? "reconsideration_finish_failed" };
+  }
+  return { ok: true };
+}
+
+async function releaseUnobservedDiscovery(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  sendSlot: SmsDailySendSlot;
+  fence: TtoReconsiderationFence;
+  consideredSourceIds: string[];
+  excludedSourceIds: ExactThreadExcludedSource[];
+}): Promise<boolean> {
+  if (!args.fence.observedDiscoverySourceIds) return false;
+  const missing = unobservedDiscoverySourceIds({
+    discoveredSourceIds: args.fence.observedDiscoverySourceIds,
+    consideredSourceIds: args.consideredSourceIds,
+    excludedSourceIds: args.excludedSourceIds,
+  });
+  if (missing.length === 0) return false;
+  await finishReconsiderationDecision({
+    clerkUserId: args.clerkUserId,
+    draftForDayKey: args.draftForDayKey,
+    sendSlot: args.sendSlot,
+    fence: args.fence,
+    result: "release",
+    evidence: retrievalFailureEvidence(args.fence),
+  });
+  return true;
 }
 
 export async function loadTylerTextOverviewAudienceRow(
@@ -990,6 +1939,52 @@ function quietMetadataFields(quiet: QuietRelationshipMechanicalFacts): Record<st
 }
 
 /** Operational clamp at the writer-skip seam. Interpreter merge also clamps. */
+export function reconsiderationAppliesKeep(args: {
+  decision: string;
+  preserveTylerEdit?: boolean;
+}): boolean {
+  return args.decision === "keep" || (args.decision === "replace" && args.preserveTylerEdit === true);
+}
+
+/** Records the model token separately from the decision to leave the saved body in place. */
+export function reconsiderationRetentionEvidence(args: {
+  evidence: TtoInputEvidence;
+  decision: string;
+  deliveryMismatchUnresolved?: boolean;
+}): TtoInputEvidence {
+  if (args.decision === "replace") {
+    return {
+      ...args.evidence,
+      model_existing_text_decision: "replace",
+      body_retention: "tyler_edit_policy",
+      ...(args.deliveryMismatchUnresolved ? { delivery_mismatch_unresolved: true } : {}),
+    };
+  }
+  const kept: TtoInputEvidence = {
+    ...args.evidence,
+    model_existing_text_decision: "keep",
+    body_retention: "model_keep",
+  };
+  delete kept.delivery_mismatch_unresolved;
+  return kept;
+}
+
+function packetWithoutProactiveCompliance(
+  packet: MorningRelationshipPacket
+): MorningRelationshipPacket {
+  const messages = packet.exact_thread.messages.filter(
+    (message) => message.sender !== "user" || !isProactiveConversationComplianceBody(message.body)
+  );
+  if (messages.length === packet.exact_thread.messages.length) return packet;
+  return {
+    ...packet,
+    exact_thread: {
+      ...packet.exact_thread,
+      messages,
+    },
+  };
+}
+
 function withClampedProactiveDecision(
   brief: MorningCoachingBriefV1,
   quiet: QuietRelationshipMechanicalFacts
@@ -1054,6 +2049,71 @@ function failSoftInterpreterInputFromPacket(
       omitted_older_turn_count: packet.exact_thread.omitted_older_turn_count,
     },
     answered_user_message_links: packet.answered_user_message_links ?? [],
+  };
+}
+
+const SCHEDULED_CONVENTION = "member_local_delivery_v1";
+
+async function unclaimedCompletedScheduledDraft(args: {
+  clerkUserId: string;
+  draftForDayKey: string;
+  sendSlot: string;
+}): Promise<
+  | { kind: "continue" }
+  | { kind: "failed" }
+  | {
+      kind: "protected";
+      generationId: string;
+      body: string | null;
+      machineShouldSend: boolean;
+      machineNoSendReason: string | null;
+    }
+> {
+  const draft = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select(
+      "current_generation_id, current_body_to_send, current_body_source, edited_by_tyler"
+    )
+    .eq("clerk_user_id", args.clerkUserId)
+    .eq("draft_for_day_key", args.draftForDayKey)
+    .eq("send_slot", args.sendSlot)
+    .eq("status", "current")
+    .maybeSingle();
+  if (draft.error) return { kind: "failed" };
+  const generationId =
+    typeof draft.data?.current_generation_id === "string" ? draft.data.current_generation_id : "";
+  if (!generationId) return { kind: "continue" };
+  const generation = await supabaseServer
+    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+    .select("machine_should_send, machine_no_send_reason, generation_metadata")
+    .eq("id", generationId)
+    .maybeSingle();
+  if (generation.error || !generation.data) return { kind: "failed" };
+  const metadata =
+    generation.data.generation_metadata &&
+    typeof generation.data.generation_metadata === "object" &&
+    !Array.isArray(generation.data.generation_metadata)
+      ? (generation.data.generation_metadata as Record<string, unknown>)
+      : null;
+  if (metadata?.scheduled_generation_convention !== SCHEDULED_CONVENTION) return { kind: "continue" };
+  const body =
+    typeof draft.data?.current_body_to_send === "string" ? draft.data.current_body_to_send : null;
+  const machineNoSendReason =
+    typeof generation.data.machine_no_send_reason === "string"
+      ? generation.data.machine_no_send_reason
+      : null;
+  const completed =
+    draft.data?.edited_by_tyler === true ||
+    draft.data?.current_body_source === "tyler_edit" ||
+    machineNoSendReason === MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE ||
+    Boolean(body && body.trim());
+  if (!completed) return { kind: "continue" };
+  return {
+    kind: "protected",
+    generationId,
+    body,
+    machineShouldSend: generation.data.machine_should_send === true,
+    machineNoSendReason,
   };
 }
 
@@ -1145,8 +2205,39 @@ export async function generateTylerTextOverviewDraftForUser(args: {
   allowReplaceStaleTylerNonempty?: boolean;
   replacedStaleTylerBody?: string | null;
   replacedStaleTylerEditedAt?: string | null;
+  /**
+   * The proactive calculator already decided this delivery.
+   * Legacy weekend and cadence skips must not override that decision.
+   */
+  scheduleAuthoritativelyResolved?: boolean;
+  scheduledGenerationMetadata?: Record<string, unknown> | null;
+  claimOwnerId?: string | null;
+  reconsideration?: TtoReconsiderationFence;
 }): Promise<TylerTextOverviewMorningDraftResult> {
   const draftForDayKey = requireTylerTextOverviewDraftDayKey(args.draftForDayKey);
+  if (!args.claimOwnerId && !args.reconsideration) {
+    const guard = await unclaimedCompletedScheduledDraft({
+      clerkUserId: args.audienceUser.clerk_user_id,
+      draftForDayKey,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    });
+    if (guard.kind === "failed") {
+      return { ok: false, reason: "upsert_failed", error: "draft_read_failed" };
+    }
+    if (guard.kind === "protected") {
+      return {
+        ok: true,
+        draftForDayKey,
+        generationId: guard.generationId,
+        body: guard.body,
+        machineShouldSend: guard.machineShouldSend,
+        machineNoSendReason: guard.machineNoSendReason,
+        writerPromptPath: null,
+        supersedeFailed: false,
+        currentDraftProtected: true,
+      };
+    }
+  }
   const persistProtect = {
     ...(args.protectTylerProvenanceOnly === true
       ? { protectTylerProvenanceOnly: true as const }
@@ -1159,21 +2250,51 @@ export async function generateTylerTextOverviewDraftForUser(args: {
         }
       : {}),
   };
+  const scheduledAttach = {
+    ...(args.scheduledGenerationMetadata
+      ? { scheduledGenerationMetadata: args.scheduledGenerationMetadata }
+      : {}),
+    ...(args.claimOwnerId ? { claimOwnerId: args.claimOwnerId } : {}),
+  };
   const clerkUserId = args.audienceUser.clerk_user_id;
   const user = await getClerkUser(clerkUserId);
   const md = (user.public_metadata ?? {}) as Record<string, unknown>;
+
+  const scheduled = scheduledDeliveryForGeneration({
+    requireScheduled: args.scheduleAuthoritativelyResolved === true || args.reconsideration != null,
+    metadata: args.scheduledGenerationMetadata ?? null,
+    fenceDelivery: args.reconsideration?.delivery ?? null,
+    sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+    fallbackOwner: "morning",
+    draftForDayKey,
+  });
+  if (scheduled === "unresolved") {
+    if (args.reconsideration) {
+      await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "release",
+        evidence: retrievalFailureEvidence(args.reconsideration),
+      });
+    }
+    return { ok: false, reason: "upsert_failed", error: "scheduled_delivery_unresolved" };
+  }
 
   const tzResolved = resolveSmsUserTimezone({
     clerkMetadataTimezone: md.timezone,
     audienceTimezone: args.audienceUser.timezone,
   });
-  const timezone = tzResolved.timezone;
-  const localNow = new Date(args.now.toLocaleString("en-US", { timeZone: timezone }));
+  const timezone = scheduled ? scheduled.timeZone : tzResolved.timezone;
+  const localNow = new Date(args.now.toLocaleString("en-US", { timeZone: tzResolved.timezone }));
 
   const commsPrefs = await fetchV2UserSmsCommsPreferences(clerkUserId);
-  const commsSkip = shouldSkipDailyForCommsPrefs(commsPrefs, localNow, args.now);
-  if (commsSkip.skip) {
-    return { ok: false, reason: "comms_prefs" };
+  if (args.scheduleAuthoritativelyResolved !== true && !scheduled) {
+    const commsSkip = shouldSkipDailyForCommsPrefs(commsPrefs, localNow, args.now);
+    if (commsSkip.skip) {
+      return { ok: false, reason: "comms_prefs" };
+    }
   }
 
   const v2Status = await resolveUserFullyOnV2ForCutoverMessaging(clerkUserId);
@@ -1189,9 +2310,27 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     timezone,
     now: args.now,
     draftForDayKey,
+    daypart: "morning",
+    intendedReceiveTimeLocal: scheduled
+      ? formatMinuteOfDayAsHhMm(scheduled.effectiveLocalMinute)
+      : undefined,
+    utcInstant: scheduled?.utcInstant,
+    administrativeBatchDate: scheduled?.batchDate,
+    boundConversationAtNow: scheduled != null,
   });
 
   if (!packetResult.ok) {
+    if (args.reconsideration) {
+      await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "release",
+        evidence: retrievalFailureEvidence(args.reconsideration),
+      });
+      return { ok: false, reason: "upsert_failed", error: packetResult.error };
+    }
     const persisted = await persistMorningTtoGeneration({
       clerkUserId,
       draftForDayKey,
@@ -1201,7 +2340,7 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       sendPrefSnapshot,
       now: args.now,
       failure: { error: packetResult.error },
-      ...persistProtect,
+      ...persistProtect, ...scheduledAttach,
     });
 
     if (!persisted.ok) {
@@ -1220,28 +2359,86 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     };
   }
 
-  const { packet, commitmentId } = packetResult;
+  const { packet: loadedPacket, commitmentId, conversationReadAt, excludedSourceIds } = packetResult;
+  const packet = await attachSundayCoachingContext({
+    packet: withObservedSilence(
+      packetWithoutProactiveCompliance(loadedPacket),
+      args.now,
+      timezone
+    ),
+    clerkUserId,
+    commitmentId,
+    now: args.now,
+  });
+  const modelPacket: MorningRelationshipPacket = args.reconsideration
+    ? { ...packet, existing_saved_text: savedTextForFence(args.reconsideration) }
+    : packet;
+  const inputEvidence = buildTtoInputEvidence({
+    packet: modelPacket,
+    attemptId: args.reconsideration?.claimOwnerId ?? args.claimOwnerId ?? "initial",
+    existingBody: args.reconsideration?.currentBody,
+    existingBodySource: args.reconsideration?.expectedBodySource,
+    editedByTyler: args.reconsideration?.expectedEditedByTyler,
+    editedAt: args.reconsideration?.expectedEditedAt,
+    delivery: scheduled ? evidenceDeliveryFromSchedule(scheduled) : args.reconsideration?.delivery,
+    conversationReadAt,
+    excludedSourceIds,
+  });
+  if (
+    args.reconsideration &&
+    await releaseUnobservedDiscovery({
+      clerkUserId,
+      draftForDayKey,
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      fence: args.reconsideration,
+      consideredSourceIds: inputEvidence.considered_source_ids ?? [],
+      excludedSourceIds: excludedSourceIds ?? [],
+    })
+  ) {
+    return { ok: false, reason: "upsert_failed", error: "conversation_retrieval_incomplete" };
+  }
+  const evidenceMeta = {
+    input_evidence: inputEvidence,
+    ...(args.reconsideration?.expectedEditedByTyler
+      ? {
+          replaced_stale_tyler_body: args.reconsideration.currentBody,
+          replaced_stale_tyler_edited_at: args.reconsideration.expectedEditedAt,
+          replacement_reason: "reconsideration_replace",
+        }
+      : {}),
+  };
+  const replaceFinish = args.reconsideration
+    ? {
+        reconsiderationFinish: {
+          ...args.reconsideration,
+          evidence: { ...inputEvidence, succeeded: true },
+        },
+      }
+    : {};
   const packetMetadata = {
-    thread_message_count: packet.exact_thread.messages.length,
-    days_since_last_user_response: packet.last_user_response.days_since,
-    never_replied: packet.last_user_response.never_replied,
-    has_pending_goal_change: packet.hard_state.pending_goal_change != null,
+    thread_message_count: modelPacket.exact_thread.messages.length,
+    days_since_last_user_response: modelPacket.last_user_response.days_since,
+    never_replied: modelPacket.last_user_response.never_replied,
+    has_pending_goal_change: modelPacket.hard_state.pending_goal_change != null,
   };
 
   const quietFacts = await resolveQuietRelationshipMechanicalFacts({
     clerkUserId,
     timezone,
     localDate: draftForDayKey,
-    daysSinceLastUserResponse: packet.last_user_response.days_since,
-    neverReplied: packet.last_user_response.never_replied,
+    daysSinceLastUserResponse:
+      modelPacket.last_user_response.days_since_at_generation ??
+      modelPacket.last_user_response.days_since,
+    observedAsOfLocalDate: getDateKeyInTimezone(args.now, timezone),
+    neverReplied: modelPacket.last_user_response.never_replied,
     recentUnansweredOutboundCount: countRecentUnansweredOutboundFromExactThread(
-      packet.exact_thread.messages
+      modelPacket.exact_thread.messages
     ),
   });
 
   // Phase 2D: Brief → Sol final writer. Packet unmutated; Brief is separate input.
   const briefMetadataExtra = await runObservationalMorningBriefInterpreter({
-    packet,
+    packet: modelPacket,
     clerkUserId,
     commitmentId,
     quietFacts,
@@ -1254,6 +2451,52 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     ...quietMetadataFields(quietFacts),
     proactive_decision: morningCoachingBrief.coaching_direction.proactive_decision,
   };
+
+  if (args.reconsideration) {
+    const decision =
+      morningCoachingBrief.coaching_direction.existing_text_decision ?? "not_applicable";
+    if (
+      reconsiderationAppliesKeep({
+        decision,
+        preserveTylerEdit: args.reconsideration.preserveTylerEdit,
+      })
+    ) {
+      const kept = await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "keep",
+        evidence: reconsiderationRetentionEvidence({
+          evidence: inputEvidence,
+          decision,
+          deliveryMismatchUnresolved: args.reconsideration.deliveryMismatchUnresolved === true,
+        }),
+      });
+      if (!kept.ok) return { ok: false, reason: "upsert_failed", error: kept.error };
+      return {
+        ok: true,
+        draftForDayKey,
+        generationId: args.reconsideration.expectedGenerationId,
+        body: args.reconsideration.currentBody,
+        machineShouldSend: Boolean(args.reconsideration.currentBody?.trim()),
+        writerPromptPath: null,
+        supersedeFailed: false,
+        currentDraftProtected: true,
+      };
+    }
+    if (decision !== "replace") {
+      await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "release",
+        evidence: inputEvidence,
+      });
+      return { ok: false, reason: "upsert_failed", error: "reconsideration_invalid" };
+    }
+  }
 
   if (isIntentionalSpaceDecision(morningCoachingBrief.coaching_direction.proactive_decision)) {
     const persisted = await persistMorningTtoGeneration({
@@ -1268,14 +2511,18 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       packetMetadata,
       ...persistEffectiveAskFromPacket(packet),
       generationMetadataExtra: {
+        ...evidenceMeta,
         ...briefMetadataExtra,
         morning_coaching_brief_v1: morningCoachingBrief,
         ...quietMeta,
         intentional_space: true,
         error: null,
+        message_for: modelPacket.message_for,
+        morning_relationship_packet_v1: modelPacket,
       },
       notebookVerdictReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
-      ...persistProtect,
+      ...replaceFinish,
+      ...persistProtect, ...scheduledAttach,
     });
 
     if (!persisted.ok) {
@@ -1338,6 +2585,17 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     : null;
 
   if (!writerResult.ok) {
+    if (args.reconsideration) {
+      await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "release",
+        evidence: inputEvidence,
+      });
+      return { ok: false, reason: "upsert_failed", error: writerResult.error };
+    }
     const persisted = await persistMorningTtoGeneration({
       clerkUserId,
       draftForDayKey,
@@ -1359,12 +2617,15 @@ export async function generateTylerTextOverviewDraftForUser(args: {
       packetMetadata,
       ...persistEffectiveAskFromPacket(packet),
       generationMetadataExtra: {
+        ...evidenceMeta,
         ...briefMetadataExtra,
         morning_coaching_brief_v1: morningCoachingBrief,
         ...quietMeta,
         intentional_space: false,
+        message_for: modelPacket.message_for,
+        morning_relationship_packet_v1: modelPacket,
       },
-      ...persistProtect,
+      ...persistProtect, ...scheduledAttach,
     });
 
     if (!persisted.ok) {
@@ -1408,12 +2669,16 @@ export async function generateTylerTextOverviewDraftForUser(args: {
     packetMetadata,
     ...persistEffectiveAskFromPacket(packet),
     generationMetadataExtra: {
+      ...evidenceMeta,
       ...briefMetadataExtra,
       morning_coaching_brief_v1: morningCoachingBrief,
       ...quietMeta,
       intentional_space: false,
+      message_for: modelPacket.message_for,
+      morning_relationship_packet_v1: modelPacket,
     },
-    ...persistProtect,
+    ...replaceFinish,
+    ...persistProtect, ...scheduledAttach,
   });
 
   if (!persisted.ok) {
@@ -1569,6 +2834,12 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   allowReplaceStaleTylerNonempty?: boolean;
   replacedStaleTylerBody?: string | null;
   replacedStaleTylerEditedAt?: string | null;
+  /** The proactive calculator already decided this delivery. */
+  scheduleAuthoritativelyResolved?: boolean;
+  scheduledGenerationMetadata?: Record<string, unknown> | null;
+  claimOwnerId?: string | null;
+  generationReason?: TylerTextOverviewGenerationReason;
+  reconsideration?: TtoReconsiderationFence;
 }): Promise<TylerTextOverviewEveningPreviewResult> {
   if (!isTylerTextOverviewEnabled()) {
     return { ok: false, reason: "disabled" };
@@ -1577,6 +2848,35 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   const clerkUserId = args.clerkUserId.trim();
   if (!clerkUserId) {
     return { ok: false, reason: "audience", error: "missing_clerk_user_id" };
+  }
+  const eveningDayKey = args.draftForDayKey?.trim() ?? "";
+  if (
+    !args.claimOwnerId &&
+    !args.reconsideration &&
+    /^\d{4}-\d{2}-\d{2}$/.test(eveningDayKey)
+  ) {
+    const guard = await unclaimedCompletedScheduledDraft({
+      clerkUserId,
+      draftForDayKey: eveningDayKey,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+    });
+    if (guard.kind === "failed") {
+      return { ok: false, reason: "upsert_failed", error: "draft_read_failed" };
+    }
+    if (guard.kind === "protected") {
+      return {
+        ok: true,
+        draftForDayKey: eveningDayKey,
+        generationId: guard.generationId,
+        body: guard.body,
+        machineShouldSend: guard.machineShouldSend,
+        machineNoSendReason: guard.machineNoSendReason,
+        writerPromptPath: null,
+        messageFor: null,
+        supersedeFailed: false,
+        currentDraftProtected: true,
+      };
+    }
   }
 
   const persistProtect = {
@@ -1590,6 +2890,12 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
           replacedStaleTylerEditedAt: args.replacedStaleTylerEditedAt ?? null,
         }
       : {}),
+  };
+  const scheduledAttach = {
+    ...(args.scheduledGenerationMetadata
+      ? { scheduledGenerationMetadata: args.scheduledGenerationMetadata }
+      : {}),
+    ...(args.claimOwnerId ? { claimOwnerId: args.claimOwnerId } : {}),
   };
 
   const audienceUser = await loadTylerTextOverviewAudienceRow(clerkUserId);
@@ -1605,13 +2911,15 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     clerkMetadataTimezone: md.timezone,
     audienceTimezone: audienceUser.timezone,
   });
-  const timezone = tzResolved.timezone;
-  const localNow = new Date(now.toLocaleString("en-US", { timeZone: timezone }));
+  let timezone = tzResolved.timezone;
+  const localNow = new Date(now.toLocaleString("en-US", { timeZone: tzResolved.timezone }));
 
   const commsPrefs = await fetchV2UserSmsCommsPreferences(clerkUserId);
-  const commsSkip = shouldSkipDailyForCommsPrefs(commsPrefs, localNow, now);
-  if (commsSkip.skip) {
-    return { ok: false, reason: "comms_prefs" };
+  if (args.scheduleAuthoritativelyResolved !== true) {
+    const commsSkip = shouldSkipDailyForCommsPrefs(commsPrefs, localNow, now);
+    if (commsSkip.skip) {
+      return { ok: false, reason: "comms_prefs" };
+    }
   }
 
   const v2Status = await resolveUserFullyOnV2ForCutoverMessaging(clerkUserId);
@@ -1635,12 +2943,41 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     };
   }
 
+  const scheduled = scheduledDeliveryForGeneration({
+    requireScheduled: args.scheduleAuthoritativelyResolved === true || args.reconsideration != null,
+    metadata: args.scheduledGenerationMetadata ?? null,
+    fenceDelivery: args.reconsideration?.delivery ?? null,
+    sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+    fallbackOwner: "evening",
+    draftForDayKey,
+  });
+  if (scheduled === "unresolved") {
+    if (args.reconsideration) {
+      await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "release",
+        evidence: retrievalFailureEvidence(args.reconsideration),
+      });
+    }
+    return { ok: false, reason: "upsert_failed", error: "scheduled_delivery_unresolved" };
+  }
+  if (scheduled) timezone = scheduled.timeZone;
+
   const packetResult = await loadMorningRelationshipPacket({
     clerkUserId,
     timezone,
     now,
     draftForDayKey,
     daypart: "evening",
+    intendedReceiveTimeLocal: scheduled
+      ? formatMinuteOfDayAsHhMm(scheduled.effectiveLocalMinute)
+      : undefined,
+    utcInstant: scheduled?.utcInstant,
+    administrativeBatchDate: scheduled?.batchDate,
+    boundConversationAtNow: scheduled != null,
   });
 
   const eveningMetaBase = {
@@ -1650,10 +2987,21 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   };
 
   if (!packetResult.ok) {
+    if (args.reconsideration) {
+      await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "release",
+        evidence: retrievalFailureEvidence(args.reconsideration),
+      });
+      return { ok: false, reason: "upsert_failed", error: packetResult.error };
+    }
     const persisted = await persistMorningTtoGeneration({
       clerkUserId,
       draftForDayKey,
-      generationReason: "manual_regenerate",
+      generationReason: args.generationReason ?? "manual_regenerate",
       commitmentId: null,
       timezone,
       sendPrefSnapshot,
@@ -1662,7 +3010,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
       failure: { error: packetResult.error },
       generationMetadataExtra: eveningMetaBase,
       respectProtectedMorningDraft: true,
-      ...persistProtect,
+      ...persistProtect, ...scheduledAttach,
     });
 
     if (!persisted.ok) {
@@ -1683,9 +3031,64 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     };
   }
 
-  const { packet, commitmentId } = packetResult;
+  const { packet: loadedPacket, commitmentId, conversationReadAt, excludedSourceIds } = packetResult;
+  const packet = await attachSundayCoachingContext({
+    packet: withObservedSilence(
+      packetWithoutProactiveCompliance(loadedPacket),
+      now,
+      timezone
+    ),
+    clerkUserId,
+    commitmentId,
+    now,
+  });
+  const modelPacket: MorningRelationshipPacket = args.reconsideration
+    ? { ...packet, existing_saved_text: savedTextForFence(args.reconsideration) }
+    : packet;
+  const inputEvidence = buildTtoInputEvidence({
+    packet: modelPacket,
+    attemptId: args.reconsideration?.claimOwnerId ?? args.claimOwnerId ?? "initial",
+    existingBody: args.reconsideration?.currentBody,
+    existingBodySource: args.reconsideration?.expectedBodySource,
+    editedByTyler: args.reconsideration?.expectedEditedByTyler,
+    editedAt: args.reconsideration?.expectedEditedAt,
+    delivery: scheduled ? evidenceDeliveryFromSchedule(scheduled) : args.reconsideration?.delivery,
+    conversationReadAt,
+    excludedSourceIds,
+  });
+  if (
+    args.reconsideration &&
+    await releaseUnobservedDiscovery({
+      clerkUserId,
+      draftForDayKey,
+      sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      fence: args.reconsideration,
+      consideredSourceIds: inputEvidence.considered_source_ids ?? [],
+      excludedSourceIds: excludedSourceIds ?? [],
+    })
+  ) {
+    return { ok: false, reason: "upsert_failed", error: "conversation_retrieval_incomplete" };
+  }
+  const evidenceMeta = {
+    input_evidence: inputEvidence,
+    ...(args.reconsideration?.expectedEditedByTyler
+      ? {
+          replaced_stale_tyler_body: args.reconsideration.currentBody,
+          replaced_stale_tyler_edited_at: args.reconsideration.expectedEditedAt,
+          replacement_reason: "reconsideration_replace",
+        }
+      : {}),
+  };
+  const replaceFinish = args.reconsideration
+    ? {
+        reconsiderationFinish: {
+          ...args.reconsideration,
+          evidence: { ...inputEvidence, succeeded: true },
+        },
+      }
+    : {};
   const packetMetadata = {
-    thread_message_count: packet.exact_thread.messages.length,
+    thread_message_count: modelPacket.exact_thread.messages.length,
     days_since_last_user_response: packet.last_user_response.days_since,
     never_replied: packet.last_user_response.never_replied,
     has_pending_goal_change: packet.hard_state.pending_goal_change != null,
@@ -1695,15 +3098,18 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     clerkUserId,
     timezone,
     localDate: draftForDayKey,
-    daysSinceLastUserResponse: packet.last_user_response.days_since,
-    neverReplied: packet.last_user_response.never_replied,
+    daysSinceLastUserResponse:
+      modelPacket.last_user_response.days_since_at_generation ??
+      modelPacket.last_user_response.days_since,
+    observedAsOfLocalDate: getDateKeyInTimezone(now, timezone),
+    neverReplied: modelPacket.last_user_response.never_replied,
     recentUnansweredOutboundCount: countRecentUnansweredOutboundFromExactThread(
-      packet.exact_thread.messages
+      modelPacket.exact_thread.messages
     ),
   });
 
   const briefMetadataExtra = await runObservationalMorningBriefInterpreter({
-    packet,
+    packet: modelPacket,
     clerkUserId,
     commitmentId,
     quietFacts,
@@ -1717,11 +3123,59 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     proactive_decision: morningCoachingBrief.coaching_direction.proactive_decision,
   };
 
+  if (args.reconsideration) {
+    const decision =
+      morningCoachingBrief.coaching_direction.existing_text_decision ?? "not_applicable";
+    if (
+      reconsiderationAppliesKeep({
+        decision,
+        preserveTylerEdit: args.reconsideration.preserveTylerEdit,
+      })
+    ) {
+      const kept = await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "keep",
+        evidence: reconsiderationRetentionEvidence({
+          evidence: inputEvidence,
+          decision,
+          deliveryMismatchUnresolved: args.reconsideration.deliveryMismatchUnresolved === true,
+        }),
+      });
+      if (!kept.ok) return { ok: false, reason: "upsert_failed", error: kept.error };
+      return {
+        ok: true,
+        draftForDayKey,
+        generationId: args.reconsideration.expectedGenerationId,
+        body: args.reconsideration.currentBody,
+        machineShouldSend: Boolean(args.reconsideration.currentBody?.trim()),
+        machineNoSendReason: null,
+        writerPromptPath: null,
+        messageFor: modelPacket.message_for,
+        supersedeFailed: false,
+        currentDraftProtected: true,
+      };
+    }
+    if (decision !== "replace") {
+      await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "release",
+        evidence: inputEvidence,
+      });
+      return { ok: false, reason: "upsert_failed", error: "reconsideration_invalid" };
+    }
+  }
+
   if (isIntentionalSpaceDecision(morningCoachingBrief.coaching_direction.proactive_decision)) {
     const persisted = await persistMorningTtoGeneration({
       clerkUserId,
       draftForDayKey,
-      generationReason: "manual_regenerate",
+      generationReason: args.generationReason ?? "manual_regenerate",
       commitmentId,
       timezone,
       sendPrefSnapshot,
@@ -1731,18 +3185,20 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
       packetMetadata,
       ...persistEffectiveAskFromPacket(packet),
       generationMetadataExtra: {
+        ...evidenceMeta,
         ...eveningMetaBase,
         ...briefMetadataExtra,
         morning_coaching_brief_v1: morningCoachingBrief,
         ...quietMeta,
         intentional_space: true,
         error: null,
-        message_for: packet.message_for,
-        morning_relationship_packet_v1: packet,
+        message_for: modelPacket.message_for,
+        morning_relationship_packet_v1: modelPacket,
       },
       notebookVerdictReason: MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
       respectProtectedMorningDraft: true,
-      ...persistProtect,
+      ...replaceFinish,
+      ...persistProtect, ...scheduledAttach,
     });
 
     if (!persisted.ok) {
@@ -1806,20 +3262,32 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     : null;
 
   const generationMetadataExtra = {
+    ...evidenceMeta,
     ...eveningMetaBase,
     ...briefMetadataExtra,
     morning_coaching_brief_v1: morningCoachingBrief,
     ...quietMeta,
     intentional_space: false,
-    message_for: packet.message_for,
-    morning_relationship_packet_v1: packet,
+    message_for: modelPacket.message_for,
+    morning_relationship_packet_v1: modelPacket,
   };
 
   if (!writerResult.ok) {
+    if (args.reconsideration) {
+      await finishReconsiderationDecision({
+        clerkUserId,
+        draftForDayKey,
+        sendSlot: SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+        fence: args.reconsideration,
+        result: "release",
+        evidence: inputEvidence,
+      });
+      return { ok: false, reason: "upsert_failed", error: writerResult.error };
+    }
     const persisted = await persistMorningTtoGeneration({
       clerkUserId,
       draftForDayKey,
-      generationReason: "manual_regenerate",
+      generationReason: args.generationReason ?? "manual_regenerate",
       commitmentId,
       timezone,
       sendPrefSnapshot,
@@ -1839,7 +3307,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
       ...persistEffectiveAskFromPacket(packet),
       generationMetadataExtra,
       respectProtectedMorningDraft: true,
-      ...persistProtect,
+      ...persistProtect, ...scheduledAttach,
     });
 
     if (!persisted.ok) {
@@ -1867,7 +3335,7 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
   const persisted = await persistMorningTtoGeneration({
     clerkUserId,
     draftForDayKey,
-    generationReason: "manual_regenerate",
+    generationReason: args.generationReason ?? "manual_regenerate",
     commitmentId,
     timezone,
     sendPrefSnapshot,
@@ -1887,7 +3355,8 @@ export async function generateTylerTextOverviewEveningPreviewForUser(args: {
     ...persistEffectiveAskFromPacket(packet),
     generationMetadataExtra,
     respectProtectedMorningDraft: true,
-    ...persistProtect,
+    ...replaceFinish,
+    ...persistProtect, ...scheduledAttach,
   });
 
   if (!persisted.ok) {

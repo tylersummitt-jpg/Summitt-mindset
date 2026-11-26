@@ -5,7 +5,9 @@ import {
   MORNING_BRIEF_INTERPRETER_RESPONSE_FORMAT,
   MORNING_BRIEF_SCHEMA_ENUMS,
   MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1,
+  proactiveMorningBriefResponseFormat,
 } from "@/lib/morning-tto-coaching-brief-json-schema-v1";
+import { INBOUND_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1 } from "@/lib/inbound-sol-brief-json-schema";
 import {
   MORNING_COACHING_BRIEF_VERSION,
   parseMorningCoachingBriefV1,
@@ -62,6 +64,7 @@ function validBrief(): MorningCoachingBriefV1 {
       action_guidance: "none",
       pressure: "normal",
       proactive_decision: "send",
+      existing_text_decision: "not_applicable",
     },
     boundaries: {
       claims_to_avoid: ["Do not invent proof"],
@@ -148,6 +151,25 @@ describe("morning coaching brief OpenAI JSON schema v1", () => {
     const coaching = MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1.properties.coaching_direction;
     expect(coaching.required).toContain("proactive_decision");
     expect(coaching.properties.proactive_decision.enum).toEqual(["send", "intentional_space"]);
+    expect(coaching.required).not.toContain("existing_text_decision");
+    expect(coaching.properties).not.toHaveProperty("existing_text_decision");
+    const proactive = proactiveMorningBriefResponseFormat().json_schema.schema as {
+      properties: {
+        coaching_direction: {
+          required: string[];
+          properties: { existing_text_decision: { enum: string[] } };
+        };
+      };
+    };
+    expect(proactive.properties.coaching_direction.required).toContain("existing_text_decision");
+    expect(proactive.properties.coaching_direction.properties.existing_text_decision.enum).toEqual([
+      "keep",
+      "replace",
+      "not_applicable",
+    ]);
+    const inboundCoaching = INBOUND_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1.properties
+      .coaching_direction as { required: readonly string[] };
+    expect(inboundCoaching.required).not.toContain("existing_text_decision");
     expect(JSON.stringify(MORNING_COACHING_BRIEF_OPENAI_JSON_SCHEMA_V1)).not.toContain(
       "send_reentry"
     );

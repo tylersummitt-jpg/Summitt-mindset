@@ -205,10 +205,7 @@ describe("victory-media cron wire", () => {
       path: "/api/cron/evening-sms",
       schedule: "*/5 * * * *",
     });
-    expect(vercel.crons).toContainEqual({
-      path: "/api/cron/weekly-sms",
-      schedule: "*/5 * * * *",
-    });
+    expect(vercel.crons.map((c) => c.path)).not.toContain("/api/cron/weekly-sms");
     expect(vercel.crons).toContainEqual({
       path: "/api/cron/challenge",
       schedule: "0 * * * *",

@@ -334,7 +334,8 @@ describe("morning-tto-writer Phase 2D", () => {
       "utf8"
     );
     expect(src).not.toMatch(/gym session.*today/);
-    expect(src).toMatch(/Understand semantic timing with intelligence/);
+    expect(src).toContain("intended_receive_time_local are the authoritative clock");
+    expect(src).toContain("daypart is the administrative Morning or Evening batch");
   });
 
   it("returns openai_unavailable when API key missing", async () => {

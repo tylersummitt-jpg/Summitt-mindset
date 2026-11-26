@@ -1,4 +1,3 @@
-import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -88,29 +87,32 @@ describe("admin manual Pat answers wire", () => {
     ).toBe(2);
   });
 
-  it("25: does not touch writer/interpreter/turn/TTO/daily/evening/weekly/Ask Pat/retrieval", () => {
+  it("25: manual Pat stays off the coaching writers and the retired weekly sender", () => {
     expect(fs.readFileSync(WRITER, "utf8")).not.toContain("manual-pat-answers");
     expect(fs.readFileSync(TURN, "utf8")).not.toContain("manual-pat-answers");
     expect(fs.readFileSync(INTERPRETER, "utf8")).not.toContain("manual-pat-answers");
-
-    const changed = new Set(
-      execSync("git status --short --untracked-files=all", { cwd: ROOT, encoding: "utf8" })
-        .split("\n")
-        .map((line) => line.trim().replace(/^\S+\s+/, ""))
-        .filter(Boolean)
+    const weeklyCron = fs.readFileSync(
+      path.join(ROOT, "src/app/api/cron/weekly-sms/route.ts"),
+      "utf8"
     );
-    const protectedPaths = [
-      "src/lib/inbound-sol-writer.ts",
+    expect(weeklyCron).toContain("weekly_delivery_retired");
+    expect(weeklyCron).not.toContain("manual-pat-answers");
+    expect(weeklyCron).not.toContain("sendSMS");
+    for (const rel of [
       "src/lib/inbound-pat-source-evidence.ts",
       "src/app/api/ask-pat/route.ts",
       "src/app/api/cron/daily-sms/route.ts",
       "src/app/api/cron/evening-sms/route.ts",
-      "src/app/api/cron/weekly-sms/route.ts",
       "src/lib/tyler-text-overview-admin.ts",
-    ];
-    for (const p of protectedPaths) {
-      expect(changed.has(p), p).toBe(false);
+      "src/lib/tyler-text-overview-weekly-generate.ts",
+      "src/lib/tyler-text-overview-weekly-send.ts",
+    ]) {
+      expect(fs.readFileSync(path.join(ROOT, rel), "utf8"), rel).not.toContain("manual-pat-answers");
     }
+    expect(helper).not.toContain("generateTylerTextOverviewWeeklyDraftForUser");
+    expect(helper).not.toContain("sendWeeklyTtoDraftAuthoritative");
+    expect(sendSrc).not.toContain("runWeeklyBriefInterpreterV1");
+    expect(sendSrc).not.toContain("writeWeeklyTtoBody");
   });
 
   it("nav link exists", () => {

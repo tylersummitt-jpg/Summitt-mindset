@@ -423,6 +423,36 @@ vi.mock("@/lib/supabase-server", () => ({
       db.fromCalls.push(name);
       return makeChain({ table: name, action: "select", payload: {} });
     }),
+    rpc: vi.fn(async (name: string, args: { p_row?: Record<string, unknown> }) => {
+      if (name !== "tto_insert_generation_row") {
+        return { data: null, error: { code: "P0001", message: "missing_rpc" } };
+      }
+      const row = args?.p_row;
+      if (
+        !row ||
+        typeof row.clerk_user_id !== "string" ||
+        typeof row.draft_for_day_key !== "string" ||
+        typeof row.generation_reason !== "string"
+      ) {
+        return { data: null, error: { code: "P0001", message: "invalid_generation_row" } };
+      }
+      const duplicate = db.generations.some(
+        (generation) =>
+          generation.clerk_user_id === row.clerk_user_id &&
+          generation.draft_for_day_key === row.draft_for_day_key &&
+          generation.generation_number === row.generation_number
+      );
+      if (duplicate) {
+        return { data: null, error: { code: "23505", message: "duplicate" } };
+      }
+      const id = `gen-${db.nextGenId++}`;
+      db.generations.push({
+        ...row,
+        id,
+        generated_at: row.generated_at ?? new Date().toISOString(),
+      });
+      return { data: id, error: null };
+    }),
   },
 }));
 
