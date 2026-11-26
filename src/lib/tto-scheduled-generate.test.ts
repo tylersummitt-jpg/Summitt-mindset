@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { evaluateScheduledDeliveryGrace } from "@/lib/daily-sms-scheduling";
 import {
@@ -96,6 +96,9 @@ import {
   dashboardOutcomeFromCurrentDraft,
   dashboardRepairState,
   listUpcomingOccurrenceCandidates,
+  loadReconsiderationGenerationRows,
+  RECONSIDERATION_GENERATION_READ_CHUNK,
+  reconsiderationGenerationReadChunks,
   reconsiderationOutcomePatchAllowed,
   selectNextReconsiderationCandidates,
   selectPreviewOccurrence,
@@ -5554,3 +5557,301 @@ function sundayPacket(
     sunday_coaching: coaching,
   } as MorningRelationshipPacket;
 }
+
+describe("reconsideration generation reads", () => {
+  function ids(count: number): string[] {
+    return Array.from({ length: count }, (_, index) => {
+      const hex = index.toString(16).padStart(12, "0");
+      return `00000000-0000-4000-8000-${hex}`;
+    });
+  }
+
+  it("reads 2448 generation ids in 25 requests of at most 100", () => {
+    const requested = ids(2448);
+    const chunks = reconsiderationGenerationReadChunks([...requested, requested[0], `  ${requested[1]}  `]);
+    expect(RECONSIDERATION_GENERATION_READ_CHUNK).toBe(100);
+    expect(chunks).toHaveLength(25);
+    expect(chunks.slice(0, 24).every((chunk) => chunk.length === 100)).toBe(true);
+    expect(chunks[24]).toHaveLength(48);
+    expect(chunks.every((chunk) => chunk.length <= 100)).toBe(true);
+    expect(chunks.flat()).toEqual(requested);
+  });
+
+  it("combines successful chunks once and keeps a duplicate response row once", async () => {
+    const requested = ids(201);
+    const seen: string[][] = [];
+    const loaded = await loadReconsiderationGenerationRows({
+      ids: requested,
+      deadlineMs: Date.now() + 60_000,
+      readChunk: async (chunk) => {
+        seen.push(chunk);
+        return {
+          data: [
+            ...chunk.map((id) => ({
+              id,
+              generated_at: "2026-11-26T21:35:00.000Z",
+              generation_metadata: { input_evidence: { utc: id } },
+              machine_no_send_reason: id.endsWith("0") ? "intentional_space" : null,
+            })),
+            { id: chunk[0], generated_at: "later", generation_metadata: { duplicate: true } },
+          ],
+          error: null,
+        };
+      },
+    });
+    expect(seen.map((chunk) => chunk.length)).toEqual([100, 100, 1]);
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.rows).toHaveLength(201);
+    expect(loaded.rows.map((row) => row.id)).toEqual(requested);
+    expect(loaded.rows[0]?.generated_at).toBe("2026-11-26T21:35:00.000Z");
+  });
+
+  it("reports a failed chunk instead of empty successful work", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const leakedId = "11111111-1111-4111-8111-111111111111";
+    const loaded = await loadReconsiderationGenerationRows({
+      ids: ids(150),
+      deadlineMs: Date.now() + 60_000,
+      readChunk: async (chunk) => {
+        if (chunk.length === 100) {
+          return {
+            data: chunk.map((id) => ({ id, generation_metadata: { kept: true } })),
+            error: null,
+          };
+        }
+        return {
+          data: null,
+          error: {
+            code: "PGRST100",
+            message: `uri too long ${leakedId} ${"x".repeat(400)}`,
+          },
+        };
+      },
+    });
+    expect(loaded.ok).toBe(false);
+    if (loaded.ok) return;
+    expect(loaded.failure).toMatchObject({
+      operation: "reconsideration_generation_read",
+      generation_id_count: 150,
+      failed_chunk_size: 50,
+      supabase_code: "PGRST100",
+    });
+    expect(loaded.failure.message).not.toContain(leakedId);
+    expect(loaded.failure.message.length).toBeLessThanOrEqual(240);
+    expect(loaded).not.toHaveProperty("rows");
+    expect(errorLog).toHaveBeenCalledWith(
+      "[scheduled-reconsideration] generation read failed",
+      expect.objectContaining({
+        operation: "reconsideration_generation_read",
+        generation_id_count: 150,
+        failed_chunk_size: 50,
+        supabase_code: "PGRST100",
+      })
+    );
+    const logged = errorLog.mock.calls.flat().join(" ");
+    expect(logged).not.toContain(leakedId);
+    errorLog.mockRestore();
+  });
+
+  it("does not start a chunk after the execution budget", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    let calls = 0;
+    const loaded = await loadReconsiderationGenerationRows({
+      ids: ids(50),
+      deadlineMs: 1_000,
+      nowMs: () => 1_000,
+      readChunk: async () => {
+        calls += 1;
+        return { data: [], error: null };
+      },
+    });
+    expect(calls).toBe(0);
+    expect(loaded.ok).toBe(false);
+    if (loaded.ok) return;
+    expect(loaded.failure.message).toBe("execution_budget_exhausted");
+    expect(loaded.failure.failed_chunk_size).toBe(50);
+    expect(loaded.failure.generation_id_count).toBe(50);
+    expect(errorLog).toHaveBeenCalledOnce();
+    errorLog.mockRestore();
+  });
+});
+
+describe("Friday 9:30 reconsideration of a 7 AM Tyler edit", () => {
+  function fridaySchedule(minute: number) {
+    return resolveProactiveSchedule({
+      preferenceRead: {
+        ok: true,
+        row: {
+          weekly_schedule: {
+            monday: 420,
+            tuesday: 420,
+            wednesday: 420,
+            thursday: 420,
+            friday: minute,
+            saturday: null,
+            sunday: 510,
+          },
+          schedule_timezone: "America/New_York",
+          pause_indefinite: false,
+          pause_until: null,
+          cadence_override: null,
+          weekend_send_policy: null,
+        },
+      },
+      clerkTimezone: null,
+      audienceTimezone: null,
+      memberLocalDate: "2026-11-27",
+      proactiveDeliveryAllowed: true,
+    });
+  }
+
+  it("keeps the edited intentional-space text eligible and blocks a stale send", () => {
+    const seven = fridaySchedule(420);
+    const nineThirty = fridaySchedule(570);
+    expect(seven.kind).toBe("scheduled");
+    expect(nineThirty.kind).toBe("scheduled");
+    if (seven.kind !== "scheduled" || nineThirty.kind !== "scheduled") return;
+    expect(seven.owner).toBe(nineThirty.owner);
+    expect(seven.batchDate).toBe(nineThirty.batchDate);
+    expect(seven.effectiveLocalMinute).toBe(420);
+    expect(nineThirty.effectiveLocalMinute).toBe(570);
+
+    const stored = occurrence({
+      clerkUserId: "user_3Boa0IkXC7GzrZOBgcCem0DnFa9",
+      memberLocalDate: "2026-11-27",
+      utcInstant: seven.utcInstant,
+      selectedLocalMinute: 420,
+      effectiveLocalMinute: 420,
+      timeZone: "America/New_York",
+      state: "intentional_space",
+    });
+    const batch = emptyBatch([stored]);
+    batch.batchDate = seven.batchDate;
+    batch.sendSlot = seven.owner === "evening" ? "evening_checkin" : "morning";
+    const now = new Date("2026-11-26T22:30:00.000Z");
+    const upcoming = listUpcomingOccurrenceCandidates([batch], now);
+    const chosen = chooseAuthoritativeReconsiderationCandidate({
+      occurrences: upcoming,
+      schedule: [{
+        memberLocalDate: nineThirty.memberLocalDate,
+        owner: nineThirty.owner,
+        batchDate: nineThirty.batchDate,
+        utcInstant: nineThirty.utcInstant,
+        effectiveLocalMinute: nineThirty.effectiveLocalMinute,
+        timeZone: nineThirty.timeZone,
+      }],
+      now,
+    });
+    expect(chosen?.occurrence.clerkUserId).toBe(stored.clerkUserId);
+    expect(chosen?.occurrence.state).toBe("intentional_space");
+    expect(selectRecoverableOccurrences({
+      occurrences: [stored],
+      now,
+      limit: 8,
+      includeFailed: false,
+    })).toEqual([]);
+
+    const version: TtoBodyVersion = {
+      generation_id: "ebb0e112-fdad-4ee9-a368-c23d0b927951",
+      body_hash: "tyler-friday-body",
+      edited_at: "2026-11-26T22:08:00.000Z",
+      body_source: "tyler_edit",
+      edited_by_tyler: true,
+    };
+    const context: TtoEditDeliveryContext = {
+      status: "known",
+      member_local_date: "2026-11-27",
+      effective_local_minute: seven.effectiveLocalMinute,
+      time_zone: seven.timeZone,
+      utc_instant: seven.utcInstant,
+      owner: seven.owner,
+      body_hash: version.body_hash,
+      generation_id: version.generation_id,
+      edited_at: version.edited_at,
+    };
+    const live = {
+      memberLocalDate: nineThirty.memberLocalDate,
+      effectiveLocalMinute: nineThirty.effectiveLocalMinute,
+      timeZone: nineThirty.timeZone,
+      utcInstant: nineThirty.utcInstant,
+      owner: nineThirty.owner,
+    };
+    const considered = {
+      succeeded: true,
+      goal_text: "Decide what matters",
+      existing_body_sha256: "machine-body",
+      existing_body_source: "machine",
+      edited_by_tyler: false,
+      edited_at: null,
+      delivery: {
+        utc_instant: seven.utcInstant,
+        member_local_date: "2026-11-27",
+        effective_local_minute: 420,
+        time_zone: "America/New_York",
+        send_slot: batch.sendSlot,
+        preference_updated_at: "2026-11-26T20:00:00.000Z",
+      },
+      considered_source_ids: [],
+      thread_tail: null,
+      attempt_id: "initial",
+    } satisfies TtoInputEvidence;
+    expect(currentBodyEditContextRequiresReconsideration({
+      context,
+      currentBodyHash: version.body_hash,
+      current: live,
+      considered,
+      currentVersion: version,
+    })).toBe(true);
+    expect(reconsiderationInputsChanged({
+      considered,
+      failedAttempt: null,
+      discovered: [],
+      retrieval: "ok",
+      goalText: "Decide what matters",
+      goalReadOk: true,
+      deliveryReadOk: true,
+      delivery: {
+        utcInstant: nineThirty.utcInstant,
+        effectiveLocalMinute: nineThirty.effectiveLocalMinute,
+        timeZone: nineThirty.timeZone,
+      },
+      scheduleChangedSinceSuccess: true,
+      scheduleChangedSinceFailure: false,
+      retryAfter: null,
+      now,
+      editContextRequiresReconsideration: true,
+      sundayNow: "not_sunday",
+    })).toBe("changed");
+    expect(dashboardOutcomeFromCurrentDraft({
+      editedByTyler: true,
+      bodySource: "tyler_edit",
+      body: "Good morning, Tyler! It's 7 AM. Start your Friday by deciding what matters most before you open your laptop.",
+      machineNoSendReason: "intentional_space",
+    })).toBe("protected");
+
+    const authorizationNow = new Date(nineThirty.utcInstant);
+    expect(scheduledDailyBodyAuthorization({
+      now: authorizationNow,
+      live,
+      occurrenceState: "intentional_space",
+      draft: {
+        generationId: version.generation_id,
+        body: "Good morning, Tyler! It's 7 AM. Start your Friday by deciding what matters most before you open your laptop.",
+        bodyHash: version.body_hash,
+        bodySource: "tyler_edit",
+        editedByTyler: true,
+        editedAt: version.edited_at,
+      },
+      machineShouldSend: false,
+      machineNoSendReason: "intentional_space",
+      messageRequiredToday: false,
+      metadata: { tyler_edit_delivery_context: context, input_evidence: considered },
+      currentGoal: "Decide what matters",
+      goalReadOk: true,
+      conversation: "same",
+      retrievalOk: true,
+      sundayNow: "not_sunday",
+    })).toEqual({ action: "hold", reason: "edit_context_mismatch" });
+  });
+});

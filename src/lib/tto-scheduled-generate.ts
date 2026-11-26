@@ -3262,11 +3262,137 @@ async function earlierEligibleDeliveryBlocks(args: {
   return "no";
 }
 
+/** One PostgREST GET. The same bound used by linked generation reads. */
+export const RECONSIDERATION_GENERATION_READ_CHUNK = 100;
+
+export type ReconsiderationGenerationRow = {
+  id?: string;
+  generated_at?: string;
+  generation_metadata?: unknown;
+  machine_no_send_reason?: string | null;
+};
+
+export type ReconsiderationGenerationReadFailure = {
+  operation: "reconsideration_generation_read";
+  generation_id_count: number;
+  failed_chunk_size: number;
+  supabase_code: string | null;
+  message: string;
+};
+
+type ScheduledReconsiderationResult = {
+  ok: boolean;
+  considered: number;
+  kept_or_replaced: number;
+  skipped_unchanged: number;
+  error: ReconsiderationGenerationReadFailure | null;
+};
+
+function reconsiderationIdle(): ScheduledReconsiderationResult {
+  return { ok: true, considered: 0, kept_or_replaced: 0, skipped_unchanged: 0, error: null };
+}
+
+/** Unique, non-empty ids, in first-seen order, split so no request exceeds the chunk bound. */
+export function reconsiderationGenerationReadChunks(ids: readonly string[]): string[][] {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of ids) {
+    if (typeof raw !== "string") continue;
+    const id = raw.trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    unique.push(id);
+  }
+  const chunks: string[][] = [];
+  for (let index = 0; index < unique.length; index += RECONSIDERATION_GENERATION_READ_CHUNK) {
+    chunks.push(unique.slice(index, index + RECONSIDERATION_GENERATION_READ_CHUNK));
+  }
+  return chunks;
+}
+
+function safeReconsiderationReadMessage(message: string | null | undefined): string {
+  const compact = (message ?? "").replace(/\s+/g, " ").trim();
+  const withoutIds = compact.replace(
+    /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi,
+    "[id]"
+  );
+  if (!withoutIds) return "generation_read_failed";
+  return withoutIds.slice(0, 240);
+}
+
+/**
+ * Reads generation rows in bounded GETs.
+ * A failed or unstarted chunk discards every row already read.
+ * The caller must not continue with a partial map.
+ */
+export async function loadReconsiderationGenerationRows(args: {
+  ids: readonly string[];
+  deadlineMs: number;
+  nowMs?: () => number;
+  readChunk: (ids: string[]) => Promise<{
+    data: ReconsiderationGenerationRow[] | null;
+    error: { code?: string | null; message?: string | null } | null;
+  }>;
+}): Promise<
+  | { ok: true; rows: ReconsiderationGenerationRow[] }
+  | { ok: false; failure: ReconsiderationGenerationReadFailure }
+> {
+  const chunks = reconsiderationGenerationReadChunks(args.ids);
+  const generationIdCount = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const nowMs = args.nowMs ?? (() => Date.now());
+  const byId = new Map<string, ReconsiderationGenerationRow>();
+  for (const chunk of chunks) {
+    if (nowMs() >= args.deadlineMs) {
+      const failure: ReconsiderationGenerationReadFailure = {
+        operation: "reconsideration_generation_read",
+        generation_id_count: generationIdCount,
+        failed_chunk_size: chunk.length,
+        supabase_code: null,
+        message: "execution_budget_exhausted",
+      };
+      console.error("[scheduled-reconsideration] generation read failed", failure);
+      return { ok: false, failure };
+    }
+    const result = await args.readChunk(chunk);
+    if (result.error) {
+      const code = result.error.code?.trim() ?? "";
+      const failure: ReconsiderationGenerationReadFailure = {
+        operation: "reconsideration_generation_read",
+        generation_id_count: generationIdCount,
+        failed_chunk_size: chunk.length,
+        supabase_code: code || null,
+        message: safeReconsiderationReadMessage(result.error.message),
+      };
+      console.error("[scheduled-reconsideration] generation read failed", failure);
+      return { ok: false, failure };
+    }
+    for (const row of result.data ?? []) {
+      if (typeof row.id !== "string" || !row.id || byId.has(row.id)) continue;
+      byId.set(row.id, row);
+    }
+  }
+  return { ok: true, rows: [...byId.values()] };
+}
+
+async function readReconsiderationGenerationChunk(
+  ids: string[]
+): Promise<{
+  data: ReconsiderationGenerationRow[] | null;
+  error: { code?: string | null; message?: string | null } | null;
+}> {
+  const { data, error } = await supabaseServer
+    .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
+    .select("id, generated_at, generation_metadata, machine_no_send_reason")
+    .in("id", ids);
+  if (error) return { data: null, error: { code: error.code, message: error.message } };
+  return { data: (data ?? []) as ReconsiderationGenerationRow[], error: null };
+}
+
 async function runScheduledReconsideration(args: {
   now: Date;
   deadlineMs: number;
   chunkCap?: number;
-}): Promise<{ considered: number; kept_or_replaced: number; skipped_unchanged: number }> {
+}): Promise<ScheduledReconsiderationResult> {
   const today = getDateKeyInTimezone(args.now, PROACTIVE_SCHEDULE_ADMIN_TIMEZONE);
   const dates = [dayKeyOffset(today, -1), today, dayKeyOffset(today, 1)];
   const { data, error } = await supabaseServer
@@ -3275,14 +3401,14 @@ async function runScheduledReconsideration(args: {
     .in("batch_date", dates)
     .in("send_slot", [SMS_DAILY_PRODUCTION_SEND_SLOT, SMS_DAILY_EVENING_PREVIEW_SEND_SLOT]);
   if (error || !Array.isArray(data)) {
-    return { considered: 0, kept_or_replaced: 0, skipped_unchanged: 0 };
+    return reconsiderationIdle();
   }
   const batches = data
     .map((row) => batchFromJson(row))
     .filter((row): row is ScheduledBatchRecord => row != null);
   const upcoming = listUpcomingOccurrenceCandidates(batches, args.now);
   if (upcoming.length === 0) {
-    return { considered: 0, kept_or_replaced: 0, skipped_unchanged: 0 };
+    return reconsiderationIdle();
   }
   const clerkIds = [...new Set(upcoming.map((item) => item.occurrence.clerkUserId))];
   const [draftRes, goalRes, preferenceRes, audienceRes, conversations] = await Promise.all([
@@ -3313,7 +3439,7 @@ async function runScheduledReconsideration(args: {
     loadCandidateConversations(clerkIds, args.now),
   ]);
   if (draftRes.error || goalRes.error || preferenceRes.error) {
-    return { considered: 0, kept_or_replaced: 0, skipped_unchanged: 0 };
+    return reconsiderationIdle();
   }
   const drafts = new Map<string, Record<string, unknown>>();
   for (const row of (draftRes.data ?? []) as Record<string, unknown>[]) {
@@ -3331,26 +3457,27 @@ async function runScheduledReconsideration(args: {
   const generationAt = new Map<string, string>();
   const generationNoSend = new Map<string, string | null>();
   if (generationIds.length > 0) {
-    const genRes = await supabaseServer
-      .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
-      .select("id, generated_at, generation_metadata, machine_no_send_reason")
-      .in("id", generationIds);
-    if (genRes.error) {
-      return { considered: 0, kept_or_replaced: 0, skipped_unchanged: 0 };
+    const loaded = await loadReconsiderationGenerationRows({
+      ids: generationIds,
+      deadlineMs: args.deadlineMs,
+      readChunk: readReconsiderationGenerationChunk,
+    });
+    if (!loaded.ok) {
+      return { ...reconsiderationIdle(), ok: false, error: loaded.failure };
     }
-    for (const row of (genRes.data ?? []) as Record<string, unknown>[]) {
-        if (typeof row.id === "string" && row.generation_metadata && typeof row.generation_metadata === "object") {
-          generationMeta.set(row.id, row.generation_metadata as Record<string, unknown>);
-        }
-        if (typeof row.id === "string" && typeof row.generated_at === "string") {
-          generationAt.set(row.id, row.generated_at);
-        }
-        if (typeof row.id === "string") {
-          generationNoSend.set(
-            row.id,
-            typeof row.machine_no_send_reason === "string" ? row.machine_no_send_reason : null
-          );
-        }
+    for (const row of loaded.rows) {
+      if (typeof row.id === "string" && row.generation_metadata && typeof row.generation_metadata === "object") {
+        generationMeta.set(row.id, row.generation_metadata as Record<string, unknown>);
+      }
+      if (typeof row.id === "string" && typeof row.generated_at === "string") {
+        generationAt.set(row.id, row.generated_at);
+      }
+      if (typeof row.id === "string") {
+        generationNoSend.set(
+          row.id,
+          typeof row.machine_no_send_reason === "string" ? row.machine_no_send_reason : null
+        );
+      }
     }
   }
   const goals = new Map<string, string>();
@@ -4319,9 +4446,11 @@ async function runScheduledReconsideration(args: {
     },
   });
   return {
+    ok: true,
     considered: actualWork.value,
     kept_or_replaced: keptOrReplaced,
     skipped_unchanged: skippedUnchanged,
+    error: null,
   };
 }
 
