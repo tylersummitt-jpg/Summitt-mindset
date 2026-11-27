@@ -1,7 +1,9 @@
 import type { ReactElement } from "react";
+import { headers } from "next/headers";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import OnboardingProgress from "@/components/onboarding-progress";
+import { scheduleOnboardingDiagnostic } from "@/lib/onboarding-journey-diagnostics.server";
 import { requireOnboardingSobPath } from "@/lib/onboarding-sob-page-guard";
 import { loadIdentityOnboardingDraft } from "@/lib/onboarding-load-identity-draft";
 import CommitmentClient from "./commitment-client";
@@ -18,6 +20,15 @@ export default async function CommitmentPage(): Promise<ReactElement> {
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   await requireOnboardingSobPath(user.id, md, "/onboarding/commitment");
+  scheduleOnboardingDiagnostic({
+    clerkUserId: user.id,
+    step: "goal",
+    outcome: "step_reached",
+    journeyId: "server",
+    attemptId: crypto.randomUUID(),
+    userAgent: (await headers()).get("user-agent"),
+    source: "server",
+  });
 
   const { data: profile } = await supabaseServer
     .from("user_profiles")

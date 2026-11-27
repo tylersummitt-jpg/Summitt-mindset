@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import type { OnboardingDiagnosticErrorCode } from "@/lib/onboarding-journey-diagnostics";
+import { recordOnboardingApiEvent } from "@/lib/onboarding-journey-diagnostics.server";
 import { supabaseServer } from "@/lib/supabase-server";
 import {
   normalizeIntakeWhitespace,
@@ -25,6 +27,7 @@ function parseIntakeOrigin(
 }
 
 export async function POST(req: Request) {
+  let diagnosticUserId: string | null = null;
   try {
     const { userId } = await auth();
 
@@ -33,9 +36,18 @@ export async function POST(req: Request) {
         status: 401,
       });
     }
+    diagnosticUserId = userId;
+
+    const note = (
+      outcome: "request_received" | "validation_blocked" | "save_failed",
+      errorCode: OnboardingDiagnosticErrorCode = "none"
+    ) => recordOnboardingApiEvent({ request: req, clerkUserId: userId, step: "goal", outcome, errorCode });
+
+    await note("request_received");
 
     const md = await getClerkPublicMetadata(userId);
     if (md?.onboardingCompleted === true) {
+      await note("save_failed", "forbidden");
       return new Response(JSON.stringify({ error: "Onboarding already completed." }), {
         status: 403,
       });
@@ -49,6 +61,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (existingActive?.id) {
+      await note("save_failed", "conflict");
       return new Response(
         JSON.stringify({
           error: "Your commitment is already active. Continue to the final step to finish onboarding.",
@@ -69,9 +82,11 @@ export async function POST(req: Request) {
       intakeWeakAccept
     );
     if (titleTier.tier === "block") {
+      await note("validation_blocked", "invalid_title");
       return new Response(JSON.stringify({ error: titleTier.error }), { status: 400 });
     }
     if (titleTier.tier === "warn") {
+      await note("validation_blocked", "invalid_title");
       return new Response(JSON.stringify({ error: titleTier.error }), { status: 400 });
     }
 
@@ -80,25 +95,30 @@ export async function POST(req: Request) {
       intakeWeakAccept
     );
     if (behaviorTier.tier === "block") {
+      await note("validation_blocked", "invalid_behavior");
       return new Response(JSON.stringify({ error: behaviorTier.error }), { status: 400 });
     }
     if (behaviorTier.tier === "warn") {
+      await note("validation_blocked", "invalid_behavior");
       return new Response(JSON.stringify({ error: behaviorTier.error }), { status: 400 });
     }
 
     const titleErr = validateCommitmentTitleIntake(titleRaw);
     if (titleErr) {
+      await note("validation_blocked", "invalid_title");
       return new Response(JSON.stringify({ error: titleErr }), { status: 400 });
     }
 
     const behaviorErr = validateBehaviorStatementIntake(behaviorRaw);
     if (behaviorErr) {
+      await note("validation_blocked", "invalid_behavior");
       return new Response(JSON.stringify({ error: behaviorErr }), { status: 400 });
     }
 
     const selectedAreaId =
       typeof body?.selected_area_id === "string" ? body.selected_area_id : "";
     if (!isGoalAreaId(selectedAreaId)) {
+      await note("validation_blocked", "missing_focus");
       return new Response(JSON.stringify({ error: "Choose a focus area for your goal." }), {
         status: 400,
       });
@@ -107,6 +127,7 @@ export async function POST(req: Request) {
     const selectedTemplateId =
       typeof body?.selected_template_id === "string" ? body.selected_template_id : null;
     if (selectedTemplateId && !getTemplateById(selectedTemplateId)) {
+      await note("validation_blocked", "invalid_input");
       return new Response(JSON.stringify({ error: "Invalid goal template." }), { status: 400 });
     }
 
@@ -121,6 +142,7 @@ export async function POST(req: Request) {
         ? profile.identity_anchor_text.trim()
         : "";
     if (!identityAnchor || !profile?.active_identity_version_id) {
+      await note("validation_blocked", "missing_identity");
       return new Response(
         JSON.stringify({ error: "Save your identity before choosing a goal." }),
         { status: 400 }
@@ -138,6 +160,7 @@ export async function POST(req: Request) {
 
     if (delErr) {
       console.error("[onboarding/commitment] delete proposed failed", delErr);
+      await note("save_failed", "persistence");
       return new Response(JSON.stringify({ error: "Failed to reset commitment draft" }), {
         status: 500,
       });
@@ -162,6 +185,7 @@ export async function POST(req: Request) {
 
     if (insertErr || !row?.id) {
       console.error("[onboarding/commitment] insert failed", insertErr);
+      await note("save_failed", "persistence");
       return new Response(JSON.stringify({ error: "Failed to save commitment" }), {
         status: 500,
       });
@@ -181,6 +205,7 @@ export async function POST(req: Request) {
     if (eventErr) {
       console.error("[onboarding/commitment] event insert failed", eventErr);
       await supabaseServer.from("v2_commitment").delete().eq("id", commitmentId);
+      await note("save_failed", "persistence");
       return new Response(JSON.stringify({ error: "Failed to record commitment event" }), {
         status: 500,
       });
@@ -221,12 +246,22 @@ export async function POST(req: Request) {
 
     if (!sidecar.ok) {
       await supabaseServer.from("v2_commitment").delete().eq("id", commitmentId);
+      await note("save_failed", "persistence");
       return new Response(JSON.stringify({ error: sidecar.error }), { status: 500 });
     }
 
     return Response.json({ ok: true, commitmentId });
   } catch (err) {
     console.error("[onboarding/commitment]", err);
+    if (diagnosticUserId) {
+      await recordOnboardingApiEvent({
+        request: req,
+        clerkUserId: diagnosticUserId,
+        step: "goal",
+        outcome: "save_failed",
+        errorCode: "server",
+      });
+    }
     return new Response(JSON.stringify({ error: "Server error" }), { status: 500 });
   }
 }

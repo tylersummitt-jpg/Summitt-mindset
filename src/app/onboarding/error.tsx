@@ -1,8 +1,22 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
+import {
+  newOnboardingAttemptId,
+  reportOnboardingClient,
+} from "@/lib/onboarding-journey-diagnostics-client";
+import type { OnboardingDiagnosticStep } from "@/lib/onboarding-journey-diagnostics";
 
 const SIGN_IN_HREF = `/sign-in?redirect_url=${encodeURIComponent("/onboarding")}`;
+
+function stepFromPath(path: string): OnboardingDiagnosticStep | null {
+  if (path.startsWith("/onboarding/commitment")) return "goal";
+  if (path.startsWith("/onboarding/sms")) return "texts";
+  if (path.startsWith("/onboarding/complete")) return "complete";
+  if (path.startsWith("/onboarding/identity")) return "identity";
+  return null;
+}
 
 export default function OnboardingError({
   error,
@@ -11,13 +25,23 @@ export default function OnboardingError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const pathname = usePathname();
+
   useEffect(() => {
     console.error("[onboarding/error]", {
       digest: error.digest,
       name: error.name,
       message: error.message,
     });
-  }, [error]);
+    const step = stepFromPath(pathname);
+    if (!step) return;
+    reportOnboardingClient({
+      step,
+      outcome: "client_error",
+      errorCode: "render_failed",
+      attemptId: newOnboardingAttemptId(),
+    });
+  }, [error, pathname]);
 
   return (
     <div className="text-center space-y-6">

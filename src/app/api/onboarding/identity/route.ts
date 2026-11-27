@@ -1,6 +1,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
+import { recordOnboardingApiEvent } from "@/lib/onboarding-journey-diagnostics.server";
+import type { OnboardingDiagnosticErrorCode } from "@/lib/onboarding-journey-diagnostics";
 import {
   requireWeakAcceptForWarn,
   validateIdentityAnchorTiered,
@@ -30,14 +32,24 @@ function parseIntakeOrigin(raw: unknown): "user_written" | "generated" | "templa
 }
 
 export async function POST(req: Request) {
+  let diagnosticUserId: string | null = null;
   try {
     const { userId } = await auth();
     if (!userId) {
       return NextResponse.json({ error: UI_SESSION }, { status: 401 });
     }
+    diagnosticUserId = userId;
+
+    const note = (
+      outcome: "request_received" | "validation_blocked" | "save_failed",
+      errorCode: OnboardingDiagnosticErrorCode = "none"
+    ) => recordOnboardingApiEvent({ request: req, clerkUserId: userId, step: "identity", outcome, errorCode });
+
+    await note("request_received");
 
     const existing = await getClerkPublicMetadata(userId);
     if (existing?.onboardingCompleted === true) {
+      await note("save_failed", "forbidden");
       return NextResponse.json(
         { error: "Use Edit identity in Victory Room to update your identity." },
         { status: 403 }
@@ -49,6 +61,10 @@ export async function POST(req: Request) {
 
     const preferredTier = validatePreferredNameTiered(body.preferred_name);
     if (preferredTier.tier === "block") {
+      await note(
+        "validation_blocked",
+        preferredTier.error === "Add what Coach Pat should call you." ? "missing_name" : "invalid_input"
+      );
       return Response.json({ error: preferredTier.error }, { status: 400 });
     }
 
@@ -58,6 +74,7 @@ export async function POST(req: Request) {
     if (ingredientIds.includes(IDENTITY_INGREDIENT_OTHER_ID) && otherTextRaw) {
       const otherTier = validateOtherTextTiered(otherTextRaw);
       if (otherTier.tier === "block") {
+        await note("validation_blocked", "invalid_input");
         return Response.json({ error: otherTier.error }, { status: 400 });
       }
     }
@@ -67,9 +84,11 @@ export async function POST(req: Request) {
       intakeWeakAccept
     );
     if (anchorTier.tier === "block") {
+      await note("validation_blocked", "invalid_input");
       return Response.json({ error: anchorTier.error }, { status: 400 });
     }
     if (anchorTier.tier === "warn") {
+      await note("validation_blocked", "weak_anchor");
       return Response.json(
         { error: anchorTier.error ?? "Use mine anyway to continue with this identity line." },
         { status: 400 }
@@ -78,6 +97,7 @@ export async function POST(req: Request) {
 
     const normalizedAnchor = normalizeIdentityAnchorText(body.identity_anchor_text);
     if (!normalizedAnchor) {
+      await note("validation_blocked", "missing_anchor");
       return Response.json({ error: "Add who you are becoming." }, { status: 400 });
     }
 
@@ -118,6 +138,7 @@ export async function POST(req: Request) {
     });
 
     if (!result.ok) {
+      await note("save_failed", "persistence");
       return NextResponse.json({ error: result.error }, { status: 500 });
     }
 
@@ -130,6 +151,15 @@ export async function POST(req: Request) {
     });
   } catch (err) {
     console.error(ROUTE, err);
+    if (diagnosticUserId) {
+      await recordOnboardingApiEvent({
+        request: req,
+        clerkUserId: diagnosticUserId,
+        step: "identity",
+        outcome: "save_failed",
+        errorCode: "server",
+      });
+    }
     return NextResponse.json({ error: UI_SAVE_GENERIC }, { status: 500 });
   }
 }

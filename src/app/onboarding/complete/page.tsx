@@ -1,7 +1,9 @@
 import type { ReactElement } from "react";
+import { headers } from "next/headers";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import OnboardingProgress from "@/components/onboarding-progress";
+import { scheduleOnboardingDiagnostic } from "@/lib/onboarding-journey-diagnostics.server";
 import CompleteOnboardingButton from "@/components/CompleteOnboardingButton";
 import { YoureInVideoTracker } from "@/components/youre-in-video-tracker";
 import { requireOnboardingSobPath } from "@/lib/onboarding-sob-page-guard";
@@ -22,6 +24,15 @@ export default async function CompletePage(): Promise<ReactElement> {
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   await requireOnboardingSobPath(user.id, md, "/onboarding/complete");
+  scheduleOnboardingDiagnostic({
+    clerkUserId: user.id,
+    step: "complete",
+    outcome: "step_reached",
+    journeyId: "server",
+    attemptId: crypto.randomUUID(),
+    userAgent: (await headers()).get("user-agent"),
+    source: "server",
+  });
 
   const { data: profile } = await supabaseServer
     .from("user_profiles")

@@ -4,6 +4,11 @@ import type { ReactElement } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  newOnboardingAttemptId,
+  onboardingDiagnosticHeaders,
+  reportOnboardingClient,
+} from "@/lib/onboarding-journey-diagnostics-client";
+import {
   countSelectedIngredients,
   IDENTITY_INGREDIENTS,
   IDENTITY_INGREDIENT_OTHER_ID,
@@ -186,6 +191,15 @@ export function IdentityBuilderClient({
     !(showWeakPanel && !weakAccept);
 
   useEffect(() => {
+    if (mode !== "onboarding") return;
+    reportOnboardingClient({
+      step: "identity",
+      outcome: "client_initialized",
+      attemptId: newOnboardingAttemptId(),
+    });
+  }, [mode]);
+
+  useEffect(() => {
     if (!pendingGeneratedEditorFocus.current || editorMode !== "edit") return;
     pendingGeneratedEditorFocus.current = false;
     const el = identityEditorRef.current;
@@ -324,21 +338,30 @@ export function IdentityBuilderClient({
 
   async function handleContinue() {
     setError(null);
+    const attemptId = mode === "onboarding" ? newOnboardingAttemptId() : null;
+    const note = (outcome: "submission_attempted" | "validation_blocked" | "client_error" | "step_advanced", errorCode: "none" | "missing_name" | "missing_anchor" | "weak_anchor" | "request_failed" = "none") => {
+      if (!attemptId) return;
+      reportOnboardingClient({ step: "identity", outcome, errorCode, attemptId });
+    };
+    note("submission_attempted");
 
     const name = normalizeText(preferredName);
     if (!name) {
       setError("Add what Coach Pat should call you.");
+      note("validation_blocked", "missing_name");
       return;
     }
 
     const anchor = normalizeText(identityAnchor);
     if (!anchor) {
       setError("Choose or write your identity statement.");
+      note("validation_blocked", "missing_anchor");
       return;
     }
 
     if (isGenericWeakIdentityAnchor(anchor) && !weakAccept) {
       setShowWeakPanel(true);
+      note("validation_blocked", "weak_anchor");
       return;
     }
 
@@ -363,7 +386,9 @@ export function IdentityBuilderClient({
     try {
       const res = await fetch(saveEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: attemptId
+          ? onboardingDiagnosticHeaders(attemptId)
+          : { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
@@ -415,8 +440,10 @@ export function IdentityBuilderClient({
         versionId: data.versionId,
         identity_anchor_text: data.identity_anchor_text,
       });
+      note("step_advanced");
       setSaving(false);
     } catch {
+      note("client_error", "request_failed");
       setError("Something went wrong.");
       setSaving(false);
     }

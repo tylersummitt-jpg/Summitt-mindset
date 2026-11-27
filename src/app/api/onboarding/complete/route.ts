@@ -1,5 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import type { OnboardingDiagnosticErrorCode } from "@/lib/onboarding-journey-diagnostics";
+import { recordOnboardingApiEvent } from "@/lib/onboarding-journey-diagnostics.server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
 import { resolveUserTimezone } from "@/lib/timezone";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
@@ -67,6 +69,7 @@ async function healSmsAudience(
 }
 
 export async function POST(req: Request) {
+  let diagnosticUserId: string | null = null;
   try {
     const { userId } = await auth();
 
@@ -75,6 +78,21 @@ export async function POST(req: Request) {
         status: 401,
       });
     }
+    diagnosticUserId = userId;
+
+    const note = (
+      outcome: "request_received" | "completion_failed",
+      errorCode: OnboardingDiagnosticErrorCode = "none"
+    ) =>
+      recordOnboardingApiEvent({
+        request: req,
+        clerkUserId: userId,
+        step: "complete",
+        outcome,
+        errorCode,
+      });
+
+    await note("request_received");
 
     const body = await req.json().catch(() => ({}));
     const timezone = resolveUserTimezone(body?.timezone);
@@ -86,6 +104,7 @@ export async function POST(req: Request) {
     if (existing?.onboardingCompleted === true) {
       const heal = await healSmsAudience(userId, existing, timezone);
       if (!heal.ok) {
+        await note("completion_failed", "server");
         return new Response(
           JSON.stringify({ error: "Failed to sync SMS audience. Please try again." }),
           { status: 500 }
@@ -96,6 +115,7 @@ export async function POST(req: Request) {
     }
 
     if (!hasValidSms) {
+      await note("completion_failed", "missing_consent");
       return new Response(
         JSON.stringify({
           error: "SMS consent is required before finishing onboarding.",
@@ -112,6 +132,15 @@ export async function POST(req: Request) {
           : activation.code === "no_commitment" || activation.code === "no_identity"
             ? 400
             : 500;
+      const errorCode: OnboardingDiagnosticErrorCode =
+        activation.code === "conflict"
+          ? "conflict"
+          : activation.code === "no_commitment"
+            ? "missing_goal"
+            : activation.code === "no_identity"
+              ? "missing_identity"
+              : "server";
+      await note("completion_failed", errorCode);
       return new Response(JSON.stringify({ error: activation.message }), { status });
     }
 
@@ -129,6 +158,7 @@ export async function POST(req: Request) {
 
     const audience = await healSmsAudience(userId, existing, timezone);
     if (!audience.ok) {
+      await note("completion_failed", "server");
       return new Response(
         JSON.stringify({
           error: "Onboarding activated but SMS audience sync failed. Please try again.",
@@ -141,6 +171,15 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (err) {
     console.error("ONBOARDING COMPLETE ERROR:", err);
+    if (diagnosticUserId) {
+      await recordOnboardingApiEvent({
+        request: req,
+        clerkUserId: diagnosticUserId,
+        step: "complete",
+        outcome: "completion_failed",
+        errorCode: "server",
+      });
+    }
 
     return new Response(JSON.stringify({ error: "Something went wrong" }), {
       status: 500,

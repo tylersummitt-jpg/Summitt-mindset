@@ -1,8 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useUser } from "@clerk/nextjs";
+import {
+  newOnboardingAttemptId,
+  onboardingDiagnosticHeaders,
+  reportOnboardingClient,
+} from "@/lib/onboarding-journey-diagnostics-client";
 
 function getBrowserTimezone(): string {
   try {
@@ -18,8 +23,23 @@ export default function CompleteOnboardingButton() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    reportOnboardingClient({
+      step: "complete",
+      outcome: "client_initialized",
+      attemptId: newOnboardingAttemptId(),
+    });
+  }, []);
+
   async function handleComplete() {
     if (loading) return;
+
+    const attemptId = newOnboardingAttemptId();
+    reportOnboardingClient({
+      step: "complete",
+      outcome: "completion_attempted",
+      attemptId,
+    });
 
     setLoading(true);
     setError(null);
@@ -29,7 +49,7 @@ export default function CompleteOnboardingButton() {
 
       const res = await fetch("/api/onboarding/complete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: onboardingDiagnosticHeaders(attemptId),
         credentials: "include",
         body: JSON.stringify({ timezone }),
       });
@@ -47,9 +67,20 @@ export default function CompleteOnboardingButton() {
       }
 
       await user?.reload();
+      reportOnboardingClient({
+        step: "complete",
+        outcome: "step_advanced",
+        attemptId,
+      });
       router.replace("/film-room");
     } catch (err) {
       console.error(err);
+      reportOnboardingClient({
+        step: "complete",
+        outcome: "client_error",
+        errorCode: "request_failed",
+        attemptId,
+      });
       setError("Something went wrong. Please try again.");
       setLoading(false);
     }

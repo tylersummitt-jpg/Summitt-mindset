@@ -2,6 +2,8 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { updateClerkPublicMetadata } from "@/lib/clerk-public-metadata";
+import type { OnboardingDiagnosticErrorCode } from "@/lib/onboarding-journey-diagnostics";
+import { recordOnboardingApiEvent } from "@/lib/onboarding-journey-diagnostics.server";
 import { getClerkPublicMetadata } from "@/lib/clerk-rest";
 import { supabaseServer } from "@/lib/supabase-server";
 import { syncSmsAudience } from "@/lib/sms-audience-sync";
@@ -49,6 +51,7 @@ function normalizeToE164(input: string): string | null {
 }
 
 export async function POST(req: Request) {
+  let diagnosticUserId: string | null = null;
   try {
     const { userId } = await auth();
 
@@ -57,8 +60,17 @@ export async function POST(req: Request) {
         status: 401,
       });
     }
+    diagnosticUserId = userId;
+
+    const note = (
+      outcome: "request_received" | "validation_blocked" | "save_failed",
+      errorCode: OnboardingDiagnosticErrorCode = "none"
+    ) => recordOnboardingApiEvent({ request: req, clerkUserId: userId, step: "texts", outcome, errorCode });
+
+    await note("request_received");
 
     if (await hasUnresolvedAccountDeletionRequest(userId)) {
+      await note("save_failed", "account_deletion");
       return new Response(
         JSON.stringify({ error: "Account deletion in progress." }),
         { status: 409 }
@@ -67,6 +79,7 @@ export async function POST(req: Request) {
 
     const publicMd = await getClerkPublicMetadata(userId);
     if (publicMd?.onboardingCompleted === true) {
+      await note("save_failed", "forbidden");
       return new Response(JSON.stringify({ error: "Onboarding already completed." }), {
         status: 403,
       });
@@ -89,6 +102,7 @@ export async function POST(req: Request) {
       .maybeSingle();
 
     if (!proposed?.id && !active?.id) {
+      await note("validation_blocked", "missing_goal");
       return new Response(
         JSON.stringify({ error: "Save your commitment before SMS setup." }),
         { status: 400 }
@@ -104,6 +118,7 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       if (!intake?.commitment_id) {
+        await note("validation_blocked", "missing_goal");
         return new Response(
           JSON.stringify({
             error: "Goal intake is missing. Please save your current goal again.",
@@ -117,6 +132,7 @@ export async function POST(req: Request) {
         String(intake.review_acknowledged_at).trim().length > 0;
 
       if (!reviewAcknowledged) {
+        await note("validation_blocked", "missing_review");
         return new Response(
           JSON.stringify({
             error:
@@ -134,6 +150,7 @@ export async function POST(req: Request) {
     const smsTimePreference = "morning" as const;
 
     if (smsEnabled && body?.smsDisclosureAccepted !== true) {
+      await note("validation_blocked", "missing_consent");
       return new Response(JSON.stringify({ error: "Consent required." }), {
         status: 400,
       });
@@ -145,6 +162,7 @@ export async function POST(req: Request) {
       normalizedPhone = normalizeToE164(body?.phoneNumber || "");
 
       if (!normalizedPhone) {
+        await note("validation_blocked", "invalid_phone");
         return new Response(JSON.stringify({ error: "Invalid phone number." }), {
           status: 400,
         });
@@ -158,6 +176,7 @@ export async function POST(req: Request) {
         .maybeSingle();
 
       if (existing && existing.clerk_user_id !== userId) {
+        await note("validation_blocked", "phone_in_use");
         return new Response(
           JSON.stringify({ error: "Phone number already in use." }),
           { status: 400 }
@@ -222,6 +241,7 @@ export async function POST(req: Request) {
           userId
         );
         if (postIdentityDeletion.decision === "blocked_due_to_deletion") {
+          await note("save_failed", "account_deletion");
           return new Response(
             JSON.stringify(ACCOUNT_DELETION_IN_PROGRESS_BODY),
             { status: 409 }
@@ -232,6 +252,7 @@ export async function POST(req: Request) {
           postIdentityDeletion.decision === "missing_clerk_user_id"
         ) {
           // Neutral retryable server error — do not claim deletion is in progress.
+          await note("save_failed", "server");
           return new Response(
             JSON.stringify({
               error: "sms_temporarily_unavailable",
@@ -243,11 +264,13 @@ export async function POST(req: Request) {
       } catch (e) {
         if (isAccountDeletionOutboundSmsError(e)) {
           if (e.outcome === "blocked_due_to_deletion") {
+            await note("save_failed", "account_deletion");
             return new Response(
               JSON.stringify(ACCOUNT_DELETION_IN_PROGRESS_BODY),
               { status: 409 }
             );
           }
+          await note("save_failed", "server");
           return new Response(
             JSON.stringify({
               error: "sms_temporarily_unavailable",
@@ -287,6 +310,15 @@ export async function POST(req: Request) {
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (err) {
     console.error("ONBOARDING SMS ERROR:", err);
+    if (diagnosticUserId) {
+      await recordOnboardingApiEvent({
+        request: req,
+        clerkUserId: diagnosticUserId,
+        step: "texts",
+        outcome: "save_failed",
+        errorCode: "server",
+      });
+    }
 
     return new Response(JSON.stringify({ error: "Server error" }), {
       status: 500,

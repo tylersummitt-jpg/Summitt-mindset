@@ -1,7 +1,9 @@
 import type { ReactElement } from "react";
+import { headers } from "next/headers";
 import { currentUser } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import OnboardingProgress from "@/components/onboarding-progress";
+import { scheduleOnboardingDiagnostic } from "@/lib/onboarding-journey-diagnostics.server";
 import { requireOnboardingSobPath } from "@/lib/onboarding-sob-page-guard";
 import SmsClient from "./sms-client";
 
@@ -21,6 +23,15 @@ export default async function SmsPage(): Promise<ReactElement> {
 
   const md = (user.publicMetadata || {}) as Record<string, unknown>;
   await requireOnboardingSobPath(user.id, md, "/onboarding/sms");
+  scheduleOnboardingDiagnostic({
+    clerkUserId: user.id,
+    step: "texts",
+    outcome: "step_reached",
+    journeyId: "server",
+    attemptId: crypto.randomUUID(),
+    userAgent: (await headers()).get("user-agent"),
+    source: "server",
+  });
 
   return (
     <div>

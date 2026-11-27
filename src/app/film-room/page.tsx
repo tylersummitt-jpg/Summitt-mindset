@@ -15,6 +15,8 @@ import {
 import { supabaseServer } from "@/lib/supabase-server";
 import { DismissMeasuredNavigation, UsableScreenMarker } from "@/components/mobile-measurement-client";
 import { MemberSurfaceVisit } from "@/components/member-surface-visit";
+import { headers } from "next/headers";
+import { scheduleOnboardingDiagnostic } from "@/lib/onboarding-journey-diagnostics.server";
 import { isNativeSummittMindsetAppRequest } from "@/lib/native-app/is-native-summitt-mindset-app-request";
 import {
   inactiveMembershipRedirectPath,
@@ -59,6 +61,17 @@ export default async function FilmRoomPage() {
   if (!isSubscribedFromMetadata(md)) {
     redirect(inactiveMembershipRedirectPath(isNativeApp));
   }
+
+  scheduleOnboardingDiagnostic({
+    clerkUserId: user.id,
+    step: "film_room",
+    outcome: "step_reached",
+    journeyId: "server",
+    attemptId: "first",
+    userAgent: (await headers()).get("user-agent"),
+    source: "server",
+    oncePerMember: true,
+  });
 
   // ✅ Load videos
   const { data, error } = await supabaseServer

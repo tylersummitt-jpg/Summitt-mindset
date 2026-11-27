@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  newOnboardingAttemptId,
+  onboardingDiagnosticHeaders,
+  reportOnboardingClient,
+} from "@/lib/onboarding-journey-diagnostics-client";
 
 function normalizeToE164(input: string): string | null {
   const digits = input.replace(/\D/g, "");
@@ -36,18 +41,44 @@ export default function SmsClient({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    reportOnboardingClient({
+      step: "texts",
+      outcome: "client_initialized",
+      attemptId: newOnboardingAttemptId(),
+    });
+  }, []);
+
   async function handleContinue() {
     setError(null);
+    const attemptId = newOnboardingAttemptId();
+    reportOnboardingClient({
+      step: "texts",
+      outcome: "submission_attempted",
+      attemptId,
+    });
 
     const normalized = normalizeToE164(phoneInput);
 
     if (!normalized) {
       setError("Please enter a valid mobile number.");
+      reportOnboardingClient({
+        step: "texts",
+        outcome: "validation_blocked",
+        errorCode: "invalid_phone",
+        attemptId,
+      });
       return;
     }
 
     if (!consentChecked) {
       setError("Please confirm consent to receive training texts.");
+      reportOnboardingClient({
+        step: "texts",
+        outcome: "validation_blocked",
+        errorCode: "missing_consent",
+        attemptId,
+      });
       return;
     }
 
@@ -56,7 +87,7 @@ export default function SmsClient({
     try {
       const res = await fetch("/api/onboarding/sms", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: onboardingDiagnosticHeaders(attemptId),
         credentials: "include",
         body: JSON.stringify({
           smsEnabled: true,
@@ -73,8 +104,19 @@ export default function SmsClient({
         return;
       }
 
+      reportOnboardingClient({
+        step: "texts",
+        outcome: "step_advanced",
+        attemptId,
+      });
       router.push("/onboarding/complete");
     } catch {
+      reportOnboardingClient({
+        step: "texts",
+        outcome: "client_error",
+        errorCode: "request_failed",
+        attemptId,
+      });
       setError("Something went wrong.");
     } finally {
       setSaving(false);

@@ -1,7 +1,13 @@
 "use client";
 
 import type { ReactElement } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  newOnboardingAttemptId,
+  onboardingDiagnosticHeaders,
+  reportOnboardingClient,
+} from "@/lib/onboarding-journey-diagnostics-client";
+import type { OnboardingDiagnosticErrorCode } from "@/lib/onboarding-journey-diagnostics";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -190,23 +196,23 @@ export default function GoalBuilderClient({
     };
   }
 
-  function runValidation(): { blocked: boolean } {
+  function runValidation(): { blocked: boolean; code: OnboardingDiagnosticErrorCode | null } {
     setError(null);
     setWarnMessage(null);
 
     if (!selectedAreaId) {
       setError(isAppEdit ? "Choose a focus area." : "Choose a focus area.");
-      return { blocked: true };
+      return { blocked: true, code: "missing_focus" };
     }
 
     const titleTier = validateGoalTitleTiered(title, { intakeWeakAccept: weakAccept });
     if (titleTier.tier === "block") {
       setError(titleTier.error ?? "Fix the goal name.");
-      return { blocked: true };
+      return { blocked: true, code: "invalid_title" };
     }
     if (titleTier.tier === "warn" && !weakAccept) {
       setWarnMessage(titleTier.error ?? "This goal may be hard for Coach Pat to check daily.");
-      return { blocked: true };
+      return { blocked: true, code: "invalid_title" };
     }
 
     const behaviorTier = validateGoalBehaviorTiered(behaviorStatement, {
@@ -214,7 +220,7 @@ export default function GoalBuilderClient({
     });
     if (behaviorTier.tier === "block") {
       setError(behaviorTier.error ?? "Fix the daily behavior.");
-      return { blocked: true };
+      return { blocked: true, code: "invalid_behavior" };
     }
     if (behaviorTier.tier === "warn" && !weakAccept) {
       setWarnMessage(
@@ -222,22 +228,22 @@ export default function GoalBuilderClient({
           validateBehaviorStatementIntake(behaviorStatement) ??
           "Make this more specific."
       );
-      return { blocked: true };
+      return { blocked: true, code: "invalid_behavior" };
     }
 
     const titleErr = validateCommitmentTitleIntake(title);
     if (titleErr) {
       setError(titleErr);
-      return { blocked: true };
+      return { blocked: true, code: "invalid_title" };
     }
 
     const behaviorErr = validateBehaviorStatementIntake(behaviorStatement);
     if (behaviorErr && !weakAccept) {
       setWarnMessage(behaviorErr);
-      return { blocked: true };
+      return { blocked: true, code: "invalid_behavior" };
     }
 
-    return { blocked: false };
+    return { blocked: false, code: null };
   }
 
   async function handleGenerateMore() {
@@ -307,11 +313,39 @@ export default function GoalBuilderClient({
     setError(null);
   }
 
+  useEffect(() => {
+    if (isAppEdit) return;
+    reportOnboardingClient({
+      step: "goal",
+      outcome: "client_initialized",
+      attemptId: newOnboardingAttemptId(),
+    });
+  }, [isAppEdit]);
+
   async function handleContinue() {
     if (saving) return;
 
-    const { blocked } = runValidation();
-    if (blocked) return;
+    const attemptId = isAppEdit ? null : newOnboardingAttemptId();
+    if (attemptId) {
+      reportOnboardingClient({
+        step: "goal",
+        outcome: "submission_attempted",
+        attemptId,
+      });
+    }
+
+    const { blocked, code } = runValidation();
+    if (blocked) {
+      if (attemptId) {
+        reportOnboardingClient({
+          step: "goal",
+          outcome: "validation_blocked",
+          errorCode: code ?? "invalid_input",
+          attemptId,
+        });
+      }
+      return;
+    }
 
     const normalizedTitle = normalizeIntakeWhitespace(title);
     const normalizedBehavior = normalizeIntakeWhitespace(behaviorStatement);
@@ -339,7 +373,9 @@ export default function GoalBuilderClient({
     try {
       const res = await fetch("/api/onboarding/commitment", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: attemptId
+          ? onboardingDiagnosticHeaders(attemptId)
+          : { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify(payload),
       });
@@ -352,9 +388,24 @@ export default function GoalBuilderClient({
         return;
       }
 
+      if (attemptId) {
+        reportOnboardingClient({
+          step: "goal",
+          outcome: "step_advanced",
+          attemptId,
+        });
+      }
       router.push("/onboarding/sms");
       router.refresh();
     } catch {
+      if (attemptId) {
+        reportOnboardingClient({
+          step: "goal",
+          outcome: "client_error",
+          errorCode: "request_failed",
+          attemptId,
+        });
+      }
       setError("Something went wrong.");
       setSaving(false);
     }
