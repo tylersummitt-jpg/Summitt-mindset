@@ -54,6 +54,8 @@ import {
   existingGraceDeliveryShouldContinue,
   releaseActualWorkSlot,
   reserveActualWorkSlot,
+  nonScheduledMemberToJson,
+  parseScheduledBatchRecord,
   scheduledDailyBodyAuthorization,
   scheduledDeliveryRemainsActionable,
   shouldTransferCrossOwnerSource,
@@ -6565,5 +6567,255 @@ describe("completed reconsideration delivery repair", () => {
       retryAfter: null,
       now: new Date("2026-11-27T10:39:00.000Z"),
     })).toBe("unchanged");
+  });
+});
+
+describe("scheduled batch non_scheduled serialization", () => {
+  const CARI = "user_3FYALltWbqGYaKxPOQjsoJph9qN";
+  const KATHY = "user_3DiumiTohaCxwYBtfXIyhqnWu3C";
+  const KLINESTER = "user_3K7PeEfMsxffDEPJfYao4lcuAUn";
+  const STEGS = "user_3JHZ0dy29830asDhkdkNAguQZ1C";
+  const live = {
+    utcInstant: "2026-11-27T15:00:00.000Z",
+    effectiveLocalMinute: 420,
+    timeZone: "America/Los_Angeles",
+    memberLocalDate: "2026-11-27",
+    owner: "evening",
+  };
+  const duringGrace = new Date("2026-11-27T15:05:00.000Z");
+  const afterGrace = new Date("2026-11-27T15:16:00.000Z");
+
+  function eveningOccurrence(clerkUserId: string, state: string) {
+    return {
+      clerk_user_id: clerkUserId,
+      member_local_date: "2026-11-27",
+      utc_instant: live.utcInstant,
+      selected_local_minute: 420,
+      effective_local_minute: 420,
+      time_zone: "America/Los_Angeles",
+      state,
+      initial_set: true,
+      detail: null,
+    };
+  }
+
+  function batchRow(nonScheduled: unknown[]) {
+    return {
+      id: "evening-batch",
+      batch_date: "2026-11-27",
+      send_slot: "evening_checkin",
+      opened_trigger: "automatic_schedule",
+      window_ends_at: "2026-11-27T15:00:00.000Z",
+      started_at: "2026-11-27T10:00:28.091548+00:00",
+      initial_completed_at: "2026-11-27T10:00:56.170786+00:00",
+      occurrences: [
+        eveningOccurrence(CARI, "protected"),
+        eveningOccurrence(KATHY, "generated"),
+        eveningOccurrence(KLINESTER, "protected"),
+        eveningOccurrence(STEGS, "protected"),
+      ],
+      non_scheduled: nonScheduled,
+    };
+  }
+
+  const legacyNonScheduled = [
+    { reason: "cadence", clerkUserId: "user_legacy_cadence", classification: "unscheduled" },
+    { reason: "weekday_disabled", clerkUserId: "user_legacy_weekday", classification: "unscheduled" },
+  ];
+  const canonicalNonScheduled = legacyNonScheduled.map((row) => ({
+    clerk_user_id: row.clerkUserId,
+    classification: row.classification,
+    reason: row.reason,
+  }));
+
+  function authorize(args: {
+    now?: Date;
+    occurrenceState: string;
+    body: string | null;
+    editedByTyler?: boolean;
+    editedAt?: string | null;
+    bodySource?: string;
+    machineNoSendReason?: string | null;
+    messageRequiredToday?: boolean | null;
+    metadata: Record<string, unknown>;
+    generationId?: string;
+    bodyHash?: string | null;
+  }) {
+    const tyler = args.editedByTyler === true;
+    return scheduledDailyBodyAuthorization({
+      now: args.now ?? duringGrace,
+      live,
+      occurrenceState: args.occurrenceState,
+      draft: {
+        generationId: args.generationId ?? "gen-evening",
+        body: args.body,
+        bodyHash: args.bodyHash === undefined ? (args.body ? "hash-body" : null) : args.bodyHash,
+        bodySource: args.bodySource ?? (tyler ? "tyler_edit" : "machine"),
+        editedByTyler: tyler,
+        editedAt: tyler ? (args.editedAt ?? "2026-11-27T11:50:08.897Z") : null,
+      },
+      machineShouldSend: args.machineNoSendReason ? false : true,
+      machineNoSendReason: args.machineNoSendReason ?? null,
+      messageRequiredToday: args.messageRequiredToday ?? false,
+      metadata: args.metadata,
+      currentGoal: "Keep the promise",
+      goalReadOk: true,
+      conversation: "same",
+      retrievalOk: true,
+    });
+  }
+
+  const machineMetadata = {
+    scheduled_generation_convention: "member_local_delivery_v1",
+    tto_owner: "evening",
+    input_evidence: {
+      goal_text: "Keep the promise",
+      delivery: {
+        utc_instant: live.utcInstant,
+        member_local_date: live.memberLocalDate,
+        effective_local_minute: live.effectiveLocalMinute,
+        time_zone: live.timeZone,
+      },
+    },
+  };
+
+  it("reads the production Evening batch from legacy clerkUserId rows and from canonical rows", () => {
+    for (const nonScheduled of [
+      legacyNonScheduled,
+      canonicalNonScheduled,
+      [legacyNonScheduled[0], canonicalNonScheduled[1]],
+    ]) {
+      const parsed = parseScheduledBatchRecord(batchRow(nonScheduled));
+      expect(parsed?.sendSlot).toBe("evening_checkin");
+      expect(parsed?.occurrences.map((item) => item.clerkUserId)).toEqual([
+        CARI,
+        KATHY,
+        KLINESTER,
+        STEGS,
+      ]);
+      expect(parsed?.nonScheduled).toEqual([
+        { clerkUserId: "user_legacy_cadence", classification: "unscheduled", reason: "cadence" },
+        { clerkUserId: "user_legacy_weekday", classification: "unscheduled", reason: "weekday_disabled" },
+      ]);
+    }
+    const morning = parseScheduledBatchRecord({
+      ...batchRow(canonicalNonScheduled),
+      send_slot: "morning",
+      batch_date: "2026-11-27",
+    });
+    expect(morning?.sendSlot).toBe("morning");
+    expect(morning?.nonScheduled).toHaveLength(2);
+    expect(parseScheduledBatchRecord(batchRow([]))?.nonScheduled).toEqual([]);
+  });
+
+  it("rejects missing ids, conflicting ids, invalid reasons, and malformed occurrences", () => {
+    expect(parseScheduledBatchRecord(batchRow([
+      { reason: "cadence", classification: "unscheduled" },
+    ]))).toBeNull();
+    expect(parseScheduledBatchRecord(batchRow([
+      {
+        clerk_user_id: "user_snake",
+        clerkUserId: "user_camel",
+        classification: "unscheduled",
+        reason: "cadence",
+      },
+    ]))).toBeNull();
+    expect(parseScheduledBatchRecord(batchRow([
+      { clerkUserId: "user_legacy_cadence", classification: "unscheduled", reason: "not_a_reason" },
+    ]))).toBeNull();
+    expect(parseScheduledBatchRecord(batchRow([
+      { clerk_user_id: "user_legacy_cadence", classification: "unscheduled", reason: "preference_read_failed" },
+    ]))).toBeNull();
+    const brokenOccurrence = batchRow([]);
+    brokenOccurrence.occurrences[1] = { ...brokenOccurrence.occurrences[1], state: "" };
+    expect(parseScheduledBatchRecord(brokenOccurrence)).toBeNull();
+    const conflictingOccurrence = batchRow([]);
+    conflictingOccurrence.occurrences[0] = {
+      ...conflictingOccurrence.occurrences[0],
+      clerkUserId: "user_other",
+    };
+    expect(parseScheduledBatchRecord(conflictingOccurrence)).toBeNull();
+    expect(parseScheduledBatchRecord(batchRow([
+      {
+        clerk_user_id: "user_legacy_cadence",
+        clerkUserId: "user_legacy_cadence",
+        classification: "unscheduled",
+        reason: "cadence",
+      },
+    ]))?.nonScheduled).toEqual([
+      { clerkUserId: "user_legacy_cadence", classification: "unscheduled", reason: "cadence" },
+    ]);
+  });
+
+  it("serializes new non_scheduled records with clerk_user_id", () => {
+    expect(nonScheduledMemberToJson({
+      clerkUserId: "user_legacy_cadence",
+      classification: "unscheduled",
+      reason: "cadence",
+    })).toEqual({
+      clerk_user_id: "user_legacy_cadence",
+      classification: "unscheduled",
+      reason: "cadence",
+    });
+    const source = readFileSync(join(process.cwd(), "src/lib/tto-scheduled-generate.ts"), "utf8");
+    expect(source).toContain("p_non_scheduled: batch.nonScheduled.map(nonScheduledMemberToJson)");
+    expect(source).not.toContain("p_non_scheduled: batch.nonScheduled,");
+    const delivery = readFileSync(join(process.cwd(), "src/lib/tyler-text-overview-send.ts"), "utf8");
+    expect(delivery).toContain('if (!batch.ok) return { outcome: "unresolved", reason: "occurrence_unresolved" }');
+    expect(delivery).toContain("resolved.owner !== proactiveOwnerForSendSlot(args.sendSlot)");
+  });
+
+  it("authorizes Kathy and Klinester inside grace and keeps blanks and intentional space silent", () => {
+    expect(authorize({
+      occurrenceState: "generated",
+      body: "Kathy text",
+      metadata: machineMetadata,
+    })).toEqual({ action: "send", body: "Kathy text" });
+    expect(authorize({
+      now: afterGrace,
+      occurrenceState: "generated",
+      body: "Kathy text",
+      metadata: machineMetadata,
+    })).toEqual({ action: "hold", reason: "grace_elapsed" });
+    expect(authorize({
+      occurrenceState: "protected",
+      body: "Klinester text",
+      editedByTyler: true,
+      bodyHash: "dcfe0e1e",
+      generationId: "180dfec3-59f1-4f9f-97cf-bbd959715e14",
+      machineNoSendReason: "intentional_space",
+      metadata: {
+        ...machineMetadata,
+        tyler_edit_delivery_context: {
+          status: "known",
+          member_local_date: live.memberLocalDate,
+          effective_local_minute: live.effectiveLocalMinute,
+          time_zone: live.timeZone,
+          utc_instant: live.utcInstant,
+          owner: "evening_checkin",
+          body_hash: "dcfe0e1e",
+          generation_id: "180dfec3-59f1-4f9f-97cf-bbd959715e14",
+          edited_at: "2026-11-27T11:50:08.897Z",
+        },
+      },
+    })).toEqual({ action: "send", body: "Klinester text" });
+    expect(authorize({
+      occurrenceState: "protected",
+      body: "",
+      editedByTyler: true,
+      metadata: machineMetadata,
+    })).toEqual({ action: "silence", reason: "tyler_blank" });
+    expect(authorize({
+      occurrenceState: "protected",
+      body: null,
+      editedByTyler: true,
+      metadata: machineMetadata,
+    })).toEqual({ action: "silence", reason: "tyler_blank" });
+    expect(authorize({
+      occurrenceState: "intentional_space",
+      body: null,
+      machineNoSendReason: "intentional_space",
+      metadata: machineMetadata,
+    })).toEqual({ action: "silence", reason: "intentional_space" });
   });
 });

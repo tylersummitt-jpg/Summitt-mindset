@@ -726,7 +726,7 @@ function preferenceReadFromRow(
 function occurrenceFromJson(value: unknown): ScheduledOccurrence | null {
   const row = asRecord(value);
   if (!row) return null;
-  const clerkUserId = asString(row.clerk_user_id) ?? asString(row.clerkUserId);
+  const clerkUserId = storedMemberId(row);
   const memberLocalDate = asString(row.member_local_date) ?? asString(row.memberLocalDate);
   const utcInstant = asString(row.utc_instant) ?? asString(row.utcInstant);
   const state = asString(row.state);
@@ -778,13 +778,9 @@ function batchFromJson(value: unknown): ScheduledBatchRecord | null {
     .filter((item): item is ScheduledOccurrence => item != null);
   const nonScheduled: NonScheduledMember[] = [];
   for (const item of nonRaw) {
-    const record = asRecord(item);
-    const clerkUserId = asString(record?.clerk_user_id);
-    const classification = asString(record?.classification);
-    const reason = asString(record?.reason);
-    if (!clerkUserId || !reason) continue;
-    if (classification !== "unscheduled" && classification !== "unresolved") continue;
-    nonScheduled.push({ clerkUserId, classification, reason });
+    const parsed = readStoredNonScheduled(item);
+    if (!parsed) return null;
+    nonScheduled.push(parsed);
   }
   const batchDate = asString(row.batch_date);
   const sendSlot = asString(row.send_slot);
@@ -1505,19 +1501,73 @@ async function readCurrentScheduledDraft(
   };
 }
 
+const NON_SCHEDULED_UNSCHEDULED_REASONS = new Set<string>([
+  "weekday_disabled",
+  "pause_indefinite",
+  "pause_until",
+  "consent_ineligible",
+  "weekend_policy",
+  "cadence",
+  "no_valid_local_instant",
+]);
+
+const NON_SCHEDULED_UNRESOLVED_REASONS = new Set<string>([
+  "preference_read_failed",
+  "schedule_invalid",
+  "timezone_unknown",
+  "timezone_invalid",
+  "date_invalid",
+  "cadence_eligibility_required",
+]);
+
+/** One member id. Differing camelCase and snake_case keys are a conflict, not a preference. */
+function storedMemberId(record: Record<string, unknown>): string | null {
+  const snake = asString(record.clerk_user_id);
+  const camel = asString(record.clerkUserId);
+  if (snake && camel && snake !== camel) return null;
+  return snake ?? camel;
+}
+
+export function nonScheduledMemberToJson(member: NonScheduledMember): {
+  clerk_user_id: string;
+  classification: NonScheduledMember["classification"];
+  reason: string;
+} {
+  return {
+    clerk_user_id: member.clerkUserId,
+    classification: member.classification,
+    reason: member.reason,
+  };
+}
+
+function readStoredNonScheduled(value: unknown): NonScheduledMember | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const clerkUserId = storedMemberId(record);
+  const classification = asString(record.classification);
+  const reason = asString(record.reason);
+  if (!clerkUserId || !reason) return null;
+  if (classification === "unscheduled" && NON_SCHEDULED_UNSCHEDULED_REASONS.has(reason)) {
+    return { clerkUserId, classification, reason };
+  }
+  if (classification === "unresolved" && NON_SCHEDULED_UNRESOLVED_REASONS.has(reason)) {
+    return { clerkUserId, classification, reason };
+  }
+  return null;
+}
+
 function scheduledBatchJsonIsReadable(value: unknown): boolean {
   const row = asRecord(value);
   if (!row || !Array.isArray(row.occurrences) || !Array.isArray(row.non_scheduled)) return false;
   if (row.occurrences.some((item) => occurrenceFromJson(item) == null)) return false;
-  for (const item of row.non_scheduled) {
-    const record = asRecord(item);
-    const clerkUserId = asString(record?.clerk_user_id);
-    const classification = asString(record?.classification);
-    const reason = asString(record?.reason);
-    if (!clerkUserId || !reason) return false;
-    if (classification !== "unscheduled" && classification !== "unresolved") return false;
-  }
+  if (row.non_scheduled.some((item) => readStoredNonScheduled(item) == null)) return false;
   return true;
+}
+
+/** Readable batch JSON, with legacy non_scheduled ids normalized. Malformed JSON is not a batch. */
+export function parseScheduledBatchRecord(value: unknown): ScheduledBatchRecord | null {
+  if (!scheduledBatchJsonIsReadable(value)) return null;
+  return batchFromJson(value);
 }
 
 /** Read the batch for an individual preview. Does not open a batch or generate. */
@@ -1622,7 +1672,7 @@ function productionDeps(args: {
         p_scheduled_member_count: batch.scheduledMemberCount,
         p_scheduled_occurrence_count: batch.scheduledOccurrenceCount,
         p_occurrences: batch.occurrences.map(occurrenceToJson),
-        p_non_scheduled: batch.nonScheduled,
+        p_non_scheduled: batch.nonScheduled.map(nonScheduledMemberToJson),
       });
       if (error) throw new Error(error.message);
       return parseRpcBatch(data);
