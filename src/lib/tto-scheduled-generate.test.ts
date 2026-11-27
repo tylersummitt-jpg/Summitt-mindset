@@ -96,9 +96,21 @@ import {
   dashboardOutcomeFromCurrentDraft,
   dashboardRepairState,
   listUpcomingOccurrenceCandidates,
+  assessReconsiderationDiscovery,
+  createReconsiderationDiagnostic,
+  emitReconsiderationDiagnostic,
+  loadRelevantReconsiderationDrafts,
   loadReconsiderationGenerationRows,
+  RECONSIDERATION_DRAFT_PAGE_GUARD,
+  RECONSIDERATION_DRAFT_PAIR_CHUNK,
+  RECONSIDERATION_DRAFT_SLOTS,
   RECONSIDERATION_GENERATION_READ_CHUNK,
+  reconsiderationDraftKey,
+  reconsiderationDraftOrFilter,
+  reconsiderationDraftPairChunks,
   reconsiderationGenerationReadChunks,
+  recordReconsiderationTrace,
+  unexpectedMissingAuthoritativeDrafts,
   reconsiderationOutcomePatchAllowed,
   selectNextReconsiderationCandidates,
   selectPreviewOccurrence,
@@ -5853,5 +5865,208 @@ describe("Friday 9:30 reconsideration of a 7 AM Tyler edit", () => {
       retrievalOk: true,
       sundayNow: "not_sunday",
     })).toEqual({ action: "hold", reason: "edit_context_mismatch" });
+  });
+});
+
+describe("relevant reconsideration drafts", () => {
+  const tyler = "user_3Boa0IkXC7GzrZOBgcCem0DnFa9";
+
+  it("requests the upcoming member-date and both slots, not historical drafts", async () => {
+    const seen: string[] = [];
+    const loaded = await loadRelevantReconsiderationDrafts({
+      occurrences: [{ clerkUserId: tyler, memberLocalDate: "2026-11-27" }],
+      deadlineMs: Date.now() + 60_000,
+      readChunk: async (pairs) => {
+        seen.push(reconsiderationDraftOrFilter(pairs));
+        expect(pairs).toEqual([{ clerkUserId: tyler, memberLocalDate: "2026-11-27" }]);
+        return {
+          data: [
+            {
+              id: "draft-morning",
+              clerk_user_id: tyler,
+              draft_for_day_key: "2026-11-27",
+              send_slot: "morning",
+              current_generation_id: "ebb0e112-fdad-4ee9-a368-c23d0b927951",
+            },
+            {
+              id: "draft-evening",
+              clerk_user_id: tyler,
+              draft_for_day_key: "2026-11-27",
+              send_slot: "evening_checkin",
+              current_generation_id: "11111111-1111-4111-8111-111111111111",
+            },
+          ],
+          error: null,
+        };
+      },
+    });
+    expect(RECONSIDERATION_DRAFT_SLOTS).toEqual(["morning", "evening_checkin"]);
+    expect(RECONSIDERATION_DRAFT_PAIR_CHUNK * RECONSIDERATION_DRAFT_SLOTS.length)
+      .toBeLessThan(RECONSIDERATION_DRAFT_PAGE_GUARD);
+    expect(seen).toEqual([
+      `and(clerk_user_id.eq.${tyler},draft_for_day_key.eq.2026-11-27)`,
+    ]);
+    expect(seen.join(" ")).not.toContain("2026-11-26");
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.rows.map(reconsiderationDraftKey)).toEqual([
+      `${tyler}|2026-11-27|morning`,
+      `${tyler}|2026-11-27|evening_checkin`,
+    ]);
+    const scheduler = readFileSync(join(process.cwd(), "src/lib/tto-scheduled-generate.ts"), "utf8");
+    const reader = scheduler.slice(
+      scheduler.indexOf("async function readReconsiderationDraftChunk"),
+      scheduler.indexOf("async function runScheduledReconsideration")
+    );
+    expect(reader).toContain(".or(reconsiderationDraftOrFilter(pairs))");
+    expect(reader).toContain("RECONSIDERATION_DRAFT_SLOTS");
+    expect(reader).toContain('.eq("status", "current")');
+    expect(reader).not.toContain('.in("clerk_user_id"');
+  });
+
+  it("keeps every upcoming pair inside a bounded request", () => {
+    const pairs = Array.from({ length: 120 }, (_, index) => ({
+      clerkUserId: `user_${index}`,
+      memberLocalDate: "2026-11-27",
+    }));
+    const chunks = reconsiderationDraftPairChunks(pairs);
+    expect(chunks.map((chunk) => chunk.length)).toEqual([50, 50, 20]);
+    expect(chunks.every((chunk) => chunk.length * RECONSIDERATION_DRAFT_SLOTS.length < 1000)).toBe(true);
+  });
+
+  it("discards a saturated or failed chunk instead of keeping a partial map", async () => {
+    const errorLog = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const saturated = await loadRelevantReconsiderationDrafts({
+      occurrences: [{ clerkUserId: tyler, memberLocalDate: "2026-11-27" }],
+      deadlineMs: Date.now() + 60_000,
+      readChunk: async () => ({
+        data: Array.from({ length: 1000 }, () => ({
+          clerk_user_id: tyler,
+          draft_for_day_key: "2026-11-27",
+          send_slot: "morning",
+        })),
+        error: null,
+      }),
+    });
+    expect(saturated.ok).toBe(false);
+    if (!saturated.ok) {
+      expect(saturated.failure).toMatchObject({
+        operation: "reconsideration_draft_read",
+        requested_pairs: 1,
+        failed_chunk_pairs: 1,
+        returned_rows: 1000,
+        message: "draft_page_saturated",
+      });
+      expect(saturated).not.toHaveProperty("rows");
+    }
+    const occurrences = Array.from({ length: 60 }, (_, index) => ({
+      clerkUserId: `user_${index}`,
+      memberLocalDate: "2026-11-27",
+    }));
+    let calls = 0;
+    const failed = await loadRelevantReconsiderationDrafts({
+      occurrences,
+      deadlineMs: Date.now() + 60_000,
+      readChunk: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return {
+            data: [{
+              clerk_user_id: "user_0",
+              draft_for_day_key: "2026-11-27",
+              send_slot: "morning",
+              current_generation_id: "gen-0",
+            }],
+            error: null,
+          };
+        }
+        return { data: null, error: { code: "PGRST100", message: "uri too long" } };
+      },
+    });
+    expect(calls).toBe(2);
+    expect(failed.ok).toBe(false);
+    if (!failed.ok) {
+      expect(failed.failure.supabase_code).toBe("PGRST100");
+      expect(failed).not.toHaveProperty("rows");
+    }
+    errorLog.mockRestore();
+  });
+
+  it("flags a missing completed draft and ignores unfinished initial generation", () => {
+    const gaps = unexpectedMissingAuthoritativeDrafts({
+      occurrences: [
+        { clerkUserId: tyler, memberLocalDate: "2026-11-27", sendSlot: "morning", state: "intentional_space" },
+        { clerkUserId: "user_pending", memberLocalDate: "2026-11-27", sendSlot: "morning", state: "pending" },
+        { clerkUserId: "user_claimed", memberLocalDate: "2026-11-27", sendSlot: "morning", state: "claimed" },
+        { clerkUserId: "user_ready", memberLocalDate: "2026-11-27", sendSlot: "morning", state: "generated" },
+      ],
+      draftKeys: new Set(["user_ready|2026-11-27|morning"]),
+    });
+    expect(gaps).toEqual([{
+      clerkUserId: tyler,
+      memberLocalDate: "2026-11-27",
+      sendSlot: "morning",
+      state: "intentional_space",
+    }]);
+  });
+
+  it("emits discovery failure and a member trace to the server log", () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const assessed = assessReconsiderationDiscovery({
+      clerkIds: [tyler],
+      error: { code: "PGRST000", message: "timeout +15555550123 eyJhbGciOiJIUzI1NiJ9.signature" },
+      data: null,
+    });
+    expect(assessed.ok).toBe(false);
+    expect(assessed.failure?.message).not.toContain("+15555550123");
+    expect(assessed.failure?.message).not.toContain("eyJhbGci");
+    expect(assessed.failure?.message).toContain("[credential]");
+    const diagnostic = createReconsiderationDiagnostic();
+    diagnostic.upcoming_occurrences = 1;
+    diagnostic.conversation_discovery = assessed.ok ? "ok" : "failed";
+    if (assessed.failure) {
+      diagnostic.failures.push({
+        stage: "conversation_discovery",
+        supabase_code: assessed.failure.supabase_code,
+        message: assessed.failure.message,
+      });
+    }
+    recordReconsiderationTrace(diagnostic, {
+      clerkUserId: tyler,
+      memberLocalDate: "2026-11-27",
+      sendSlot: "morning",
+      state: "intentional_space",
+    }, "inputs", "changed");
+    emitReconsiderationDiagnostic(diagnostic);
+    expect(log).toHaveBeenCalledWith(
+      "[scheduled-reconsideration]",
+      expect.objectContaining({
+        upcoming_occurrences: 1,
+        conversation_discovery: "failed",
+        failures: [expect.objectContaining({
+          stage: "conversation_discovery",
+          supabase_code: "PGRST000",
+        })],
+        traces: [expect.objectContaining({
+          clerk_user_id: tyler,
+          member_local_date: "2026-11-27",
+          send_slot: "morning",
+          occurrence_state: "intentional_space",
+          gate: "inputs",
+          result: "changed",
+        })],
+      })
+    );
+    expect(JSON.stringify(log.mock.calls)).not.toContain("Good morning, Tyler");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("+15555550123");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("eyJhbGci");
+    log.mockRestore();
+    const scheduler = readFileSync(join(process.cwd(), "src/lib/tto-scheduled-generate.ts"), "utf8");
+    const run = scheduler.slice(
+      scheduler.indexOf("async function runScheduledReconsideration"),
+      scheduler.indexOf("async function recoverAuthoritativeOccurrences")
+    );
+    expect(run).toContain("finishScheduledReconsideration");
+    expect(scheduler).toContain('console.log("[scheduled-reconsideration]"');
   });
 });

@@ -3080,20 +3080,59 @@ export function conversationsFromDiscoveryPayload(
   return found;
 }
 
+export function assessReconsiderationDiscovery(args: {
+  clerkIds: readonly string[];
+  error: { code?: string | null; message?: string | null } | null;
+  data: unknown;
+}): {
+  ok: boolean;
+  failure: { supabase_code: string | null; message: string } | null;
+  conversations: Map<string, LoadedMemberConversation>;
+} {
+  if (args.error) {
+    const code = args.error.code?.trim() ?? "";
+    return {
+      ok: false,
+      failure: {
+        supabase_code: code || null,
+        message: safeReconsiderationReadMessage(args.error.message, "conversation_discovery_failed"),
+      },
+      conversations: conversationsFromDiscoveryPayload([...args.clerkIds], null),
+    };
+  }
+  const conversations = conversationsFromDiscoveryPayload([...args.clerkIds], args.data);
+  const loaded = [...conversations.values()];
+  if (loaded.length > 0 && loaded.every((item) => item.retrieval === "failed")) {
+    return {
+      ok: false,
+      failure: { supabase_code: null, message: "discovery_payload_unreadable" },
+      conversations,
+    };
+  }
+  return { ok: true, failure: null, conversations };
+}
+
 async function loadCandidateConversations(
   clerkIds: string[],
   now: Date
-): Promise<Map<string, LoadedMemberConversation>> {
-  if (clerkIds.length === 0) return new Map();
+): Promise<{
+  ok: boolean;
+  failure: { supabase_code: string | null; message: string } | null;
+  conversations: Map<string, LoadedMemberConversation>;
+}> {
+  if (clerkIds.length === 0) {
+    return { ok: true, failure: null, conversations: new Map() };
+  }
   const { data, error } = await supabaseServer.rpc("tto_reconsideration_conversation_discovery", {
     p_clerk_user_ids: clerkIds,
     p_now: now.toISOString(),
     p_limit: MEMBER_CONVERSATION_READ_LIMIT,
   });
-  if (error) {
-    return conversationsFromDiscoveryPayload(clerkIds, null);
-  }
-  return conversationsFromDiscoveryPayload(clerkIds, data);
+  return assessReconsiderationDiscovery({
+    clerkIds,
+    error: error ? { code: error.code, message: error.message } : null,
+    data,
+  });
 }
 
 async function patchReconsiderationOccurrence(args: {
@@ -3150,7 +3189,7 @@ export async function loadOneScheduledConversation(
   now: Date
 ): Promise<LoadedMemberConversation> {
   const loaded = await loadCandidateConversations([clerkUserId], now);
-  return loaded.get(clerkUserId) ?? {
+  return loaded.conversations.get(clerkUserId) ?? {
     retrieval: "failed",
     messages: [],
     unidentifiedReplies: [],
@@ -3280,16 +3319,143 @@ export type ReconsiderationGenerationReadFailure = {
   message: string;
 };
 
+export type ReconsiderationDraftReadFailure = {
+  operation: "reconsideration_draft_read";
+  upcoming_occurrences: number;
+  requested_pairs: number;
+  failed_chunk_pairs: number;
+  returned_rows: number;
+  supabase_code: string | null;
+  message: string;
+};
+
+export type ReconsiderationQueryFailure = {
+  operation: "reconsideration_batch_read" | "reconsideration_goal_read" | "reconsideration_preference_read";
+  supabase_code: string | null;
+  message: string;
+};
+
+export type ReconsiderationOperationFailure =
+  | ReconsiderationGenerationReadFailure
+  | ReconsiderationDraftReadFailure
+  | ReconsiderationQueryFailure;
+
+export type ReconsiderationTrace = {
+  clerk_user_id: string;
+  member_local_date: string;
+  send_slot: string;
+  occurrence_state: string;
+  gate: string;
+  result: string;
+};
+
+export type ReconsiderationDiagnostic = {
+  upcoming_occurrences: number;
+  relevant_drafts: number;
+  linked_generations: number;
+  conversation_discovery: "ok" | "failed" | "not_reached";
+  candidates: number;
+  changed: number;
+  unchanged: number;
+  skipped: Record<string, number>;
+  claims_attempted: number;
+  claims_acquired: number;
+  interpreter_calls: number;
+  keep: number;
+  replace: number;
+  persisted: number;
+  failures: Array<{ stage: string; supabase_code: string | null; message: string }>;
+  traces: ReconsiderationTrace[];
+};
+
 type ScheduledReconsiderationResult = {
   ok: boolean;
   considered: number;
   kept_or_replaced: number;
   skipped_unchanged: number;
-  error: ReconsiderationGenerationReadFailure | null;
+  error: ReconsiderationOperationFailure | null;
+  diagnostic: ReconsiderationDiagnostic;
 };
 
-function reconsiderationIdle(): ScheduledReconsiderationResult {
+function reconsiderationIdle(): Omit<ScheduledReconsiderationResult, "diagnostic"> {
   return { ok: true, considered: 0, kept_or_replaced: 0, skipped_unchanged: 0, error: null };
+}
+
+export function createReconsiderationDiagnostic(): ReconsiderationDiagnostic {
+  return {
+    upcoming_occurrences: 0,
+    relevant_drafts: 0,
+    linked_generations: 0,
+    conversation_discovery: "not_reached",
+    candidates: 0,
+    changed: 0,
+    unchanged: 0,
+    skipped: {},
+    claims_attempted: 0,
+    claims_acquired: 0,
+    interpreter_calls: 0,
+    keep: 0,
+    replace: 0,
+    persisted: 0,
+    failures: [],
+    traces: [],
+  };
+}
+
+export function recordReconsiderationSkip(diagnostic: ReconsiderationDiagnostic, reason: string): void {
+  diagnostic.skipped[reason] = (diagnostic.skipped[reason] ?? 0) + 1;
+}
+
+export function recordReconsiderationTrace(
+  diagnostic: ReconsiderationDiagnostic,
+  target: { clerkUserId: string; memberLocalDate: string; sendSlot: string; state: string },
+  gate: string,
+  result: string
+): void {
+  const existing = diagnostic.traces.find(
+    (item) =>
+      item.clerk_user_id === target.clerkUserId
+      && item.member_local_date === target.memberLocalDate
+      && item.send_slot === target.sendSlot
+  );
+  if (existing) {
+    existing.occurrence_state = target.state;
+    existing.gate = gate;
+    existing.result = result;
+    return;
+  }
+  diagnostic.traces.push({
+    clerk_user_id: target.clerkUserId,
+    member_local_date: target.memberLocalDate,
+    send_slot: target.sendSlot,
+    occurrence_state: target.state,
+    gate,
+    result,
+  });
+}
+
+export function emitReconsiderationDiagnostic(diagnostic: ReconsiderationDiagnostic): void {
+  console.log("[scheduled-reconsideration]", diagnostic);
+}
+
+function finishScheduledReconsideration(
+  diagnostic: ReconsiderationDiagnostic,
+  result: Omit<ScheduledReconsiderationResult, "diagnostic">
+): ScheduledReconsiderationResult {
+  emitReconsiderationDiagnostic(diagnostic);
+  return { ...result, diagnostic };
+}
+
+function reconsiderationQueryFailure(
+  operation: ReconsiderationQueryFailure["operation"],
+  error: { code?: string | null; message?: string | null } | null
+): ReconsiderationQueryFailure {
+  const code = error?.code?.trim() ?? "";
+  return {
+    operation,
+    supabase_code: code || null,
+    message: safeReconsiderationReadMessage(error?.message, operation),
+  };
 }
 
 /** Unique, non-empty ids, in first-seen order, split so no request exceeds the chunk bound. */
@@ -3310,13 +3476,19 @@ export function reconsiderationGenerationReadChunks(ids: readonly string[]): str
   return chunks;
 }
 
-function safeReconsiderationReadMessage(message: string | null | undefined): string {
+function safeReconsiderationReadMessage(
+  message: string | null | undefined,
+  fallback = "generation_read_failed"
+): string {
   const compact = (message ?? "").replace(/\s+/g, " ").trim();
-  const withoutIds = compact.replace(
-    /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi,
-    "[id]"
-  );
-  if (!withoutIds) return "generation_read_failed";
+  const withoutIds = compact
+    .replace(
+      /[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/gi,
+      "[id]"
+    )
+    .replace(/\+\d{10,15}/g, "[phone]")
+    .replace(/eyJ[A-Za-z0-9_-]{12,}/g, "[credential]");
+  if (!withoutIds) return fallback;
   return withoutIds.slice(0, 240);
 }
 
@@ -3388,11 +3560,227 @@ async function readReconsiderationGenerationChunk(
   return { data: (data ?? []) as ReconsiderationGenerationRow[], error: null };
 }
 
+/** Member-date pairs per request. Two slots stay far below the 1,000-row page. */
+export const RECONSIDERATION_DRAFT_PAIR_CHUNK = 50;
+export const RECONSIDERATION_DRAFT_PAGE_GUARD = 1000;
+export const RECONSIDERATION_DRAFT_SLOTS = [
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
+  SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+] as const;
+
+const RECONSIDERATION_DRAFT_CLERK_SAFE = /^[A-Za-z0-9_]+$/;
+const RECONSIDERATION_DRAFT_DATE_SAFE = /^\d{4}-\d{2}-\d{2}$/;
+
+export type ReconsiderationDraftPair = {
+  clerkUserId: string;
+  memberLocalDate: string;
+};
+
+export type ReconsiderationDraftRow = {
+  id?: string;
+  clerk_user_id?: string;
+  draft_for_day_key?: string;
+  send_slot?: string;
+  status?: string;
+  current_generation_id?: string;
+  current_body_to_send?: string | null;
+  current_body_source?: string | null;
+  current_body_hash?: string | null;
+  edited_by_tyler?: boolean;
+  edited_at?: string | null;
+};
+
+export function relevantReconsiderationDraftPairs(
+  occurrences: readonly { clerkUserId: string; memberLocalDate: string }[]
+): { pairs: ReconsiderationDraftPair[]; unsafe: number } {
+  const pairs: ReconsiderationDraftPair[] = [];
+  const seen = new Set<string>();
+  let unsafe = 0;
+  for (const item of occurrences) {
+    const clerkUserId = item.clerkUserId.trim();
+    const memberLocalDate = item.memberLocalDate.trim();
+    if (
+      !RECONSIDERATION_DRAFT_CLERK_SAFE.test(clerkUserId)
+      || !RECONSIDERATION_DRAFT_DATE_SAFE.test(memberLocalDate)
+    ) {
+      unsafe += 1;
+      continue;
+    }
+    const key = `${clerkUserId}|${memberLocalDate}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    pairs.push({ clerkUserId, memberLocalDate });
+  }
+  return { pairs, unsafe };
+}
+
+export function reconsiderationDraftPairChunks(
+  pairs: readonly ReconsiderationDraftPair[]
+): ReconsiderationDraftPair[][] {
+  const chunks: ReconsiderationDraftPair[][] = [];
+  for (let index = 0; index < pairs.length; index += RECONSIDERATION_DRAFT_PAIR_CHUNK) {
+    chunks.push(pairs.slice(index, index + RECONSIDERATION_DRAFT_PAIR_CHUNK));
+  }
+  return chunks;
+}
+
+export function reconsiderationDraftOrFilter(pairs: readonly ReconsiderationDraftPair[]): string {
+  return pairs
+    .map((pair) => `and(clerk_user_id.eq.${pair.clerkUserId},draft_for_day_key.eq.${pair.memberLocalDate})`)
+    .join(",");
+}
+
+export function reconsiderationDraftKey(row: {
+  clerk_user_id?: string;
+  draft_for_day_key?: string;
+  send_slot?: string;
+}): string | null {
+  if (!row.clerk_user_id || !row.draft_for_day_key || !row.send_slot) return null;
+  return `${row.clerk_user_id}|${row.draft_for_day_key}|${row.send_slot}`;
+}
+
+export function unexpectedMissingAuthoritativeDrafts(args: {
+  occurrences: readonly { clerkUserId: string; memberLocalDate: string; sendSlot: string; state: string }[];
+  draftKeys: ReadonlySet<string>;
+}): Array<{ clerkUserId: string; memberLocalDate: string; sendSlot: string; state: string }> {
+  const missing: Array<{ clerkUserId: string; memberLocalDate: string; sendSlot: string; state: string }> = [];
+  for (const item of args.occurrences) {
+    if (!RECONSIDERATION_STATES.has(item.state as OccurrenceState)) continue;
+    const key = `${item.clerkUserId}|${item.memberLocalDate}|${item.sendSlot}`;
+    if (!args.draftKeys.has(key)) missing.push({ ...item });
+  }
+  return missing;
+}
+
+/**
+ * Reads current drafts for the upcoming member-local dates, both send slots.
+ * A failed or saturated chunk discards every row already read.
+ */
+export async function loadRelevantReconsiderationDrafts(args: {
+  occurrences: readonly { clerkUserId: string; memberLocalDate: string }[];
+  deadlineMs: number;
+  nowMs?: () => number;
+  readChunk: (pairs: ReconsiderationDraftPair[]) => Promise<{
+    data: ReconsiderationDraftRow[] | null;
+    error: { code?: string | null; message?: string | null } | null;
+  }>;
+}): Promise<
+  | { ok: true; rows: ReconsiderationDraftRow[] }
+  | { ok: false; failure: ReconsiderationDraftReadFailure }
+> {
+  const relevant = relevantReconsiderationDraftPairs(args.occurrences);
+  const requestedPairs = relevant.pairs.length;
+  const failureBase = {
+    operation: "reconsideration_draft_read" as const,
+    upcoming_occurrences: args.occurrences.length,
+    requested_pairs: requestedPairs,
+  };
+  if (relevant.unsafe > 0) {
+    const failure: ReconsiderationDraftReadFailure = {
+      ...failureBase,
+      failed_chunk_pairs: relevant.unsafe,
+      returned_rows: 0,
+      supabase_code: null,
+      message: "unsafe_draft_key",
+    };
+    console.error("[scheduled-reconsideration] draft read failed", failure);
+    return { ok: false, failure };
+  }
+  const chunks = reconsiderationDraftPairChunks(relevant.pairs);
+  const nowMs = args.nowMs ?? (() => Date.now());
+  const byKey = new Map<string, ReconsiderationDraftRow>();
+  for (const chunk of chunks) {
+    if (nowMs() >= args.deadlineMs) {
+      const failure: ReconsiderationDraftReadFailure = {
+        ...failureBase,
+        failed_chunk_pairs: chunk.length,
+        returned_rows: 0,
+        supabase_code: null,
+        message: "execution_budget_exhausted",
+      };
+      console.error("[scheduled-reconsideration] draft read failed", failure);
+      return { ok: false, failure };
+    }
+    const result = await args.readChunk(chunk);
+    const returnedRows = result.data?.length ?? 0;
+    const maxRows = chunk.length * RECONSIDERATION_DRAFT_SLOTS.length;
+    if (result.error || returnedRows > maxRows || returnedRows >= RECONSIDERATION_DRAFT_PAGE_GUARD) {
+      const code = result.error?.code?.trim() ?? "";
+      const failure: ReconsiderationDraftReadFailure = {
+        ...failureBase,
+        failed_chunk_pairs: chunk.length,
+        returned_rows: returnedRows,
+        supabase_code: code || null,
+        message: result.error
+          ? safeReconsiderationReadMessage(result.error.message, "draft_read_failed")
+          : "draft_page_saturated",
+      };
+      console.error("[scheduled-reconsideration] draft read failed", failure);
+      return { ok: false, failure };
+    }
+    for (const row of result.data ?? []) {
+      const key = reconsiderationDraftKey(row);
+      if (!key || byKey.has(key)) continue;
+      byKey.set(key, row);
+    }
+  }
+  return { ok: true, rows: [...byKey.values()] };
+}
+
+async function readReconsiderationDraftChunk(
+  pairs: ReconsiderationDraftPair[]
+): Promise<{
+  data: ReconsiderationDraftRow[] | null;
+  error: { code?: string | null; message?: string | null } | null;
+}> {
+  const { data, error } = await supabaseServer
+    .from(SMS_DAILY_DRAFTS_TABLE)
+    .select(
+      "id, clerk_user_id, draft_for_day_key, send_slot, status, current_generation_id, current_body_to_send, current_body_source, current_body_hash, edited_by_tyler, edited_at"
+    )
+    .or(reconsiderationDraftOrFilter(pairs))
+    .in("send_slot", [...RECONSIDERATION_DRAFT_SLOTS])
+    .eq("status", "current");
+  if (error) return { data: null, error: { code: error.code, message: error.message } };
+  return { data: (data ?? []) as ReconsiderationDraftRow[], error: null };
+}
+
 async function runScheduledReconsideration(args: {
   now: Date;
   deadlineMs: number;
   chunkCap?: number;
 }): Promise<ScheduledReconsiderationResult> {
+  const diagnostic = createReconsiderationDiagnostic();
+  const note = (
+    target: { clerkUserId: string; memberLocalDate: string; sendSlot: string; state: string },
+    gate: string,
+    result: string
+  ) => {
+    recordReconsiderationTrace(diagnostic, target, gate, result);
+  };
+  const noteCandidate = (candidate: NextOccurrenceCandidate, gate: string, result: string) => {
+    note({
+      clerkUserId: candidate.occurrence.clerkUserId,
+      memberLocalDate: candidate.occurrence.memberLocalDate,
+      sendSlot: candidate.sendSlot,
+      state: candidate.occurrence.state,
+    }, gate, result);
+  };
+  const failRead = (
+    stage: string,
+    failure: ReconsiderationOperationFailure
+  ): ScheduledReconsiderationResult => {
+    diagnostic.failures.push({
+      stage,
+      supabase_code: failure.supabase_code,
+      message: failure.message,
+    });
+    return finishScheduledReconsideration(diagnostic, {
+      ...reconsiderationIdle(),
+      ok: false,
+      error: failure,
+    });
+  };
   const today = getDateKeyInTimezone(args.now, PROACTIVE_SCHEDULE_ADMIN_TIMEZONE);
   const dates = [dayKeyOffset(today, -1), today, dayKeyOffset(today, 1)];
   const { data, error } = await supabaseServer
@@ -3401,24 +3789,51 @@ async function runScheduledReconsideration(args: {
     .in("batch_date", dates)
     .in("send_slot", [SMS_DAILY_PRODUCTION_SEND_SLOT, SMS_DAILY_EVENING_PREVIEW_SEND_SLOT]);
   if (error || !Array.isArray(data)) {
-    return reconsiderationIdle();
+    return failRead(
+      "batch_read",
+      reconsiderationQueryFailure("reconsideration_batch_read", error)
+    );
   }
   const batches = data
     .map((row) => batchFromJson(row))
     .filter((row): row is ScheduledBatchRecord => row != null);
   const upcoming = listUpcomingOccurrenceCandidates(batches, args.now);
+  diagnostic.upcoming_occurrences = upcoming.length;
   if (upcoming.length === 0) {
-    return reconsiderationIdle();
+    return finishScheduledReconsideration(diagnostic, reconsiderationIdle());
+  }
+  const draftsLoaded = await loadRelevantReconsiderationDrafts({
+    occurrences: upcoming.map((item) => ({
+      clerkUserId: item.occurrence.clerkUserId,
+      memberLocalDate: item.occurrence.memberLocalDate,
+    })),
+    deadlineMs: args.deadlineMs,
+    readChunk: readReconsiderationDraftChunk,
+  });
+  if (!draftsLoaded.ok) {
+    return failRead("draft_read", draftsLoaded.failure);
+  }
+  const drafts = new Map<string, Record<string, unknown>>();
+  for (const row of draftsLoaded.rows) {
+    const key = reconsiderationDraftKey(row);
+    if (!key || drafts.has(key)) continue;
+    drafts.set(key, row as Record<string, unknown>);
+  }
+  diagnostic.relevant_drafts = drafts.size;
+  const authoritativeGaps = unexpectedMissingAuthoritativeDrafts({
+    occurrences: upcoming.map((item) => ({
+      clerkUserId: item.occurrence.clerkUserId,
+      memberLocalDate: item.occurrence.memberLocalDate,
+      sendSlot: item.sendSlot,
+      state: item.occurrence.state,
+    })),
+    draftKeys: new Set(drafts.keys()),
+  });
+  if (authoritativeGaps.length > 0) {
+    diagnostic.skipped.missing_authoritative_draft = authoritativeGaps.length;
   }
   const clerkIds = [...new Set(upcoming.map((item) => item.occurrence.clerkUserId))];
-  const [draftRes, goalRes, preferenceRes, audienceRes, conversations] = await Promise.all([
-    supabaseServer
-      .from(SMS_DAILY_DRAFTS_TABLE)
-      .select(
-        "id, clerk_user_id, draft_for_day_key, send_slot, status, current_generation_id, current_body_to_send, current_body_source, current_body_hash, edited_by_tyler, edited_at"
-      )
-      .in("clerk_user_id", clerkIds)
-      .eq("status", "current"),
+  const [goalRes, preferenceRes, audienceRes, discovery] = await Promise.all([
     supabaseServer
       .from("v2_commitment")
       .select(
@@ -3438,13 +3853,20 @@ async function runScheduledReconsideration(args: {
       .in("clerk_user_id", clerkIds),
     loadCandidateConversations(clerkIds, args.now),
   ]);
-  if (draftRes.error || goalRes.error || preferenceRes.error) {
-    return reconsiderationIdle();
+  const conversations = discovery.conversations;
+  diagnostic.conversation_discovery = discovery.ok ? "ok" : "failed";
+  if (discovery.failure) {
+    diagnostic.failures.push({
+      stage: "conversation_discovery",
+      supabase_code: discovery.failure.supabase_code,
+      message: discovery.failure.message,
+    });
   }
-  const drafts = new Map<string, Record<string, unknown>>();
-  for (const row of (draftRes.data ?? []) as Record<string, unknown>[]) {
-    const key = `${row.clerk_user_id}|${row.draft_for_day_key}|${row.send_slot}`;
-    drafts.set(key, row);
+  if (goalRes.error || preferenceRes.error) {
+    const failed = goalRes.error
+      ? reconsiderationQueryFailure("reconsideration_goal_read", goalRes.error)
+      : reconsiderationQueryFailure("reconsideration_preference_read", preferenceRes.error);
+    return failRead(goalRes.error ? "goal_read" : "preference_read", failed);
   }
   const generationIds = [
     ...new Set(
@@ -3463,7 +3885,7 @@ async function runScheduledReconsideration(args: {
       readChunk: readReconsiderationGenerationChunk,
     });
     if (!loaded.ok) {
-      return { ...reconsiderationIdle(), ok: false, error: loaded.failure };
+      return failRead("generation_read", loaded.failure);
     }
     for (const row of loaded.rows) {
       if (typeof row.id === "string" && row.generation_metadata && typeof row.generation_metadata === "object") {
@@ -3480,6 +3902,7 @@ async function runScheduledReconsideration(args: {
       }
     }
   }
+  diagnostic.linked_generations = generationNoSend.size;
   const goals = new Map<string, string>();
   const ambiguousGoals = new Set<string>();
   const commitmentReads = new Map<string, Awaited<ReturnType<typeof readActiveCommitmentForCadence>>>();
@@ -3620,6 +4043,10 @@ async function runScheduledReconsideration(args: {
     const savedZone = preference?.scheduleTimezone?.trim() ?? "";
     const needsClerk = savedZone.length === 0;
     if (needsClerk && (audienceRes.error || clerkUnread.has(clerkUserId))) {
+      for (const item of occurrences) {
+        noteCandidate(item, "timezone", "unreadable");
+        recordReconsiderationSkip(diagnostic, "timezone_unreadable");
+      }
       continue;
     }
     const dates = new Set<string>();
@@ -3732,7 +4159,15 @@ async function runScheduledReconsideration(args: {
             expectedEditedAt: typeof draft?.edited_at === "string" ? draft.edited_at : null,
             refreshDelivery: false,
           });
+          diagnostic.persisted += 1;
+          noteCandidate(item, "persistence", "expired");
         } catch {
+          diagnostic.failures.push({
+            stage: "expire_patch",
+            supabase_code: null,
+            message: "expire_patch_failed",
+          });
+          noteCandidate(item, "persistence", "expire_failed");
           continue;
         }
       }
@@ -3742,7 +4177,24 @@ async function runScheduledReconsideration(args: {
       schedule: scheduleUnresolved ? "unresolved" : schedule,
       now: args.now,
     });
+    if (scheduleUnresolved) {
+      for (const item of occurrences) {
+        noteCandidate(item, "schedule", "unresolved");
+        recordReconsiderationSkip(diagnostic, "schedule_unresolved");
+      }
+    } else if (!chosen) {
+      for (const item of occurrences) {
+        noteCandidate(item, "candidate", "not_selected");
+        recordReconsiderationSkip(diagnostic, "not_selected");
+      }
+    }
     if (chosen) {
+      diagnostic.candidates += 1;
+      noteCandidate(chosen, "candidate", "selected");
+      for (const item of occurrences) {
+        if (item === chosen) continue;
+        noteCandidate(item, "candidate", "not_authoritative");
+      }
       candidates.push(chosen);
       const live = schedule.find(
         (item) =>
@@ -3769,12 +4221,43 @@ async function runScheduledReconsideration(args: {
       }
     }
   }
+  for (const gap of authoritativeGaps) {
+    const existing = diagnostic.traces.find(
+      (item) =>
+        item.clerk_user_id === gap.clerkUserId
+        && item.member_local_date === gap.memberLocalDate
+        && item.send_slot === gap.sendSlot
+    );
+    if (existing && !(existing.gate === "candidate" && existing.result === "selected")) continue;
+    note(gap, "draft", "missing_authoritative_draft");
+  }
   for (const candidate of candidates) {
     const preference = preferences.get(candidate.occurrence.clerkUserId);
+    const missingAuthoritative = unexpectedMissingAuthoritativeDrafts({
+      occurrences: [{
+        clerkUserId: candidate.occurrence.clerkUserId,
+        memberLocalDate: candidate.occurrence.memberLocalDate,
+        sendSlot: candidate.sendSlot,
+        state: candidate.occurrence.state,
+      }],
+      draftKeys: new Set(drafts.keys()),
+    });
+    if (missingAuthoritative.length > 0) {
+      continue;
+    }
     if (
       ambiguousGoals.has(candidate.occurrence.clerkUserId) ||
       !goals.has(candidate.occurrence.clerkUserId)
     ) {
+      noteCandidate(
+        candidate,
+        "goal",
+        ambiguousGoals.has(candidate.occurrence.clerkUserId) ? "ambiguous" : "missing"
+      );
+      recordReconsiderationSkip(
+        diagnostic,
+        ambiguousGoals.has(candidate.occurrence.clerkUserId) ? "goal_ambiguous" : "goal_missing"
+      );
       continue;
     }
     const conversation = conversations.get(candidate.occurrence.clerkUserId);
@@ -3859,7 +4342,11 @@ async function runScheduledReconsideration(args: {
           recentUnansweredOutboundCount: unanswered,
           observedAsOfLocalDate: getDateKeyInTimezone(args.now, liveFacts.timeZone),
         });
-        if (quiet.clock_lookup_failed) continue;
+        if (quiet.clock_lookup_failed) {
+          noteCandidate(candidate, "relationship", "clock_lookup_failed");
+          recordReconsiderationSkip(diagnostic, "clock_lookup_failed");
+          continue;
+        }
         requiredTouchChanged = quiet.message_required_today === true && storedRequired !== true;
       } else if (storedRequired === false) {
         requiredTouchChanged = false;
@@ -3916,6 +4403,9 @@ async function runScheduledReconsideration(args: {
       }) === "unresolved" &&
       decision === "unresolved"
     ) {
+      const reason = retrieval === "failed" ? "discovery_unresolved" : "inputs_unresolved";
+      noteCandidate(candidate, "inputs", reason);
+      recordReconsiderationSkip(diagnostic, reason);
       continue;
     }
     const draftState = dashboardOutcomeFromCurrentDraft({
@@ -3945,7 +4435,15 @@ async function runScheduledReconsideration(args: {
       generationMeta,
     });
     const mustReconsider = decision === "changed" || crossOwner.transfer || crossOwner.moveBack;
-    if (decision === "unchanged" && !mustReconsider) skippedUnchanged += 1;
+    if (decision === "unchanged" && !mustReconsider) {
+      skippedUnchanged += 1;
+      diagnostic.unchanged += 1;
+      noteCandidate(candidate, "inputs", "unchanged");
+    }
+    if (decision === "backoff") {
+      noteCandidate(candidate, "inputs", "backoff");
+      recordReconsiderationSkip(diagnostic, "backoff");
+    }
     if (mustReconsider) {
       const sundayComparison = sundayNow === "not_sunday"
         ? "skip"
@@ -4002,6 +4500,15 @@ async function runScheduledReconsideration(args: {
         preserveTylerEdit: crossOwner.moveBack ? false : tylerHolds,
         attemptedSunday: sundayNow,
       });
+      diagnostic.changed += 1;
+      noteCandidate(
+        candidate,
+        "inputs",
+        workable[workable.length - 1]?.scheduleOnly ? "changed_schedule_only" : "changed"
+      );
+      } else {
+        noteCandidate(candidate, "sunday", "unresolved");
+        recordReconsiderationSkip(diagnostic, "sunday_unresolved");
       }
     }
   }
@@ -4015,7 +4522,15 @@ async function runScheduledReconsideration(args: {
         expectedEditedAt: repair.expectedEditedAt,
         refreshDelivery: false,
       });
+      diagnostic.persisted += 1;
+      noteCandidate(repair.candidate, "persistence", "repaired");
     } catch {
+      diagnostic.failures.push({
+        stage: "repair_patch",
+        supabase_code: null,
+        message: "repair_patch_failed",
+      });
+      noteCandidate(repair.candidate, "persistence", "repair_failed");
       continue;
     }
   }
@@ -4070,12 +4585,25 @@ async function runScheduledReconsideration(args: {
               currentDraft && typeof currentDraft.edited_at === "string" ? currentDraft.edited_at : null,
             refreshDelivery: false,
           });
+          diagnostic.persisted += 1;
+          noteCandidate(candidate, "revalidation", disposition);
         } catch {
+          diagnostic.failures.push({
+            stage: "revalidation_patch",
+            supabase_code: null,
+            message: "revalidation_patch_failed",
+          });
+          noteCandidate(candidate, "revalidation", "patch_failed");
           return;
         }
         return;
       }
-      if (disposition !== "proceed") return;
+      if (disposition !== "proceed") {
+        noteCandidate(candidate, "revalidation", disposition);
+        recordReconsiderationSkip(diagnostic, `revalidation_${disposition}`);
+        return;
+      }
+      noteCandidate(candidate, "revalidation", checked.action);
       const earlier = await earlierEligibleDeliveryBlocks({
         clerkUserId: candidate.occurrence.clerkUserId,
         memberLocalDate: candidate.occurrence.memberLocalDate,
@@ -4083,11 +4611,18 @@ async function runScheduledReconsideration(args: {
         now: args.now,
         loaded,
       });
-      if (earlier !== "no") return;
+      if (earlier !== "no") {
+        noteCandidate(candidate, "earlier_delivery", earlier);
+        recordReconsiderationSkip(diagnostic, `earlier_delivery_${earlier}`);
+        return;
+      }
       const draft = drafts.get(
         `${candidate.occurrence.clerkUserId}|${candidate.occurrence.memberLocalDate}|${candidate.sendSlot}`
       );
-      if (!draft || typeof draft.current_generation_id !== "string") return;
+      if (!draft || typeof draft.current_generation_id !== "string") {
+        noteCandidate(candidate, "draft", "missing_authoritative_draft");
+        return;
+      }
       const otherSlot = candidate.sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT
         ? SMS_DAILY_EVENING_PREVIEW_SEND_SLOT
         : SMS_DAILY_PRODUCTION_SEND_SLOT;
@@ -4099,7 +4634,15 @@ async function runScheduledReconsideration(args: {
         .eq("send_slot", otherSlot)
         .eq("status", "current")
         .maybeSingle();
-      if (otherDraftRes.error) return;
+      if (otherDraftRes.error) {
+        diagnostic.failures.push({
+          stage: "cross_owner_draft_read",
+          supabase_code: otherDraftRes.error.code?.trim() || null,
+          message: safeReconsiderationReadMessage(otherDraftRes.error.message, "cross_owner_draft_read_failed"),
+        });
+        noteCandidate(candidate, "cross_owner", "read_failed");
+        return;
+      }
       const otherDraft = otherDraftRes.data;
       const otherIsTyler = otherDraft?.edited_by_tyler === true || otherDraft?.current_body_source === "tyler_edit";
       const currentIsTyler = draft.edited_by_tyler === true || draft.current_body_source === "tyler_edit";
@@ -4133,7 +4676,18 @@ async function runScheduledReconsideration(args: {
           .select("generation_metadata")
           .eq("id", sourceDraft.current_generation_id)
           .maybeSingle();
-        if (sourceGeneration.error) return;
+        if (sourceGeneration.error) {
+          diagnostic.failures.push({
+            stage: "cross_owner_generation_read",
+            supabase_code: sourceGeneration.error.code?.trim() || null,
+            message: safeReconsiderationReadMessage(
+              sourceGeneration.error.message,
+              "cross_owner_generation_read_failed"
+            ),
+          });
+          noteCandidate(candidate, "cross_owner", "generation_read_failed");
+          return;
+        }
         const sourceMeta = sourceGeneration.data?.generation_metadata && typeof sourceGeneration.data.generation_metadata === "object"
           ? sourceGeneration.data.generation_metadata as Record<string, unknown>
           : null;
@@ -4168,7 +4722,15 @@ async function runScheduledReconsideration(args: {
         const savedRow = saved.data && typeof saved.data === "object" && !Array.isArray(saved.data)
           ? saved.data as { ok?: boolean }
           : null;
-        if (saved.error || savedRow?.ok !== true) return;
+        if (saved.error || savedRow?.ok !== true) {
+          diagnostic.failures.push({
+            stage: "cross_owner_transfer",
+            supabase_code: saved.error?.code?.trim() || null,
+            message: safeReconsiderationReadMessage(saved.error?.message, "cross_owner_transfer_failed"),
+          });
+          noteCandidate(candidate, "cross_owner", "transfer_failed");
+          return;
+        }
         transferredSource = sourceVersion;
         draft.current_body_to_send = typeof otherDraft.current_body_to_send === "string" ? otherDraft.current_body_to_send : "";
         draft.current_body_hash = typeof otherDraft.current_body_hash === "string" ? otherDraft.current_body_hash : null;
@@ -4189,7 +4751,12 @@ async function runScheduledReconsideration(args: {
         preference_updated_at: preferences.get(candidate.occurrence.clerkUserId)?.updatedAt ?? null,
       };
       const claimOwnerId = crypto.randomUUID();
-      if (!reserveActualWorkSlot(actualWork, workCap)) return;
+      if (!reserveActualWorkSlot(actualWork, workCap)) {
+        noteCandidate(candidate, "claim", "work_cap");
+        recordReconsiderationSkip(diagnostic, "work_cap");
+        return;
+      }
+      diagnostic.claims_attempted += 1;
       const { data: claimData, error: claimError } = await supabaseServer.rpc(
         "tto_claim_scheduled_generation",
         {
@@ -4205,6 +4772,12 @@ async function runScheduledReconsideration(args: {
       );
       if (claimError) {
         releaseActualWorkSlot(actualWork);
+        diagnostic.failures.push({
+          stage: "claim",
+          supabase_code: claimError.code?.trim() || null,
+          message: safeReconsiderationReadMessage(claimError.message, "claim_failed"),
+        });
+        noteCandidate(candidate, "claim", "error");
         return;
       }
       const claim = (Array.isArray(claimData) ? claimData[0] : claimData) as
@@ -4212,8 +4785,12 @@ async function runScheduledReconsideration(args: {
         | null;
       if (!claim || claim.outcome !== "claimed" || !claim.generation_id) {
         releaseActualWorkSlot(actualWork);
+        noteCandidate(candidate, "claim", claim?.outcome ?? "not_acquired");
+        recordReconsiderationSkip(diagnostic, "claim_not_acquired");
         return;
       }
+      diagnostic.claims_acquired += 1;
+      noteCandidate(candidate, "claim", "acquired");
       const claimedGen = await supabaseServer
         .from(SMS_DAILY_DRAFT_GENERATIONS_TABLE)
         .select("generation_metadata")
@@ -4226,7 +4803,15 @@ async function runScheduledReconsideration(args: {
         typeof claimedGen.data.generation_metadata === "object"
           ? (claimedGen.data.generation_metadata as Record<string, unknown>)
           : null;
-      if (!claimedMeta) return;
+      if (!claimedMeta) {
+        diagnostic.failures.push({
+          stage: "claimed_generation_read",
+          supabase_code: claimedGen.error?.code?.trim() || null,
+          message: safeReconsiderationReadMessage(claimedGen.error?.message, "claimed_generation_unreadable"),
+        });
+        noteCandidate(candidate, "claim", "metadata_missing");
+        return;
+      }
       const fence: TtoReconsiderationFence = {
         claimOwnerId,
         expectedGenerationId: claim.generation_id,
@@ -4338,13 +4923,26 @@ async function runScheduledReconsideration(args: {
               delivery: { ...prior.delivery, preference_updated_at: delivery.preference_updated_at },
             },
           });
-          if (kept.ok) keptOrReplaced += 1;
+          if (kept.ok) {
+            keptOrReplaced += 1;
+            diagnostic.keep += 1;
+            diagnostic.persisted += 1;
+            noteCandidate(candidate, "decision", "keep");
+          } else {
+            diagnostic.failures.push({
+              stage: "keep",
+              supabase_code: null,
+              message: "keep_failed",
+            });
+            noteCandidate(candidate, "decision", "keep_failed");
+          }
           return;
         }
       }
       let generated: { ok: boolean; generationId?: string; machineNoSendReason?: string | null };
       try {
         if (candidate.owner === "evening") {
+          diagnostic.interpreter_calls += 1;
           generated = await generateTylerTextOverviewEveningPreviewForUser({
             clerkUserId: candidate.occurrence.clerkUserId,
             draftForDayKey: candidate.occurrence.memberLocalDate,
@@ -4356,6 +4954,8 @@ async function runScheduledReconsideration(args: {
         } else {
           const audience = await loadTylerTextOverviewAudienceRow(candidate.occurrence.clerkUserId);
           if (!audience) {
+            noteCandidate(candidate, "audience", "missing");
+            recordReconsiderationSkip(diagnostic, "audience_missing");
             await finishReconsiderationDecision({
               clerkUserId: candidate.occurrence.clerkUserId,
               draftForDayKey: candidate.occurrence.memberLocalDate,
@@ -4381,6 +4981,7 @@ async function runScheduledReconsideration(args: {
             });
             return;
           }
+          diagnostic.interpreter_calls += 1;
           generated = await generateTylerTextOverviewDraftForUser({
             audienceUser: audience,
             draftForDayKey: candidate.occurrence.memberLocalDate,
@@ -4413,12 +5014,36 @@ async function runScheduledReconsideration(args: {
             ...attemptedSundayFailureFields(candidate.attemptedSunday),
           },
         });
+        diagnostic.failures.push({
+          stage: "interpreter",
+          supabase_code: null,
+          message: "interpreter_threw",
+        });
+        noteCandidate(candidate, "decision", "interpreter_threw");
         return;
       }
-      if (!generated.ok) return;
+      if (!generated.ok) {
+        diagnostic.failures.push({
+          stage: "interpreter",
+          supabase_code: null,
+          message: "interpreter_failed",
+        });
+        noteCandidate(candidate, "decision", "interpreter_failed");
+        return;
+      }
       keptOrReplaced += 1;
       const replaced = generated.generationId !== fence.expectedGenerationId;
-      if (!replaced && checked.action !== "rescheduled") return;
+      if (!replaced && checked.action !== "rescheduled") {
+        diagnostic.keep += 1;
+        noteCandidate(candidate, "decision", "keep");
+        return;
+      }
+      if (replaced) {
+        diagnostic.replace += 1;
+        noteCandidate(candidate, "decision", "replace");
+      } else {
+        noteCandidate(candidate, "decision", "reschedule");
+      }
       try {
         await patchReconsiderationOccurrence({
           candidate,
@@ -4440,18 +5065,42 @@ async function runScheduledReconsideration(args: {
               }
             : undefined,
         });
+        diagnostic.persisted += 1;
+        noteCandidate(candidate, "persistence", "patched");
       } catch {
+        diagnostic.failures.push({
+          stage: "occurrence_patch",
+          supabase_code: null,
+          message: "occurrence_patch_failed",
+        });
+        noteCandidate(candidate, "persistence", "patch_failed");
         return;
       }
     },
   });
-  return {
+  for (const candidate of ordered) {
+    const trace = diagnostic.traces.find(
+      (item) =>
+        item.clerk_user_id === candidate.occurrence.clerkUserId
+        && item.member_local_date === candidate.occurrence.memberLocalDate
+        && item.send_slot === candidate.sendSlot
+    );
+    if (
+      trace
+      && trace.gate === "inputs"
+      && (trace.result === "changed" || trace.result === "changed_schedule_only")
+    ) {
+      noteCandidate(candidate, "claim", "not_started");
+      recordReconsiderationSkip(diagnostic, "not_started");
+    }
+  }
+  return finishScheduledReconsideration(diagnostic, {
     ok: true,
     considered: actualWork.value,
     kept_or_replaced: keptOrReplaced,
     skipped_unchanged: skippedUnchanged,
     error: null,
-  };
+  });
 }
 
 /**
