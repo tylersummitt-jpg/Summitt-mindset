@@ -24,6 +24,7 @@ import { observedSilenceDays } from "@/lib/sms-proactive-relationship-touch";
 import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import {
   SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+  SMS_DAILY_PRODUCTION_SEND_SLOT,
   SMS_DAILY_WEEKLY_REVIEW_SEND_SLOT,
   TYLER_TEXT_OVERVIEW_ENABLED_ENV,
 } from "@/lib/tyler-text-overview-types";
@@ -58,7 +59,14 @@ const db = vi.hoisted(() => ({
   smsWeeklySendEvents: [] as Array<Record<string, unknown>>,
   smsSendEventsSelectError: null as string | null,
   forceFinishRpcError: null as string | null,
+  finishCalls: [] as Array<Record<string, unknown>>,
 }));
+
+function sameNullable(left: unknown, right: unknown): boolean {
+  if (left == null && right == null) return true;
+  if (left == null || right == null) return false;
+  return String(left) === String(right);
+}
 
 function simulateFinishGeneration(args: Record<string, unknown>) {
   if (db.forceFinishRpcError) {
@@ -81,6 +89,62 @@ function simulateFinishGeneration(args: Record<string, unknown>) {
       (row.send_slot ?? "morning") === slot &&
       row.status === "current"
   );
+  if (args.p_reconsideration === true) {
+    const reject = (reason: string) => ({
+      data: [{ ok: false, protected: false, reason }],
+      error: null,
+    });
+    if (args.p_reconsideration_result !== "replace" || !draft) return reject("stale_version");
+    const current = db.generations.find((row) => row.id === draft.current_generation_id);
+    const meta = (current?.generation_metadata ?? {}) as Record<string, unknown>;
+    const claimOwner = typeof meta.reconsideration_claim_owner_id === "string"
+      ? meta.reconsideration_claim_owner_id
+      : null;
+    if (claimOwner !== String(args.p_claim_owner_id ?? "")) return reject("stale_claim_owner");
+    const versionMatches =
+      draft.current_generation_id === args.p_expected_generation_id
+      && sameNullable(draft.edited_at, args.p_expected_edited_at)
+      && String(draft.current_body_hash ?? "") === String(args.p_expected_body_hash ?? "")
+      && String(draft.current_body_source ?? "") === String(args.p_expected_body_source ?? "")
+      && (draft.edited_by_tyler === true) === (args.p_expected_edited_by_tyler === true);
+    if (!versionMatches) return reject("stale_version");
+    for (const generation of db.generations) {
+      if (
+        generation.clerk_user_id === clerk &&
+        generation.draft_for_day_key === day &&
+        (generation.send_slot ?? "morning") === slot &&
+        generation.id !== newId &&
+        generation.superseded_at == null
+      ) {
+        generation.superseded_by_generation_id = newId;
+        generation.superseded_at = nowIso;
+      }
+    }
+    const created = db.generations.find((row) => row.id === newId);
+    if (created) {
+      const existing = {
+        ...((created.generation_metadata ?? {}) as Record<string, unknown>),
+      };
+      delete existing.reconsideration_claim_owner_id;
+      created.generation_metadata = {
+        ...existing,
+        reconsideration_evidence: args.p_reconsideration_evidence ?? {},
+      };
+    }
+    Object.assign(draft, {
+      current_generation_id: newId,
+      current_body_to_send: args.p_machine_body ?? null,
+      current_body_source: "machine",
+      edited_by_tyler: false,
+      edited_at: null,
+      edit_distance_chars: null,
+      machine_body_hash: args.p_machine_body_hash ?? null,
+      current_body_hash: args.p_machine_body_hash ?? null,
+      status: "current",
+      updated_at: nowIso,
+    });
+    return { data: [{ ok: true, protected: false, reason: "replaced" }], error: null };
+  }
   const body = typeof draft?.current_body_to_send === "string" ? draft.current_body_to_send : "";
   const nonempty = body.trim().length > 0;
   const tyler =
@@ -448,6 +512,7 @@ vi.mock("@/lib/supabase-server", () => {
         if (fn !== "tto_finish_generation_persistence") {
           return { data: null, error: { message: `missing_rpc:${fn}` } };
         }
+        db.finishCalls.push(args ?? {});
         return simulateFinishGeneration(args ?? {});
       }),
     },
@@ -2951,6 +3016,248 @@ describe("Weekly persist explicit regenerate authority", () => {
     expect(src).not.toContain(".upsert(");
     expect(src).not.toContain("supersedePriorGenerations");
     expect(src).not.toContain("respectProtectedMorningDraft: false");
+  });
+});
+
+/**
+ * Mocked RPC. This process has no disposable PostgreSQL.
+ * The local finish simulator follows the deployed function's replace, stale-version,
+ * and claim-owner returns. It is not a database integration test.
+ */
+describe("authorized reconsideration persistence", () => {
+  const clerk = AUDIENCE_USER.clerk_user_id;
+  const day = "2026-11-27";
+  const tylerId = "ebb0e112-fdad-4ee9-a368-c23d0b927951";
+  const claimOwner = "57881676-c911-4e9b-9152-c0db091be20b";
+  const editedAt = "2026-11-26T22:08:39.835+00:00";
+  const bodyHash = "edc79004";
+  const tylerBody =
+    "Good morning, Tyler! It's 7 AM. Start your Friday by deciding what matters most before you open your laptop.";
+  const machineBody = "Good morning. Decide what matters before you open the laptop.";
+
+  beforeEach(() => {
+    db.generations = [];
+    db.drafts = [];
+    db.nextGenId = 3;
+    db.finishCalls = [];
+    db.forceFinishRpcError = null;
+  });
+
+  function seedTylerDraft(slot: "morning" | "evening_checkin", owner = claimOwner) {
+    db.generations.push({
+      id: tylerId,
+      clerk_user_id: clerk,
+      draft_for_day_key: day,
+      send_slot: slot,
+      generation_number: 2,
+      machine_no_send_reason: "intentional_space",
+      superseded_at: null,
+      generation_metadata: {
+        reconsideration_claim_owner_id: owner,
+        scheduled_generation_convention: "member_local_delivery_v1",
+      },
+    });
+    db.drafts.push({
+      clerk_user_id: clerk,
+      draft_for_day_key: day,
+      send_slot: slot,
+      status: "current",
+      current_generation_id: tylerId,
+      current_body_to_send: tylerBody,
+      current_body_source: "tyler_edit",
+      current_body_hash: bodyHash,
+      edited_by_tyler: true,
+      edited_at: editedAt,
+    });
+  }
+
+  function replacementFinish(slot: "morning" | "evening_checkin") {
+    const delivery = {
+      utc_instant: "2026-11-27T14:30:00.000Z",
+      member_local_date: day,
+      batch_date: "2026-11-27",
+      effective_local_minute: 570,
+      time_zone: "America/New_York",
+      send_slot: slot,
+      preference_updated_at: "2026-11-26T22:00:00.000Z",
+    };
+    return {
+      claimOwnerId: claimOwner,
+      expectedGenerationId: tylerId,
+      expectedEditedAt: editedAt,
+      expectedBodyHash: bodyHash,
+      expectedBodySource: "tyler_edit",
+      expectedEditedByTyler: true,
+      currentBody: tylerBody,
+      delivery,
+      evidence: {
+        succeeded: true as const,
+        thread_tail: null,
+        goal_text: "Decide what matters",
+        existing_body_sha256: bodyHash,
+        existing_body_source: "tyler_edit",
+        edited_by_tyler: true,
+        edited_at: editedAt,
+        delivery,
+        attempt_id: claimOwner,
+      },
+    };
+  }
+
+  async function replace(slot: "morning" | "evening_checkin", kind: "space" | "body") {
+    return persistMorningTtoGeneration({
+      clerkUserId: clerk,
+      draftForDayKey: day,
+      generationReason: "manual_regenerate",
+      commitmentId: null,
+      timezone: "America/New_York",
+      sendPrefSnapshot: "account",
+      now: new Date("2026-11-27T01:35:21.825Z"),
+      sendSlot: slot === "morning" ? SMS_DAILY_PRODUCTION_SEND_SLOT : SMS_DAILY_EVENING_PREVIEW_SEND_SLOT,
+      ...(kind === "space"
+        ? { failure: { error: "intentional_space" } }
+        : {
+            success: {
+              body: machineBody,
+              messages: [{ role: "user" as const, content: "writer" }],
+              writerPromptPath: "morning_relationship_v1" as const,
+            },
+          }),
+      reconsiderationFinish: replacementFinish(slot),
+    });
+  }
+
+  it.each([
+    ["morning", "space"],
+    ["morning", "body"],
+    ["evening_checkin", "space"],
+    ["evening_checkin", "body"],
+  ] as const)("authorizes a %s %s replacement of the 7 AM Tyler edit", async (slot, kind) => {
+    seedTylerDraft(slot);
+    const result = await replace(slot, kind);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.currentDraftProtected).not.toBe(true);
+    const call = db.finishCalls.at(-1) ?? {};
+    expect(call.p_reconsideration).toBe(true);
+    expect(call.p_reconsideration_result).toBe("replace");
+    expect(call.p_claim_owner_id).toBe(claimOwner);
+    expect(call.p_require_claim_owner).toBe(false);
+    expect(call.p_expected_generation_id).toBe(tylerId);
+    expect(call.p_expected_edited_at).toBe(editedAt);
+    expect(call.p_expected_body_hash).toBe(bodyHash);
+    expect(call.p_expected_body_source).toBe("tyler_edit");
+    expect(call.p_expected_edited_by_tyler).toBe(true);
+    expect(call.p_allow_replace_stale_tyler_nonempty).not.toBe(true);
+    expect(call.p_send_slot).toBe(slot);
+    if (kind === "space") {
+      expect(call.p_machine_body).toBeNull();
+      expect(db.drafts[0]?.current_body_to_send).toBeNull();
+    } else {
+      expect(call.p_machine_body).toBe(machineBody);
+      expect(db.drafts[0]?.current_body_to_send).toBe(machineBody);
+    }
+    expect(db.drafts[0]?.current_generation_id).toBe(result.generationId);
+    expect(db.drafts[0]?.current_body_source).toBe("machine");
+    expect(db.drafts[0]?.edited_by_tyler).toBe(false);
+    expect(db.drafts[0]?.edited_at).toBeNull();
+    const previous = db.generations.find((row) => row.id === tylerId);
+    const created = db.generations.find((row) => row.id === result.generationId);
+    expect(previous?.superseded_by_generation_id).toBe(result.generationId);
+    expect(created?.superseded_at == null).toBe(true);
+    const createdMeta = created?.generation_metadata as Record<string, unknown>;
+    expect(createdMeta.reconsideration_claim_owner_id).toBeUndefined();
+    const evidence = createdMeta.reconsideration_evidence as {
+      succeeded?: boolean;
+      delivery?: { effective_local_minute?: number };
+      applies_to_body_version?: { generation_id?: string; edited_by_tyler?: boolean };
+    };
+    expect(evidence.succeeded).toBe(true);
+    expect(evidence.delivery?.effective_local_minute).toBe(570);
+    expect(evidence.applies_to_body_version?.generation_id).toBe(result.generationId);
+    expect(evidence.applies_to_body_version?.edited_by_tyler).toBe(false);
+    expect((previous?.generation_metadata as Record<string, unknown>).reconsideration_claim_owner_id)
+      .toBe(claimOwner);
+  });
+
+  it("rejects a newer Tyler edit and leaves that edit and its claim in place", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    seedTylerDraft("morning");
+    db.drafts[0]!.edited_at = "2026-11-26T22:20:00.000Z";
+    const result = await replace("morning", "space");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe("stale_version");
+    expect(db.drafts[0]?.current_generation_id).toBe(tylerId);
+    expect(db.drafts[0]?.current_body_to_send).toBe(tylerBody);
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    const previous = db.generations.find((row) => row.id === tylerId);
+    expect(previous?.superseded_at == null).toBe(true);
+    expect((previous?.generation_metadata as Record<string, unknown>).reconsideration_claim_owner_id)
+      .toBe(claimOwner);
+    errorSpy.mockRestore();
+  });
+
+  it("does not replace a draft or clear a claim owned by another worker", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const otherOwner = "11111111-1111-4111-8111-111111111111";
+    seedTylerDraft("morning", otherOwner);
+    const result = await replace("morning", "body");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe("stale_claim_owner");
+    expect(db.drafts[0]?.current_generation_id).toBe(tylerId);
+    expect(db.drafts[0]?.current_body_to_send).toBe(tylerBody);
+    const previous = db.generations.find((row) => row.id === tylerId);
+    expect((previous?.generation_metadata as Record<string, unknown>).reconsideration_claim_owner_id)
+      .toBe(otherOwner);
+    expect(previous?.superseded_at == null).toBe(true);
+    errorSpy.mockRestore();
+  });
+
+  it("keeps an ordinary generation from authorizing a Tyler replacement", async () => {
+    seedTylerDraft("morning");
+    const result = await persistMorningTtoGeneration({
+      clerkUserId: clerk,
+      draftForDayKey: day,
+      generationReason: "noon_batch",
+      commitmentId: null,
+      timezone: "America/New_York",
+      sendPrefSnapshot: "account",
+      now: new Date("2026-11-27T01:35:21.825Z"),
+      sendSlot: SMS_DAILY_PRODUCTION_SEND_SLOT,
+      success: {
+        body: machineBody,
+        messages: [{ role: "user", content: "writer" }],
+        writerPromptPath: "morning_relationship_v1",
+      },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.currentDraftProtected).toBe(true);
+    expect(db.finishCalls.at(-1)?.p_reconsideration).toBeUndefined();
+    expect(db.drafts[0]?.current_generation_id).toBe(tylerId);
+    expect(db.drafts[0]?.current_body_to_send).toBe(tylerBody);
+    expect(db.drafts[0]?.edited_by_tyler).toBe(true);
+    const created = db.generations.find((row) => row.id === result.generationId);
+    expect(created?.superseded_by_generation_id).toBe(tylerId);
+  });
+
+  it("forwards reconsiderationFinish into the existing finish call", () => {
+    const src = readFileSync(join(process.cwd(), "src/lib/tyler-text-overview-generate.ts"), "utf8");
+    const persist = src.slice(
+      src.indexOf("export async function persistMorningTtoGeneration"),
+      src.indexOf("async function insertGenerationRow")
+    );
+    expect(persist).toContain("reconsiderationFinish?:");
+    expect(persist).toContain("reconsiderationFinish: args.reconsiderationFinish");
+    const finish = src.slice(
+      src.indexOf("async function finishTtoGenerationPersistence"),
+      src.indexOf("export async function finishReconsiderationDecision")
+    );
+    expect(finish).toContain('p_reconsideration: true');
+    expect(finish).toContain('p_reconsideration_result: "replace"');
+    expect(finish).toContain("p_require_claim_owner: false");
   });
 });
 

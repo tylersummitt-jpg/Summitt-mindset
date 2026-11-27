@@ -92,6 +92,8 @@ import {
   scheduledBatchWindowEndsAt,
   scheduledMemberEligibility,
   chooseAuthoritativeReconsiderationCandidate,
+  completedReconsiderationDeliveryRepair,
+  reconsiderationRecoveryAction,
   conversationsFromDiscoveryPayload,
   dashboardOutcomeFromCurrentDraft,
   dashboardRepairState,
@@ -111,7 +113,9 @@ import {
   reconsiderationGenerationReadChunks,
   recordReconsiderationTrace,
   unexpectedMissingAuthoritativeDrafts,
+  reconsiderationOccurrencePatchApplied,
   reconsiderationOutcomePatchAllowed,
+  reconsiderationReplacementDisposition,
   selectNextReconsiderationCandidates,
   selectPreviewOccurrence,
   selectRecoverableOccurrences,
@@ -6068,5 +6072,498 @@ describe("relevant reconsideration drafts", () => {
     );
     expect(run).toContain("finishScheduledReconsideration");
     expect(scheduler).toContain('console.log("[scheduled-reconsideration]"');
+  });
+});
+
+/**
+ * Decision and returned-batch checks. Not a PostgreSQL integration test.
+ * The SQL assertions below read the migration source. They do not execute it.
+ */
+describe("reconsideration persistence result", () => {
+  const tyler = "user_3Boa0IkXC7GzrZOBgcCem0DnFa9";
+  const previousId = "ebb0e112-fdad-4ee9-a368-c23d0b927951";
+
+  function friday(minute: number) {
+    return resolveProactiveSchedule({
+      preferenceRead: {
+        ok: true,
+        row: {
+          weekly_schedule: {
+            monday: 420,
+            tuesday: 420,
+            wednesday: 420,
+            thursday: 420,
+            friday: minute,
+            saturday: null,
+            sunday: 510,
+          },
+          schedule_timezone: "America/New_York",
+          pause_indefinite: false,
+          pause_until: null,
+          cadence_override: null,
+          weekend_send_policy: null,
+        },
+      },
+      clerkTimezone: null,
+      audienceTimezone: null,
+      memberLocalDate: "2026-11-27",
+      proactiveDeliveryAllowed: true,
+    });
+  }
+
+  it("does not treat a protected finish or an unchanged occurrence as success", () => {
+    expect(reconsiderationReplacementDisposition({
+      ok: true,
+      generationId: "gen-discarded",
+      expectedGenerationId: previousId,
+      currentDraftProtected: true,
+    })).toBe("rejected");
+    expect(reconsiderationReplacementDisposition({
+      ok: false,
+      generationId: "gen-discarded",
+      expectedGenerationId: previousId,
+    })).toBe("rejected");
+    expect(reconsiderationReplacementDisposition({
+      ok: true,
+      generationId: "gen-authoritative",
+      expectedGenerationId: previousId,
+      currentDraftProtected: false,
+    })).toBe("replaced");
+    expect(reconsiderationReplacementDisposition({
+      ok: true,
+      generationId: previousId,
+      expectedGenerationId: previousId,
+      currentDraftProtected: true,
+    })).toBe("unchanged");
+
+    const seven = friday(420);
+    const nineThirty = friday(570);
+    expect(seven.kind).toBe("scheduled");
+    expect(nineThirty.kind).toBe("scheduled");
+    if (seven.kind !== "scheduled" || nineThirty.kind !== "scheduled") return;
+    const requested = {
+      utcInstant: nineThirty.utcInstant,
+      selectedLocalMinute: 570,
+      effectiveLocalMinute: 570,
+      timeZone: "America/New_York",
+    };
+    const staleBatch = {
+      occurrences: [{
+        clerk_user_id: tyler,
+        member_local_date: "2026-11-27",
+        state: "intentional_space",
+        utc_instant: seven.utcInstant,
+        selected_local_minute: 420,
+        effective_local_minute: 420,
+        time_zone: "America/New_York",
+      }],
+    };
+    expect(reconsiderationOccurrencePatchApplied({
+      batch: staleBatch,
+      clerkUserId: tyler,
+      memberLocalDate: "2026-11-27",
+      state: "intentional_space",
+      delivery: requested,
+    })).toBe(false);
+    expect(reconsiderationOccurrencePatchApplied({
+      batch: {
+        occurrences: [{
+          ...staleBatch.occurrences[0],
+          utc_instant: nineThirty.utcInstant,
+          selected_local_minute: 570,
+          effective_local_minute: 570,
+        }],
+      },
+      clerkUserId: tyler,
+      memberLocalDate: "2026-11-27",
+      state: "intentional_space",
+      delivery: requested,
+    })).toBe(true);
+    expect(reconsiderationOccurrencePatchApplied({
+      batch: { occurrences: [] },
+      clerkUserId: tyler,
+      memberLocalDate: "2026-11-27",
+      state: "generated",
+    })).toBe(false);
+  });
+
+  it("does not reconsider a completed replacement when the 9:30 evidence is unchanged", () => {
+    const nineThirty = friday(570);
+    const seven = friday(420);
+    expect(nineThirty.kind).toBe("scheduled");
+    expect(seven.kind).toBe("scheduled");
+    if (nineThirty.kind !== "scheduled" || seven.kind !== "scheduled") return;
+    const machineVersion: TtoBodyVersion = {
+      generation_id: "gen-authoritative",
+      body_hash: null,
+      edited_at: null,
+      body_source: "machine",
+      edited_by_tyler: false,
+    };
+    const delivery = {
+      utc_instant: nineThirty.utcInstant,
+      member_local_date: "2026-11-27",
+      batch_date: nineThirty.batchDate,
+      effective_local_minute: 570,
+      time_zone: "America/New_York",
+      send_slot: "morning",
+      preference_updated_at: "2026-11-26T22:00:00.000Z",
+    };
+    const bound = bindFinishedConsiderationEvidence({
+      evidence: {
+        succeeded: true,
+        considered_source_ids: [],
+        thread_tail: null,
+        goal_text: "Decide what matters",
+        existing_body_sha256: "edc79004",
+        existing_body_source: "tyler_edit",
+        edited_by_tyler: true,
+        edited_at: "2026-11-26T22:08:39.835+00:00",
+        delivery,
+        attempt_id: "57881676-c911-4e9b-9152-c0db091be20b",
+      },
+      result: "replace",
+      version: machineVersion,
+    });
+    const live = {
+      memberLocalDate: "2026-11-27",
+      effectiveLocalMinute: 570,
+      timeZone: "America/New_York",
+      utcInstant: nineThirty.utcInstant,
+      owner: nineThirty.owner,
+    };
+    const tylerContext: TtoEditDeliveryContext = {
+      status: "known",
+      member_local_date: "2026-11-27",
+      effective_local_minute: 420,
+      time_zone: "America/New_York",
+      utc_instant: seven.utcInstant,
+      owner: seven.owner,
+      body_hash: "edc79004",
+      generation_id: previousId,
+      edited_at: "2026-11-26T22:08:39.835+00:00",
+    };
+    expect(currentBodyEditContextRequiresReconsideration({
+      context: tylerContext,
+      currentBodyHash: machineVersion.body_hash,
+      current: live,
+      considered: bound,
+      currentVersion: machineVersion,
+    })).toBe(false);
+    const now = new Date("2026-11-27T01:50:00.000Z");
+    expect(reconsiderationInputsChanged({
+      considered: bound,
+      failedAttempt: null,
+      discovered: [],
+      retrieval: "ok",
+      goalText: "Decide what matters",
+      goalReadOk: true,
+      delivery: {
+        utcInstant: nineThirty.utcInstant,
+        effectiveLocalMinute: 570,
+        timeZone: "America/New_York",
+      },
+      deliveryReadOk: true,
+      editContextRequiresReconsideration: false,
+      scheduleChangedSinceSuccess: false,
+      scheduleChangedSinceFailure: false,
+      retryAfter: null,
+      now,
+    })).toBe("unchanged");
+    expect(reconsiderationInputsChanged({
+      considered: {
+        ...bound,
+        delivery: { ...delivery, utc_instant: seven.utcInstant, effective_local_minute: 420 },
+        applies_to_body_version: {
+          generation_id: previousId,
+          body_hash: "edc79004",
+          edited_at: "2026-11-26T22:08:39.835+00:00",
+          body_source: "tyler_edit",
+          edited_by_tyler: true,
+        },
+      },
+      failedAttempt: null,
+      discovered: [],
+      retrieval: "ok",
+      goalText: "Decide what matters",
+      goalReadOk: true,
+      delivery: {
+        utcInstant: nineThirty.utcInstant,
+        effectiveLocalMinute: 570,
+        timeZone: "America/New_York",
+      },
+      deliveryReadOk: true,
+      editContextRequiresReconsideration: true,
+      scheduleChangedSinceSuccess: false,
+      scheduleChangedSinceFailure: false,
+      retryAfter: null,
+      now,
+    })).toBe("changed");
+  });
+
+  it("matches the deployed replace authorization and the worker's rejection gates", () => {
+    const replaceStart = MIGRATION.indexOf("IF p_reconsideration_result IS DISTINCT FROM 'replace' THEN");
+    const replaceEnd = MIGRATION.indexOf("RETURN QUERY SELECT true, false, 'replaced'::text;");
+    const replace = MIGRATION.slice(replaceStart, replaceEnd);
+    expect(replace).toContain("current_generation_id = p_new_generation_id");
+    expect(replace).toContain("current_body_to_send = p_machine_body");
+    expect(replace).toContain("superseded_by_generation_id = p_new_generation_id");
+    expect(replace).toContain("AND current_generation_id = p_expected_generation_id");
+    expect(replace).not.toContain("v_draft.current_generation_id");
+    const authorization = MIGRATION.slice(
+      MIGRATION.indexOf("IF coalesce(p_reconsideration, false) THEN"),
+      replaceEnd
+    );
+    expect(authorization).toContain("stale_version");
+    expect(authorization).toContain("stale_claim_owner");
+    expect(authorization).toContain("v_retry <= clock_timestamp()");
+    const claim = MIGRATION.slice(
+      MIGRATION.indexOf("IF coalesce(p_mode, 'initial') = 'reconsider' THEN"),
+      MIGRATION.indexOf("IF v_draft.edited_by_tyler IS TRUE")
+    );
+    expect(claim).toContain("v_gen.id");
+    expect(claim).toContain("reconsideration_claim_owner_id");
+    const scheduler = readFileSync(join(process.cwd(), "src/lib/tto-scheduled-generate.ts"), "utf8");
+    const run = scheduler.slice(
+      scheduler.indexOf("async function runScheduledReconsideration"),
+      scheduler.indexOf("async function recoverAuthoritativeOccurrences")
+    );
+    expect(run).toContain("reconsiderationReplacementDisposition");
+    expect(run).toContain("current_draft_protected");
+    expect(run).toContain("occurrence_patch_not_applied");
+    expect(run).toContain("patch_not_applied");
+    expect(scheduler).toContain("function reconsiderationOccurrencePatchApplied");
+  });
+});
+
+describe("completed reconsideration delivery repair", () => {
+  const previousId = "ebb0e112-fdad-4ee9-a368-c23d0b927951";
+  const machineVersion: TtoBodyVersion = {
+    generation_id: "gen-authoritative",
+    body_hash: null,
+    edited_at: null,
+    body_source: "machine",
+    edited_by_tyler: false,
+  };
+
+  function friday(minute: number) {
+    const resolved = resolveProactiveSchedule({
+      preferenceRead: {
+        ok: true,
+        row: {
+          weekly_schedule: {
+            monday: 420,
+            tuesday: 420,
+            wednesday: 420,
+            thursday: 420,
+            friday: minute,
+            saturday: null,
+            sunday: 510,
+          },
+          schedule_timezone: "America/New_York",
+          pause_indefinite: false,
+          pause_until: null,
+          cadence_override: null,
+          weekend_send_policy: null,
+        },
+      },
+      clerkTimezone: null,
+      audienceTimezone: null,
+      memberLocalDate: "2026-11-27",
+      proactiveDeliveryAllowed: true,
+    });
+    if (resolved.kind !== "scheduled") throw new Error("friday schedule did not resolve");
+    return resolved;
+  }
+
+  function completedEvidence(deliveryMinute: number) {
+    const live = friday(deliveryMinute);
+    return bindFinishedConsiderationEvidence({
+      evidence: {
+        succeeded: true,
+        considered_source_ids: [],
+        thread_tail: null,
+        goal_text: "Decide what matters",
+        existing_body_sha256: "edc79004",
+        existing_body_source: "tyler_edit",
+        edited_by_tyler: true,
+        edited_at: "2026-11-26T22:08:39.835+00:00",
+        delivery: {
+          utc_instant: live.utcInstant,
+          member_local_date: "2026-11-27",
+          batch_date: live.batchDate,
+          effective_local_minute: live.effectiveLocalMinute,
+          time_zone: live.timeZone,
+          send_slot: "morning",
+          preference_updated_at: "2026-11-26T22:00:00.000Z",
+        },
+        attempt_id: "57881676-c911-4e9b-9152-c0db091be20b",
+      },
+      result: "replace",
+      version: machineVersion,
+    });
+  }
+
+  function occurrenceAt(minute: number) {
+    const stored = friday(minute);
+    return {
+      utcInstant: stored.utcInstant,
+      selectedLocalMinute: stored.selectedLocalMinute,
+      effectiveLocalMinute: stored.effectiveLocalMinute,
+      timeZone: stored.timeZone,
+      state: "intentional_space",
+    };
+  }
+
+  it("repairs a stale occurrence on the next tick after a failed patch, without another model call", () => {
+    const seven = friday(420);
+    const nineThirty = friday(570);
+    const evidence = completedEvidence(570);
+    expect(reconsiderationReplacementDisposition({
+      ok: true,
+      generationId: machineVersion.generation_id,
+      expectedGenerationId: previousId,
+      currentDraftProtected: false,
+    })).toBe("replaced");
+    expect(reconsiderationOccurrencePatchApplied({
+      batch: {
+        occurrences: [{
+          clerk_user_id: "user_3Boa0IkXC7GzrZOBgcCem0DnFa9",
+          member_local_date: "2026-11-27",
+          state: "intentional_space",
+          utc_instant: seven.utcInstant,
+          selected_local_minute: 420,
+          effective_local_minute: 420,
+          time_zone: "America/New_York",
+        }],
+      },
+      clerkUserId: "user_3Boa0IkXC7GzrZOBgcCem0DnFa9",
+      memberLocalDate: "2026-11-27",
+      state: "intentional_space",
+      delivery: {
+        utcInstant: nineThirty.utcInstant,
+        selectedLocalMinute: 570,
+        effectiveLocalMinute: 570,
+        timeZone: "America/New_York",
+      },
+    })).toBe(false);
+    const repair = completedReconsiderationDeliveryRepair({
+      evidence,
+      currentVersion: machineVersion,
+      live: {
+        utcInstant: nineThirty.utcInstant,
+        selectedLocalMinute: nineThirty.selectedLocalMinute,
+        effectiveLocalMinute: nineThirty.effectiveLocalMinute,
+        timeZone: nineThirty.timeZone,
+      },
+      occurrence: occurrenceAt(420),
+      editedByTyler: false,
+      bodySource: "machine",
+    });
+    expect(repair).toEqual({
+      utcInstant: nineThirty.utcInstant,
+      selectedLocalMinute: 570,
+      effectiveLocalMinute: 570,
+      timeZone: "America/New_York",
+    });
+    expect(reconsiderationRecoveryAction({
+      mustReconsider: false,
+      deliveryRepair: repair,
+    })).toBe("repair_delivery");
+    const scheduler = readFileSync(join(process.cwd(), "src/lib/tto-scheduled-generate.ts"), "utf8");
+    const run = scheduler.slice(
+      scheduler.indexOf("async function runScheduledReconsideration"),
+      scheduler.indexOf("async function recoverAuthoritativeOccurrences")
+    );
+    const repairLoop = run.slice(run.indexOf("for (const repair of repairs)"), run.indexOf("const workCap"));
+    expect(run).toContain("completedReconsiderationDeliveryRepair");
+    expect(run).toContain("reconsiderationRecoveryAction");
+    expect(repairLoop).toContain("refreshDelivery: repair.refreshDelivery === true");
+    expect(repairLoop).not.toContain("generateTylerTextOverview");
+    expect(repairLoop).not.toContain("interpreter_calls");
+  });
+
+  it("does not let a newer Tyler edit or a later schedule authorize the stored repair", () => {
+    const evidence = completedEvidence(570);
+    const nineThirty = friday(570);
+    const later = friday(540);
+    const live = {
+      utcInstant: nineThirty.utcInstant,
+      selectedLocalMinute: nineThirty.selectedLocalMinute,
+      effectiveLocalMinute: nineThirty.effectiveLocalMinute,
+      timeZone: nineThirty.timeZone,
+    };
+    expect(completedReconsiderationDeliveryRepair({
+      evidence,
+      currentVersion: {
+        generation_id: "gen-newer-tyler",
+        body_hash: "newer-hash",
+        edited_at: "2026-11-27T12:00:00.000Z",
+        body_source: "tyler_edit",
+        edited_by_tyler: true,
+      },
+      live,
+      occurrence: occurrenceAt(420),
+      editedByTyler: true,
+      bodySource: "tyler_edit",
+    })).toBeNull();
+    expect(completedReconsiderationDeliveryRepair({
+      evidence,
+      currentVersion: machineVersion,
+      live: {
+        utcInstant: later.utcInstant,
+        selectedLocalMinute: later.selectedLocalMinute,
+        effectiveLocalMinute: later.effectiveLocalMinute,
+        timeZone: later.timeZone,
+      },
+      occurrence: occurrenceAt(420),
+      editedByTyler: false,
+      bodySource: "machine",
+    })).toBeNull();
+    expect(reconsiderationRecoveryAction({
+      mustReconsider: true,
+      deliveryRepair: null,
+    })).toBe("reconsider");
+  });
+
+  it("does no further work when the occurrence already matches the completed evidence", () => {
+    const nineThirty = friday(570);
+    const evidence = completedEvidence(570);
+    expect(completedReconsiderationDeliveryRepair({
+      evidence,
+      currentVersion: machineVersion,
+      live: {
+        utcInstant: nineThirty.utcInstant,
+        selectedLocalMinute: nineThirty.selectedLocalMinute,
+        effectiveLocalMinute: nineThirty.effectiveLocalMinute,
+        timeZone: nineThirty.timeZone,
+      },
+      occurrence: occurrenceAt(570),
+      editedByTyler: false,
+      bodySource: "machine",
+    })).toBeNull();
+    expect(reconsiderationRecoveryAction({
+      mustReconsider: false,
+      deliveryRepair: null,
+    })).toBe("idle");
+    expect(reconsiderationInputsChanged({
+      considered: evidence,
+      failedAttempt: null,
+      discovered: [],
+      retrieval: "ok",
+      goalText: "Decide what matters",
+      goalReadOk: true,
+      delivery: {
+        utcInstant: nineThirty.utcInstant,
+        effectiveLocalMinute: nineThirty.effectiveLocalMinute,
+        timeZone: nineThirty.timeZone,
+      },
+      deliveryReadOk: true,
+      editContextRequiresReconsideration: false,
+      scheduleChangedSinceSuccess: false,
+      scheduleChangedSinceFailure: false,
+      retryAfter: null,
+      now: new Date("2026-11-27T10:39:00.000Z"),
+    })).toBe("unchanged");
   });
 });

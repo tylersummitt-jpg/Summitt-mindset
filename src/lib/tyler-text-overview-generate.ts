@@ -589,6 +589,13 @@ export async function persistMorningTtoGeneration(args: {
   scheduledGenerationMetadata?: Record<string, unknown> | null;
   /** When set, finish must still own this scheduled-generation claim. */
   claimOwnerId?: string | null;
+  /**
+   * Authorized reconsideration replacement.
+   * Passed through to the existing finish RPC. It does not bypass the version or claim checks.
+   */
+  reconsiderationFinish?: TtoReconsiderationFence & {
+    evidence: TtoInputEvidence;
+  };
   routeKind?: string;
   notebookVerdictReason?: string;
 }): Promise<
@@ -674,6 +681,9 @@ export async function persistMorningTtoGeneration(args: {
     protectTylerProvenanceOnly: args.protectTylerProvenanceOnly,
     allowReplaceStaleTylerNonempty: args.allowReplaceStaleTylerNonempty === true,
     ...(args.claimOwnerId ? { claimOwnerId: args.claimOwnerId } : {}),
+    ...(args.reconsiderationFinish
+      ? { reconsiderationFinish: args.reconsiderationFinish }
+      : {}),
   });
   if (!finished.ok) {
     return { ok: false, reason: "upsert_failed", error: finished.error };

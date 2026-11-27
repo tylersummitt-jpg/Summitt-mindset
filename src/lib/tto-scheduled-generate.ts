@@ -57,6 +57,7 @@ import {
   readTylerEditDeliveryContext,
   currentBodyEditContextRequiresReconsideration,
   editContextBelongsToBodyVersion,
+  considerationMatchesCurrentDelivery,
   evidenceApprovesCurrentBody,
   tylerEditDeliveryMateriallyDiffers,
   loadTylerTextOverviewAudienceRow,
@@ -2293,6 +2294,7 @@ export type AuthoritativeDelivery = {
   owner: ProactiveTtoOwner;
   batchDate: string;
   utcInstant: string;
+  selectedLocalMinute?: number;
   effectiveLocalMinute?: number;
   timeZone?: string;
 };
@@ -2366,6 +2368,70 @@ export function dashboardRepairState(args: {
   if (!RECONSIDERATION_STATES.has(args.occurrenceState)) return null;
   if (args.draftState === args.occurrenceState) return null;
   return args.draftState;
+}
+
+export type CompletedDeliveryRepair = {
+  utcInstant: string;
+  selectedLocalMinute: number;
+  effectiveLocalMinute: number;
+  timeZone: string;
+};
+
+/**
+ * The occurrence clock is stale, but the current generation already records a
+ * completed reconsideration for this body and the live delivery.
+ * Returns the live delivery to write. It does not authorize another model call.
+ */
+export function completedReconsiderationDeliveryRepair(args: {
+  evidence: TtoInputEvidence | null;
+  currentVersion: TtoBodyVersion;
+  live: {
+    utcInstant: string;
+    selectedLocalMinute: number;
+    effectiveLocalMinute: number;
+    timeZone: string;
+  } | null;
+  occurrence: {
+    utcInstant: string;
+    selectedLocalMinute: number;
+    effectiveLocalMinute: number;
+    timeZone: string;
+    state: string;
+  };
+  editedByTyler: boolean;
+  bodySource: string | null;
+}): CompletedDeliveryRepair | null {
+  if (!args.live) return null;
+  if (args.editedByTyler || args.bodySource === "tyler_edit") return null;
+  if (!RECONSIDERATION_STATES.has(args.occurrence.state as OccurrenceState)) return null;
+  if (!evidenceApprovesCurrentBody(args.evidence, args.currentVersion)) return null;
+  if (!considerationMatchesCurrentDelivery(args.evidence, {
+    utcInstant: args.live.utcInstant,
+    effectiveLocalMinute: args.live.effectiveLocalMinute,
+    timeZone: args.live.timeZone,
+  })) {
+    return null;
+  }
+  const synchronized = args.occurrence.utcInstant === args.live.utcInstant
+    && args.occurrence.selectedLocalMinute === args.live.selectedLocalMinute
+    && args.occurrence.effectiveLocalMinute === args.live.effectiveLocalMinute
+    && args.occurrence.timeZone === args.live.timeZone;
+  if (synchronized) return null;
+  return {
+    utcInstant: args.live.utcInstant,
+    selectedLocalMinute: args.live.selectedLocalMinute,
+    effectiveLocalMinute: args.live.effectiveLocalMinute,
+    timeZone: args.live.timeZone,
+  };
+}
+
+export function reconsiderationRecoveryAction(args: {
+  mustReconsider: boolean;
+  deliveryRepair: CompletedDeliveryRepair | null;
+}): "repair_delivery" | "reconsider" | "idle" {
+  if (args.mustReconsider) return "reconsider";
+  if (args.deliveryRepair) return "repair_delivery";
+  return "idle";
 }
 
 export function reconsiderationOutcomePatchAllowed(args: {
@@ -3162,7 +3228,7 @@ async function patchReconsiderationOccurrence(args: {
       : {}),
     patchKind: args.state === "expired" || args.state === "ineligible" ? "eligibility" : "reconcile",
   };
-  const { error } = await supabaseServer.rpc("tto_generation_batch_patch", {
+  const { data, error } = await supabaseServer.rpc("tto_generation_batch_patch", {
     p_batch_date: args.candidate.batchDate,
     p_send_slot: args.candidate.sendSlot,
     p_actor_trigger: "automatic_schedule",
@@ -3182,6 +3248,56 @@ async function patchReconsiderationOccurrence(args: {
     p_append: [],
   });
   if (error) throw new Error(error.message);
+  if (!reconsiderationOccurrencePatchApplied({
+    batch: data,
+    clerkUserId: args.candidate.occurrence.clerkUserId,
+    memberLocalDate: args.candidate.occurrence.memberLocalDate,
+    state: args.state,
+    ...(args.refreshDelivery && args.delivery ? { delivery: args.delivery } : {}),
+  })) {
+    throw new Error("occurrence_patch_not_applied");
+  }
+}
+
+export function reconsiderationOccurrencePatchApplied(args: {
+  batch: unknown;
+  clerkUserId: string;
+  memberLocalDate: string;
+  state: string;
+  delivery?: {
+    utcInstant: string;
+    selectedLocalMinute: number;
+    effectiveLocalMinute: number;
+    timeZone: string;
+  };
+}): boolean {
+  const root = Array.isArray(args.batch) ? args.batch[0] : args.batch;
+  if (!root || typeof root !== "object") return false;
+  const occurrences = (root as { occurrences?: unknown }).occurrences;
+  if (!Array.isArray(occurrences)) return false;
+  const match = occurrences.find((item) => {
+    if (!item || typeof item !== "object") return false;
+    const row = item as Record<string, unknown>;
+    return row.clerk_user_id === args.clerkUserId && row.member_local_date === args.memberLocalDate;
+  }) as Record<string, unknown> | undefined;
+  if (!match || match.state !== args.state) return false;
+  if (!args.delivery) return true;
+  return match.utc_instant === args.delivery.utcInstant
+    && Number(match.selected_local_minute) === args.delivery.selectedLocalMinute
+    && Number(match.effective_local_minute) === args.delivery.effectiveLocalMinute
+    && match.time_zone === args.delivery.timeZone;
+}
+
+export function reconsiderationReplacementDisposition(args: {
+  ok: boolean;
+  generationId?: string | null;
+  expectedGenerationId: string;
+  currentDraftProtected?: boolean;
+}): "rejected" | "replaced" | "unchanged" {
+  if (!args.ok || !args.generationId) return "rejected";
+  if (args.generationId === args.expectedGenerationId) return "unchanged";
+  if (args.currentDraftProtected === true) return "rejected";
+  return "replaced";
 }
 
 export async function loadOneScheduledConversation(
@@ -4016,6 +4132,8 @@ async function runScheduledReconsideration(args: {
     state: "generated" | "intentional_space" | "protected";
     expectedGenerationId: string;
     expectedEditedAt: string | null;
+    refreshDelivery?: boolean;
+    delivery?: CompletedDeliveryRepair;
   }> = [];
   let skippedUnchanged = 0;
   const upcomingByMember = new Map<string, NextOccurrenceCandidate[]>();
@@ -4029,6 +4147,7 @@ async function runScheduledReconsideration(args: {
   const discoveryIdsByUser = new Map<string, string[]>();
   const liveDeliveryByCandidate = new Map<string, {
     utcInstant: string;
+    selectedLocalMinute: number;
     effectiveLocalMinute: number;
     timeZone: string;
     memberLocalDate: string;
@@ -4097,6 +4216,7 @@ async function runScheduledReconsideration(args: {
         owner: result.owner,
         batchDate: result.batchDate,
         utcInstant: result.utcInstant,
+        selectedLocalMinute: result.selectedLocalMinute,
         effectiveLocalMinute: result.effectiveLocalMinute,
         timeZone: result.timeZone,
       };
@@ -4204,6 +4324,7 @@ async function runScheduledReconsideration(args: {
       );
       if (
         live &&
+        typeof live.selectedLocalMinute === "number" &&
         typeof live.effectiveLocalMinute === "number" &&
         typeof live.timeZone === "string" &&
         live.timeZone.trim()
@@ -4212,6 +4333,7 @@ async function runScheduledReconsideration(args: {
           `${chosen.occurrence.clerkUserId}|${chosen.occurrence.memberLocalDate}|${chosen.sendSlot}`,
           {
             utcInstant: live.utcInstant,
+            selectedLocalMinute: live.selectedLocalMinute,
             effectiveLocalMinute: live.effectiveLocalMinute,
             timeZone: live.timeZone,
             memberLocalDate: live.memberLocalDate,
@@ -4418,14 +4540,6 @@ async function runScheduledReconsideration(args: {
       occurrenceState: candidate.occurrence.state,
       draftState,
     });
-    if (repairState && generationId && decision !== "changed") {
-      repairs.push({
-        candidate,
-        state: repairState,
-        expectedGenerationId: generationId,
-        expectedEditedAt: typeof draft?.edited_at === "string" ? draft.edited_at : null,
-      });
-    }
     const crossOwner = crossOwnerActionForCandidate({
       clerkUserId: candidate.occurrence.clerkUserId,
       memberLocalDate: candidate.occurrence.memberLocalDate,
@@ -4435,6 +4549,51 @@ async function runScheduledReconsideration(args: {
       generationMeta,
     });
     const mustReconsider = decision === "changed" || crossOwner.transfer || crossOwner.moveBack;
+    const storedLive = liveDeliveryByCandidate.get(
+      `${candidate.occurrence.clerkUserId}|${candidate.occurrence.memberLocalDate}|${candidate.sendSlot}`
+    );
+    const deliveryRepair = completedReconsiderationDeliveryRepair({
+      evidence: considered,
+      currentVersion: currentBodyVersion,
+      live: storedLive
+        ? {
+            utcInstant: storedLive.utcInstant,
+            selectedLocalMinute: storedLive.selectedLocalMinute,
+            effectiveLocalMinute: storedLive.effectiveLocalMinute,
+            timeZone: storedLive.timeZone,
+          }
+        : null,
+      occurrence: {
+        utcInstant: candidate.occurrence.utcInstant,
+        selectedLocalMinute: candidate.occurrence.selectedLocalMinute,
+        effectiveLocalMinute: candidate.occurrence.effectiveLocalMinute,
+        timeZone: candidate.occurrence.timeZone,
+        state: candidate.occurrence.state,
+      },
+      editedByTyler: draft?.edited_by_tyler === true,
+      bodySource: typeof draft?.current_body_source === "string" ? draft.current_body_source : null,
+    });
+    const recovery = reconsiderationRecoveryAction({ mustReconsider, deliveryRepair });
+    if (generationId && decision !== "changed" && (repairState || recovery === "repair_delivery")) {
+      const nextState = repairState ?? (
+        candidate.occurrence.state === "generated"
+        || candidate.occurrence.state === "intentional_space"
+        || candidate.occurrence.state === "protected"
+          ? candidate.occurrence.state
+          : null
+      );
+      if (nextState) {
+        repairs.push({
+          candidate,
+          state: nextState,
+          expectedGenerationId: generationId,
+          expectedEditedAt: typeof draft?.edited_at === "string" ? draft.edited_at : null,
+          ...(recovery === "repair_delivery" && deliveryRepair
+            ? { refreshDelivery: true, delivery: deliveryRepair }
+            : {}),
+        });
+      }
+    }
     if (decision === "unchanged" && !mustReconsider) {
       skippedUnchanged += 1;
       diagnostic.unchanged += 1;
@@ -4520,17 +4679,27 @@ async function runScheduledReconsideration(args: {
         expectedState: repair.candidate.occurrence.state,
         expectedGenerationId: repair.expectedGenerationId,
         expectedEditedAt: repair.expectedEditedAt,
-        refreshDelivery: false,
+        refreshDelivery: repair.refreshDelivery === true,
+        ...(repair.delivery ? { delivery: repair.delivery } : {}),
       });
       diagnostic.persisted += 1;
-      noteCandidate(repair.candidate, "persistence", "repaired");
-    } catch {
+      noteCandidate(
+        repair.candidate,
+        "persistence",
+        repair.refreshDelivery === true ? "delivery_repaired" : "repaired"
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "repair_patch_failed";
       diagnostic.failures.push({
         stage: "repair_patch",
         supabase_code: null,
-        message: "repair_patch_failed",
+        message: safeReconsiderationReadMessage(message, "repair_patch_failed"),
       });
-      noteCandidate(repair.candidate, "persistence", "repair_failed");
+      noteCandidate(
+        repair.candidate,
+        "persistence",
+        message === "occurrence_patch_not_applied" ? "patch_not_applied" : "repair_failed"
+      );
       continue;
     }
   }
@@ -4939,7 +5108,13 @@ async function runScheduledReconsideration(args: {
           return;
         }
       }
-      let generated: { ok: boolean; generationId?: string; machineNoSendReason?: string | null };
+      let generated: {
+        ok: boolean;
+        generationId?: string;
+        machineNoSendReason?: string | null;
+        currentDraftProtected?: boolean;
+        error?: string;
+      };
       try {
         if (candidate.owner === "evening") {
           diagnostic.interpreter_calls += 1;
@@ -5023,16 +5198,38 @@ async function runScheduledReconsideration(args: {
         return;
       }
       if (!generated.ok) {
+        const rejection = generated.error?.trim() || "interpreter_failed";
+        const persistenceRejection = rejection === "stale_version" || rejection === "stale_claim_owner";
         diagnostic.failures.push({
-          stage: "interpreter",
+          stage: persistenceRejection ? "replacement_rejected" : "interpreter",
           supabase_code: null,
-          message: "interpreter_failed",
+          message: safeReconsiderationReadMessage(rejection, "interpreter_failed"),
         });
-        noteCandidate(candidate, "decision", "interpreter_failed");
+        noteCandidate(
+          candidate,
+          persistenceRejection ? "persistence" : "decision",
+          persistenceRejection ? "rejected" : "interpreter_failed"
+        );
+        return;
+      }
+      const replacementDisposition = reconsiderationReplacementDisposition({
+        ok: generated.ok,
+        generationId: generated.generationId,
+        expectedGenerationId: fence.expectedGenerationId,
+        currentDraftProtected: generated.currentDraftProtected,
+      });
+      if (replacementDisposition === "rejected") {
+        diagnostic.failures.push({
+          stage: "replacement_rejected",
+          supabase_code: null,
+          message: "current_draft_protected",
+        });
+        noteCandidate(candidate, "persistence", "rejected");
+        recordReconsiderationSkip(diagnostic, "replacement_rejected");
         return;
       }
       keptOrReplaced += 1;
-      const replaced = generated.generationId !== fence.expectedGenerationId;
+      const replaced = replacementDisposition === "replaced";
       if (!replaced && checked.action !== "rescheduled") {
         diagnostic.keep += 1;
         noteCandidate(candidate, "decision", "keep");
@@ -5067,13 +5264,18 @@ async function runScheduledReconsideration(args: {
         });
         diagnostic.persisted += 1;
         noteCandidate(candidate, "persistence", "patched");
-      } catch {
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "occurrence_patch_failed";
         diagnostic.failures.push({
           stage: "occurrence_patch",
           supabase_code: null,
-          message: "occurrence_patch_failed",
+          message: safeReconsiderationReadMessage(message, "occurrence_patch_failed"),
         });
-        noteCandidate(candidate, "persistence", "patch_failed");
+        noteCandidate(
+          candidate,
+          "persistence",
+          message === "occurrence_patch_not_applied" ? "patch_not_applied" : "patch_failed"
+        );
         return;
       }
     },
