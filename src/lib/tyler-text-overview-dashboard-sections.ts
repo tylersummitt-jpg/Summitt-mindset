@@ -87,9 +87,9 @@ export const MORNING_GENERATION_PROVENANCE_LABEL =
 /** Evening dual-body labels (Morning copy stays Morning-specific). */
 export const EVENING_CURRENT_BODY_HEADING = "CURRENT AUTHORITATIVE BODY";
 export const EVENING_CURRENT_BODY_LABEL =
-  "This is the authoritative saved body. Evening sending is not enabled yet.";
+  "This is the authoritative body automatic delivery will send after send-path trimming.";
 export const EVENING_CURRENT_BODY_BLANK =
-  "Blank current body — no Evening text will send when sending is enabled.";
+  "Blank current body — no Evening text will send.";
 
 export const TTO_MESSAGE_FOR_HEADING = "THIS MESSAGE IS FOR";
 export const TTO_MESSAGE_FOR_UNAVAILABLE = "Target not captured";

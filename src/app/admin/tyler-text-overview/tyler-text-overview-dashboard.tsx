@@ -2,21 +2,14 @@
 
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   adminCountLabel,
   buildSiblingTylerTextOverviewPageHref,
-  buildTylerTextOverviewEveningPageHref,
-  eveningGenerateButtonLabel,
-  eveningSendButtonLabel,
-  EVENING_PROACTIVE_SEND_DISABLED_UI_COPY,
-  EVENING_TTO_MANUAL_BANNER,
   EVENING_TTO_NON_TODAY_WARNING,
   EVENING_TTO_NO_PREVIEW_COPY,
-  EVENING_TTO_REGENERATE_OVERWRITE_COPY,
-  EVENING_TTO_SAVE_BEFORE_SEND_COPY,
   EVENING_TTO_SAVE_ONLY_COPY,
   TTO_BODY_SOFT_LENGTH_WARNING,
   formatEveningEmptyBodyPanelCopy,
@@ -24,7 +17,6 @@ import {
   formatTtoBodyOverTransportMaxCopy,
   ttoDraftBodyExceedsTransportMax,
   ttoDraftBodyShouldSoftWarnLength,
-  formatEveningPreviewGenerateSuccessToast,
   formatTtoBulkApplyConfirm,
   formatTtoBulkBlankConfirm,
   formatEveningBulkResultMessage,
@@ -35,7 +27,6 @@ import {
   formatTtoGenerateAllProgressLine,
   formatTtoGenerateAllResultMessage,
   isEveningDashboardSendSlot,
-  isEveningSendBusy,
   isTylerBlankedMorningDraftRow,
   matchesTylerTextOverviewSearchQuery,
   ttoBulkActionsHeading,
@@ -146,10 +137,6 @@ function rowListKey(row: TylerTextOverviewAdminDraftRow): string {
     return `historical:${row.clerkUserId}:${row.sendSlot}:${row.draftForDayKey}:${row.draftId ?? "no-draft"}`;
   }
   return `${row.clerkUserId}:${row.sendSlot}:${row.draftForDayKey}:${row.draftId ?? "no-draft"}`;
-}
-
-function generationActivityKey(row: TylerTextOverviewAdminDraftRow): string {
-  return row.occurrenceKey ?? `${row.clerkUserId}:${row.draftForDayKey}:${row.draftId ?? "none"}`;
 }
 
 function formatEasternAdminClock(iso: string | null | undefined): string {
@@ -347,12 +334,6 @@ function canEditEveningDraft(row: TylerTextOverviewAdminDraftRow): boolean {
   return true;
 }
 
-function canSendEveningRow(row: TylerTextOverviewAdminDraftRow): boolean {
-  if (!canEditEveningDraft(row)) return false;
-  const body = row.currentBodyToSend?.trim();
-  return Boolean(body);
-}
-
 function isEveningDraftDirty(
   row: TylerTextOverviewAdminDraftRow,
   edits: EditState
@@ -388,18 +369,11 @@ function formatOptional(value: string | number | boolean | null | undefined): st
 }
 
 function formatMachineShouldSend(row: TylerTextOverviewAdminDraftRow): string {
-  if (isEveningPreviewRow(row)) {
-    if (isEveningDraftSent(row)) return "Sent";
-    if (row.machineShouldSend === true) return "Would send if evening were live";
-    if (row.machineShouldSend === false) return "Would skip";
-    return "—";
-  }
   return formatOptional(row.machineShouldSend);
 }
 
 function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow }) {
   const explanationBlocks = buildProvenanceExplanationBlocks(row);
-  const evening = isEveningPreviewRow(row);
   const solForensics = shouldShowSolForensicPanels(row);
 
   return (
@@ -553,15 +527,11 @@ function NotebookProvenancePanel({ row }: { row: TylerTextOverviewAdminDraftRow 
           <dd className="font-mono break-all">{formatOptional(row.coachingStack)}</dd>
         </div>
         <div>
-          <dt className="font-medium text-gray-500">
-            {evening ? "Would send" : "machine_should_send"}
-          </dt>
+          <dt className="font-medium text-gray-500">machine_should_send</dt>
           <dd>{formatMachineShouldSend(row)}</dd>
         </div>
         <div>
-          <dt className="font-medium text-gray-500">
-            {evening ? "Would skip because…" : "machine_no_send_reason"}
-          </dt>
+          <dt className="font-medium text-gray-500">machine_no_send_reason</dt>
           <dd className="font-mono break-all">{formatOptional(row.machineNoSendReason)}</dd>
         </div>
         <div>
@@ -1186,7 +1156,6 @@ const ADMIN_COUNT_KEYS: (keyof TylerTextOverviewAdminCounts)[] = [
 ];
 
 export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOverviewDashboardProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { getToken } = useAuth();
   const isEveningPage = isEveningDashboardSendSlot(sendSlot);
@@ -1223,11 +1192,6 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
   const [loading, setLoading] = useState(true);
   const [hasCompletedSuccessfulLoad, setHasCompletedSuccessfulLoad] = useState(false);
   const [savingDraftId, setSavingDraftId] = useState<string | null>(null);
-  const [generatingUserId, setGeneratingUserId] = useState<string | null>(null);
-  const [sendingDraftId, setSendingDraftId] = useState<string | null>(null);
-  const [confirmSendRow, setConfirmSendRow] = useState<TylerTextOverviewAdminDraftRow | null>(
-    null
-  );
   const [toast, setToast] = useState<string | null>(null);
   const [serverChangedWhileDirty, setServerChangedWhileDirty] = useState(false);
   const [bulkApplyText, setBulkApplyText] = useState("");
@@ -1989,89 +1953,6 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
     }
   }
 
-  async function generateEveningPreview(row: TylerTextOverviewAdminDraftRow) {
-    if (!row.clerkUserId?.trim()) {
-      return;
-    }
-    if (pageBatchBusy || !selectionIsCurrent()) return;
-
-    // The selected day is the administrative batch date. The row day is the member-local date.
-    const batchDate = isEveningPage
-      ? selectedDayKey.trim() || row.draftForDayKey?.trim() || ""
-      : row.draftForDayKey?.trim() || selectedDayKey.trim() || "";
-    // Before a batch exists the row day is the administrative date, not an
-    // occurrence. The server resolves the member's scheduled occurrence.
-    const memberLocalDate =
-      batchStatistics?.status === "not_started" && row.rowRole !== "scheduled_occurrence"
-        ? ""
-        : row.draftForDayKey?.trim() || "";
-
-    setGeneratingUserId(generationActivityKey(row));
-    try {
-      const res = await fetch("/api/admin/tyler-text-overview/evening-preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clerk_user_id: row.clerkUserId,
-          ...(batchDate ? { draft_for_day_key: batchDate } : {}),
-          ...(memberLocalDate ? { member_local_date: memberLocalDate } : {}),
-        }),
-      });
-      const json = await res.json();
-
-      if (!res.ok || !json.ok) {
-        showToast(json.error || json.reason || "Evening preview generation failed.");
-        return;
-      }
-
-      showToast(
-        formatEveningPreviewGenerateSuccessToast({
-          machineShouldSend: json.machine_should_send,
-          machineDraftBody: json.machine_draft_body,
-          machineNoSendReason: json.machine_no_send_reason,
-        })
-      );
-      const effectiveDayKey = selectedDayKey || batchDate || "";
-      if (isEveningPage) {
-        await load(effectiveDayKey, sendSlot, { preserveUnsaved: true });
-      } else {
-        router.push(buildTylerTextOverviewEveningPageHref(effectiveDayKey));
-      }
-    } catch (err) {
-      console.error("Failed to generate evening preview", err);
-      showToast("Evening preview generation failed.");
-    } finally {
-      setGeneratingUserId(null);
-    }
-  }
-
-  async function sendEveningDraft(row: TylerTextOverviewAdminDraftRow) {
-    if (!row.draftId) return;
-    setSendingDraftId(row.draftId);
-    setConfirmSendRow(null);
-    try {
-      const res = await fetch("/api/admin/tyler-text-overview/evening-send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_id: row.draftId }),
-      });
-      const json = await res.json();
-
-      if (!res.ok || !json.ok) {
-        showToast(json.message || json.error || json.refusalCode || "Evening send failed.");
-        return;
-      }
-
-      showToast("Evening text sent.");
-      await load(selectedDayKey, sendSlot, { preserveUnsaved: true });
-    } catch (err) {
-      console.error("Failed to send evening draft", err);
-      showToast("Evening send failed.");
-    } finally {
-      setSendingDraftId(null);
-    }
-  }
-
   const siblingPageHref = buildSiblingTylerTextOverviewPageHref({
     page: isEveningPage ? "morning" : "evening",
     draftForDayKey: selectedDayKey,
@@ -2123,55 +2004,6 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
 
   return (
     <div className="space-y-6">
-      {isEveningPage && confirmSendRow ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="evening-send-confirm-title"
-        >
-          <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-5 shadow-lg space-y-4">
-            <h2 id="evening-send-confirm-title" className="text-lg font-semibold text-gray-900">
-              Send evening check-in?
-            </h2>
-            <p className="text-sm text-gray-700">
-              Send this evening check-in to{" "}
-              <span className="font-mono">{confirmSendRow.clerkUserId}</span> for{" "}
-              <span className="font-mono">{confirmSendRow.draftForDayKey}</span>? This sends a real
-              SMS via Twilio. It cannot be unsent.
-            </p>
-            <pre className="rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono whitespace-pre-wrap">
-              {confirmSendRow.currentBodyToSend ?? "—"}
-            </pre>
-            <div className="flex flex-wrap gap-2 justify-end">
-              <button
-                type="button"
-                className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900"
-                onClick={() => setConfirmSendRow(null)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                disabled={isEveningSendBusy({
-                  draftId: confirmSendRow.draftId,
-                  sendingDraftId,
-                })}
-                onClick={() => sendEveningDraft(confirmSendRow)}
-              >
-                {eveningSendButtonLabel(
-                  isEveningSendBusy({
-                    draftId: confirmSendRow.draftId,
-                    sendingDraftId,
-                  })
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       {toast ? (
         <p className="rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
           {toast}
@@ -2238,21 +2070,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
         </div>
       ) : null}
 
-      {isEveningPage ? (
-        <div
-          className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-          role="alert"
-        >
-          <p>{EVENING_TTO_MANUAL_BANNER}</p>
-        </div>
-      ) : (
-        <div
-          className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-          role="alert"
-        >
-          <p>{MORNING_TTO_AUTHORITY_BANNER}</p>
-        </div>
-      )}
+      <div
+        className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        role="alert"
+      >
+        <p>{MORNING_TTO_AUTHORITY_BANNER}</p>
+      </div>
 
       {showEveningNonTodayWarning ? (
         <div
@@ -2543,19 +2366,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
       ) : showFullPageLoader ? (
         <p className="text-sm text-gray-500">Loading sendable users…</p>
       ) : visibleRows.length === 0 ? (
-        isEveningPage ? (
-          <div className="rounded-md border border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-700 space-y-3">
-            <p>No sendable users match this filter.</p>
-            <p>{EVENING_TTO_NO_PREVIEW_COPY}</p>
-            <p>
-              <Link href={siblingPageHref} className="font-medium text-gray-900 underline">
-                Morning Text Overview →
-              </Link>
-            </p>
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500">No sendable users match this filter.</p>
-        )
+        <p className="text-sm text-gray-500">No sendable users match this filter.</p>
       ) : (
         <ul className="space-y-8">
           {visibleRows.map((row, index) => {
@@ -2588,14 +2399,6 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
               });
             const missingMorningDraft =
               !isEveningPage && row.rowState === "no_draft_yet" && !row.draftId;
-            const isSendingThisEvening = isEveningSendBusy({
-              draftId: row.draftId,
-              sendingDraftId,
-            });
-            const isGeneratingThisEvening =
-              Boolean(row.clerkUserId?.trim()) &&
-              generatingUserId === generationActivityKey(row);
-            const eveningSendDisabledReason = EVENING_PROACTIVE_SEND_DISABLED_UI_COPY;
             const readOnlyBody =
               (eveningSent || morningSent) && row.finalBodySent?.trim()
                 ? row.finalBodySent
@@ -2746,12 +2549,7 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                               {" "}
                               · <span className="font-semibold text-green-800">SENT</span>
                             </>
-                          ) : (
-                            <>
-                              {" "}
-                              · <span className="font-semibold text-amber-800">PREVIEW</span>
-                            </>
-                          )}
+                          ) : null}
                         </>
                       ) : row.sendSlot === SMS_DAILY_PRODUCTION_SEND_SLOT ? (
                         "morning / primary daily"
@@ -2895,11 +2693,6 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                         {eveningEditable ? (
                           <p className="mt-1 text-xs text-gray-600">{EVENING_TTO_SAVE_ONLY_COPY}</p>
                         ) : null}
-                        {eveningDirty ? (
-                          <p className="mt-1 text-xs font-medium text-amber-800">
-                            {EVENING_TTO_SAVE_BEFORE_SEND_COPY}
-                          </p>
-                        ) : null}
                         <button
                           type="button"
                           className="mt-2 rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
@@ -2918,48 +2711,12 @@ export default function TylerTextOverviewDashboard({ sendSlot }: TylerTextOvervi
                               : saveFailedMsg
                                 ? "Save failed — retry"
                                 : isDirty
-                                  ? eveningEditable
-                                    ? "Save Evening Text (unsaved)"
-                                    : "Save (unsaved)"
-                                  : eveningEditable
-                                    ? "Saved"
-                                    : "Saved"}
+                                  ? "Save (unsaved)"
+                                  : "Saved"}
                         </button>
                       </>
                     )}
                   </div>
-                  {isEveningPage &&
-                  eveningRow &&
-                  !eveningSent &&
-                  row.clerkUserId?.trim() ? (
-                    <>
-                      <button
-                        type="button"
-                        className="rounded border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 disabled:opacity-50"
-                        disabled={isGeneratingThisEvening || pageBatchBusy}
-                        onClick={() => generateEveningPreview(row)}
-                      >
-                        {eveningGenerateButtonLabel({
-                          isGenerating: isGeneratingThisEvening,
-                          hasPreview: row.rowState !== "no_draft_yet",
-                        })}
-                      </button>
-                      {row.rowState !== "no_draft_yet" ? (
-                        <p className="text-xs text-gray-600">
-                          {EVENING_TTO_REGENERATE_OVERWRITE_COPY}
-                        </p>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="rounded bg-gray-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                        disabled
-                        title={eveningSendDisabledReason}
-                      >
-                        {eveningSendButtonLabel(false)}
-                      </button>
-                      <p className="text-xs text-gray-600">{eveningSendDisabledReason}</p>
-                    </>
-                  ) : null}
                 </section>
 
                 {showEveningMorningAnchor ? (

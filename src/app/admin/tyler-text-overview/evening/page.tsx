@@ -13,7 +13,8 @@ export default async function AdminTylerTextOverviewEveningPage() {
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Evening Text Overview</h1>
         <p className="mt-2 text-sm text-gray-600">
-          Review evening previews and send one check-in at a time. No bulk send. No cron.
+          Review the Evening batch. Generation and delivery run automatically at each member&apos;s
+          saved local time. Review is optional, and saving an edit does not send a text.
         </p>
       </div>
 

@@ -907,8 +907,8 @@ describe("Evening cron wiring", () => {
   });
 
   it("admin copy describes auto-send window", () => {
-    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("Manual Evening send is off");
-    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("does not send");
+    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("does not send a text");
+    expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toContain("saved schedule");
     expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).not.toContain("7–9");
   });
 });

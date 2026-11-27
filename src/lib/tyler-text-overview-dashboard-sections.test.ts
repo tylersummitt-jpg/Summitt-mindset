@@ -715,10 +715,10 @@ describe("weekly raw notebook / provenance", () => {
     );
     expect(dashboard).toContain("EVENING_CURRENT_BODY_BLANK");
     expect(dashboard).toContain("Tyler authority is independent of machine_should_send");
-    expect(dashboard).toContain("eveningSendButtonLabel(false)");
-    expect(dashboard).toContain('disabled\n                        title={eveningSendDisabledReason}');
+    expect(dashboard).not.toContain("eveningSendButtonLabel");
+    expect(dashboard).not.toContain("Send Evening Text");
     const saveDraftFn = dashboard.match(
-      /async function saveDraft\([\s\S]*?\n  async function /
+      /async function saveDraft\([\s\S]*?\n  const siblingPageHref/
     )?.[0] ?? "";
     expect(saveDraftFn).toContain("/api/admin/tyler-text-overview/${encodeURIComponent(draftId)}");
     expect(saveDraftFn).not.toContain("evening-send");

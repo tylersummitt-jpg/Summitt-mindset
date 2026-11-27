@@ -4,7 +4,11 @@ import type { DailySmsBuilt } from "@/lib/daily-sms-build";
 import { evaluateScheduledDeliveryGrace } from "@/lib/daily-sms-scheduling";
 import { hasAwaitingManualPatAnswer } from "@/lib/has-awaiting-manual-pat-answer";
 import { resolveAccountSmsTimezone } from "@/lib/sms-account-schedule";
-import { resolveProactiveSchedule, type ProactiveTtoOwner } from "@/lib/sms-proactive-schedule";
+import {
+  proactiveOwnerForSendSlot,
+  resolveProactiveSchedule,
+  type ProactiveTtoOwner,
+} from "@/lib/sms-proactive-schedule";
 import {
   MACHINE_NO_SEND_REASON_INTENTIONAL_SPACE,
   resolveQuietRelationshipMechanicalFacts,
@@ -1782,7 +1786,9 @@ async function prepareScheduledDailyDelivery(args: {
   });
   if (resolved.kind === "unresolved") return { outcome: "unresolved", reason: resolved.reason };
   if (resolved.kind === "unscheduled") return { outcome: "unscheduled", reason: resolved.reason };
-  if (resolved.owner !== args.sendSlot) return { outcome: "not_this_owner", reason: resolved.owner };
+  if (resolved.owner !== proactiveOwnerForSendSlot(args.sendSlot)) {
+    return { outcome: "not_this_owner", reason: resolved.owner };
+  }
 
   const batch = await readScheduledGenerationBatch({ batchDate: resolved.batchDate, owner: resolved.owner });
   if (!batch.ok) return { outcome: "unresolved", reason: "occurrence_unresolved" };
@@ -2403,7 +2409,7 @@ export async function orderPotentiallyDueMembers(args: {
       unresolved.push(member.clerkUserId);
       return;
     }
-    if (resolved.kind !== "scheduled" || resolved.owner !== args.sendSlot) return;
+    if (resolved.kind !== "scheduled" || resolved.owner !== proactiveOwnerForSendSlot(args.sendSlot)) return;
     const grace = evaluateScheduledDeliveryGrace({
       now,
       utcInstant: resolved.utcInstant,

@@ -2007,8 +2007,8 @@ describe("stage 4 dashboard contracts", () => {
     );
     expect(route).toContain('reason: "unresolved"');
     expect(route).toContain('reason: "ambiguous_occurrences"');
-    expect(dashboard).toContain("generateEveningPreview(row)");
-    expect(dashboard).toContain('batchStatistics?.status === "not_started"');
+    expect(dashboard).not.toContain("generateEveningPreview(row)");
+    expect(dashboard).toContain("runGenerateAll");
     expect(dashboard).not.toContain('disabled={batchStatistics?.status === "not_started"');
   });
 });

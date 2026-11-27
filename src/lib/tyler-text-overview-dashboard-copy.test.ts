@@ -93,13 +93,13 @@ describe("tyler-text-overview-dashboard-copy rowStateLabel", () => {
 
   it("uses evening labels", () => {
     expect(rowStateLabel("no_draft_yet", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
-      "No evening preview"
+      "MISSING DRAFT — GENERATION INCOMPLETE"
     );
     expect(rowStateLabel("draft_current", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
-      "Current evening preview"
+      "Current evening draft"
     );
     expect(rowStateLabel("draft_sent", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
-      "Evening check-in sent"
+      "Evening sent"
     );
     expect(rowStateLabel("draft_skipped", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
       "Evening skipped / not sendable"
@@ -130,13 +130,16 @@ describe("tyler-text-overview-dashboard-copy adminCountLabel", () => {
 
   it("uses evening count labels", () => {
     expect(adminCountLabel("noDraftYet", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
-      "No evening preview"
+      "Missing drafts"
+    );
+    expect(adminCountLabel("draftCurrent", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
+      "Current evening draft"
     );
     expect(adminCountLabel("machineShouldSendTrue", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
-      "Would send"
+      "machine_should_send true"
     );
     expect(adminCountLabel("machineShouldSendFalse", SMS_DAILY_EVENING_PREVIEW_SEND_SLOT)).toBe(
-      "Would skip"
+      "machine_should_send false"
     );
   });
 });
@@ -170,7 +173,7 @@ describe("tyler-text-overview-dashboard-copy evening send/generate UI helpers", 
     expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
     expect(eveningSendButtonLabel(true)).toBe("Send Evening Text");
     expect(EVENING_PROACTIVE_SEND_DISABLED_UI_COPY).toBe(
-      "Manual Evening send is off. Saving a draft does not send it or promise delivery."
+      "Saving an edit does not send a text. Delivery follows the member's saved schedule."
     );
   });
 
@@ -453,8 +456,10 @@ describe("tyler-text-overview two-page UI wiring", () => {
 
   it("morning dashboard shows authority banner and evening cross-link", () => {
     expect(dashboard).toContain("MORNING_TTO_AUTHORITY_BANNER");
-    expect(MORNING_TTO_AUTHORITY_BANNER).toContain("draft-authoritative");
-    expect(MORNING_TTO_AUTHORITY_BANNER).toContain("Tyler approval");
+    expect(MORNING_TTO_AUTHORITY_BANNER).toContain("Generation runs automatically");
+    expect(MORNING_TTO_AUTHORITY_BANNER).toContain("does not send a text");
+    expect(MORNING_TTO_AUTHORITY_BANNER).toContain("blank authoritative body");
+    expect(MORNING_TTO_AUTHORITY_BANNER).toContain("reconsideration");
     expect(dashboard).toContain("formatMorningTtoSendabilityCopy");
     expect(dashboard).toContain("formatMorningTtoSaveToast");
     expect(dashboard).toContain("Evening Text Overview →");
@@ -513,19 +518,18 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(formatMorningTtoSaveToast(null)).toBe(MORNING_TTO_SAVE_TOAST_BLANK);
   });
 
-  it("evening dashboard keeps manual send controls and cross-link", () => {
-    expect(dashboard).toContain("EVENING_TTO_MANUAL_BANNER");
-    expect(dashboard).toContain("eveningGenerateButtonLabel");
-    expect(dashboard).toContain("eveningSendButtonLabel");
-    expect(eveningGenerateButtonLabel({ isGenerating: false, hasPreview: false })).toBe(
-      "Generate Evening Preview"
-    );
-    expect(eveningGenerateButtonLabel({ isGenerating: false, hasPreview: true })).toBe(
-      "Regenerate Evening Preview"
-    );
-    expect(eveningSendButtonLabel(false)).toBe("Send Evening Text");
+  it("evening dashboard uses automatic delivery language and has no per-row send", () => {
+    expect(dashboard).toContain("MORNING_TTO_AUTHORITY_BANNER");
+    expect(dashboard).not.toContain("EVENING_TTO_MANUAL_BANNER");
+    expect(dashboard).not.toContain("eveningGenerateButtonLabel");
+    expect(dashboard).not.toContain("eveningSendButtonLabel");
+    expect(dashboard).not.toContain("Generate Evening Preview");
+    expect(dashboard).not.toContain("Send Evening Text");
+    expect(dashboard).not.toContain(">PREVIEW<");
     expect(dashboard).toContain("Morning Text Overview →");
     expect(dashboard).toContain("EVENING_TTO_NO_PREVIEW_COPY");
+    expect(dashboard).toContain("runGenerateAll");
+    expect(dashboard).toContain("canEditEveningDraft");
   });
 
   it("morning page hides evening-only row controls via isEveningPage gate", () => {
@@ -533,18 +537,16 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).not.toMatch(/!isEveningPage && row\.clerkUserId.*Generate Evening Preview/s);
   });
 
-  it("evening preview navigation uses /evening path without send_slot query", () => {
-    expect(dashboard).toContain("buildTylerTextOverviewEveningPageHref");
+  it("evening navigation uses the sibling page href without send_slot query", () => {
+    expect(dashboard).toContain("buildSiblingTylerTextOverviewPageHref");
     expect(dashboard).not.toMatch(/router\.push\([^)]*send_slot/);
   });
 
-  it("evening Generate/Regenerate prefers selectedDayKey and omits stale row day when blank", () => {
-    expect(dashboard).toContain("isEveningPage");
-    expect(dashboard).toMatch(
-      /const batchDate = isEveningPage\s*\?\s*selectedDayKey\.trim\(\) \|\| row\.draftForDayKey\?\.trim\(\) \|\| ""/
-    );
+  it("evening batch generation uses the selected day and has no per-row day override", () => {
+    expect(dashboard).toContain("runGenerateAll");
+    expect(dashboard).toContain("draft_for_day_key: dayKey");
     expect(dashboard).not.toMatch(
-      /const dayKey = row\.draftForDayKey\?\.trim\(\) \|\| selectedDayKey\.trim\(\) \|\| undefined/
+      /const batchDate = isEveningPage\s*\?\s*selectedDayKey\.trim\(\)/
     );
   });
 
@@ -552,24 +554,23 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("resolveEveningTtoInitialSelectedDayKey");
     expect(dashboard).toContain("shouldShowEveningNonTodayWarning");
     expect(dashboard).toContain("EVENING_TTO_NON_TODAY_WARNING");
-    expect(EVENING_TTO_NON_TODAY_WARNING).toContain("non-today date");
-    expect(EVENING_TTO_NO_PREVIEW_COPY).toContain("No evening preview");
+    expect(EVENING_TTO_NON_TODAY_WARNING).toContain("non-today Evening batch");
+    expect(EVENING_TTO_NO_PREVIEW_COPY).toContain("No live Evening draft");
+    expect(EVENING_TTO_NO_PREVIEW_COPY).not.toContain("preview");
+    expect(EVENING_TTO_NON_TODAY_WARNING).not.toContain("Do not send");
   });
 
-  it("evening page supports Save Evening Text with dirty-send guard", () => {
+  it("evening page supports Save without a per-row send control", () => {
     expect(dashboard).toContain("canEditEveningDraft");
-    expect(dashboard).toContain("Save Evening Text");
+    expect(dashboard).toContain("Save (unsaved)");
     expect(dashboard).toContain("EVENING_TTO_SAVE_ONLY_COPY");
-    expect(dashboard).toContain("EVENING_TTO_SAVE_BEFORE_SEND_COPY");
-    expect(dashboard).toContain("EVENING_TTO_REGENERATE_OVERWRITE_COPY");
+    expect(dashboard).not.toContain("EVENING_TTO_SAVE_BEFORE_SEND_COPY");
+    expect(dashboard).not.toContain("EVENING_TTO_REGENERATE_OVERWRITE_COPY");
     expect(dashboard).toContain("isEveningDraftDirty");
-    expect(dashboard).toContain("EVENING_PROACTIVE_SEND_DISABLED_UI_COPY");
-    expect(dashboard).toContain("eveningSendButtonLabel(false)");
+    expect(dashboard).not.toContain("eveningSendButtonLabel");
     expect(EVENING_TTO_SAVE_ONLY_COPY).toContain("does not send");
-    expect(EVENING_TTO_SAVE_BEFORE_SEND_COPY).toContain("Save changes");
-    expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).toContain("keeps your saved edit/blank");
-    expect(EVENING_TTO_REGENERATE_OVERWRITE_COPY).not.toContain("replace saved edits");
     expect(dashboard).not.toContain("showReadOnlyBody =\n              isEveningPage ||");
+    expect(dashboard).not.toContain("Send evening check-in");
   });
 
   it("Morning/Evening TTO live character count: 300/320 is not a hard cap; >1600 is blocked; no maxLength truncation", () => {
@@ -601,23 +602,22 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(MORNING_TTO_BLANK_BODY_COPY).toMatch(/no text/i);
   });
 
-  it("evening Send busy state never treats null draftId as sending", () => {
-    expect(dashboard).toContain("isEveningSendBusy");
-    expect(dashboard).toContain("eveningSendButtonLabel");
-    expect(dashboard).toContain("isSendingThisEvening");
+  it("evening Send busy state is not a dashboard control", () => {
+    expect(dashboard).not.toContain("isEveningSendBusy");
+    expect(dashboard).not.toContain("eveningSendButtonLabel");
+    expect(dashboard).not.toContain("isSendingThisEvening");
     expect(dashboard).not.toMatch(
       /\{sendingDraftId === row\.draftId \? "Sending…" : "Send Evening Text"\}/
     );
-    expect(dashboard).not.toMatch(/sendingDraftId !== row\.draftId/);
   });
 
-  it("evening Generate loading is independent of Send Sending label", () => {
-    expect(dashboard).toContain("generatingUserId");
-    expect(dashboard).toContain("eveningGenerateButtonLabel");
-    expect(dashboard).toContain("isGeneratingThisEvening");
-    expect(dashboard).toContain("formatEveningPreviewGenerateSuccessToast");
+  it("evening rows show machine facts instead of a per-row generate control", () => {
+    expect(dashboard).not.toContain("generatingUserId");
+    expect(dashboard).not.toContain("eveningGenerateButtonLabel");
+    expect(dashboard).not.toContain("generateEveningPreview");
     expect(dashboard).toContain("formatEveningEmptyBodyPanelCopy");
     expect(dashboard).toContain("machine_no_send_reason");
+    expect(dashboard).toContain("machine_should_send");
   });
 
   it("Morning and Evening bulk actions are slot-aware; Weekly has none", () => {
@@ -645,7 +645,7 @@ describe("tyler-text-overview two-page UI wiring", () => {
     );
   });
 
-  it("Generate All UI: exact selected date, confirm, busy, refetch; Evening per-user Generate retained", () => {
+  it("Generate All UI: exact selected date, confirm, busy, refetch; no per-row Evening generate", () => {
     expect(dashboard).toContain("ttoGenerateAllButtonLabel");
     expect(dashboard).toContain("ttoGenerateAllEndpoint");
     expect(dashboard).toContain("formatTtoGenerateAllConfirm");
@@ -657,8 +657,8 @@ describe("tyler-text-overview two-page UI wiring", () => {
     expect(dashboard).toContain("forceOverwrite: true");
     expect(dashboard).toContain("Morning and Evening are the batch labels, not the delivery clock.");
     expect(dashboard).not.toContain("7–9");
-    expect(dashboard).toContain("generateEveningPreview");
-    expect(dashboard).toContain("eveningGenerateButtonLabel");
+    expect(dashboard).not.toContain("generateEveningPreview");
+    expect(dashboard).not.toContain("eveningGenerateButtonLabel");
     expect(dashboard).not.toContain("/api/cron/tyler-text-overview-generate");
     expect(ttoGenerateAllEndpoint("morning")).toBe(
       "/api/admin/tyler-text-overview/morning-generate-all"

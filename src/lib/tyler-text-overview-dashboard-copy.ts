@@ -14,7 +14,7 @@ import {
 export const TYLER_TEXT_OVERVIEW_ADMIN_TIMEZONE = "America/New_York";
 
 export const MORNING_TTO_AUTHORITY_BANNER =
-  "Morning SMS is draft-authoritative. Clicking Save on a non-empty Morning TTO body is Tyler approval: that exact body sends if normal delivery gates pass — even when machine_should_send=false. Blank saved body means no text. Machine no-send without a Tyler Save still blocks. Run morning TTO generation before the send window.";
+  "Generation runs automatically. Delivery runs automatically at each member's saved local time. Tyler review is optional. Saving an edit does not send a text. A blank authoritative body blocks delivery. A later valid reconsideration can replace outdated text.";
 
 export const MORNING_TTO_TYLER_APPROVED_COPY =
   "Tyler-approved: this saved Morning TTO body will send if normal delivery gates pass.";
@@ -74,14 +74,13 @@ export function formatMorningTtoSaveToast(normalizedBody: string | null | undefi
   return body ? MORNING_TTO_SAVE_TOAST_APPROVED : MORNING_TTO_SAVE_TOAST_BLANK;
 }
 
-export const EVENING_TTO_MANUAL_BANNER =
-  "Evening check-in — manual send only. Generate a preview, review it, then send one row at a time via Twilio. Morning / primary daily SMS is unchanged.";
+export const EVENING_TTO_MANUAL_BANNER = MORNING_TTO_AUTHORITY_BANNER;
 
 export const EVENING_TTO_NO_PREVIEW_COPY =
-  "No evening preview exists. Evening manual send is impossible until a preview exists and is sendable.";
+  "No live Evening draft exists for this user, day, and slot. This row cannot send.";
 
 export const EVENING_TTO_NON_TODAY_WARNING =
-  "You are viewing an evening preview for a non-today date. Do not send unless this is intentional.";
+  "You are viewing a non-today Evening batch. Delivery still follows each member's saved schedule.";
 
 export const EVENING_TTO_SAVE_ONLY_COPY =
   "Save updates the draft only. It does not send.";
@@ -255,7 +254,7 @@ export function eveningSendButtonLabel(isSending: boolean): string {
 }
 
 export const EVENING_PROACTIVE_SEND_DISABLED_UI_COPY =
-  "Manual Evening send is off. Saving a draft does not send it or promise delivery.";
+  "Saving an edit does not send a text. Delivery follows the member's saved schedule.";
 
 export function weeklySendButtonLabel(isSending: boolean): string {
   return isSending ? "Sending Weekly Text…" : "Send Weekly Text";
@@ -602,15 +601,13 @@ export function rowStateLabel(
   switch (rowState) {
     case "no_draft_yet":
       if (weekly) return "No weekly draft";
-      return evening
-        ? "No evening preview"
-        : "MISSING DRAFT — GENERATION INCOMPLETE";
+      return "MISSING DRAFT — GENERATION INCOMPLETE";
     case "draft_current":
       if (weekly) return "Current weekly draft";
-      return evening ? "Current evening preview" : "Current morning draft";
+      return evening ? "Current evening draft" : "Current morning draft";
     case "draft_sent":
       if (weekly) return "Weekly draft marked sent";
-      return evening ? "Evening check-in sent" : "Morning sent";
+      return evening ? "Evening sent" : "Morning sent";
     case "draft_skipped":
       if (weekly) return "Weekly skipped / not sendable";
       return evening ? "Evening skipped / not sendable" : "Morning skipped";
@@ -1052,10 +1049,10 @@ export function adminCountLabel(
       return "Sendable users";
     case "noDraftYet":
       if (weekly) return "No weekly draft";
-      return evening ? "No evening preview" : "Missing drafts";
+      return "Missing drafts";
     case "draftCurrent":
       if (weekly) return "Current weekly draft";
-      return evening ? "Current evening preview" : "Current morning draft";
+      return evening ? "Current evening draft" : "Current morning draft";
     case "draftCurrentReady":
       return evening || weekly ? "Ready nonblank" : "Ready nonblank (can send)";
     case "draftCurrentTylerBlanked":
@@ -1072,10 +1069,10 @@ export function adminCountLabel(
       return evening ? "Evening skipped / not sendable" : "Morning skipped";
     case "machineShouldSendTrue":
       if (weekly) return "Would send";
-      return evening ? "Would send" : "machine_should_send true";
+      return "machine_should_send true";
     case "machineShouldSendFalse":
       if (weekly) return "Would skip";
-      return evening ? "Would skip" : "machine_should_send false";
+      return "machine_should_send false";
     case "generationLinkageErrors":
       return "Generation linkage errors";
     default:

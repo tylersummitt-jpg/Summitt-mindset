@@ -9,6 +9,7 @@ import {
   levenshteinCharDistance,
   listCurrentTylerTextOverviewDrafts,
   listSendableTylerTextOverviewRows,
+  scheduledDraftMatchesOccurrence,
   loadSendableTylerTextOverviewAudienceMembers,
   mapDraftRowsToAdminDto,
   matchesTylerTextOverviewSearchQuery,
@@ -3155,11 +3156,11 @@ describe("tyler-text-overview Phase 4 scope guards", () => {
     expect(eveningPage).toContain('sendSlot={SMS_DAILY_EVENING_PREVIEW_SEND_SLOT}');
     expect(dashboard).not.toContain('searchParams.get("send_slot")');
     expect(dashboard).not.toContain("role=\"tablist\"");
-    expect(dashboard).toContain("/api/admin/tyler-text-overview/evening-preview");
-    expect(dashboard).toContain("/api/admin/tyler-text-overview/evening-send");
-    expect(dashboard).toContain("eveningSendButtonLabel");
-    expect(dashboard).toContain("isEveningSendBusy");
-    expect(dashboard).toContain("Save Evening Text");
+    expect(dashboard).not.toContain("/api/admin/tyler-text-overview/evening-preview");
+    expect(dashboard).not.toContain("/api/admin/tyler-text-overview/evening-send");
+    expect(dashboard).not.toContain("eveningSendButtonLabel");
+    expect(dashboard).not.toContain("Generate Evening Preview");
+    expect(dashboard).toContain("Save (unsaved)");
     expect(dashboard).toContain("canEditEveningDraft");
     expect(dashboard).toContain("MORNING_TTO_AUTHORITY_BANNER");
     expect(dashboard).toContain("runGenerateAll");
@@ -3600,5 +3601,190 @@ describe("stage 4 scheduled dashboard", () => {
     expect(db.drafts.find((draft) => draft.id === "legacy")?.current_body_to_send).toBe(
       "Old Thursday draft"
     );
+  });
+});
+
+describe("evening owner matches evening_checkin slot", () => {
+  const day = "2026-11-27";
+  const members = [
+    { id: "user_3FYALltWbqGYaKxPOQjsoJph9qN", name: "Cari", body: "Cari text", send: true, state: "generated" },
+    { id: "user_3DiumiTohaCxwYBtfXIyhqnWu3C", name: "Kathy", body: "Kathy text", send: true, state: "generated" },
+    { id: "user_3K7PeEfMsxffDEPJfYao4lcuAUn", name: "Klinester", body: null, send: false, state: "intentional_space" },
+    { id: "user_3JHZ0dy29830asDhkdkNAguQZ1C", name: "Stegs", body: "Stegs text", send: true, state: "generated" },
+  ] as const;
+
+  function eveningMetadata(owner: "evening" | "morning" = "evening") {
+    return {
+      scheduled_generation_convention: "member_local_delivery_v1",
+      administrative_batch_date: day,
+      member_local_date: day,
+      tto_owner: owner,
+      effective_local_minute: 420,
+      selected_local_minute: 420,
+      time_zone: "America/Los_Angeles",
+      utc_instant: "2026-11-27T15:00:00.000Z",
+      coaching_stack: "shared_sol_v1",
+      record_kind: "scheduled_generation",
+    };
+  }
+
+  beforeEach(() => {
+    db.drafts = [];
+    db.generations = [];
+    db.smsAudience = [];
+    db.v2Commitments = [];
+    db.v2CommsPrefs = [];
+    db.userProfiles = [];
+    db.smsSendEvents = [];
+    db.batches = [];
+    db.batchReadError = null;
+  });
+
+  it("attaches the four persisted Friday evening drafts without treating intentional space as missing", async () => {
+    for (const member of members) {
+      seedSendableUser({ clerkUserId: member.id, preferredName: member.name });
+      db.generations.push({
+        id: `gen-${member.name}`,
+        generation_number: 1,
+        clerk_user_id: member.id,
+        draft_for_day_key: day,
+        send_slot: "evening_checkin",
+        writer_openai_messages: member.body ? [{ role: "user", content: member.body }] : [],
+        writer_prompt_path: "morning_brief_writer_v1",
+        machine_draft_body: member.body,
+        machine_should_send: member.send,
+        machine_no_send_reason: member.send ? null : "intentional_space",
+        notebook_hash: `notebook-${member.name}`,
+        generation_metadata: eveningMetadata(),
+      });
+      db.drafts.push({
+        id: `draft-${member.name}`,
+        clerk_user_id: member.id,
+        draft_for_day_key: day,
+        send_slot: "evening_checkin",
+        current_generation_id: `gen-${member.name}`,
+        current_body_to_send: member.body,
+        status: "current",
+        edited_by_tyler: false,
+        current_body_source: "machine",
+      });
+    }
+    seedSendableUser({ clerkUserId: "user_wrong_owner", preferredName: "Wrong" });
+    db.generations.push({
+      id: "gen-wrong",
+      clerk_user_id: "user_wrong_owner",
+      draft_for_day_key: day,
+      send_slot: "evening_checkin",
+      writer_openai_messages: [],
+      machine_draft_body: "Wrong owner",
+      machine_should_send: true,
+      generation_metadata: eveningMetadata("morning"),
+    });
+    db.drafts.push({
+      id: "draft-wrong",
+      clerk_user_id: "user_wrong_owner",
+      draft_for_day_key: day,
+      send_slot: "evening_checkin",
+      current_generation_id: "gen-wrong",
+      current_body_to_send: "Wrong owner",
+      status: "current",
+      current_body_source: "machine",
+    });
+    db.batches = [
+      {
+        batch_date: day,
+        send_slot: "evening_checkin",
+        opened_trigger: "automatic_schedule",
+        window_ends_at: "2026-11-27T15:00:00.000Z",
+        started_at: "2026-11-27T10:00:28.000Z",
+        initial_completed_at: "2026-11-27T10:00:56.000Z",
+        initial_completed_trigger: "automatic_schedule",
+        relevant_member_count: 68,
+        scheduled_member_count: 4,
+        scheduled_occurrence_count: 5,
+        occurrences: [
+          ...members.map((member) => ({
+            clerk_user_id: member.id,
+            member_local_date: day,
+            utc_instant: "2026-11-27T15:00:00.000Z",
+            selected_local_minute: 420,
+            effective_local_minute: 420,
+            time_zone: "America/Los_Angeles",
+            state: member.state,
+            initial_set: true,
+            initial_outcome: member.state,
+          })),
+          {
+            clerk_user_id: "user_wrong_owner",
+            member_local_date: day,
+            utc_instant: "2026-11-27T15:00:00.000Z",
+            selected_local_minute: 420,
+            effective_local_minute: 420,
+            time_zone: "America/Los_Angeles",
+            state: "generated",
+            initial_set: true,
+            initial_outcome: "generated",
+          },
+        ],
+        non_scheduled: [],
+      },
+    ];
+
+    const loaded = await listSendableTylerTextOverviewRows({
+      draftForDayKey: day,
+      sendSlot: "evening_checkin",
+      now: new Date("2026-11-27T11:01:10.000Z"),
+    });
+    const byName = new Map(loaded.rows.map((row) => [row.preferredName, row]));
+    expect(byName.get("Cari")?.currentBodyToSend).toBe("Cari text");
+    expect(byName.get("Kathy")?.rowState).toBe("draft_current");
+    expect(byName.get("Stegs")?.machineShouldSend).toBe(true);
+    expect(byName.get("Stegs")?.scheduledDelivery).toMatchObject({
+      effectiveLocalMinute: 420,
+      timeZone: "America/Los_Angeles",
+    });
+    const klinester = byName.get("Klinester");
+    expect(klinester?.rowState).toBe("draft_current");
+    expect(klinester?.currentBodyToSend).toBeNull();
+    expect(klinester?.authoritativeMachineDraftStatus).toBe("intentional_space");
+    expect(klinester?.machineNoSendReason).toBe("intentional_space");
+    expect(klinester?.coachingStack).toBe("shared_sol_v1");
+    expect(byName.get("Wrong")?.draftId).toBeNull();
+    expect(byName.get("Wrong")?.rowState).toBe("no_draft_yet");
+    expect(loaded.counts.draftCurrent).toBe(4);
+    expect(loaded.counts.draftCurrentReady).toBe(3);
+    expect(loaded.counts.noDraftYet).toBe(1);
+    expect(loaded.batchStatistics?.currentOutcomes?.generated).toBe(4);
+    expect(loaded.batchStatistics?.currentOutcomes?.intentionalSpace).toBe(1);
+
+    const match = {
+      draftClerkUserId: members[0].id,
+      draftForDayKey: day,
+      draftSendSlot: "evening_checkin",
+      clerkUserId: members[0].id,
+      memberLocalDate: day,
+      sendSlot: "evening_checkin",
+      batchDate: day,
+    };
+    expect(scheduledDraftMatchesOccurrence({ ...match, metadata: eveningMetadata() })).toBe(true);
+    expect(scheduledDraftMatchesOccurrence({
+      ...match,
+      draftSendSlot: "morning",
+      sendSlot: "morning",
+      metadata: eveningMetadata("morning"),
+    })).toBe(true);
+    expect(scheduledDraftMatchesOccurrence({ ...match, metadata: eveningMetadata("morning") })).toBe(false);
+    expect(scheduledDraftMatchesOccurrence({
+      ...match,
+      metadata: { ...eveningMetadata(), member_local_date: "2026-11-26" },
+    })).toBe(false);
+    expect(scheduledDraftMatchesOccurrence({
+      ...match,
+      metadata: { ...eveningMetadata(), administrative_batch_date: "2026-11-26" },
+    })).toBe(false);
+    expect(scheduledDraftMatchesOccurrence({
+      ...match,
+      metadata: { ...eveningMetadata(), scheduled_generation_convention: "legacy" },
+    })).toBe(false);
   });
 });

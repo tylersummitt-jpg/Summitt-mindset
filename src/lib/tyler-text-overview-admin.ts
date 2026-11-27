@@ -40,6 +40,7 @@ import {
 import { getClerkUserOrNull } from "@/lib/clerk-rest";
 import { isValidIanaTimezone } from "@/lib/timezone";
 import {
+  proactiveOwnerForSendSlot,
   resolveProactiveSchedule,
   scheduledDeliveryTupleIsCoherent,
   type ProactiveSchedulePreferenceRead,
@@ -2172,7 +2173,12 @@ export function scheduledDraftMatchesOccurrence(args: {
   ) {
     return false;
   }
-  if (typeof metadata.tto_owner === "string" && metadata.tto_owner !== args.sendSlot) return false;
+  if (
+    typeof metadata.tto_owner === "string" &&
+    metadata.tto_owner !== proactiveOwnerForSendSlot(args.sendSlot)
+  ) {
+    return false;
+  }
   return true;
 }
 

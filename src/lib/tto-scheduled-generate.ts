@@ -1574,7 +1574,12 @@ export async function readCompletedScheduledPreview(args: {
   ) {
     return null;
   }
-  if (typeof metadata.tto_owner === "string" && metadata.tto_owner !== args.sendSlot) return null;
+  if (
+    typeof metadata.tto_owner === "string" &&
+    metadata.tto_owner !== proactiveOwnerForSendSlot(args.sendSlot)
+  ) {
+    return null;
+  }
   return {
     body: typeof data.current_body_to_send === "string" ? data.current_body_to_send : null,
     generationId,
@@ -5427,7 +5432,12 @@ async function recoverAuthoritativeOccurrences(args: {
           occurrence.clerkUserId === clerkUserId && occurrence.memberLocalDate === memberLocalDate
         );
         if (!owned) return false;
-        if (batch.sendSlot !== resolved.owner || batch.batchDate !== resolved.batchDate) return true;
+        if (
+          batch.sendSlot !== proactiveSendSlotForOwner(resolved.owner) ||
+          batch.batchDate !== resolved.batchDate
+        ) {
+          return true;
+        }
         const ends = Date.parse(batch.windowEndsAt);
         return Number.isFinite(ends) && ends <= args.now.getTime();
       });
